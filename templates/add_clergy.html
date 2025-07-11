@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Add Clergy - Ecclesiastical Lineage{% endblock %}
+
+{% block full_content %}
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="{{ url_for('dashboard') }}">Ecclesiastical Lineage</a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">
+                    Welcome, <strong>{{ session.username }}</strong>
+                    {% if session.is_admin %}
+                        <span class="badge bg-primary ms-2">Admin</span>
+                    {% endif %}
+                </span>
+                <a href="#" 
+                   class="logout-link text-danger fw-bold ms-3"
+                   style="text-decoration: underline; cursor: pointer;"
+                   hx-get="{{ url_for('logout') }}"
+                   hx-target="body"
+                   hx-push-url="true">
+                    Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+        <div class="container mt-4">
+    <div id="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show mb-3" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h2 mb-0">Add New Clergy</h1>
+        <a href="{{ url_for('clergy_list') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to List
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-4">
+            <form method="POST">
+                <div class="row">
+                    <!-- Basic Information -->
+                    <div class="col-md-6">
+                        <h4 class="mb-3">Basic Information</h4>
+                        
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="rank" class="form-label">Rank *</label>
+                            <select class="form-select" id="rank" name="rank" required>
+                                <option value="">Select Rank</option>
+                                <option value="Deacon">Deacon</option>
+                                <option value="Priest">Priest</option>
+                                <option value="Bishop">Bishop</option>
+                                <option value="Archbishop">Archbishop</option>
+                                <option value="Metropolitan">Metropolitan</option>
+                                <option value="Patriarch">Patriarch</option>
+                                <option value="Pope">Pope</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="organization" class="form-label">Organization</label>
+                            <input type="text" class="form-control" id="organization" name="organization">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="date_of_birth" class="form-label">Date of Birth</label>
+                            <input type="date" class="form-control" id="date_of_birth" name="date_of_birth">
+                        </div>
+                    </div>
+                    
+                    <!-- Ordination Information -->
+                    <div class="col-md-6">
+                        <h4 class="mb-3">Ordination Information</h4>
+                        
+                        <div class="mb-3">
+                            <label for="date_of_ordination" class="form-label">Date of Ordination</label>
+                            <input type="date" class="form-control" id="date_of_ordination" name="date_of_ordination">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="ordaining_bishop_id" class="form-label">Ordaining Bishop</label>
+                            <select class="form-select" id="ordaining_bishop_id" name="ordaining_bishop_id">
+                                <option value="">Select Ordaining Bishop</option>
+                                {% for clergy in all_clergy %}
+                                    <option value="{{ clergy.id }}">{{ clergy.name }} ({{ clergy.rank }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr class="my-4">
+                
+                <div class="row">
+                    <!-- Consecration Information -->
+                    <div class="col-md-6">
+                        <h4 class="mb-3">Consecration Information</h4>
+                        
+                        <div class="mb-3">
+                            <label for="date_of_consecration" class="form-label">Date of Consecration</label>
+                            <input type="date" class="form-control" id="date_of_consecration" name="date_of_consecration">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="consecrator_id" class="form-label">Consecrator</label>
+                            <select class="form-select" id="consecrator_id" name="consecrator_id">
+                                <option value="">Select Consecrator</option>
+                                {% for clergy in all_clergy %}
+                                    <option value="{{ clergy.id }}">{{ clergy.name }} ({{ clergy.rank }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="co_consecrators" class="form-label">Co-consecrators</label>
+                            <select class="form-select" id="co_consecrators" name="co_consecrators" multiple>
+                                {% for clergy in all_clergy %}
+                                    <option value="{{ clergy.id }}">{{ clergy.name }} ({{ clergy.rank }})</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Hold Ctrl/Cmd to select multiple co-consecrators</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Information -->
+                    <div class="col-md-6">
+                        <h4 class="mb-3">Additional Information</h4>
+                        
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="6" placeholder="Additional notes about this clergy member..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="{{ url_for('clergy_list') }}" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Save Clergy Record
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .navbar {
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+    }
+    .logout-link {
+        font-size: 1.1rem;
+        transition: color 0.2s;
+    }
+    .logout-link:hover {
+        color: #a71d2a;
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Auto-hide flash messages after 5 seconds
+    setTimeout(function() {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        });
+    }, 5000);
+</script>
+{% endblock %} 

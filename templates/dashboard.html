@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Ecclesiastical Lineage{% endblock %}
+
+{% block full_content %}
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="{{ url_for('dashboard') }}">Ecclesiastical Lineage</a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">
+                    Welcome, <strong>{{ user.username }}</strong>
+                    {% if user.is_admin %}
+                        <span class="badge bg-primary ms-2">Admin</span>
+                    {% endif %}
+                </span>
+                <a href="#" 
+                   class="logout-link text-danger fw-bold ms-3"
+                   style="text-decoration: underline; cursor: pointer;"
+                   hx-get="{{ url_for('logout') }}"
+                   hx-target="body"
+                   hx-push-url="true">
+                    Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div id="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show mb-3" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="welcome-section text-center">
+            <h1 class="display-4 fw-bold mb-3">Dashboard</h1>
+            <p class="lead">Welcome to your admin dashboard, {{ user.username }}!</p>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-primary bg-opacity-10 p-3 rounded me-3">
+                                <i class="fas fa-users text-primary" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <div>
+                                <h4 class="card-title mb-1">Clergy Management</h4>
+                                <p class="text-muted mb-0">Manage ecclesiastical records</p>
+                            </div>
+                        </div>
+                        <p class="text-muted">Add, view, and manage clergy records including ordination and consecration information.</p>
+                        <a href="{{ url_for('clergy_list') }}" class="btn btn-primary">
+                            <i class="fas fa-arrow-right me-2"></i>Manage Clergy
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-success bg-opacity-10 p-3 rounded me-3">
+                                <i class="fas fa-chart-line text-success" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <div>
+                                <h4 class="card-title mb-1">Lineage Tracking</h4>
+                                <p class="text-muted mb-0">View apostolic succession</p>
+                            </div>
+                        </div>
+                        <p class="text-muted">Track and visualize apostolic succession and ecclesiastical lineage.</p>
+                        <button class="btn btn-outline-success" disabled>
+                            <i class="fas fa-clock me-2"></i>Coming Soon
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .navbar {
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+    }
+    .btn-outline-danger {
+        border-radius: 25px;
+        padding: 8px 20px;
+    }
+    .welcome-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    .logout-link {
+        font-size: 1.1rem;
+        transition: color 0.2s;
+    }
+    .logout-link:hover {
+        color: #a71d2a;
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Handle logout redirect
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.xhr.status === 200) {
+            const response = evt.detail.xhr.responseText;
+            if (response.includes('logout')) {
+                const redirectDiv = evt.detail.target.querySelector('#redirect');
+                if (redirectDiv) {
+                    const url = redirectDiv.getAttribute('data-url');
+                    setTimeout(function() {
+                        window.location.href = url;
+                    }, 1000);
+                }
+            }
+        }
+    });
+</script>
+{% endblock %} 

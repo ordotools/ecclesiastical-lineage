@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up - Ecclesiastical Lineage{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body p-4">
+        <div class="text-center mb-4">
+            <h2 class="fw-bold text-primary">Create Admin Account</h2>
+            <p class="text-muted">You are the first user. Create your admin account below.</p>
+        </div>
+        
+        <form hx-post="{{ url_for('signup') }}" 
+              hx-target="#flash-messages" 
+              hx-swap="beforeend"
+              hx-indicator="#loading-spinner">
+            
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" name="username" required>
+            </div>
+            
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+            </div>
+            
+            <div class="mb-4">
+                <label for="confirm_password" class="form-label">Confirm Password</label>
+                <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+            </div>
+            
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary">
+                    <span class="htmx-indicator" id="loading-spinner">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        Creating...
+                    </span>
+                    <span class="htmx-default">
+                        Create Admin Account
+                    </span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Handle successful signup redirect
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.xhr.status === 200) {
+            // Check if the response contains a redirect
+            const response = evt.detail.xhr.responseText;
+            if (response.includes('redirect')) {
+                const redirectDiv = evt.detail.target.querySelector('#redirect');
+                if (redirectDiv) {
+                    const url = redirectDiv.getAttribute('data-url');
+                    setTimeout(function() {
+                        window.location.href = url;
+                    }, 1000);
+                }
+            }
+        }
+    });
+</script>
+{% endblock %} 

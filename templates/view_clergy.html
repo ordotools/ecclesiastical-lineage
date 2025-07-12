@@ -14,7 +14,18 @@
                 <dt class="col-sm-3">Rank</dt>
                 <dd class="col-sm-9">{{ clergy.rank }}</dd>
                 <dt class="col-sm-3">Organization</dt>
-                <dd class="col-sm-9">{{ clergy.organization or '-' }}</dd>
+                <dd class="col-sm-9">
+                    {% if clergy.organization %}
+                        {% if org_abbreviation_map.get(clergy.organization) %}
+                            <span class="badge bg-info me-2">{{ org_abbreviation_map.get(clergy.organization) }}</span>
+                            {{ clergy.organization }}
+                        {% else %}
+                            {{ clergy.organization }}
+                        {% endif %}
+                    {% else %}
+                        -
+                    {% endif %}
+                </dd>
                 <dt class="col-sm-3">Date of Birth</dt>
                 <dd class="col-sm-9">{{ clergy.date_of_birth.strftime('%Y-%m-%d') if clergy.date_of_birth else '-' }}</dd>
                 <dt class="col-sm-3">Date of Ordination</dt>

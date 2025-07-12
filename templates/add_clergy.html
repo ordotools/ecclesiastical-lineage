@@ -25,19 +25,7 @@
         </div>
     </nav>
 
-        <div class="container mt-4">
-    <div id="flash-messages">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show mb-3" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-    </div>
+            <div class="container mt-4">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h2 mb-0">{% if edit_mode %}Edit Clergy{% else %}Add New Clergy{% endif %}</h1>
@@ -64,15 +52,24 @@
                             <label for="rank" class="form-label">Rank *</label>
                             <select class="form-select" id="rank" name="rank" required>
                                 <option value="">Select Rank</option>
-                                <option value="Priest" {% if edit_mode and clergy.rank == 'Priest' %}selected{% endif %}>Priest</option>
-                                <option value="Bishop" {% if edit_mode and clergy.rank == 'Bishop' %}selected{% endif %}>Bishop</option>
+                                {% for rank in ranks %}
+                                    <option value="{{ rank.name }}" {% if edit_mode and clergy.rank == rank.name %}selected{% endif %}>
+                                        {{ rank.name }}{% if rank.description %} - {{ rank.description }}{% endif %}
+                                    </option>
+                                {% endfor %}
                             </select>
                         </div>
                         
                         <div class="mb-3">
                             <label for="organization" class="form-label">Organization</label>
-                            <input type="text" class="form-control" id="organization" name="organization" 
-                                   value="{{ clergy.organization if edit_mode else '' }}">
+                            <select class="form-select" id="organization" name="organization">
+                                <option value="">Select Organization (Optional)</option>
+                                {% for organization in organizations %}
+                                    <option value="{{ organization.name }}" {% if edit_mode and clergy.organization == organization.name %}selected{% endif %}>
+                                        {{ organization.name }}{% if organization.abbreviation %} ({{ organization.abbreviation }}){% endif %}{% if organization.description %} - {{ organization.description }}{% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
                         </div>
                         
                         <div class="mb-3">

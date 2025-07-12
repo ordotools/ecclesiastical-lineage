@@ -26,18 +26,6 @@
     </nav>
 
     <div class="container mt-4">
-        <div id="flash-messages">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show mb-3" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-        </div>
 
         <div class="welcome-section text-center">
             <h1 class="display-4 fw-bold mb-3">Dashboard</h1>

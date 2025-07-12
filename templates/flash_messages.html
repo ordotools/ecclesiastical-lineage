@@ -1,10 +1,17 @@
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show mb-3" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
-{% endwith %} 
+<!-- Notification container for sliding alerts -->
+<div id="notification-container" class="notification-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="notification notification-{{ 'danger' if category == 'error' else category }}" data-notification-id="{{ loop.index }}">
+                    <div class="notification-content">
+                        <span class="notification-message">{{ message }}</span>
+                        <button type="button" class="notification-close" onclick="dismissNotification(this)">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div> 

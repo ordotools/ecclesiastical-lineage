@@ -7,7 +7,7 @@ import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecclesiastical_lineage.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -56,6 +56,25 @@ class Clergy(db.Model):
     
     def __repr__(self):
         return f'<Clergy {self.name}>'
+
+class Rank(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<Rank {self.name}>'
+
+class Organization(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), unique=True, nullable=False)
+    abbreviation = db.Column(db.String(20), unique=True)  # Short code for the organization
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<Organization {self.name}>'
 
 @app.route('/')
 def index():
@@ -172,7 +191,14 @@ def clergy_list():
         return redirect(url_for('login'))
     
     clergy_list = Clergy.query.all()
-    return render_template('clergy_list.html', clergy_list=clergy_list)
+    
+    # Get all organizations to create a mapping for abbreviations
+    organizations = Organization.query.all()
+    org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
+    
+    return render_template('clergy_list.html', 
+                         clergy_list=clergy_list, 
+                         org_abbreviation_map=org_abbreviation_map)
 
 @app.route('/clergy/add', methods=['GET', 'POST'])
 def add_clergy():
@@ -240,7 +266,16 @@ def add_clergy():
         }
         for clergy_member in all_clergy
     ]
-    return render_template('add_clergy.html', all_clergy=all_clergy, all_clergy_data=all_clergy_data)
+    
+    # Get ranks and organizations from metadata
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    
+    return render_template('add_clergy.html', 
+                         all_clergy=all_clergy, 
+                         all_clergy_data=all_clergy_data,
+                         ranks=ranks,
+                         organizations=organizations)
 
 @app.route('/clergy/<int:clergy_id>')
 def view_clergy(clergy_id):
@@ -248,7 +283,14 @@ def view_clergy(clergy_id):
         flash('Please log in to view clergy records.', 'error')
         return redirect(url_for('login'))
     clergy = Clergy.query.get_or_404(clergy_id)
-    return render_template('view_clergy.html', clergy=clergy)
+    
+    # Get organization abbreviation mapping
+    organizations = Organization.query.all()
+    org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
+    
+    return render_template('view_clergy.html', 
+                         clergy=clergy, 
+                         org_abbreviation_map=org_abbreviation_map)
 
 @app.route('/clergy/<int:clergy_id>/edit', methods=['GET', 'POST'])
 def edit_clergy(clergy_id):
@@ -300,7 +342,18 @@ def edit_clergy(clergy_id):
         }
         for clergy_member in all_clergy
     ]
-    return render_template('add_clergy.html', clergy=clergy, all_clergy=all_clergy, all_clergy_data=all_clergy_data, edit_mode=True)
+    
+    # Get ranks and organizations from metadata
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    
+    return render_template('add_clergy.html', 
+                         clergy=clergy, 
+                         all_clergy=all_clergy, 
+                         all_clergy_data=all_clergy_data,
+                         ranks=ranks,
+                         organizations=organizations,
+                         edit_mode=True)
 
 @app.route('/clergy/<int:clergy_id>/delete', methods=['POST'])
 def delete_clergy(clergy_id):
@@ -312,6 +365,236 @@ def delete_clergy(clergy_id):
     db.session.commit()
     flash('Clergy record deleted successfully!', 'success')
     return redirect(url_for('clergy_list'))
+
+@app.route('/metadata')
+def metadata():
+    if 'user_id' not in session:
+        flash('Please log in to access metadata.', 'error')
+        return redirect(url_for('login'))
+    
+    # Get ranks and organizations from the dedicated tables
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    
+    # Also get counts from clergy records for reference
+    clergy_ranks = db.session.query(Clergy.rank).distinct().filter(Clergy.rank.isnot(None)).all()
+    clergy_organizations = db.session.query(Clergy.organization).distinct().filter(Clergy.organization.isnot(None)).all()
+    
+    clergy_rank_list = [rank[0] for rank in clergy_ranks]
+    clergy_organization_list = [org[0] for org in clergy_organizations]
+    
+    return render_template('metadata.html', 
+                         ranks=ranks, 
+                         organizations=organizations,
+                         clergy_ranks=clergy_rank_list,
+                         clergy_organizations=clergy_organization_list)
+
+@app.route('/metadata/rank/add', methods=['POST'])
+def add_rank():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
+    data = request.get_json()
+    rank_name = data.get('name', '').strip()
+    description = data.get('description', '').strip()
+    
+    if not rank_name:
+        return jsonify({'success': False, 'message': 'Rank name is required'}), 400
+    
+    # Check if rank already exists
+    existing_rank = Rank.query.filter_by(name=rank_name).first()
+    if existing_rank:
+        return jsonify({'success': False, 'message': 'Rank already exists'}), 400
+    
+    try:
+        new_rank = Rank(name=rank_name, description=description)
+        db.session.add(new_rank)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Rank "{rank_name}" added successfully',
+            'rank': {
+                'id': new_rank.id,
+                'name': new_rank.name,
+                'description': new_rank.description
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Error adding rank'}), 500
+
+@app.route('/metadata/rank/<int:rank_id>/edit', methods=['PUT'])
+def edit_rank(rank_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
+    rank = Rank.query.get_or_404(rank_id)
+    data = request.get_json()
+    rank_name = data.get('name', '').strip()
+    description = data.get('description', '').strip()
+    
+    if not rank_name:
+        return jsonify({'success': False, 'message': 'Rank name is required'}), 400
+    
+    # Check if new name conflicts with existing rank (excluding current rank)
+    existing_rank = Rank.query.filter_by(name=rank_name).first()
+    if existing_rank and existing_rank.id != rank_id:
+        return jsonify({'success': False, 'message': 'Rank name already exists'}), 400
+    
+    try:
+        old_name = rank.name
+        rank.name = rank_name
+        rank.description = description
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Rank "{old_name}" updated to "{rank_name}" successfully',
+            'rank': {
+                'id': rank.id,
+                'name': rank.name,
+                'description': rank.description
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Error updating rank'}), 500
+
+@app.route('/metadata/rank/<int:rank_id>/delete', methods=['DELETE'])
+def delete_rank(rank_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
+    rank = Rank.query.get_or_404(rank_id)
+    
+    # Check if rank is used in clergy records
+    clergy_using_rank = Clergy.query.filter_by(rank=rank.name).first()
+    if clergy_using_rank:
+        return jsonify({
+            'success': False, 
+            'message': f'Cannot delete rank "{rank.name}" - it is used by clergy records'
+        }), 400
+    
+    try:
+        db.session.delete(rank)
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Rank "{rank.name}" deleted successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Error deleting rank'}), 500
+
+@app.route('/metadata/organization/add', methods=['POST'])
+def add_organization():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
+    data = request.get_json()
+    org_name = data.get('name', '').strip()
+    abbreviation = data.get('abbreviation', '').strip()
+    description = data.get('description', '').strip()
+    
+    if not org_name:
+        return jsonify({'success': False, 'message': 'Organization name is required'}), 400
+    
+    # Check if organization already exists
+    existing_org = Organization.query.filter_by(name=org_name).first()
+    if existing_org:
+        return jsonify({'success': False, 'message': 'Organization already exists'}), 400
+    
+    # Check if abbreviation already exists (if provided)
+    if abbreviation:
+        existing_abbr = Organization.query.filter_by(abbreviation=abbreviation).first()
+        if existing_abbr:
+            return jsonify({'success': False, 'message': f'Abbreviation "{abbreviation}" already exists'}), 400
+    
+    try:
+        new_org = Organization(name=org_name, abbreviation=abbreviation, description=description)
+        db.session.add(new_org)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Organization "{org_name}" added successfully',
+            'organization': {
+                'id': new_org.id,
+                'name': new_org.name,
+                'abbreviation': new_org.abbreviation,
+                'description': new_org.description
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Error adding organization'}), 500
+
+@app.route('/metadata/organization/<int:org_id>/edit', methods=['PUT'])
+def edit_organization(org_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
+    org = Organization.query.get_or_404(org_id)
+    data = request.get_json()
+    org_name = data.get('name', '').strip()
+    abbreviation = data.get('abbreviation', '').strip()
+    description = data.get('description', '').strip()
+    
+    if not org_name:
+        return jsonify({'success': False, 'message': 'Organization name is required'}), 400
+    
+    # Check if new name conflicts with existing organization (excluding current org)
+    existing_org = Organization.query.filter_by(name=org_name).first()
+    if existing_org and existing_org.id != org_id:
+        return jsonify({'success': False, 'message': 'Organization name already exists'}), 400
+    
+    # Check if new abbreviation conflicts with existing organization (excluding current org)
+    if abbreviation:
+        existing_abbr = Organization.query.filter_by(abbreviation=abbreviation).first()
+        if existing_abbr and existing_abbr.id != org_id:
+            return jsonify({'success': False, 'message': f'Abbreviation "{abbreviation}" already exists'}), 400
+    
+    try:
+        old_name = org.name
+        org.name = org_name
+        org.abbreviation = abbreviation if abbreviation else None
+        org.description = description
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Organization "{old_name}" updated to "{org_name}" successfully',
+            'organization': {
+                'id': org.id,
+                'name': org.name,
+                'abbreviation': org.abbreviation,
+                'description': org.description
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Error updating organization'}), 500
+
+@app.route('/metadata/organization/<int:org_id>/delete', methods=['DELETE'])
+def delete_organization(org_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    
+    org = Organization.query.get_or_404(org_id)
+    
+    # Check if organization is used in clergy records
+    clergy_using_org = Clergy.query.filter_by(organization=org.name).first()
+    if clergy_using_org:
+        return jsonify({
+            'success': False, 
+            'message': f'Cannot delete organization "{org.name}" - it is used by clergy records'
+        }), 400
+    
+    try:
+        db.session.delete(org)
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Organization "{org.name}" deleted successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Error deleting organization'}), 500
 
 @app.route('/lineage')
 def lineage_visualization():
@@ -375,7 +658,17 @@ def lineage_visualization():
                          nodes=json.dumps(nodes), 
                          links=json.dumps(links))
 
+
+
 if __name__ == '__main__':
+    import sys
+    port = 5000
+    if '--port' in sys.argv:
+        try:
+            port = int(sys.argv[sys.argv.index('--port') + 1])
+        except (ValueError, IndexError):
+            pass
+    
     with app.app_context():
         db.create_all()
-    app.run(debug=True) 
+    app.run(debug=True, port=port) 

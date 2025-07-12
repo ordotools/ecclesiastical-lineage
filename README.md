@@ -47,7 +47,7 @@ ecclesiastical-lineage/
 │   ├── signup.html       # Admin signup page
 │   ├── login.html        # Login page
 │   └── dashboard.html    # User dashboard
-└── users.db              # SQLite database (created automatically)
+└── ecclesiastical_lineage.db  # SQLite database (created automatically)
 ```
 
 ## Security Features

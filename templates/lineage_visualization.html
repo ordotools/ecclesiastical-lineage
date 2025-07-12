@@ -25,18 +25,7 @@
         </div>
     </nav>
 
-    <div id="flash-messages" class="position-fixed top-0 start-50 translate-middle-x mt-5" style="z-index: 1050;">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show mb-3" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-    </div>
+
 
     <div class="lineage-container" style="height: calc(100vh - 76px); width: 100%; position: relative;">
         <!-- Legend -->
@@ -66,6 +55,15 @@
             </button>
         </div>
 
+        <!-- Admin Navigation Button -->
+        {% if session.is_admin %}
+        <div class="position-absolute bottom-0 end-0 m-3" style="z-index: 1000;">
+            <a href="{{ url_for('clergy_list') }}" class="btn admin-nav-btn">
+                <i class="fas fa-list me-2"></i>Back to Clergy List
+            </a>
+        </div>
+        {% endif %}
+
         <!-- Graph Container -->
         <div id="graph-container" style="width: 100%; height: 100%;"></div>
     </div>
@@ -74,7 +72,7 @@
 {% block extra_styles %}
 <style>
     .lineage-container {
-        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        background: transparent;
     }
     .node {
         cursor: grab;
@@ -88,7 +86,7 @@
     }
     .node-label {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-size: 12px;
+        font-size: 14.4px;
         font-weight: 500;
         text-anchor: middle;
         pointer-events: none;
@@ -105,7 +103,7 @@
     }
     .link-label {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-size: 10px;
+        font-size: 12px;
         fill: #ecf0f1;
         text-anchor: middle;
         pointer-events: none;
@@ -114,14 +112,15 @@
     }
     .tooltip {
         position: absolute;
-        background: rgba(252, 250, 245, 0.95);
-        border: 1px solid rgba(189, 195, 199, 0.3);
-        border-radius: 6px;
-        padding: 8px 12px;
+        background: rgba(252, 250, 245, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        padding: 10px 14px;
         font-size: 12px;
         pointer-events: none;
-        box-shadow: 0 2px 8px rgba(44, 62, 80, 0.15);
-        backdrop-filter: blur(8px);
+        box-shadow: 0 8px 32px rgba(44, 62, 80, 0.15);
+        backdrop-filter: blur(16px) saturate(180%);
+        -webkit-backdrop-filter: blur(16px) saturate(180%);
         z-index: 1000;
     }
     .tooltip h6 {
@@ -132,6 +131,34 @@
     .tooltip p {
         margin: 2px 0;
         color: #5d6d7e;
+    }
+    
+    /* Admin button styling for dark background */
+    .admin-nav-btn {
+        background: linear-gradient(135deg, 
+            rgba(252, 250, 245, 0.85) 0%, 
+            rgba(248, 246, 240, 0.80) 100%) !important;
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        box-shadow: 
+            0 8px 32px rgba(44, 62, 80, 0.15),
+            inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+        color: #2c3e50 !important;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border-radius: 12px;
+    }
+    
+    .admin-nav-btn:hover {
+        background: linear-gradient(135deg, 
+            rgba(252, 250, 245, 0.90) 0%, 
+            rgba(248, 246, 240, 0.85) 100%) !important;
+        color: #2c3e50 !important;
+        transform: translateY(-2px);
+        box-shadow: 
+            0 12px 40px rgba(44, 62, 80, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
     }
 </style>
 {% endblock %}
@@ -149,10 +176,10 @@
 
     // Create a simulation with several forces
     const simulation = d3.forceSimulation(nodes)
-        .force("link", d3.forceLink(links).id(d => d.id).distance(120))
+        .force("link", d3.forceLink(links).id(d => d.id).distance(144))
         .force("charge", d3.forceManyBody().strength(-400))
         .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collision", d3.forceCollide().radius(40))
+        .force("collision", d3.forceCollide().radius(48))
         .on("tick", ticked);
 
     // Create the SVG container
@@ -176,28 +203,28 @@
     const defs = svg.append("defs");
     defs.append("marker")
         .attr("id", "arrowhead-black")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 15)
+        .attr("viewBox", "0 -6 12 12")
+        .attr("refX", 18)
         .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
+        .attr("markerWidth", 7.2)
+        .attr("markerHeight", 7.2)
         .attr("orient", "auto")
         .attr("markerUnits", "strokeWidth")
         .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
+        .attr("d", "M0,-6L12,0L0,6")
         .attr("fill", "#000");
     
     defs.append("marker")
         .attr("id", "arrowhead-green")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 15)
+        .attr("viewBox", "0 -6 12 12")
+        .attr("refX", 18)
         .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
+        .attr("markerWidth", 7.2)
+        .attr("markerHeight", 7.2)
         .attr("orient", "auto")
         .attr("markerUnits", "strokeWidth")
         .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
+        .attr("d", "M0,-6L12,0L0,6")
         .attr("fill", "#27ae60");
 
     // Add a line for each link
@@ -207,7 +234,7 @@
         .selectAll()
         .data(links)
         .join("line")
-        .attr("stroke-width", 2)
+        .attr("stroke-width", 2.4)
         .attr("stroke", d => d.color)
         .attr("stroke-dasharray", d => d.dashed ? "5,5" : "none")
         .attr("marker-end", d => {
@@ -227,13 +254,19 @@
 
     // Add a circle for each node
     const node = container.append("g")
-        .attr("stroke", "#2c3e50")
-        .attr("stroke-width", 2)
         .selectAll()
         .data(nodes)
         .join("circle")
-        .attr("r", 8)
-        .attr("fill", "rgba(252, 250, 245, 0.95)");
+        .attr("r", 9.6)
+        .attr("fill", "rgba(252, 250, 245, 0.95)")
+        .attr("stroke", d => {
+            // Dark green border for bishops and archbishops
+            if (d.rank && (d.rank.toLowerCase().includes('bishop') || d.rank.toLowerCase().includes('archbishop'))) {
+                return "#1e5f1e";
+            }
+            return "#2c3e50";
+        })
+        .attr("stroke-width", 2.4);
 
     // Add node labels
     const nodeLabel = container.append("g")
@@ -254,25 +287,39 @@
         .on("drag", dragged)
         .on("end", dragended));
 
-    // Add tooltip behavior
-    node.on("mouseover", function(event, d) {
-        const tooltip = d3.select("body").append("div")
-            .attr("class", "tooltip")
-            .style("opacity", 0);
-        
-        tooltip.transition()
-            .duration(200)
-            .style("opacity", .9);
-        tooltip.html(
-            "<h6>" + d.name + "</h6>" +
-            "<p><strong>Rank:</strong> " + (d.rank || 'N/A') + "</p>" +
-            "<p><strong>Organization:</strong> " + (d.organization || 'N/A') + "</p>"
-        )
-            .style("left", (event.pageX + 10) + "px")
-            .style("top", (event.pageY - 28) + "px");
+    // Add tooltip behavior - only show on click, not hover
+    let isDragging = false;
+    let clickedNode = null;
+    
+    node.on("mousedown", function(event, d) {
+        isDragging = false;
+        clickedNode = d;
     })
-    .on("mouseout", function() {
-        d3.selectAll(".tooltip").remove();
+    .on("mousemove", function(event, d) {
+        if (clickedNode === d) {
+            isDragging = true;
+        }
+    })
+    .on("mouseup", function(event, d) {
+        if (clickedNode === d && !isDragging) {
+            // Show tooltip only if clicked without dragging
+            const tooltip = d3.select("body").append("div")
+                .attr("class", "tooltip")
+                .style("opacity", 0);
+            
+            tooltip.transition()
+                .duration(200)
+                .style("opacity", .9);
+            tooltip.html(
+                "<h6>" + d.name + "</h6>" +
+                "<p><strong>Rank:</strong> " + (d.rank || 'N/A') + "</p>" +
+                "<p><strong>Organization:</strong> " + (d.organization || 'N/A') + "</p>"
+            )
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 28) + "px");
+        }
+        clickedNode = null;
+        isDragging = false;
     });
 
     // Set the position attributes of links and nodes each time the simulation ticks

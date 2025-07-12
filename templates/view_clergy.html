@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}View Clergy - Ecclesiastical Lineage{% endblock %}
+
+{% block full_content %}
+<div class="container mt-4">
+    <a href="{{ url_for('clergy_list') }}" class="btn btn-link mb-3"><i class="fas fa-arrow-left me-2"></i>Back to List</a>
+    <div class="card">
+        <div class="card-header">
+            <h2 class="h4 mb-0">{{ clergy.name }}</h2>
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Rank</dt>
+                <dd class="col-sm-9">{{ clergy.rank }}</dd>
+                <dt class="col-sm-3">Organization</dt>
+                <dd class="col-sm-9">{{ clergy.organization or '-' }}</dd>
+                <dt class="col-sm-3">Date of Birth</dt>
+                <dd class="col-sm-9">{{ clergy.date_of_birth.strftime('%Y-%m-%d') if clergy.date_of_birth else '-' }}</dd>
+                <dt class="col-sm-3">Date of Ordination</dt>
+                <dd class="col-sm-9">{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '-' }}</dd>
+                <dt class="col-sm-3">Ordaining Bishop</dt>
+                <dd class="col-sm-9">{{ clergy.ordaining_bishop.name if clergy.ordaining_bishop else '-' }}</dd>
+                <dt class="col-sm-3">Date of Consecration</dt>
+                <dd class="col-sm-9">{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else '-' }}</dd>
+                <dt class="col-sm-3">Principal Consecrator</dt>
+                <dd class="col-sm-9">{{ clergy.consecrator.name if clergy.consecrator else '-' }}</dd>
+                <dt class="col-sm-3">Co-Consecrators</dt>
+                <dd class="col-sm-9">
+                    {% set co_ids = clergy.get_co_consecrators() %}
+                    {% if co_ids %}
+                        <ul class="mb-0">
+                        {% for cid in co_ids %}
+                            {% set co = (clergy.query.get(cid)) %}
+                            <li>{{ co.name if co else 'Unknown' }}</li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}-{% endif %}
+                </dd>
+                <dt class="col-sm-3">Notes</dt>
+                <dd class="col-sm-9">{{ clergy.notes or '-' }}</dd>
+            </dl>
+        </div>
+    </div>
+</div>
+{% endblock %} 

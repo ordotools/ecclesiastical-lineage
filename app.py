@@ -189,7 +189,7 @@ def add_clergy():
         ordaining_bishop_id = request.form.get('ordaining_bishop_id')
         date_of_consecration = request.form.get('date_of_consecration')
         consecrator_id = request.form.get('consecrator_id')
-        co_consecrators = request.form.getlist('co_consecrators')
+        co_consecrators = request.form.get('co_consecrators')
         notes = request.form.get('notes')
         
         if not name or not rank:
@@ -219,7 +219,8 @@ def add_clergy():
         
         # Handle co-consecrators
         if co_consecrators:
-            clergy.set_co_consecrators([int(cid) for cid in co_consecrators if cid])
+            co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
+            clergy.set_co_consecrators(co_consecrator_ids)
         
         db.session.add(clergy)
         db.session.commit()
@@ -229,7 +230,150 @@ def add_clergy():
     
     # Get all clergy for dropdowns
     all_clergy = Clergy.query.all()
-    return render_template('add_clergy.html', all_clergy=all_clergy)
+    # Convert to list of dictionaries for JSON serialization
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': clergy_member.name,
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    return render_template('add_clergy.html', all_clergy=all_clergy, all_clergy_data=all_clergy_data)
+
+@app.route('/clergy/<int:clergy_id>')
+def view_clergy(clergy_id):
+    if 'user_id' not in session:
+        flash('Please log in to view clergy records.', 'error')
+        return redirect(url_for('login'))
+    clergy = Clergy.query.get_or_404(clergy_id)
+    return render_template('view_clergy.html', clergy=clergy)
+
+@app.route('/clergy/<int:clergy_id>/edit', methods=['GET', 'POST'])
+def edit_clergy(clergy_id):
+    if 'user_id' not in session:
+        flash('Please log in to edit clergy records.', 'error')
+        return redirect(url_for('login'))
+    clergy = Clergy.query.get_or_404(clergy_id)
+    if request.method == 'POST':
+        clergy.name = request.form.get('name')
+        clergy.rank = request.form.get('rank')
+        clergy.organization = request.form.get('organization')
+        date_of_birth = request.form.get('date_of_birth')
+        date_of_ordination = request.form.get('date_of_ordination')
+        ordaining_bishop_id = request.form.get('ordaining_bishop_id')
+        date_of_consecration = request.form.get('date_of_consecration')
+        consecrator_id = request.form.get('consecrator_id')
+        co_consecrators = request.form.get('co_consecrators')
+        clergy.notes = request.form.get('notes')
+        if date_of_birth:
+            clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+        else:
+            clergy.date_of_birth = None
+        if date_of_ordination:
+            clergy.date_of_ordination = datetime.strptime(date_of_ordination, '%Y-%m-%d').date()
+        else:
+            clergy.date_of_ordination = None
+        if date_of_consecration:
+            clergy.date_of_consecration = datetime.strptime(date_of_consecration, '%Y-%m-%d').date()
+        else:
+            clergy.date_of_consecration = None
+        clergy.ordaining_bishop_id = int(ordaining_bishop_id) if ordaining_bishop_id else None
+        clergy.consecrator_id = int(consecrator_id) if consecrator_id else None
+        if co_consecrators:
+            co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
+            clergy.set_co_consecrators(co_consecrator_ids)
+        else:
+            clergy.set_co_consecrators([])
+        db.session.commit()
+        flash('Clergy record updated successfully!', 'success')
+        return redirect(url_for('clergy_list'))
+    all_clergy = Clergy.query.all()
+    # Convert to list of dictionaries for JSON serialization
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': clergy_member.name,
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    return render_template('add_clergy.html', clergy=clergy, all_clergy=all_clergy, all_clergy_data=all_clergy_data, edit_mode=True)
+
+@app.route('/clergy/<int:clergy_id>/delete', methods=['POST'])
+def delete_clergy(clergy_id):
+    if 'user_id' not in session:
+        flash('Please log in to delete clergy records.', 'error')
+        return redirect(url_for('login'))
+    clergy = Clergy.query.get_or_404(clergy_id)
+    db.session.delete(clergy)
+    db.session.commit()
+    flash('Clergy record deleted successfully!', 'success')
+    return redirect(url_for('clergy_list'))
+
+@app.route('/lineage')
+def lineage_visualization():
+    if 'user_id' not in session:
+        flash('Please log in to view lineage visualization.', 'error')
+        return redirect(url_for('login'))
+    
+    # Get all clergy for the visualization
+    all_clergy = Clergy.query.all()
+    
+    # Prepare data for D3.js
+    nodes = []
+    links = []
+    
+    # Create nodes for each clergy
+    for clergy in all_clergy:
+        nodes.append({
+            'id': clergy.id,
+            'name': clergy.name,
+            'rank': clergy.rank,
+            'organization': clergy.organization
+        })
+    
+    # Create links for ordinations (black arrows)
+    for clergy in all_clergy:
+        if clergy.ordaining_bishop_id:
+            links.append({
+                'source': clergy.ordaining_bishop_id,
+                'target': clergy.id,
+                'type': 'ordination',
+                'date': clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else 'Date unknown',
+                'color': '#000000'
+            })
+    
+    # Create links for consecrations (green arrows)
+    for clergy in all_clergy:
+        if clergy.consecrator_id:
+            links.append({
+                'source': clergy.consecrator_id,
+                'target': clergy.id,
+                'type': 'consecration',
+                'date': clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else 'Date unknown',
+                'color': '#27ae60'
+            })
+    
+    # Create links for co-consecrations (dotted green arrows)
+    for clergy in all_clergy:
+        if clergy.co_consecrators:
+            co_consecrator_ids = clergy.get_co_consecrators()
+            for co_consecrator_id in co_consecrator_ids:
+                links.append({
+                    'source': co_consecrator_id,
+                    'target': clergy.id,
+                    'type': 'co-consecration',
+                    'date': clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else 'Date unknown',
+                    'color': '#27ae60',
+                    'dashed': True
+                })
+    
+    return render_template('lineage_visualization.html', 
+                         nodes=json.dumps(nodes), 
+                         links=json.dumps(links))
 
 if __name__ == '__main__':
     with app.app_context():

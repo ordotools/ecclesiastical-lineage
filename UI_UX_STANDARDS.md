@@ -19,27 +19,33 @@
 ## Color Palette
 
 ### Primary Colors
-- **Primary Gradient**: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`
-- **Primary Hover**: `linear-gradient(45deg, #5a6fd8, #6a4190)`
-- **Primary Text**: `#667eea`
+- **Primary Gradient**: `linear-gradient(135deg, #2c3e50 0%, #34495e 100%)`
+- **Primary Hover**: `linear-gradient(45deg, #1a252f, #2c3e50)`
+- **Primary Text**: `#2c3e50`
 
 ### Secondary Colors
-- **Success**: `#28a745` (Bootstrap success)
-- **Warning**: `#ffc107` (Bootstrap warning)
-- **Danger**: `#dc3545` (Bootstrap danger)
-- **Info**: `#17a2b8` (Bootstrap info)
+- **Success**: `#27ae60` (darker green)
+- **Warning**: `#f39c12` (darker orange)
+- **Danger**: `#e74c3c` (darker red)
+- **Info**: `#3498db` (darker blue)
 
 ### Neutral Colors
-- **Background**: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`
-- **Card Background**: `rgba(255, 255, 255, 0.95)`
-- **Text Primary**: `#212529`
-- **Text Secondary**: `#6c757d`
-- **Border**: `#e9ecef`
+- **Background**: `linear-gradient(135deg, #2c3e50 0%, #34495e 100%)`
+- **Card Background**: `rgba(252, 250, 245, 0.92)` (cream with transparency)
+- **Text Primary**: `#2c3e50` (dark grey)
+- **Text Secondary**: `#5d6d7e` (medium grey)
+- **Border**: `#bdc3c7` (light grey)
+
+### Paper & Cream Colors
+- **Paper White**: `#fdfbf7` (pure paper white)
+- **Cream**: `#f8f6f0` (warm cream)
+- **Off-White**: `#f5f3ed` (slightly darker cream)
+- **Grain Overlay**: `rgba(139, 69, 19, 0.03)` (subtle brown grain)
 
 ### Semantic Colors
-- **Logout Link**: `#dc3545` (danger)
-- **Logout Hover**: `#a71d2a`
-- **Admin Badge**: `#667eea` (primary)
+- **Logout Link**: `#e74c3c` (danger)
+- **Logout Hover**: `#c0392b` (darker red)
+- **Admin Badge**: `#2c3e50` (dark grey)
 
 ---
 
@@ -75,6 +81,7 @@ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 - **Card Padding**: `p-4` (1.5rem)
 - **Form Spacing**: `mb-3` (1rem)
 - **Button Spacing**: `gap-2` (0.5rem)
+- **Border Radius**: `6px` for most elements, `8px` for cards
 
 ### Grid System
 - Use Bootstrap's 12-column grid
@@ -88,28 +95,56 @@ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 ### Cards
 ```css
 .card {
-    border: none;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
+    border: 1px solid rgba(189, 195, 199, 0.3);
+    border-radius: 8px;
+    box-shadow: 
+        0 4px 20px rgba(44, 62, 80, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    background: linear-gradient(135deg, 
+        rgba(252, 250, 245, 0.92) 0%, 
+        rgba(248, 246, 240, 0.88) 100%);
+    backdrop-filter: blur(12px);
+    position: relative;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(139, 69, 19, 0.02) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(139, 69, 19, 0.02) 0%, transparent 50%);
+    border-radius: 8px;
+    pointer-events: none;
 }
 ```
 
 ### Navigation Bar
 ```css
 .navbar {
-    background: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(135deg, 
+        rgba(252, 250, 245, 0.95) 0%, 
+        rgba(248, 246, 240, 0.92) 100%) !important;
+    backdrop-filter: blur(15px);
+    border-bottom: 1px solid rgba(189, 195, 199, 0.4);
+    box-shadow: 
+        0 2px 15px rgba(44, 62, 80, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 ```
 
 ### Alerts
 ```css
 .alert {
-    border-radius: 10px;
-    border: none;
+    border-radius: 6px;
+    border: 1px solid rgba(189, 195, 199, 0.3);
+    background: linear-gradient(135deg, 
+        rgba(252, 250, 245, 0.95) 0%, 
+        rgba(248, 246, 240, 0.9) 100%);
+    backdrop-filter: blur(8px);
 }
 ```
 
@@ -122,32 +157,77 @@ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 #### Primary Button
 ```css
 .btn-primary {
-    background: linear-gradient(45deg, #667eea, #764ba2);
-    border: none;
-    border-radius: 25px;
-    padding: 10px 30px;
+    background: linear-gradient(45deg, #2c3e50, #34495e);
+    border: 1px solid rgba(44, 62, 80, 0.3);
+    border-radius: 6px;
+    padding: 10px 24px;
+    box-shadow: 
+        0 2px 8px rgba(44, 62, 80, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 30% 70%, rgba(139, 69, 19, 0.1) 0%, transparent 50%);
+    pointer-events: none;
 }
 
 .btn-primary:hover {
-    background: linear-gradient(45deg, #5a6fd8, #6a4190);
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    background: linear-gradient(45deg, #1a252f, #2c3e50);
+    transform: translateY(-1px);
+    box-shadow: 
+        0 4px 12px rgba(44, 62, 80, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 ```
 
 #### Secondary Button
 ```css
 .btn-outline-secondary {
-    border-radius: 25px;
+    border: 1px solid rgba(189, 195, 199, 0.6);
+    border-radius: 6px;
     padding: 8px 20px;
+    background: linear-gradient(135deg, 
+        rgba(252, 250, 245, 0.8) 0%, 
+        rgba(248, 246, 240, 0.7) 100%);
+    backdrop-filter: blur(8px);
+}
+
+.btn-outline-secondary:hover {
+    background: linear-gradient(135deg, 
+        rgba(252, 250, 245, 0.95) 0%, 
+        rgba(248, 246, 240, 0.9) 100%);
+    border-color: rgba(189, 195, 199, 0.8);
+    transform: translateY(-1px);
 }
 ```
 
 #### Danger Button
 ```css
 .btn-outline-danger {
-    border-radius: 25px;
+    border: 1px solid rgba(231, 76, 60, 0.6);
+    border-radius: 6px;
     padding: 8px 20px;
+    background: linear-gradient(135deg, 
+        rgba(252, 250, 245, 0.8) 0%, 
+        rgba(248, 246, 240, 0.7) 100%);
+    backdrop-filter: blur(8px);
+}
+
+.btn-outline-danger:hover {
+    background: linear-gradient(135deg, 
+        rgba(231, 76, 60, 0.1) 0%, 
+        rgba(192, 57, 43, 0.08) 100%);
+    border-color: rgba(231, 76, 60, 0.8);
+    transform: translateY(-1px);
 }
 ```
 
@@ -205,13 +285,58 @@ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 
 ### Button Hover Effects
 ```css
-transform: translateY(-2px);
+transform: translateY(-1px);
 transition: all 0.2s ease;
+box-shadow: 
+    0 4px 12px rgba(44, 62, 80, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 ```
 
 ### Card Hover Effects
-- Subtle shadow changes
-- Smooth transitions
+```css
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 6px 25px rgba(44, 62, 80, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    transition: all 0.3s ease;
+}
+```
+
+### Glass Morphism Effects
+```css
+/* Base glass morphism class */
+.glass-morphism {
+    background: linear-gradient(135deg, 
+        rgba(252, 250, 245, 0.9) 0%, 
+        rgba(248, 246, 240, 0.85) 100%);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(189, 195, 199, 0.3);
+    box-shadow: 
+        0 4px 20px rgba(44, 62, 80, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Beveled border effect */
+.beveled-border {
+    position: relative;
+}
+
+.beveled-border::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.4) 0%, 
+        transparent 50%, 
+        rgba(44, 62, 80, 0.1) 100%);
+    pointer-events: none;
+}
+```
 
 ### Loading States
 - HTMX loading indicators
@@ -228,14 +353,27 @@ transition: all 0.2s ease;
 ### Input Fields
 ```css
 .form-control {
-    border-radius: 10px;
-    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    border: 1px solid rgba(189, 195, 199, 0.5);
     padding: 12px 15px;
+    background: linear-gradient(135deg, 
+        rgba(252, 250, 245, 0.9) 0%, 
+        rgba(248, 246, 240, 0.85) 100%);
+    backdrop-filter: blur(8px);
+    box-shadow: 
+        inset 0 1px 3px rgba(44, 62, 80, 0.05),
+        0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .form-control:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    border-color: rgba(44, 62, 80, 0.6);
+    box-shadow: 
+        0 0 0 0.2rem rgba(44, 62, 80, 0.15),
+        inset 0 1px 3px rgba(44, 62, 80, 0.05),
+        0 1px 0 rgba(255, 255, 255, 0.8);
+    background: linear-gradient(135deg, 
+        rgba(252, 250, 245, 0.95) 0%, 
+        rgba(248, 246, 240, 0.9) 100%);
 }
 ```
 

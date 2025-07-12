@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block title %}Lineage Visualization - Ecclesiastical Lineage{% endblock %}
+
+{% block full_content %}
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="{{ url_for('dashboard') }}">Ecclesiastical Lineage</a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">
+                    Welcome, <strong>{{ session.username }}</strong>
+                    {% if session.is_admin %}
+                        <span class="badge bg-primary ms-2">Admin</span>
+                    {% endif %}
+                </span>
+                <a href="#" 
+                   class="logout-link text-danger fw-bold ms-3"
+                   style="text-decoration: underline; cursor: pointer;"
+                   hx-get="{{ url_for('logout') }}"
+                   hx-target="body"
+                   hx-push-url="true">
+                    Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div id="flash-messages" class="position-fixed top-0 start-50 translate-middle-x mt-5" style="z-index: 1050;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show mb-3" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="lineage-container" style="height: calc(100vh - 76px); width: 100%; position: relative;">
+        <!-- Legend -->
+        <div class="legend position-absolute top-0 start-0 m-3 p-3 glass-morphism rounded" style="z-index: 1000; min-width: 200px;">
+            <h6 class="fw-bold mb-2 text-dark">Lineage Types</h6>
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 20px; height: 2px; background: #000000; margin-right: 8px;"></div>
+                <small class="text-dark">Ordination</small>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 20px; height: 2px; background: #27ae60; margin-right: 8px;"></div>
+                <small class="text-dark">Consecration</small>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 20px; height: 2px; background: #27ae60; border-top: 2px dotted #27ae60; margin-right: 8px;"></div>
+                <small class="text-dark">Co-consecration</small>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls position-absolute top-0 end-0 m-3 p-3 glass-morphism rounded" style="z-index: 1000;">
+            <button id="reset-zoom" class="btn btn-sm btn-outline-secondary mb-2 w-100">
+                <i class="fas fa-search-plus me-1"></i>Reset Zoom
+            </button>
+            <button id="center-graph" class="btn btn-sm btn-outline-secondary w-100">
+                <i class="fas fa-crosshairs me-1"></i>Center Graph
+            </button>
+        </div>
+
+        <!-- Graph Container -->
+        <div id="graph-container" style="width: 100%; height: 100%;"></div>
+    </div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .lineage-container {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    }
+    .node {
+        cursor: grab;
+        transition: all 0.3s ease;
+    }
+    .node:active {
+        cursor: grabbing;
+    }
+    .node:hover {
+        stroke-width: 3px;
+    }
+    .node-label {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        text-anchor: middle;
+        pointer-events: none;
+        fill: #ecf0f1;
+        dominant-baseline: middle;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    }
+    .link {
+        stroke-width: 2px;
+        fill: none;
+    }
+    .link.dashed {
+        stroke-dasharray: 5,5;
+    }
+    .link-label {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 10px;
+        fill: #ecf0f1;
+        text-anchor: middle;
+        pointer-events: none;
+        dominant-baseline: middle;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    }
+    .tooltip {
+        position: absolute;
+        background: rgba(252, 250, 245, 0.95);
+        border: 1px solid rgba(189, 195, 199, 0.3);
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 12px;
+        pointer-events: none;
+        box-shadow: 0 2px 8px rgba(44, 62, 80, 0.15);
+        backdrop-filter: blur(8px);
+        z-index: 1000;
+    }
+    .tooltip h6 {
+        margin: 0 0 4px 0;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    .tooltip p {
+        margin: 2px 0;
+        color: #5d6d7e;
+    }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+    // Specify the dimensions of the chart
+    const width = window.innerWidth;
+    const height = window.innerHeight - 76;
+
+    // The force simulation mutates links and nodes, so create a copy
+    const links = {{ links | safe }}.map(d => ({...d}));
+    const nodes = {{ nodes | safe }}.map(d => ({...d}));
+
+    // Create a simulation with several forces
+    const simulation = d3.forceSimulation(nodes)
+        .force("link", d3.forceLink(links).id(d => d.id).distance(120))
+        .force("charge", d3.forceManyBody().strength(-400))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collision", d3.forceCollide().radius(40))
+        .on("tick", ticked);
+
+    // Create the SVG container
+    const svg = d3.select("#graph-container")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("viewBox", [0, 0, width, height])
+        .attr("style", "max-width: 100%; height: auto;");
+
+    // Add zoom behavior
+    const zoom = d3.zoom()
+        .scaleExtent([0.1, 4])
+        .on("zoom", function(event) {
+            container.attr("transform", event.transform);
+        });
+    svg.call(zoom);
+    const container = svg.append("g");
+
+    // Add arrow markers
+    const defs = svg.append("defs");
+    defs.append("marker")
+        .attr("id", "arrowhead-black")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 15)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .attr("markerUnits", "strokeWidth")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#000");
+    
+    defs.append("marker")
+        .attr("id", "arrowhead-green")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 15)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .attr("markerUnits", "strokeWidth")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#27ae60");
+
+    // Add a line for each link
+    const link = container.append("g")
+        .attr("stroke", "#999")
+        .attr("stroke-opacity", 0.6)
+        .selectAll()
+        .data(links)
+        .join("line")
+        .attr("stroke-width", 2)
+        .attr("stroke", d => d.color)
+        .attr("stroke-dasharray", d => d.dashed ? "5,5" : "none")
+        .attr("marker-end", d => {
+            if (d.color === "#000000") return "url(#arrowhead-black)";
+            if (d.color === "#27ae60") return "url(#arrowhead-green)";
+            return "url(#arrowhead-black)";
+        });
+
+    // Add link labels
+    const linkLabel = container.append("g")
+        .selectAll()
+        .data(links)
+        .join("text")
+        .attr("class", "link-label")
+        .attr("opacity", d => d.date === 'Date unknown' ? 0.6 : 1)
+        .text(d => d.date);
+
+    // Add a circle for each node
+    const node = container.append("g")
+        .attr("stroke", "#2c3e50")
+        .attr("stroke-width", 2)
+        .selectAll()
+        .data(nodes)
+        .join("circle")
+        .attr("r", 8)
+        .attr("fill", "rgba(252, 250, 245, 0.95)");
+
+    // Add node labels
+    const nodeLabel = container.append("g")
+        .selectAll()
+        .data(nodes)
+        .join("text")
+        .attr("class", "node-label")
+        .attr("dy", 25)
+        .text(d => d.name);
+
+    // Add tooltips
+    node.append("title")
+        .text(d => d.name);
+
+    // Add a drag behavior
+    node.call(d3.drag()
+        .on("start", dragstarted)
+        .on("drag", dragged)
+        .on("end", dragended));
+
+    // Add tooltip behavior
+    node.on("mouseover", function(event, d) {
+        const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+        
+        tooltip.transition()
+            .duration(200)
+            .style("opacity", .9);
+        tooltip.html(
+            "<h6>" + d.name + "</h6>" +
+            "<p><strong>Rank:</strong> " + (d.rank || 'N/A') + "</p>" +
+            "<p><strong>Organization:</strong> " + (d.organization || 'N/A') + "</p>"
+        )
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 28) + "px");
+    })
+    .on("mouseout", function() {
+        d3.selectAll(".tooltip").remove();
+    });
+
+    // Set the position attributes of links and nodes each time the simulation ticks
+    function ticked() {
+        link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+
+        linkLabel
+            .attr("x", d => (d.source.x + d.target.x) / 2)
+            .attr("y", d => (d.source.y + d.target.y) / 2);
+
+        node
+            .attr("cx", d => d.x)
+            .attr("cy", d => d.y);
+
+        nodeLabel
+            .attr("x", d => d.x)
+            .attr("y", d => d.y);
+    }
+
+    // Reheat the simulation when drag starts, and fix the subject position
+    function dragstarted(event) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        event.subject.fx = event.subject.x;
+        event.subject.fy = event.subject.y;
+    }
+
+    // Update the subject (dragged node) position during drag
+    function dragged(event) {
+        event.subject.fx = event.x;
+        event.subject.fy = event.y;
+    }
+
+    // Restore the target alpha so the simulation cools after dragging ends
+    // Unfix the subject position now that it's no longer being dragged
+    function dragended(event) {
+        if (!event.active) simulation.alphaTarget(0);
+        event.subject.fx = null;
+        event.subject.fy = null;
+    }
+
+    // Control buttons
+    document.getElementById("reset-zoom").addEventListener("click", function() {
+        svg.transition().duration(750).call(
+            zoom.transform,
+            d3.zoomIdentity
+        );
+    });
+
+    document.getElementById("center-graph").addEventListener("click", function() {
+        simulation.force("center", d3.forceCenter(width / 2, height / 2));
+        simulation.alpha(1).restart();
+    });
+
+    // Handle window resize
+    window.addEventListener("resize", function() {
+        const newWidth = window.innerWidth;
+        const newHeight = window.innerHeight - 76;
+        svg.attr("width", newWidth).attr("height", newHeight);
+        simulation.force("center", d3.forceCenter(newWidth / 2, newHeight / 2));
+        simulation.alpha(1).restart();
+    });
+
+    // Handle logout redirect
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.xhr.status === 200) {
+            const response = evt.detail.xhr.responseText;
+            if (response.includes('logout')) {
+                const redirectDiv = evt.detail.target.querySelector('#redirect');
+                if (redirectDiv) {
+                    const url = redirectDiv.getAttribute('data-url');
+                    setTimeout(function() {
+                        window.location.href = url;
+                    }, 1000);
+                }
+            }
+        }
+    });
+</script>
+{% endblock %} 

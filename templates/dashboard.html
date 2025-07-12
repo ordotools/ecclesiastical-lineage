@@ -78,9 +78,9 @@
                             </div>
                         </div>
                         <p class="text-muted">Track and visualize apostolic succession and ecclesiastical lineage.</p>
-                        <button class="btn btn-outline-success" disabled>
-                            <i class="fas fa-clock me-2"></i>Coming Soon
-                        </button>
+                        <a href="{{ url_for('lineage_visualization') }}" class="btn btn-success">
+                            <i class="fas fa-chart-line me-2"></i>View Lineage
+                        </a>
                     </div>
                 </div>
             </div>
@@ -88,34 +88,7 @@
     </div>
 {% endblock %}
 
-{% block extra_styles %}
-<style>
-    .navbar {
-        background: rgba(255, 255, 255, 0.95) !important;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-    }
-    .btn-outline-danger {
-        border-radius: 25px;
-        padding: 8px 20px;
-    }
-    .welcome-section {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 15px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-    }
-    .logout-link {
-        font-size: 1.1rem;
-        transition: color 0.2s;
-    }
-    .logout-link:hover {
-        color: #a71d2a;
-        text-decoration: underline;
-    }
-</style>
-{% endblock %}
+{% block extra_styles %}{% endblock %}
 
 {% block extra_scripts %}
 <script>

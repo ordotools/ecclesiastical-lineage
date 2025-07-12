@@ -40,7 +40,7 @@
     </div>
 
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h2 mb-0">Add New Clergy</h1>
+        <h1 class="h2 mb-0">{% if edit_mode %}Edit Clergy{% else %}Add New Clergy{% endif %}</h1>
         <a href="{{ url_for('clergy_list') }}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left me-2"></i>Back to List
         </a>
@@ -56,26 +56,29 @@
                         
                         <div class="mb-3">
                             <label for="name" class="form-label">Name *</label>
-                            <input type="text" class="form-control" id="name" name="name" required>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{{ clergy.name if edit_mode else '' }}" required>
                         </div>
                         
                         <div class="mb-3">
                             <label for="rank" class="form-label">Rank *</label>
                             <select class="form-select" id="rank" name="rank" required>
                                 <option value="">Select Rank</option>
-                                <option value="Priest">Priest</option>
-                                <option value="Bishop">Bishop</option>
+                                <option value="Priest" {% if edit_mode and clergy.rank == 'Priest' %}selected{% endif %}>Priest</option>
+                                <option value="Bishop" {% if edit_mode and clergy.rank == 'Bishop' %}selected{% endif %}>Bishop</option>
                             </select>
                         </div>
                         
                         <div class="mb-3">
                             <label for="organization" class="form-label">Organization</label>
-                            <input type="text" class="form-control" id="organization" name="organization">
+                            <input type="text" class="form-control" id="organization" name="organization" 
+                                   value="{{ clergy.organization if edit_mode else '' }}">
                         </div>
                         
                         <div class="mb-3">
                             <label for="date_of_birth" class="form-label">Date of Birth</label>
-                            <input type="date" class="form-control" id="date_of_birth" name="date_of_birth">
+                            <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
+                                   value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_birth else '' }}">
                         </div>
                     </div>
                     
@@ -85,15 +88,16 @@
                         
                         <div class="mb-3">
                             <label for="date_of_ordination" class="form-label">Date of Ordination</label>
-                            <input type="date" class="form-control" id="date_of_ordination" name="date_of_ordination">
+                            <input type="date" class="form-control" id="date_of_ordination" name="date_of_ordination" 
+                                   value="{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_ordination else '' }}">
                         </div>
                         
                         <div class="mb-3">
                             <label for="ordaining_bishop_id" class="form-label">Ordaining Bishop</label>
                             <select class="form-select" id="ordaining_bishop_id" name="ordaining_bishop_id">
                                 <option value="">Select Ordaining Bishop</option>
-                                {% for clergy in all_clergy %}
-                                    <option value="{{ clergy.id }}">{{ clergy.name }} ({{ clergy.rank }})</option>
+                                {% for clergy_member in all_clergy %}
+                                    <option value="{{ clergy_member.id }}" {% if edit_mode and clergy.ordaining_bishop_id == clergy_member.id %}selected{% endif %}>{{ clergy_member.name }} ({{ clergy_member.rank }})</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -109,27 +113,39 @@
                         
                         <div class="mb-3">
                             <label for="date_of_consecration" class="form-label">Date of Consecration</label>
-                            <input type="date" class="form-control" id="date_of_consecration" name="date_of_consecration">
+                            <input type="date" class="form-control" id="date_of_consecration" name="date_of_consecration" 
+                                   value="{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_consecration else '' }}">
                         </div>
                         
                         <div class="mb-3">
                             <label for="consecrator_id" class="form-label">Consecrator</label>
                             <select class="form-select" id="consecrator_id" name="consecrator_id">
                                 <option value="">Select Consecrator</option>
-                                {% for clergy in all_clergy %}
-                                    <option value="{{ clergy.id }}">{{ clergy.name }} ({{ clergy.rank }})</option>
+                                {% for clergy_member in all_clergy %}
+                                    <option value="{{ clergy_member.id }}" {% if edit_mode and clergy.consecrator_id == clergy_member.id %}selected{% endif %}>{{ clergy_member.name }} ({{ clergy_member.rank }})</option>
                                 {% endfor %}
                             </select>
                         </div>
                         
                         <div class="mb-3">
                             <label for="co_consecrators" class="form-label">Co-consecrators</label>
-                            <select class="form-select" id="co_consecrators" name="co_consecrators" multiple>
-                                {% for clergy in all_clergy %}
-                                    <option value="{{ clergy.id }}">{{ clergy.name }} ({{ clergy.rank }})</option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text">Hold Ctrl/Cmd to select multiple co-consecrators</div>
+                            <div class="co-consecrators-container">
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" id="co_consecrator_search" placeholder="Search for co-consecrators...">
+                                    <button class="btn btn-outline-secondary" type="button" id="add_co_consecrator">
+                                        <i class="fas fa-plus"></i> Add
+                                    </button>
+                                </div>
+                                <div id="selected_co_consecrators" class="d-flex flex-wrap gap-2 mb-2">
+                                    <!-- Selected co-consecrators will appear here as removable tags -->
+                                </div>
+                                <div id="co_consecrator_dropdown" class="dropdown-menu w-100" style="max-height: 200px; overflow-y: auto; display: none;">
+                                    <!-- Dropdown options will be populated dynamically -->
+                                </div>
+                                <input type="hidden" id="co_consecrators" name="co_consecrators" 
+                                       value="{% if edit_mode %}{{ clergy.get_co_consecrators() | join(',') }}{% endif %}">
+                            </div>
+                            <div class="form-text">Search and add co-consecrators. Click the X to remove them.</div>
                         </div>
                     </div>
                     
@@ -139,7 +155,7 @@
                         
                         <div class="mb-3">
                             <label for="notes" class="form-label">Notes</label>
-                            <textarea class="form-control" id="notes" name="notes" rows="6" placeholder="Additional notes about this clergy member..."></textarea>
+                            <textarea class="form-control" id="notes" name="notes" rows="6" placeholder="Additional notes about this clergy member...">{{ clergy.notes if edit_mode else '' }}</textarea>
                         </div>
                     </div>
                 </div>
@@ -147,7 +163,7 @@
                 <div class="d-flex justify-content-end gap-2 mt-4">
                     <a href="{{ url_for('clergy_list') }}" class="btn btn-outline-secondary">Cancel</a>
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save me-2"></i>Save Clergy Record
+                        <i class="fas fa-save me-2"></i>{% if edit_mode %}Update Clergy Record{% else %}Save Clergy Record{% endif %}
                     </button>
                 </div>
             </form>
@@ -157,18 +173,41 @@
 
 {% block extra_styles %}
 <style>
-    .navbar {
-        background: rgba(255, 255, 255, 0.95) !important;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+    .co-consecrators-container {
+        position: relative;
     }
-    .logout-link {
-        font-size: 1.1rem;
-        transition: color 0.2s;
+    
+    .co-consecrators-container .dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
     }
-    .logout-link:hover {
-        color: #a71d2a;
-        text-decoration: underline;
+    
+    .co-consecrators-container .dropdown-item {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+    }
+    
+    .co-consecrators-container .dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .co-consecrators-container .badge {
+        cursor: default;
+    }
+    
+    .co-consecrators-container .btn-close {
+        padding: 0;
+        margin: 0;
+        background-size: 0.5rem;
+    }
+    
+    .co-consecrators-container .btn-close:hover {
+        background-color: rgba(255, 255, 255, 0.3);
     }
 </style>
 {% endblock %}
@@ -183,5 +222,143 @@
             bsAlert.close();
         });
     }, 5000);
+
+    // Co-consecrators functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('co_consecrator_search');
+        const addButton = document.getElementById('add_co_consecrator');
+        const dropdown = document.getElementById('co_consecrator_dropdown');
+        const selectedContainer = document.getElementById('selected_co_consecrators');
+        const hiddenInput = document.getElementById('co_consecrators');
+        
+        // Get all clergy data from the page
+        const allClergy = JSON.parse('{{ all_clergy_data | tojson | safe }}');
+        
+        let selectedCoConsecrators = [];
+        
+
+        
+        // Initialize co-consecrators if in edit mode
+        const initialCoConsecrators = '{{ clergy.get_co_consecrators() | join(",") if edit_mode else "" }}';
+        if (initialCoConsecrators) {
+            const coConsecratorIds = initialCoConsecrators.split(',').filter(id => id.trim());
+            coConsecratorIds.forEach(id => {
+                const clergyMember = allClergy.find(c => c.id == parseInt(id));
+                if (clergyMember) {
+                    selectedCoConsecrators.push(clergyMember);
+                }
+            });
+            updateSelectedDisplay();
+        }
+        
+        // Search functionality
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            if (searchTerm.length < 2) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            const filteredClergy = allClergy.filter(clergy => 
+                clergy.name.toLowerCase().includes(searchTerm) &&
+                !selectedCoConsecrators.some(selected => selected.id === clergy.id)
+            );
+            
+            if (filteredClergy.length > 0) {
+                dropdown.innerHTML = filteredClergy.map(clergy => 
+                    `<a class="dropdown-item" href="#" data-id="${clergy.id}" data-name="${clergy.name}" data-rank="${clergy.rank}">
+                        ${clergy.name} (${clergy.rank})
+                    </a>`
+                ).join('');
+                dropdown.style.display = 'block';
+            } else {
+                dropdown.style.display = 'none';
+            }
+        });
+        
+        // Handle dropdown item selection
+        dropdown.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (e.target.classList.contains('dropdown-item')) {
+                const id = parseInt(e.target.dataset.id);
+                const name = e.target.dataset.name;
+                const rank = e.target.dataset.rank;
+                
+                addCoConsecrator(id, name, rank);
+                searchInput.value = '';
+                dropdown.style.display = 'none';
+            }
+        });
+        
+        // Add button functionality
+        addButton.addEventListener('click', function() {
+            const searchTerm = searchInput.value.trim();
+            if (searchTerm.length < 2) return;
+            
+            const filteredClergy = allClergy.filter(clergy => 
+                clergy.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                !selectedCoConsecrators.some(selected => selected.id === clergy.id)
+            );
+            
+            if (filteredClergy.length > 0) {
+                const clergy = filteredClergy[0];
+                addCoConsecrator(clergy.id, clergy.name, clergy.rank);
+                searchInput.value = '';
+                dropdown.style.display = 'none';
+            }
+        });
+        
+        // Add co-consecrator function
+        function addCoConsecrator(id, name, rank) {
+            if (selectedCoConsecrators.some(selected => selected.id === id)) {
+                return; // Already selected
+            }
+            
+            selectedCoConsecrators.push({id, name, rank});
+            updateSelectedDisplay();
+            updateHiddenInput();
+        }
+        
+        // Remove co-consecrator function
+        function removeCoConsecrator(id) {
+            selectedCoConsecrators = selectedCoConsecrators.filter(selected => selected.id !== id);
+            updateSelectedDisplay();
+            updateHiddenInput();
+        }
+        
+        // Update the visual display of selected co-consecrators
+        function updateSelectedDisplay() {
+            selectedContainer.innerHTML = selectedCoConsecrators.map(clergy => 
+                `<span class="badge bg-primary d-flex align-items-center gap-1" style="font-size: 0.875rem;">
+                    ${clergy.name} (${clergy.rank})
+                    <button type="button" class="btn-close btn-close-white" style="font-size: 0.5rem;" 
+                            onclick="removeCoConsecrator(${clergy.id})" aria-label="Remove"></button>
+                </span>`
+            ).join('');
+        }
+        
+        // Update the hidden input value
+        function updateHiddenInput() {
+            hiddenInput.value = selectedCoConsecrators.map(clergy => clergy.id).join(',');
+        }
+        
+        // Make removeCoConsecrator globally accessible
+        window.removeCoConsecrator = removeCoConsecrator;
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !dropdown.contains(e.target) && !addButton.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+        
+        // Handle Enter key in search input
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addButton.click();
+            }
+        });
+    });
 </script>
 {% endblock %} 

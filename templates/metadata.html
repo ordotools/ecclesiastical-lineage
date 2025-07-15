@@ -3,28 +3,6 @@
 {% block title %}Metadata - Ecclesiastical Lineage{% endblock %}
 
 {% block full_content %}
-    <nav class="navbar navbar-expand-lg navbar-light">
-        <div class="container">
-            <a class="navbar-brand fw-bold text-primary" href="{{ url_for('dashboard') }}">Ecclesiastical Lineage</a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text me-3">
-                    Welcome, <strong>{{ session.username }}</strong>
-                    {% if session.is_admin %}
-                        <span class="badge bg-primary ms-2">Admin</span>
-                    {% endif %}
-                </span>
-                <a href="#" 
-                   class="logout-link text-danger fw-bold ms-3"
-                   style="text-decoration: underline; cursor: pointer;"
-                   hx-get="{{ url_for('logout') }}"
-                   hx-target="body"
-                   hx-push-url="true">
-                    Logout
-                </a>
-            </div>
-        </div>
-    </nav>
-
     <div class="container mt-4">
 
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -290,22 +268,57 @@
 {% block extra_scripts %}
 <script>
 function showMessage(message, type = 'success') {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show mb-3`;
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    // Create notification element using the existing glass-morphism system
+    const notificationDiv = document.createElement('div');
+    notificationDiv.className = `notification notification-${type === 'error' ? 'danger' : type}`;
+    notificationDiv.innerHTML = `
+        <div class="notification-content">
+            <span class="notification-message">${message}</span>
+            <button type="button" class="notification-close" onclick="dismissNotification(this)">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
     `;
     
-    const flashContainer = document.getElementById('flash-messages');
-    flashContainer.appendChild(alertDiv);
+    // Find or create notification container
+    let container = document.getElementById('notification-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notification-container';
+        container.className = 'notification-container';
+        document.body.appendChild(container);
+    }
+    
+    // Add notification to container
+    container.appendChild(notificationDiv);
+    
+    // Trigger show animation
+    setTimeout(() => {
+        notificationDiv.classList.add('show');
+    }, 10);
     
     // Auto-remove after 5 seconds
     setTimeout(() => {
-        if (alertDiv.parentNode) {
-            alertDiv.remove();
+        if (notificationDiv.parentNode) {
+            notificationDiv.classList.add('hide');
+            setTimeout(() => {
+                if (notificationDiv.parentNode) {
+                    notificationDiv.remove();
+                }
+            }, 300);
         }
     }, 5000);
+}
+
+// Add the dismissNotification function if it doesn't exist
+function dismissNotification(closeButton) {
+    const notification = closeButton.closest('.notification');
+    if (notification) {
+        notification.classList.add('hide');
+        setTimeout(function() {
+            notification.remove();
+        }, 300);
+    }
 }
 
 function addRank() {

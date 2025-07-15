@@ -61,19 +61,19 @@
 body {
     background: 
         linear-gradient(135deg, 
-            rgba(44, 62, 80, 0.95) 0%, 
-            rgba(52, 73, 94, 0.92) 25%,
-            rgba(41, 128, 185, 0.88) 50%,
-            rgba(52, 152, 219, 0.85) 75%,
-            rgba(44, 62, 80, 0.90) 100%),
+            rgba(26, 37, 48, 0.98) 0%, 
+            rgba(34, 49, 63, 0.95) 25%,
+            rgba(44, 62, 80, 0.92) 50%,
+            rgba(52, 73, 94, 0.90) 75%,
+            rgba(26, 37, 48, 0.95) 100%),
         radial-gradient(circle at 20% 80%, 
-            rgba(52, 152, 219, 0.3) 0%, 
+            rgba(44, 62, 80, 0.4) 0%, 
             transparent 50%),
         radial-gradient(circle at 80% 20%, 
-            rgba(41, 128, 185, 0.25) 0%, 
+            rgba(52, 73, 94, 0.35) 0%, 
             transparent 50%),
         radial-gradient(circle at 40% 40%, 
-            rgba(44, 62, 80, 0.2) 0%, 
+            rgba(26, 37, 48, 0.3) 0%, 
             transparent 70%);
     background-attachment: fixed;
     min-height: 100vh;
@@ -812,4 +812,243 @@ h6 {
 .btn-outline-danger,
 .btn-outline-success {
     transition: all 0.2s ease;
+} 
+
+.floating-admin-btn {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 1050;
+    box-shadow: 0 4px 16px rgba(44, 62, 80, 0.18);
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    font-size: 1rem;
+} 
+
+.truncate-link {
+  display: inline-block;
+  max-width: 180px;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+} 
+
+/* === Styles moved from add_clergy.html === */
+.co-consecrators-container {
+    position: relative;
+}
+.co-consecrators-container .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+.co-consecrators-container .dropdown-item {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+}
+.co-consecrators-container .dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+.co-consecrators-container .badge {
+    cursor: default;
+}
+.co-consecrators-container .btn-close {
+    padding: 0;
+    margin: 0;
+    background-size: 0.5rem;
+}
+.co-consecrators-container .btn-close:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* === Styles moved from clergy_list.html === */
+.clergy-action-group {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.clergy-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    outline: none;
+    background: none;
+    font-size: 1.05rem;
+    cursor: pointer;
+}
+.clergy-action-btn.view {
+    color: #1976d2;
+}
+.clergy-action-btn.edit {
+    color: #374151;
+}
+.clergy-action-btn.delete {
+    color: #e53935;
+}
+.clergy-action-group form {
+    margin: 0;
+}
+.table td, .table th {
+    padding: 0.35rem 0.5rem !important;
+    font-size: 0.93rem;
+    vertical-align: middle;
+}
+.badge {
+    font-size: 0.75rem !important;
+    padding: 0.25em 0.5em !important;
+}
+strong, .table th {
+    font-size: 0.97rem;
+}
+
+/* === Styles moved from lineage_visualization.html === */
+.lineage-container {
+    background: transparent;
+}
+.node {
+    cursor: grab;
+    transition: all 0.3s ease;
+}
+.node:active {
+    cursor: grabbing;
+}
+.node:hover {
+    stroke-width: 3px;
+}
+.node-label {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14.4px;
+    font-weight: 500;
+    text-anchor: middle;
+    pointer-events: none;
+    fill: #ecf0f1;
+    dominant-baseline: middle;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+.link {
+    stroke-width: 2px;
+    fill: none;
+}
+.link.dashed {
+    stroke-dasharray: 5,5;
+}
+.link-label {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 12px;
+    fill: #ecf0f1;
+    text-anchor: middle;
+    pointer-events: none;
+    dominant-baseline: middle;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+.tooltip {
+    position: absolute;
+    background: rgba(252, 250, 245, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 12px;
+    pointer-events: none;
+    box-shadow: 0 8px 32px rgba(44, 62, 80, 0.15);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    z-index: 1000;
+}
+.tooltip h6 {
+    margin: 0 0 4px 0;
+    font-weight: 600;
+    color: #2c3e50;
+}
+.tooltip p {
+    margin: 2px 0;
+    color: #5d6d7e;
+}
+/* Admin button styling for dark background */
+.admin-nav-btn {
+    background: linear-gradient(135deg, 
+        rgba(252, 250, 245, 0.85) 0%, 
+        rgba(248, 246, 240, 0.80) 100%) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 
+        0 8px 32px rgba(44, 62, 80, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+    color: #2c3e50 !important;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border-radius: 12px;
+}
+.admin-nav-btn:hover {
+    background: linear-gradient(135deg, 
+        rgba(252, 250, 245, 0.90) 0%, 
+        rgba(248, 246, 240, 0.85) 100%) !important;
+    color: #2c3e50 !important;
+    transform: translateY(-2px);
+    box-shadow: 
+        0 12px 40px rgba(44, 62, 80, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+} 
+
+/* === Utility classes for replacing inline styles in templates === */
+.legend-visualization {
+    z-index: 1000;
+    min-width: 200px;
+}
+.visualization-controls {
+    z-index: 1000;
+}
+.admin-nav-container {
+    z-index: 1000;
+}
+.graph-container-full {
+    width: 100%;
+    height: 100%;
+}
+.filter-dropdown-menu {
+    min-width: 300px;
+}
+.search-input-wide {
+    min-width: 220px;
+}
+.clear-search-btn {
+    display: none;
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0 8px;
+    z-index: 2;
+}
+.table-header-small {
+    font-size: 0.875rem;
+}
+.table-header-strong {
+    font-size: 0.97rem;
+}
+.action-form-inline {
+    display: inline;
+}
+.empty-state-icon {
+    font-size: 3rem;
+    opacity: 0.3;
+}
+.dashboard-admin-btn {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 1050;
 } 

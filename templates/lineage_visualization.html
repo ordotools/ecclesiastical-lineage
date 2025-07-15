@@ -3,33 +3,10 @@
 {% block title %}Lineage Visualization - Ecclesiastical Lineage{% endblock %}
 
 {% block full_content %}
-    <nav class="navbar navbar-expand-lg navbar-light">
-        <div class="container">
-            <a class="navbar-brand fw-bold text-primary" href="{{ url_for('dashboard') }}">Ecclesiastical Lineage</a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text me-3">
-                    Welcome, <strong>{{ session.username }}</strong>
-                    {% if session.is_admin %}
-                        <span class="badge bg-primary ms-2">Admin</span>
-                    {% endif %}
-                </span>
-                <a href="#" 
-                   class="logout-link text-danger fw-bold ms-3"
-                   style="text-decoration: underline; cursor: pointer;"
-                   hx-get="{{ url_for('logout') }}"
-                   hx-target="body"
-                   hx-push-url="true">
-                    Logout
-                </a>
-            </div>
-        </div>
-    </nav>
-
-
-
-    <div class="lineage-container" style="height: calc(100vh - 76px); width: 100%; position: relative;">
+    <!-- Legend and controls remain unchanged -->
+    <div class="container mt-4">
         <!-- Legend -->
-        <div class="legend position-absolute top-0 start-0 m-3 p-3 glass-morphism rounded" style="z-index: 1000; min-width: 200px;">
+        <div class="legend position-absolute top-0 start-0 m-3 p-3 glass-morphism rounded legend-visualization">
             <h6 class="fw-bold mb-2 text-dark">Lineage Types</h6>
             <div class="d-flex align-items-center mb-2">
                 <div style="width: 20px; height: 2px; background: #000000; margin-right: 8px;"></div>
@@ -46,7 +23,7 @@
         </div>
 
         <!-- Controls -->
-        <div class="controls position-absolute top-0 end-0 m-3 p-3 glass-morphism rounded" style="z-index: 1000;">
+        <div class="controls position-absolute top-0 end-0 m-3 p-3 glass-morphism rounded visualization-controls">
             <button id="reset-zoom" class="btn btn-sm btn-outline-secondary mb-2 w-100">
                 <i class="fas fa-search-plus me-1"></i>Reset Zoom
             </button>
@@ -57,7 +34,7 @@
 
         <!-- Admin Navigation Button -->
         {% if session.is_admin %}
-        <div class="position-absolute bottom-0 end-0 m-3" style="z-index: 1000;">
+        <div class="position-absolute bottom-0 end-0 m-3 admin-nav-container">
             <a href="{{ url_for('clergy_list') }}" class="btn admin-nav-btn">
                 <i class="fas fa-list me-2"></i>Back to Clergy List
             </a>
@@ -65,102 +42,11 @@
         {% endif %}
 
         <!-- Graph Container -->
-        <div id="graph-container" style="width: 100%; height: 100%;"></div>
+        <div id="graph-container" class="graph-container-full"></div>
     </div>
 {% endblock %}
 
 {% block extra_styles %}
-<style>
-    .lineage-container {
-        background: transparent;
-    }
-    .node {
-        cursor: grab;
-        transition: all 0.3s ease;
-    }
-    .node:active {
-        cursor: grabbing;
-    }
-    .node:hover {
-        stroke-width: 3px;
-    }
-    .node-label {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-size: 14.4px;
-        font-weight: 500;
-        text-anchor: middle;
-        pointer-events: none;
-        fill: #ecf0f1;
-        dominant-baseline: middle;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-    }
-    .link {
-        stroke-width: 2px;
-        fill: none;
-    }
-    .link.dashed {
-        stroke-dasharray: 5,5;
-    }
-    .link-label {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-size: 12px;
-        fill: #ecf0f1;
-        text-anchor: middle;
-        pointer-events: none;
-        dominant-baseline: middle;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-    }
-    .tooltip {
-        position: absolute;
-        background: rgba(252, 250, 245, 0.85);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-        padding: 10px 14px;
-        font-size: 12px;
-        pointer-events: none;
-        box-shadow: 0 8px 32px rgba(44, 62, 80, 0.15);
-        backdrop-filter: blur(16px) saturate(180%);
-        -webkit-backdrop-filter: blur(16px) saturate(180%);
-        z-index: 1000;
-    }
-    .tooltip h6 {
-        margin: 0 0 4px 0;
-        font-weight: 600;
-        color: #2c3e50;
-    }
-    .tooltip p {
-        margin: 2px 0;
-        color: #5d6d7e;
-    }
-    
-    /* Admin button styling for dark background */
-    .admin-nav-btn {
-        background: linear-gradient(135deg, 
-            rgba(252, 250, 245, 0.85) 0%, 
-            rgba(248, 246, 240, 0.80) 100%) !important;
-        backdrop-filter: blur(20px) saturate(180%);
-        -webkit-backdrop-filter: blur(20px) saturate(180%);
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        box-shadow: 
-            0 8px 32px rgba(44, 62, 80, 0.15),
-            inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
-        color: #2c3e50 !important;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        border-radius: 12px;
-    }
-    
-    .admin-nav-btn:hover {
-        background: linear-gradient(135deg, 
-            rgba(252, 250, 245, 0.90) 0%, 
-            rgba(248, 246, 240, 0.85) 100%) !important;
-        color: #2c3e50 !important;
-        transform: translateY(-2px);
-        box-shadow: 
-            0 12px 40px rgba(44, 62, 80, 0.2),
-            inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
-    }
-</style>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -174,9 +60,51 @@
     const links = {{ links | safe }}.map(d => ({...d}));
     const nodes = {{ nodes | safe }}.map(d => ({...d}));
 
+    // Function to detect and offset parallel links
+    function processParallelLinks(links) {
+        // Group links by source-target pairs
+        const linkGroups = {};
+        
+        links.forEach(link => {
+            const key = `${link.source}-${link.target}`;
+            if (!linkGroups[key]) {
+                linkGroups[key] = [];
+            }
+            linkGroups[key].push(link);
+        });
+        
+        // Add offset to parallel links
+        Object.values(linkGroups).forEach(group => {
+            if (group.length > 1) {
+                // Sort by type to ensure consistent ordering
+                group.sort((a, b) => {
+                    const typeOrder = { 'ordination': 0, 'consecration': 1, 'co-consecration': 2 };
+                    return (typeOrder[a.type] || 0) - (typeOrder[b.type] || 0);
+                });
+                
+                // Calculate offset for each link
+                const offset = 8; // Distance between parallel lines
+                const totalOffset = (group.length - 1) * offset / 2;
+                
+                group.forEach((link, index) => {
+                    link.parallelIndex = index;
+                    link.parallelOffset = (index * offset) - totalOffset;
+                });
+            } else {
+                group[0].parallelIndex = 0;
+                group[0].parallelOffset = 0;
+            }
+        });
+        
+        return links;
+    }
+
+    // Process links to handle parallel connections
+    const processedLinks = processParallelLinks(links);
+
     // Create a simulation with several forces
     const simulation = d3.forceSimulation(nodes)
-        .force("link", d3.forceLink(links).id(d => d.id).distance(144))
+        .force("link", d3.forceLink(processedLinks).id(d => d.id).distance(144))
         .force("charge", d3.forceManyBody().strength(-400))
         .force("center", d3.forceCenter(width / 2, height / 2))
         .force("collision", d3.forceCollide().radius(48))
@@ -203,28 +131,28 @@
     const defs = svg.append("defs");
     defs.append("marker")
         .attr("id", "arrowhead-black")
-        .attr("viewBox", "0 -6 12 12")
-        .attr("refX", 18)
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 12)
         .attr("refY", 0)
-        .attr("markerWidth", 7.2)
-        .attr("markerHeight", 7.2)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
         .attr("orient", "auto")
         .attr("markerUnits", "strokeWidth")
         .append("path")
-        .attr("d", "M0,-6L12,0L0,6")
-        .attr("fill", "#000");
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#000000");
     
     defs.append("marker")
         .attr("id", "arrowhead-green")
-        .attr("viewBox", "0 -6 12 12")
-        .attr("refX", 18)
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 12)
         .attr("refY", 0)
-        .attr("markerWidth", 7.2)
-        .attr("markerHeight", 7.2)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
         .attr("orient", "auto")
         .attr("markerUnits", "strokeWidth")
         .append("path")
-        .attr("d", "M0,-6L12,0L0,6")
+        .attr("d", "M0,-5L10,0L0,5")
         .attr("fill", "#27ae60");
 
     // Add a line for each link
@@ -232,9 +160,9 @@
         .attr("stroke", "#999")
         .attr("stroke-opacity", 0.6)
         .selectAll()
-        .data(links)
+        .data(processedLinks)
         .join("line")
-        .attr("stroke-width", 2.4)
+        .attr("stroke-width", 3.2)
         .attr("stroke", d => d.color)
         .attr("stroke-dasharray", d => d.dashed ? "5,5" : "none")
         .attr("marker-end", d => {
@@ -243,14 +171,7 @@
             return "url(#arrowhead-black)";
         });
 
-    // Add link labels
-    const linkLabel = container.append("g")
-        .selectAll()
-        .data(links)
-        .join("text")
-        .attr("class", "link-label")
-        .attr("opacity", d => d.date === 'Date unknown' ? 0.6 : 1)
-        .text(d => d.date);
+    // Link labels removed for cleaner visualization
 
     // Add a circle for each node
     const node = container.append("g")
@@ -325,14 +246,40 @@
     // Set the position attributes of links and nodes each time the simulation ticks
     function ticked() {
         link
-            .attr("x1", d => d.source.x)
-            .attr("y1", d => d.source.y)
-            .attr("x2", d => d.target.x)
-            .attr("y2", d => d.target.y);
+            .attr("x1", d => {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const angle = Math.atan2(dy, dx);
+                const offsetX = Math.cos(angle + Math.PI/2) * d.parallelOffset;
+                const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
+                return d.source.x + offsetX;
+            })
+            .attr("y1", d => {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const angle = Math.atan2(dy, dx);
+                const offsetX = Math.cos(angle + Math.PI/2) * d.parallelOffset;
+                const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
+                return d.source.y + offsetY;
+            })
+            .attr("x2", d => {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const angle = Math.atan2(dy, dx);
+                const offsetX = Math.cos(angle + Math.PI/2) * d.parallelOffset;
+                const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
+                return d.target.x + offsetX;
+            })
+            .attr("y2", d => {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const angle = Math.atan2(dy, dx);
+                const offsetX = Math.cos(angle + Math.PI/2) * d.parallelOffset;
+                const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
+                return d.target.y + offsetY;
+            });
 
-        linkLabel
-            .attr("x", d => (d.source.x + d.target.x) / 2)
-            .attr("y", d => (d.source.y + d.target.y) / 2);
+
 
         node
             .attr("cx", d => d.x)

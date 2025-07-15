@@ -40,11 +40,12 @@
     </div>
 </div>
 
+<div id="flash-messages"></div>
+
 <script>
-    // Handle successful login redirect
+    // Handle successful login redirect for HTMX
     document.body.addEventListener('htmx:afterRequest', function(evt) {
         if (evt.detail.xhr.status === 200) {
-            // Check if the response contains a redirect
             const response = evt.detail.xhr.responseText;
             if (response.includes('redirect')) {
                 const redirectDiv = evt.detail.target.querySelector('#redirect');

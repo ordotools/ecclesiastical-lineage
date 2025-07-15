@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+  <h2>Admin Settings</h2>
+  <hr>
+  <h4>Invite a New Admin</h4>
+  <form id="invite-admin-form" method="post" action="{{ url_for('generate_admin_invite') }}">
+    <button type="submit" class="btn btn-primary">Generate Admin Invite Link</button>
+  </form>
+  <div id="invite-link-section" class="mt-3">
+    {% if invite_link %}
+      <div class="alert alert-success d-flex align-items-center">
+        <div>
+          <strong>Invite Link:</strong> 
+          <a href="{{ invite_link }}" id="invite-link" class="truncate-link" title="{{ invite_link }}">
+            <span id="invite-link-text">
+              {{ invite_link }}
+            </span>
+          </a>
+          <button class="btn btn-outline-secondary btn-sm ms-2" onclick="copyInviteLink()" type="button" id="copy-btn">
+            <i class="fas fa-copy"></i> Copy
+          </button>
+        </div>
+        <span id="copy-feedback" class="ms-3 text-success" style="display:none;">Copied!</span>
+      </div>
+      <script>
+        function copyInviteLink() {
+          const link = document.getElementById('invite-link').href;
+          navigator.clipboard.writeText(link).then(function() {
+            document.getElementById('copy-feedback').style.display = 'inline';
+            setTimeout(function() {
+              document.getElementById('copy-feedback').style.display = 'none';
+            }, 1500);
+          });
+        }
+      </script>
+    {% endif %}
+  </div>
+</div>
+{% endblock %} 

@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import json
+from add_sample_data import add_sample_data
+from uuid import uuid4
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -35,6 +37,7 @@ class Clergy(db.Model):
     date_of_consecration = db.Column(db.Date)
     consecrator_id = db.Column(db.Integer, db.ForeignKey('clergy.id'))
     co_consecrators = db.Column(db.Text)  # JSON array of clergy IDs
+    date_of_death = db.Column(db.Date)
     notes = db.Column(db.Text)
     
     # Relationships
@@ -75,6 +78,18 @@ class Organization(db.Model):
     
     def __repr__(self):
         return f'<Organization {self.name}>'
+
+class AdminInvite(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(128), unique=True, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    invited_by = db.Column(db.Integer, db.ForeignKey('user.id'))  # Who created the invite
+
+    def is_valid(self):
+        return not self.used and datetime.utcnow() < self.expires_at
+
 
 @app.route('/')
 def index():
@@ -190,15 +205,80 @@ def clergy_list():
         flash('Please log in to access clergy records.', 'error')
         return redirect(url_for('login'))
     
-    clergy_list = Clergy.query.all()
-    
-    # Get all organizations to create a mapping for abbreviations
-    organizations = Organization.query.all()
+    # Get filter parameters from request
+    exclude_priests = request.args.get('exclude_priests') == '1'
+    exclude_coconsecrators = request.args.get('exclude_coconsecrators') == '1'
+    exclude_organizations = request.args.getlist('exclude_organizations')
+    search = request.args.get('search', '').strip()
+
+    # Start with all clergy
+    query = Clergy.query
+
+    # Exclude priests if requested
+    if exclude_priests:
+        query = query.filter(Clergy.rank != 'Priest')
+
+    # Exclude co-consecrators if requested (exclude any clergy who are listed as a co-consecrator for anyone)
+    if exclude_coconsecrators:
+        # Get all co-consecrator IDs
+        all_clergy = Clergy.query.all()
+        coconsecrator_ids = set()
+        for c in all_clergy:
+            coconsecrator_ids.update(c.get_co_consecrators())
+        if coconsecrator_ids:
+            query = query.filter(~Clergy.id.in_(coconsecrator_ids))
+
+    # Exclude selected organizations
+    if exclude_organizations:
+        query = query.filter(~Clergy.organization.in_(exclude_organizations))
+
+    # Search by name if provided
+    if search:
+        query = query.filter(Clergy.name.ilike(f'%{search}%'))
+
+    clergy_list = query.all()
+
+    # Get all organizations for the filter dropdown
+    organizations = Organization.query.order_by(Organization.name).all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
-    
+
     return render_template('clergy_list.html', 
                          clergy_list=clergy_list, 
-                         org_abbreviation_map=org_abbreviation_map)
+                         org_abbreviation_map=org_abbreviation_map,
+                         organizations=organizations,
+                         exclude_priests=exclude_priests,
+                         exclude_coconsecrators=exclude_coconsecrators,
+                         exclude_organizations=exclude_organizations,
+                         search=search)
+
+@app.route('/clergy/filter_partial')
+def clergy_filter_partial():
+    if 'user_id' not in session:
+        return '', 401
+    # Get filter parameters from request
+    exclude_priests = request.args.get('exclude_priests') == '1'
+    exclude_coconsecrators = request.args.get('exclude_coconsecrators') == '1'
+    exclude_organizations = request.args.getlist('exclude_organizations')
+    search = request.args.get('search', '').strip()
+
+    query = Clergy.query
+    if exclude_priests:
+        query = query.filter(Clergy.rank != 'Priest')
+    if exclude_coconsecrators:
+        all_clergy = Clergy.query.all()
+        coconsecrator_ids = set()
+        for c in all_clergy:
+            coconsecrator_ids.update(c.get_co_consecrators())
+        if coconsecrator_ids:
+            query = query.filter(~Clergy.id.in_(coconsecrator_ids))
+    if exclude_organizations:
+        query = query.filter(~Clergy.organization.in_(exclude_organizations))
+    if search:
+        query = query.filter(Clergy.name.ilike(f'%{search}%'))
+    clergy_list = query.all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
+    return render_template('clergy_table_body.html', clergy_list=clergy_list, org_abbreviation_map=org_abbreviation_map)
 
 @app.route('/clergy/add', methods=['GET', 'POST'])
 def add_clergy():
@@ -216,6 +296,7 @@ def add_clergy():
         date_of_consecration = request.form.get('date_of_consecration')
         consecrator_id = request.form.get('consecrator_id')
         co_consecrators = request.form.get('co_consecrators')
+        date_of_death = request.form.get('date_of_death')
         notes = request.form.get('notes')
         
         if not name or not rank:
@@ -236,6 +317,8 @@ def add_clergy():
             clergy.date_of_ordination = datetime.strptime(date_of_ordination, '%Y-%m-%d').date()
         if date_of_consecration:
             clergy.date_of_consecration = datetime.strptime(date_of_consecration, '%Y-%m-%d').date()
+        if date_of_death:
+            clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
         
         # Handle foreign keys
         if ordaining_bishop_id:
@@ -308,6 +391,7 @@ def edit_clergy(clergy_id):
         date_of_consecration = request.form.get('date_of_consecration')
         consecrator_id = request.form.get('consecrator_id')
         co_consecrators = request.form.get('co_consecrators')
+        date_of_death = request.form.get('date_of_death')
         clergy.notes = request.form.get('notes')
         if date_of_birth:
             clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
@@ -321,6 +405,10 @@ def edit_clergy(clergy_id):
             clergy.date_of_consecration = datetime.strptime(date_of_consecration, '%Y-%m-%d').date()
         else:
             clergy.date_of_consecration = None
+        if date_of_death:
+            clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
+        else:
+            clergy.date_of_death = None
         clergy.ordaining_bishop_id = int(ordaining_bishop_id) if ordaining_bishop_id else None
         clergy.consecrator_id = int(consecrator_id) if consecrator_id else None
         if co_consecrators:
@@ -391,7 +479,7 @@ def metadata():
 
 @app.route('/metadata/rank/add', methods=['POST'])
 def add_rank():
-    if 'user_id' not in session:
+    if 'user_id' not in session or not session.get('is_admin'):
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
     
     data = request.get_json()
@@ -426,7 +514,7 @@ def add_rank():
 
 @app.route('/metadata/rank/<int:rank_id>/edit', methods=['PUT'])
 def edit_rank(rank_id):
-    if 'user_id' not in session:
+    if 'user_id' not in session or not session.get('is_admin'):
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
     
     rank = Rank.query.get_or_404(rank_id)
@@ -463,7 +551,7 @@ def edit_rank(rank_id):
 
 @app.route('/metadata/rank/<int:rank_id>/delete', methods=['DELETE'])
 def delete_rank(rank_id):
-    if 'user_id' not in session:
+    if 'user_id' not in session or not session.get('is_admin'):
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
     
     rank = Rank.query.get_or_404(rank_id)
@@ -486,7 +574,7 @@ def delete_rank(rank_id):
 
 @app.route('/metadata/organization/add', methods=['POST'])
 def add_organization():
-    if 'user_id' not in session:
+    if 'user_id' not in session or not session.get('is_admin'):
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
     
     data = request.get_json()
@@ -529,7 +617,7 @@ def add_organization():
 
 @app.route('/metadata/organization/<int:org_id>/edit', methods=['PUT'])
 def edit_organization(org_id):
-    if 'user_id' not in session:
+    if 'user_id' not in session or not session.get('is_admin'):
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
     
     org = Organization.query.get_or_404(org_id)
@@ -575,7 +663,7 @@ def edit_organization(org_id):
 
 @app.route('/metadata/organization/<int:org_id>/delete', methods=['DELETE'])
 def delete_organization(org_id):
-    if 'user_id' not in session:
+    if 'user_id' not in session or not session.get('is_admin'):
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
     
     org = Organization.query.get_or_404(org_id)
@@ -658,6 +746,65 @@ def lineage_visualization():
                          nodes=json.dumps(nodes), 
                          links=json.dumps(links))
 
+@app.route('/admin/load_test_data', methods=['POST'])
+def load_test_data():
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('Admin access required.', 'error')
+        return redirect(url_for('dashboard'))
+    add_sample_data()
+    flash('Test data loaded successfully!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/settings')
+def settings():
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('Admin access required.', 'error')
+        return redirect(url_for('login'))
+    user = User.query.get(session['user_id'])
+    return render_template('settings.html', user=user)
+
+@app.route('/settings/invite', methods=['POST'])
+def generate_admin_invite():
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('Admin access required.', 'error')
+        return redirect(url_for('login'))
+    # Generate unique token and expiry (24 hours)
+    token = str(uuid4())
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+    invite = AdminInvite(token=token, expires_at=expires_at, invited_by=session['user_id'])
+    db.session.add(invite)
+    db.session.commit()
+    invite_link = url_for('admin_invite_signup', token=token, _external=True)
+    user = User.query.get(session['user_id'])
+    return render_template('settings.html', user=user, invite_link=invite_link)
+
+@app.route('/admin/invite/<token>', methods=['GET', 'POST'])
+def admin_invite_signup(token):
+    invite = AdminInvite.query.filter_by(token=token).first()
+    if not invite or not invite.is_valid():
+        flash('This invite link is invalid or has expired.', 'error')
+        return redirect(url_for('login'))
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+        if not username or not password:
+            flash('Username and password are required.', 'error')
+            return render_template('signup.html', invite_token=token)
+        if password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            return render_template('signup.html', invite_token=token)
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists.', 'error')
+            return render_template('signup.html', invite_token=token)
+        user = User(username=username, is_admin=True)
+        user.set_password(password)
+        db.session.add(user)
+        invite.used = True
+        db.session.commit()
+        flash('Admin account created successfully! Please log in.', 'success')
+        return redirect(url_for('login'))
+    return render_template('signup.html', invite_token=token)
 
 
 if __name__ == '__main__':

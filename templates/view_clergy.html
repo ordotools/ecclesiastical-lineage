@@ -28,6 +28,8 @@
                 </dd>
                 <dt class="col-sm-3">Date of Birth</dt>
                 <dd class="col-sm-9">{{ clergy.date_of_birth.strftime('%Y-%m-%d') if clergy.date_of_birth else '-' }}</dd>
+                <dt class="col-sm-3">Date of Death</dt>
+                <dd class="col-sm-9">{{ clergy.date_of_death.strftime('%Y-%m-%d') if clergy.date_of_death else '-' }}</dd>
                 <dt class="col-sm-3">Date of Ordination</dt>
                 <dd class="col-sm-9">{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '-' }}</dd>
                 <dt class="col-sm-3">Ordaining Bishop</dt>

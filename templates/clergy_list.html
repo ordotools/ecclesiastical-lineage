@@ -3,29 +3,7 @@
 {% block title %}Clergy Records - Ecclesiastical Lineage{% endblock %}
 
 {% block full_content %}
-    <nav class="navbar navbar-expand-lg navbar-light">
-        <div class="container">
-            <a class="navbar-brand fw-bold text-primary" href="{{ url_for('dashboard') }}">Ecclesiastical Lineage</a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text me-3">
-                    Welcome, <strong>{{ session.username }}</strong>
-                    {% if session.is_admin %}
-                        <span class="badge bg-primary ms-2">Admin</span>
-                    {% endif %}
-                </span>
-                <a href="#" 
-                   class="logout-link text-danger fw-bold ms-3"
-                   style="text-decoration: underline; cursor: pointer;"
-                   hx-get="{{ url_for('logout') }}"
-                   hx-target="body"
-                   hx-push-url="true">
-                    Logout
-                </a>
-            </div>
-        </div>
-    </nav>
-
-            <div class="container mt-4">
+    <div class="container mt-4">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h2 mb-0">Clergy Records</h1>
@@ -42,6 +20,48 @@
         </div>
     </div>
 
+    <!-- Filter and Search Row -->
+    <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
+        <!-- Filter Dropdown -->
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-filter me-1"></i> Filters
+            </button>
+            <div class="dropdown-menu p-3 filter-dropdown-menu" aria-labelledby="filterDropdown">
+                <form method="get" id="filterForm" autocomplete="off"
+                      hx-get="/clergy/filter_partial" hx-target="#clergyTableBody" hx-push-url="true" hx-include="#filterForm" hx-trigger="change">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="excludePriests" name="exclude_priests" value="1" {% if exclude_priests %}checked{% endif %}>
+                        <label class="form-check-label" for="excludePriests">Exclude Priests</label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="excludeCoconsecrators" name="exclude_coconsecrators" value="1" {% if exclude_coconsecrators %}checked{% endif %}>
+                        <label class="form-check-label" for="excludeCoconsecrators">Exclude Co-consecrators</label>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label mb-1">Exclude Organizations</label>
+                        <select class="form-select" name="exclude_organizations" id="excludeOrganizations" multiple size="5">
+                            {% for org in organizations %}
+                                <option value="{{ org.name }}" {% if org.name in exclude_organizations %}selected{% endif %}>
+                                    {{ org.abbreviation or org.name }}{% if org.abbreviation %} - {{ org.name }}{% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">Hold Ctrl (Cmd on Mac) to select multiple.</small>
+                    </div>
+                    <div class="d-flex justify-content-end mt-2">
+                        <a href="{{ url_for('clergy_list') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- Search Bar -->
+        <form class="d-flex align-items-center ms-2 position-relative" id="searchForm" autocomplete="off" onsubmit="return false;">
+            <input type="text" class="form-control search-input-wide" name="search" id="clergySearchInput" placeholder="Search clergy by name..." value="{{ search }}" autocomplete="off">
+            <button type="button" id="clearSearchBtn" class="btn btn-outline-secondary ms-2 clear-search-btn" style="display:none; position:absolute; right:8px; top:50%; transform:translateY(-50%); padding:0 8px; z-index:2;" tabindex="-1">&times;</button>
+        </form>
+    </div>
+
     {% if clergy_list %}
         <div class="card">
             <div class="card-body p-0">
@@ -49,15 +69,15 @@
                     <table class="table mb-0">
                         <thead class="table-dark">
                             <tr>
-                                <th style="font-size: 0.875rem;">Name</th>
-                                <th style="font-size: 0.875rem;">Rank</th>
-                                <th style="font-size: 0.875rem;">Organization</th>
-                                <th style="font-size: 0.875rem;">Ordination</th>
-                                <th style="font-size: 0.875rem;">Consecration</th>
-                                <th style="font-size: 0.875rem;">Actions</th>
+                                <th class="table-header-small">Name</th>
+                                <th class="table-header-small">Rank</th>
+                                <th class="table-header-small">Organization</th>
+                                <th class="table-header-small">Ordination</th>
+                                <th class="table-header-small">Consecration</th>
+                                <th class="table-header-small">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="clergyTableBody">
                             {% for clergy in clergy_list %}
                             <tr>
                                 <td>
@@ -87,7 +107,7 @@
                                         <a href="{{ url_for('edit_clergy', clergy_id=clergy.id) }}" class="clergy-action-btn edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <form action="{{ url_for('delete_clergy', clergy_id=clergy.id) }}" method="post" style="display:inline;">
+                                        <form action="{{ url_for('delete_clergy', clergy_id=clergy.id) }}" method="post" style="display:inline;" class="action-form-inline">
                                             <button type="submit" class="clergy-action-btn delete" onclick="return confirm('Are you sure you want to delete this clergy record?');">
                                                 <i class="fas fa-trash"></i>
                                             </button>
@@ -105,7 +125,7 @@
         <div class="card">
             <div class="card-body text-center py-5">
                 <div class="text-muted">
-                    <i class="fas fa-users" style="font-size: 3rem; opacity: 0.3;"></i>
+                    <i class="fas fa-users empty-state-icon"></i>
                     <h4 class="mt-3">No Clergy Records Found</h4>
                     <p class="mb-4">Start by adding your first clergy record.</p>
                     <a href="{{ url_for('add_clergy') }}" class="btn btn-primary">
@@ -119,40 +139,113 @@
 {% endblock %}
 
 {% block extra_styles %}
-<style>
-.clergy-action-group {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-}
-.clergy-action-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    border: none;
-    outline: none;
-    background: none;
-    font-size: 1.3rem;
-    cursor: pointer;
-}
-.clergy-action-btn.view {
-    color: #1976d2;
-}
-.clergy-action-btn.edit {
-    color: #374151;
-}
-.clergy-action-btn.delete {
-    color: #e53935;
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/fuzzySearch.js"></script>
+<script>
+// Remove static variables and make functions dynamic
+const input = document.getElementById('clergySearchInput');
+const clearBtn = document.getElementById('clearSearchBtn');
+
+// Function to get current clergy names from the DOM
+function getCurrentClergyNames() {
+    const rows = document.querySelectorAll('#clergyTableBody tr');
+    return Array.from(rows).map(row => {
+        const nameElement = row.querySelector('td strong');
+        return nameElement ? nameElement.textContent : '';
+    }).filter(name => name.length > 0);
 }
 
-.clergy-action-group form {
-    margin: 0;
+// Function to get current clergy rows from the DOM
+function getCurrentClergyRows() {
+    return Array.from(document.querySelectorAll('#clergyTableBody tr'));
 }
-</style>
+
+function filterTable(query) {
+    if (!query || query.trim().length < 1) {
+        const rows = getCurrentClergyRows();
+        rows.forEach(row => row.style.display = '');
+        return;
+    }
+    
+    const clergyNames = getCurrentClergyNames();
+    const clergyRows = getCurrentClergyRows();
+    
+    if (clergyNames.length === 0) return;
+    
+    const results = window.fuzzySearch(clergyNames, query).slice(0, Math.max(8, Math.ceil(clergyRows.length * 0.5)));
+    const matches = new Set(results.map(r => r.item));
+    
+    clergyRows.forEach(row => {
+        const name = row.querySelector('td strong').textContent;
+        row.style.display = matches.has(name) ? '' : 'none';
+    });
+}
+
+input.addEventListener('input', function() {
+    const query = input.value.trim();
+    filterTable(query);
+    clearBtn.style.display = query.length > 0 ? '' : 'none';
+});
+
+input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        input.blur();
+    }
+});
+
+clearBtn.addEventListener('click', function() {
+    input.value = '';
+    filterTable('');
+    clearBtn.style.display = 'none';
+    input.focus();
+});
+
+// On page load, if search has value, filter
+if (input.value.trim().length > 0) {
+    filterTable(input.value.trim());
+    clearBtn.style.display = '';
+}
+
+// Filter dropdown: apply filters immediately and keep open until click outside or Escape
+const filterForm = document.getElementById('filterForm');
+const filterDropdown = document.getElementById('filterDropdown');
+const filterMenu = filterForm.closest('.dropdown-menu');
+
+// Prevent dropdown from closing on click inside
+filterMenu.addEventListener('click', function(e) {
+    e.stopPropagation();
+});
+
+// Keep dropdown open until click outside or Escape
+filterDropdown.addEventListener('click', function(e) {
+    setTimeout(() => {
+        filterMenu.classList.add('show');
+    }, 0);
+});
+
+document.addEventListener('click', function(e) {
+    if (!filterMenu.contains(e.target) && !filterDropdown.contains(e.target)) {
+        filterMenu.classList.remove('show');
+    }
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        filterMenu.classList.remove('show');
+    }
+});
+
+// Listen for HTMX after-swap events to reapply search filter if needed
+document.addEventListener('htmx:afterSwap', function(event) {
+    if (event.target.id === 'clergyTableBody' && input.value.trim().length > 0) {
+        // Reapply the current search filter after HTMX updates the table
+        setTimeout(() => {
+            filterTable(input.value.trim());
+        }, 10);
+    }
+});
+</script>
 {% endblock %} 

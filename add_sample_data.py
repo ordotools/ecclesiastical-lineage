@@ -6,86 +6,123 @@ Script to add sample clergy data with relationships for testing the lineage visu
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from app import app, db, Clergy
 from datetime import datetime
 
 def add_sample_data():
-    """Add sample clergy data with relationships."""
-    
+    from app import app, db, Clergy  # Import inside function to avoid circular import
+    """Add sample clergy data for the Roman Catholic Institute."""
     with app.app_context():
-        # Clear existing data
         Clergy.query.delete()
         db.session.commit()
-        
-        print("Adding sample clergy data...")
-        
-        # Create clergy members
-        bishop1 = Clergy(
-            name="Bishop John Smith",
+
+        # Bishops (from https://romancatholicinstitute.org/about/)
+        bishop_sanborn = Clergy(
+            name="Donald J. Sanborn",
             rank="Bishop",
-            organization="Anglican Church",
-            date_of_birth=datetime.strptime('1950-01-15', '%Y-%m-%d').date(),
-            date_of_consecration=datetime.strptime('1990-06-10', '%Y-%m-%d').date()
+            organization="Roman Catholic Institute",
+            notes="Superior General, Rector of Most Holy Trinity Seminary"
         )
-        
-        bishop2 = Clergy(
-            name="Bishop Mary Johnson",
-            rank="Bishop", 
-            organization="Anglican Church",
-            date_of_birth=datetime.strptime('1960-03-20', '%Y-%m-%d').date(),
-            date_of_ordination=datetime.strptime('1985-05-15', '%Y-%m-%d').date(),
-            ordaining_bishop_id=None,  # Will be set after creation
-            date_of_consecration=datetime.strptime('1995-09-20', '%Y-%m-%d').date(),
-            consecrator_id=None  # Will be set after creation
+        bishop_selway = Clergy(
+            name="Joseph Selway",
+            rank="Bishop",
+            organization="Roman Catholic Institute",
+            notes="Consecrated by Donald Sanborn on February 22, 2018"
         )
-        
-        priest1 = Clergy(
-            name="Father Robert Brown",
+        bishop_fliess = Clergy(
+            name="Germán Fliess",
+            rank="Bishop",
+            organization="Roman Catholic Institute",
+            notes="Consecrated by Donald Sanborn in 2022"
+        )
+
+        # Priests (from <h3 class="fl-callout-title"><span class="fl-callout-title-text">Name</span></h3> blocks)
+        priest_desposito = Clergy(
+            name="Nicolás E. Despósito",
             rank="Priest",
-            organization="Anglican Church", 
-            date_of_birth=datetime.strptime('1970-07-10', '%Y-%m-%d').date(),
-            date_of_ordination=datetime.strptime('1995-12-01', '%Y-%m-%d').date(),
-            ordaining_bishop_id=None,  # Will be set after creation
-            date_of_consecration=datetime.strptime('2010-03-15', '%Y-%m-%d').date(),
-            consecrator_id=None,  # Will be set after creation
-            co_consecrators=None  # Will be set after creation
+            organization="Roman Catholic Institute",
+            notes="Professor at Most Holy Trinity Seminary"
         )
-        
-        # Add to database
-        db.session.add(bishop1)
-        db.session.add(bishop2)
-        db.session.add(priest1)
+        priest_palma = Clergy(
+            name="Federico Palma",
+            rank="Priest",
+            organization="Roman Catholic Institute",
+            notes="Pastor of RCI chapels in Australia"
+        )
+        priest_trytek = Clergy(
+            name="Ojciec Rafal Trytek",
+            rank="Priest",
+            organization="Roman Catholic Institute",
+            notes="Krakow, Poland; joined RCI in 2017"
+        )
+        priest_eldracher = Clergy(
+            name="Philip A. Eldracher",
+            rank="Priest",
+            organization="Roman Catholic Institute",
+            notes="Assistant Pastor in Australia"
+        )
+        priest_dutertre = Clergy(
+            name="Damien Dutertre",
+            rank="Priest",
+            organization="Roman Catholic Institute",
+            notes="Teaches Dogmatic Theology, Nantes, France"
+        )
+        priest_petrizzi = Clergy(
+            name="Luke Petrizzi",
+            rank="Priest",
+            organization="Roman Catholic Institute",
+            notes="Teaches Church History and Latin at MHT Seminary"
+        )
+        priest_delachanonie = Clergy(
+            name="Henry de La Chanonie",
+            rank="Priest",
+            organization="Roman Catholic Institute",
+            notes="Pastoral work in Nantes, France"
+        )
+        priest_desaye = Clergy(
+            name="Michael DeSaye",
+            rank="Priest",
+            organization="Roman Catholic Institute",
+            notes="Associate at Queen of All Saints Chapel, Brooksville, FL"
+        )
+        priest_bayer = Clergy(
+            name="Tobias Bayer",
+            rank="Priest",
+            organization="Roman Catholic Institute",
+            notes="Secretary to Bishop Sanborn"
+        )
+        priest_barnes = Clergy(
+            name="Gregory Barnes",
+            rank="Priest",
+            organization="Roman Catholic Institute",
+            notes="Teaches at Queen of All Saints Academy, assists at chapels in FL and AZ"
+        )
+        priest_gilchrist = Clergy(
+            name="Aedan Gilchrist",
+            rank="Priest",
+            organization="Roman Catholic Institute",
+            notes="Missions in British Isles, assists in Nantes, France"
+        )
+        priest_marshall = Clergy(
+            name="James Marshall",
+            rank="Priest",
+            organization="Roman Catholic Institute",
+            notes="Serves at Florida chapels, ordained by Bp. Fliess in 2024"
+        )
+
+        # Add all clergy to the session
+        db.session.add_all([
+            bishop_sanborn, bishop_selway, bishop_fliess,
+            priest_desposito, priest_palma, priest_trytek, priest_eldracher, priest_dutertre,
+            priest_petrizzi, priest_delachanonie, priest_desaye, priest_bayer, priest_barnes,
+            priest_gilchrist, priest_marshall
+        ])
         db.session.commit()
-        
-        # Now set up relationships
-        bishop2.ordaining_bishop_id = bishop1.id
-        bishop2.consecrator_id = bishop1.id
-        
-        priest1.ordaining_bishop_id = bishop2.id
-        priest1.consecrator_id = bishop2.id
-        priest1.set_co_consecrators([bishop1.id])  # Bishop1 co-consecrated with Bishop2
-        
+
+        # Relationships (example: Selway consecrated by Sanborn, Fliess by Sanborn, etc.)
+        bishop_selway.consecrator_id = bishop_sanborn.id
+        bishop_fliess.consecrator_id = bishop_sanborn.id
+        # Optionally, set ordaining_bishop_id for priests if known
         db.session.commit()
-        
-        print("Sample data added successfully!")
-        print(f"Created {Clergy.query.count()} clergy members")
-        
-        # Print the relationships
-        print("\nRelationships created:")
-        for clergy in Clergy.query.all():
-            print(f"- {clergy.name} ({clergy.rank})")
-            if clergy.ordaining_bishop_id:
-                ordaining = Clergy.query.get(clergy.ordaining_bishop_id)
-                print(f"  Ordained by: {ordaining.name} on {clergy.date_of_ordination}")
-            if clergy.consecrator_id:
-                consecrator = Clergy.query.get(clergy.consecrator_id)
-                print(f"  Consecrated by: {consecrator.name} on {clergy.date_of_consecration}")
-            if clergy.co_consecrators:
-                co_consecrators = clergy.get_co_consecrators()
-                for co_id in co_consecrators:
-                    co_consecrator = Clergy.query.get(co_id)
-                    print(f"  Co-consecrated by: {co_consecrator.name}")
 
 if __name__ == "__main__":
     add_sample_data() 

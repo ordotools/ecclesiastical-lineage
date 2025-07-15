@@ -223,6 +223,61 @@ def add_abbreviation_column():
     except Exception as e:
         print(f"Error during abbreviation migration: {e}")
 
+def migrate_date_of_death():
+    """Add date_of_death column to clergy table if it doesn't exist."""
+    
+    # Database file path
+    db_path = 'instance/ecclesiastical_lineage.db'
+    
+    # Check if database file exists
+    if not os.path.exists(db_path):
+        print(f"Database file not found at {db_path}")
+        print("Please run the application first to create the database.")
+        return False
+    
+    try:
+        # Connect to the database
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Check if date_of_death column already exists
+        cursor.execute("PRAGMA table_info(clergy)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        if 'date_of_death' in columns:
+            print("Column 'date_of_death' already exists in clergy table.")
+            return True
+        
+        # Add the date_of_death column
+        print("Adding date_of_death column to clergy table...")
+        cursor.execute("ALTER TABLE clergy ADD COLUMN date_of_death DATE")
+        
+        # Commit the changes
+        conn.commit()
+        print("Successfully added date_of_death column to clergy table.")
+        
+        # Verify the column was added
+        cursor.execute("PRAGMA table_info(clergy)")
+        columns = [column[1] for column in cursor.fetchall()]
+        if 'date_of_death' in columns:
+            print("Verification: date_of_death column is now present in clergy table.")
+        else:
+            print("Warning: date_of_death column was not found after addition.")
+            return False
+        
+        return True
+        
+    except sqlite3.Error as e:
+        print(f"SQLite error: {e}")
+        return False
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
 if __name__ == '__main__':
     migrate_database()
-    add_abbreviation_column() 
+    add_abbreviation_column()
+    migrate_date_of_death() 

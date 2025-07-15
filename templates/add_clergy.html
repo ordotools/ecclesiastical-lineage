@@ -3,29 +3,7 @@
 {% block title %}Add Clergy - Ecclesiastical Lineage{% endblock %}
 
 {% block full_content %}
-    <nav class="navbar navbar-expand-lg navbar-light">
-        <div class="container">
-            <a class="navbar-brand fw-bold text-primary" href="{{ url_for('dashboard') }}">Ecclesiastical Lineage</a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text me-3">
-                    Welcome, <strong>{{ session.username }}</strong>
-                    {% if session.is_admin %}
-                        <span class="badge bg-primary ms-2">Admin</span>
-                    {% endif %}
-                </span>
-                <a href="#" 
-                   class="logout-link text-danger fw-bold ms-3"
-                   style="text-decoration: underline; cursor: pointer;"
-                   hx-get="{{ url_for('logout') }}"
-                   hx-target="body"
-                   hx-push-url="true">
-                    Logout
-                </a>
-            </div>
-        </div>
-    </nav>
-
-            <div class="container mt-4">
+    <div class="container mt-4">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h2 mb-0">{% if edit_mode %}Edit Clergy{% else %}Add New Clergy{% endif %}</h1>
@@ -62,20 +40,31 @@
                         
                         <div class="mb-3">
                             <label for="organization" class="form-label">Organization</label>
-                            <select class="form-select" id="organization" name="organization">
-                                <option value="">Select Organization (Optional)</option>
-                                {% for organization in organizations %}
-                                    <option value="{{ organization.name }}" {% if edit_mode and clergy.organization == organization.name %}selected{% endif %}>
-                                        {{ organization.name }}{% if organization.abbreviation %} ({{ organization.abbreviation }}){% endif %}{% if organization.description %} - {{ organization.description }}{% endif %}
-                                    </option>
-                                {% endfor %}
-                            </select>
+                            <div class="input-group">
+                                <select class="form-select" id="organization" name="organization">
+                                    <option value="">Select Organization (Optional)</option>
+                                    {% for organization in organizations %}
+                                        <option value="{{ organization.name }}" {% if edit_mode and clergy.organization == organization.name %}selected{% endif %}>
+                                            {{ organization.name }}{% if organization.abbreviation %} ({{ organization.abbreviation }}){% endif %}{% if organization.description %} - {{ organization.description }}{% endif %}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button" onclick="openAddOrganizationModal()">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
                         </div>
                         
                         <div class="mb-3">
                             <label for="date_of_birth" class="form-label">Date of Birth</label>
                             <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
                                    value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_birth else '' }}">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="date_of_death" class="form-label">Date of Death</label>
+                            <input type="date" class="form-control" id="date_of_death" name="date_of_death" 
+                                   value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_death else '' }}">
                         </div>
                     </div>
                     
@@ -166,59 +155,170 @@
             </form>
         </div>
     </div>
+
+    <!-- Add Organization Modal -->
+    <div class="modal fade" id="addOrganizationModal" tabindex="-1" aria-labelledby="addOrganizationModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addOrganizationModalLabel">Add New Organization</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addOrganizationForm">
+                        <div class="mb-3">
+                            <label for="new-organization-name" class="form-label">Organization Name *</label>
+                            <input type="text" class="form-control" id="new-organization-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new-organization-abbreviation" class="form-label">Abbreviation</label>
+                            <input type="text" class="form-control" id="new-organization-abbreviation" placeholder="Optional short code">
+                        </div>
+                        <div class="mb-3">
+                            <label for="new-organization-description" class="form-label">Description</label>
+                            <textarea class="form-control" id="new-organization-description" rows="3" placeholder="Optional description"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="addOrganization()">Add Organization</button>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block extra_styles %}
-<style>
-    .co-consecrators-container {
-        position: relative;
-    }
-    
-    .co-consecrators-container .dropdown-menu {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        z-index: 1000;
-        border: 1px solid #dee2e6;
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    }
-    
-    .co-consecrators-container .dropdown-item {
-        padding: 0.5rem 1rem;
-        cursor: pointer;
-    }
-    
-    .co-consecrators-container .dropdown-item:hover {
-        background-color: #f8f9fa;
-    }
-    
-    .co-consecrators-container .badge {
-        cursor: default;
-    }
-    
-    .co-consecrators-container .btn-close {
-        padding: 0;
-        margin: 0;
-        background-size: 0.5rem;
-    }
-    
-    .co-consecrators-container .btn-close:hover {
-        background-color: rgba(255, 255, 255, 0.3);
-    }
-</style>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-    // Auto-hide flash messages after 5 seconds
-    setTimeout(function() {
-        const alerts = document.querySelectorAll('.alert');
-        alerts.forEach(function(alert) {
-            const bsAlert = new bootstrap.Alert(alert);
-            bsAlert.close();
+    // Auto-hide flash messages after 5 seconds (handled by notification system)
+
+    // Organization management functions
+    function openAddOrganizationModal() {
+        const modal = new bootstrap.Modal(document.getElementById('addOrganizationModal'));
+        modal.show();
+    }
+
+    function addOrganization() {
+        const nameInput = document.getElementById('new-organization-name');
+        const abbrInput = document.getElementById('new-organization-abbreviation');
+        const descInput = document.getElementById('new-organization-description');
+        
+        const orgName = nameInput.value.trim();
+        const abbreviation = abbrInput.value.trim();
+        const description = descInput.value.trim();
+        
+        if (!orgName) {
+            showMessage('Please enter an organization name.', 'error');
+            return;
+        }
+        
+        fetch('/metadata/organization/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: orgName,
+                abbreviation: abbreviation,
+                description: description
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage(data.message, 'success');
+                
+                // Add the new organization to the dropdown
+                const organizationSelect = document.getElementById('organization');
+                const newOption = document.createElement('option');
+                newOption.value = data.organization.name;
+                newOption.textContent = data.organization.name;
+                if (data.organization.abbreviation) {
+                    newOption.textContent += ` (${data.organization.abbreviation})`;
+                }
+                if (data.organization.description) {
+                    newOption.textContent += ` - ${data.organization.description}`;
+                }
+                organizationSelect.appendChild(newOption);
+                
+                // Select the newly added organization
+                organizationSelect.value = data.organization.name;
+                
+                // Clear the form
+                nameInput.value = '';
+                abbrInput.value = '';
+                descInput.value = '';
+                
+                // Close the modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addOrganizationModal'));
+                modal.hide();
+            } else {
+                showMessage(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            showMessage('Error adding organization. Please try again.', 'error');
+            console.error('Error:', error);
         });
-    }, 5000);
+    }
+
+    function showMessage(message, type) {
+        // Create notification element using the existing glass-morphism system
+        const notificationDiv = document.createElement('div');
+        notificationDiv.className = `notification notification-${type === 'error' ? 'danger' : type}`;
+        notificationDiv.innerHTML = `
+            <div class="notification-content">
+                <span class="notification-message">${message}</span>
+                <button type="button" class="notification-close" onclick="dismissNotification(this)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        // Find or create notification container
+        let container = document.getElementById('notification-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'notification-container';
+            container.className = 'notification-container';
+            document.body.appendChild(container);
+        }
+        
+        // Add notification to container
+        container.appendChild(notificationDiv);
+        
+        // Trigger show animation
+        setTimeout(() => {
+            notificationDiv.classList.add('show');
+        }, 10);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notificationDiv.parentNode) {
+                notificationDiv.classList.add('hide');
+                setTimeout(() => {
+                    if (notificationDiv.parentNode) {
+                        notificationDiv.remove();
+                    }
+                }, 300);
+            }
+        }, 5000);
+    }
+
+    // Add the dismissNotification function if it doesn't exist
+    function dismissNotification(closeButton) {
+        const notification = closeButton.closest('.notification');
+        if (notification) {
+            notification.classList.add('hide');
+            setTimeout(function() {
+                notification.remove();
+            }, 300);
+        }
+    }
 
     // Co-consecrators functionality
     document.addEventListener('DOMContentLoaded', function() {
@@ -356,6 +456,44 @@
                 addButton.click();
             }
         });
+
+        // Add keyboard event handlers for the organization modal
+        const addOrganizationModal = document.getElementById('addOrganizationModal');
+        if (addOrganizationModal) {
+            addOrganizationModal.addEventListener('shown.bs.modal', function() {
+                document.getElementById('new-organization-name').focus();
+            });
+            
+            // Enter key to add organization
+            document.getElementById('new-organization-name').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addOrganization();
+                }
+            });
+            
+            document.getElementById('new-organization-abbreviation').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addOrganization();
+                }
+            });
+            
+            document.getElementById('new-organization-description').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addOrganization();
+                }
+            });
+            
+            // Escape key to cancel
+            addOrganizationModal.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const modal = bootstrap.Modal.getInstance(addOrganizationModal);
+                    modal.hide();
+                }
+            });
+        }
     });
 </script>
 {% endblock %} 

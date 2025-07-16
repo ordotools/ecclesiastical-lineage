@@ -11,6 +11,10 @@
         <a class="nav-link px-2" href="#" title="Logout" hx-get="{{ url_for('logout') }}" hx-target="body" hx-push-url="true">
           <i class="fas fa-sign-out-alt fa-lg"></i>
         </a>
+      {% else %}
+        <a class="nav-link px-2" href="{{ url_for('login') }}" title="Login">
+          <i class="fas fa-sign-in-alt fa-lg"></i>
+        </a>
       {% endif %}
     </div>
   </div>

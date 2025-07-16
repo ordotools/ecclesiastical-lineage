@@ -3,47 +3,52 @@
 {% block title %}Lineage Visualization - Ecclesiastical Lineage{% endblock %}
 
 {% block full_content %}
-    <!-- Legend and controls remain unchanged -->
-    <div class="container mt-4">
-        <!-- Legend -->
-        <div class="legend position-absolute top-0 start-0 m-3 p-3 glass-morphism rounded legend-visualization">
-            <h6 class="fw-bold mb-2 text-dark">Lineage Types</h6>
-            <div class="d-flex align-items-center mb-2">
-                <div style="width: 20px; height: 2px; background: #000000; margin-right: 8px;"></div>
-                <small class="text-dark">Ordination</small>
-            </div>
-            <div class="d-flex align-items-center mb-2">
-                <div style="width: 20px; height: 2px; background: #27ae60; margin-right: 8px;"></div>
-                <small class="text-dark">Consecration</small>
-            </div>
-            <div class="d-flex align-items-center mb-2">
-                <div style="width: 20px; height: 2px; background: #27ae60; border-top: 2px dotted #27ae60; margin-right: 8px;"></div>
-                <small class="text-dark">Co-consecration</small>
-            </div>
+<div class="full-viewport-container">
+    <!-- Legend -->
+    <div class="legend-visualization">
+        <h6 class="fw-bold mb-2 text-dark">Lineage Types</h6>
+        <div class="d-flex align-items-center mb-2">
+            <div style="width: 20px; height: 2px; background: #000000; margin-right: 8px;"></div>
+            <small class="text-dark">Ordination</small>
         </div>
-
-        <!-- Controls -->
-        <div class="controls position-absolute top-0 end-0 m-3 p-3 glass-morphism rounded visualization-controls">
-            <button id="reset-zoom" class="btn btn-sm btn-outline-secondary mb-2 w-100">
-                <i class="fas fa-search-plus me-1"></i>Reset Zoom
-            </button>
-            <button id="center-graph" class="btn btn-sm btn-outline-secondary w-100">
-                <i class="fas fa-crosshairs me-1"></i>Center Graph
-            </button>
+        <div class="d-flex align-items-center mb-2">
+            <div style="width: 20px; height: 2px; background: #27ae60; margin-right: 8px;"></div>
+            <small class="text-dark">Consecration</small>
         </div>
-
-        <!-- Admin Navigation Button -->
-        {% if session.is_admin %}
-        <div class="position-absolute bottom-0 end-0 m-3 admin-nav-container">
-            <a href="{{ url_for('clergy_list') }}" class="btn admin-nav-btn">
-                <i class="fas fa-list me-2"></i>Back to Clergy List
-            </a>
+        <div class="d-flex align-items-center mb-2">
+            <div style="width: 20px; height: 2px; background: #27ae60; border-top: 2px dotted #27ae60; margin-right: 8px;"></div>
+            <small class="text-dark">Co-consecration</small>
         </div>
-        {% endif %}
-
-        <!-- Graph Container -->
-        <div id="graph-container" class="graph-container-full"></div>
     </div>
+
+    <!-- Controls -->
+    <div class="visualization-controls">
+        <button id="reset-zoom" class="btn btn-sm btn-outline-secondary mb-2 w-100">
+            <i class="fas fa-search-plus me-1"></i>Reset Zoom
+        </button>
+        <button id="center-graph" class="btn btn-sm btn-outline-secondary w-100">
+            <i class="fas fa-crosshairs me-1"></i>Center Graph
+        </button>
+    </div>
+
+    <!-- Admin Navigation Button -->
+    {% if session.is_admin %}
+    <div class="admin-nav-container">
+        <a href="{{ url_for('clergy_list') }}" class="btn admin-nav-btn">
+            <i class="fas fa-list me-2"></i>Back to Clergy List
+        </a>
+    </div>
+    {% elif session.user_id %}
+    <div class="admin-nav-container">
+        <a href="{{ url_for('dashboard') }}" class="btn admin-nav-btn">
+            <i class="fas fa-tachometer-alt me-2"></i>Back to Dashboard
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Graph Container -->
+    <div id="graph-container" class="graph-container-full"></div>
+</div>
 {% endblock %}
 
 {% block extra_styles %}
@@ -278,8 +283,6 @@
                 const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
                 return d.target.y + offsetY;
             });
-
-
 
         node
             .attr("cx", d => d.x)

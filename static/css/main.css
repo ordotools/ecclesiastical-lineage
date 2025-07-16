@@ -1052,3 +1052,68 @@ strong, .table th {
     left: 24px;
     z-index: 1050;
 } 
+
+/* === Lineage Visualization Fullscreen Layout Fixes === */
+.full-viewport-container {
+  min-height: calc(100vh - 76px); /* 76px = navbar height */
+  width: 100vw;
+  position: relative;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden;
+}
+
+.graph-container-full {
+  width: 100%;
+  height: calc(100vh - 76px);
+  position: relative;
+}
+
+.legend-visualization {
+  position: fixed !important;
+  top: 76px !important; /* Push below navbar */
+  left: 12px !important;
+  z-index: 1050;
+  min-width: 200px;
+  background: linear-gradient(135deg, 
+    rgba(252, 250, 245, 0.8) 0%, 
+    rgba(248, 246, 240, 0.7) 100%);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(189, 195, 199, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.visualization-controls {
+  position: fixed !important;
+  top: 76px !important; /* Push below navbar */
+  right: 12px !important;
+  z-index: 1050;
+  background: linear-gradient(135deg, 
+    rgba(252, 250, 245, 0.8) 0%, 
+    rgba(248, 246, 240, 0.7) 100%);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(189, 195, 199, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.admin-nav-container {
+  position: fixed !important;
+  bottom: 12px !important;
+  right: 12px !important;
+  z-index: 1050;
+}
+
+@media (max-width: 768px) {
+  .full-viewport-container {
+    min-height: calc(100vh - 56px); /* Assume smaller navbar on mobile */
+  }
+  .graph-container-full {
+    height: calc(100vh - 56px);
+  }
+  .legend-visualization,
+  .visualization-controls {
+    top: 56px !important;
+  }
+} 

@@ -93,15 +93,13 @@ class AdminInvite(db.Model):
 
 @app.route('/')
 def index():
-    # Check if there are any users in the database
-    user_count = User.query.count()
-    
-    if user_count == 0:
-        # No users exist, redirect to signup
-        return redirect(url_for('signup'))
+    # Check if user is logged in
+    if 'user_id' in session:
+        # User is logged in, redirect to dashboard
+        return redirect(url_for('dashboard'))
     else:
-        # Users exist, redirect to login
-        return redirect(url_for('login'))
+        # User is not logged in, redirect to lineage visualization
+        return redirect(url_for('lineage_visualization'))
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -196,8 +194,8 @@ def logout():
     flash('You have been logged out.', 'info')
     if request.headers.get('HX-Request'):
         # Return a special response for HTMX to handle redirect
-        return '<div id="redirect" data-url="' + url_for('login') + '">logout</div>'
-    return redirect(url_for('login'))
+        return '<div id="redirect" data-url="' + url_for('lineage_visualization') + '">logout</div>'
+    return redirect(url_for('lineage_visualization'))
 
 @app.route('/clergy')
 def clergy_list():
@@ -686,10 +684,7 @@ def delete_organization(org_id):
 
 @app.route('/lineage')
 def lineage_visualization():
-    if 'user_id' not in session:
-        flash('Please log in to view lineage visualization.', 'error')
-        return redirect(url_for('login'))
-    
+    # Allow both logged-in and non-logged-in users to view lineage visualization
     # Get all clergy for the visualization
     all_clergy = Clergy.query.all()
     

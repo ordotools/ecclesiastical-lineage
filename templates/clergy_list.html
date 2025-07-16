@@ -24,7 +24,7 @@
     <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
         <!-- Filter Dropdown -->
         <div class="dropdown">
-            <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+            <button class="btn btn-outline-secondary dropdown-toggle filter-btn" type="button" id="filterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="fas fa-filter me-1"></i> Filters
             </button>
             <div class="dropdown-menu p-3 filter-dropdown-menu" aria-labelledby="filterDropdown">
@@ -63,62 +63,60 @@
     </div>
 
     {% if clergy_list %}
-        <div class="card">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table mb-0">
-                        <thead class="table-dark">
-                            <tr>
-                                <th class="table-header-small">Name</th>
-                                <th class="table-header-small">Rank</th>
-                                <th class="table-header-small">Organization</th>
-                                <th class="table-header-small">Ordination</th>
-                                <th class="table-header-small">Consecration</th>
-                                <th class="table-header-small">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="clergyTableBody">
-                            {% for clergy in clergy_list %}
-                            <tr>
-                                <td>
-                                    <strong>{{ clergy.name }}</strong>
-                                </td>
-                                <td>
-                                    <span class="badge bg-secondary">{{ clergy.rank }}</span>
-                                </td>
-                                <td>
-                                    {% if clergy.organization %}
-                                        {% if org_abbreviation_map.get(clergy.organization) %}
-                                            <span class="badge bg-info">{{ org_abbreviation_map.get(clergy.organization) }}</span>
-                                        {% else %}
-                                            {{ clergy.organization }}
-                                        {% endif %}
+        <div class="sticky-table-outer-card">
+            <!-- Table header (not scrollable) -->
+            <table class="table mb-0 sticky-table sticky-table-header">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="table-header-small name-col">Name</th>
+                        <th class="table-header-small org-col">Org.</th>
+                        <th class="table-header-small">Ordination</th>
+                        <th class="table-header-small">Consecration</th>
+                        <!-- Removed Actions column header -->
+                    </tr>
+                </thead>
+            </table>
+            <!-- Scrollable table body -->
+            <div class="sticky-table-container">
+                <table class="table mb-0 sticky-table sticky-table-body">
+                    <tbody id="clergyTableBody">
+                        {% for clergy in clergy_list %}
+                        <tr>
+                            <td class="name-col">
+                                <strong>{{ clergy.display_name }}</strong>
+                            </td>
+                            <td class="org-col">
+                                {% if clergy.organization %}
+                                    {% if org_abbreviation_map.get(clergy.organization) %}
+                                        <span class="badge bg-info">{{ org_abbreviation_map.get(clergy.organization) }}</span>
                                     {% else %}
-                                        -
+                                        {{ clergy.organization }}
                                     {% endif %}
-                                </td>
-                                <td>{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '-' }}</td>
-                                <td>{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else '-' }}</td>
-                                <td>
-                                    <div class="clergy-action-group">
-                                        <a href="{{ url_for('view_clergy', clergy_id=clergy.id) }}" class="clergy-action-btn view">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                        <a href="{{ url_for('edit_clergy', clergy_id=clergy.id) }}" class="clergy-action-btn edit">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                        <form action="{{ url_for('delete_clergy', clergy_id=clergy.id) }}" method="post" style="display:inline;" class="action-form-inline">
-                                            <button type="submit" class="clergy-action-btn delete" onclick="return confirm('Are you sure you want to delete this clergy record?');">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '-' }}</td>
+                            <td>{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else '-' }}</td>
+                            <td>
+                                <div class="clergy-action-group">
+                                    <a href="{{ url_for('view_clergy', clergy_id=clergy.id) }}" class="clergy-action-btn view">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('edit_clergy', clergy_id=clergy.id) }}" class="clergy-action-btn edit">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form action="{{ url_for('delete_clergy', clergy_id=clergy.id) }}" method="post" style="display:inline;" class="action-form-inline">
+                                        <button type="submit" class="clergy-action-btn delete" onclick="return confirm('Are you sure you want to delete this clergy record?');">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     {% else %}
@@ -152,7 +150,7 @@ const clearBtn = document.getElementById('clearSearchBtn');
 function getCurrentClergyNames() {
     const rows = document.querySelectorAll('#clergyTableBody tr');
     return Array.from(rows).map(row => {
-        const nameElement = row.querySelector('td strong');
+        const nameElement = row.querySelector('td.name-col strong');
         return nameElement ? nameElement.textContent : '';
     }).filter(name => name.length > 0);
 }
@@ -178,7 +176,7 @@ function filterTable(query) {
     const matches = new Set(results.map(r => r.item));
     
     clergyRows.forEach(row => {
-        const name = row.querySelector('td strong').textContent;
+        const name = row.querySelector('td.name-col strong').textContent;
         row.style.display = matches.has(name) ? '' : 'none';
     });
 }
@@ -196,56 +194,39 @@ input.addEventListener('keydown', function(e) {
     }
 });
 
-clearBtn.addEventListener('click', function() {
-    input.value = '';
-    filterTable('');
-    clearBtn.style.display = 'none';
-    input.focus();
-});
-
-// On page load, if search has value, filter
-if (input.value.trim().length > 0) {
-    filterTable(input.value.trim());
-    clearBtn.style.display = '';
+// Dynamically set the width of the name column to fit the longest name
+function setNameColumnWidth() {
+    const nameCells = document.querySelectorAll('td.name-col strong');
+    let maxWidth = 0;
+    nameCells.forEach(cell => {
+        // Create a temporary span to measure width
+        const span = document.createElement('span');
+        span.style.visibility = 'hidden';
+        span.style.position = 'absolute';
+        span.style.whiteSpace = 'nowrap';
+        span.style.font = window.getComputedStyle(cell).font;
+        span.textContent = cell.textContent;
+        document.body.appendChild(span);
+        maxWidth = Math.max(maxWidth, span.offsetWidth);
+        document.body.removeChild(span);
+    });
+    // Add some padding
+    maxWidth += 32;
+    // Set the width for all name-col cells and header
+    document.querySelectorAll('th.name-col, td.name-col').forEach(el => {
+        el.style.width = maxWidth + 'px';
+        el.style.maxWidth = maxWidth + 'px';
+    });
 }
 
-// Filter dropdown: apply filters immediately and keep open until click outside or Escape
-const filterForm = document.getElementById('filterForm');
-const filterDropdown = document.getElementById('filterDropdown');
-const filterMenu = filterForm.closest('.dropdown-menu');
-
-// Prevent dropdown from closing on click inside
-filterMenu.addEventListener('click', function(e) {
-    e.stopPropagation();
-});
-
-// Keep dropdown open until click outside or Escape
-filterDropdown.addEventListener('click', function(e) {
-    setTimeout(() => {
-        filterMenu.classList.add('show');
-    }, 0);
-});
-
-document.addEventListener('click', function(e) {
-    if (!filterMenu.contains(e.target) && !filterDropdown.contains(e.target)) {
-        filterMenu.classList.remove('show');
-    }
-});
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        filterMenu.classList.remove('show');
-    }
-});
-
-// Listen for HTMX after-swap events to reapply search filter if needed
+window.addEventListener('DOMContentLoaded', setNameColumnWidth);
+window.addEventListener('resize', setNameColumnWidth);
 document.addEventListener('htmx:afterSwap', function(event) {
-    if (event.target.id === 'clergyTableBody' && input.value.trim().length > 0) {
-        // Reapply the current search filter after HTMX updates the table
-        setTimeout(() => {
-            filterTable(input.value.trim());
-        }, 10);
+    if (event.target.id === 'clergyTableBody') {
+        setNameColumnWidth();
     }
 });
+// If using HTMX or AJAX to update table, call setNameColumnWidth() after update
+
 </script>
 {% endblock %} 

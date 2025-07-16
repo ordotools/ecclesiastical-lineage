@@ -1,12 +1,9 @@
 {% for clergy in clergy_list %}
 <tr>
-    <td>
-        <strong>{{ clergy.name }}</strong>
+    <td class="name-col">
+        <strong>{{ clergy.display_name }}</strong>
     </td>
-    <td>
-        <span class="badge bg-secondary">{{ clergy.rank }}</span>
-    </td>
-    <td>
+    <td class="org-col">
         {% if clergy.organization %}
             {% if org_abbreviation_map.get(clergy.organization) %}
                 <span class="badge bg-info">{{ org_abbreviation_map.get(clergy.organization) }}</span>

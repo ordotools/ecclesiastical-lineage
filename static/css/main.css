@@ -1034,7 +1034,12 @@ strong, .table th {
     z-index: 2;
 }
 .table-header-small {
-    font-size: 0.875rem;
+  background: #f8f6f0 !important;
+  font-size: 0.89rem !important;
+  font-weight: 700 !important;
+  color: #2c3e50 !important;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid #e0e0e0;
 }
 .table-header-strong {
     font-size: 0.97rem;
@@ -1116,4 +1121,153 @@ strong, .table th {
   .visualization-controls {
     top: 56px !important;
   }
+} 
+
+/* === Sticky header, scrollable body for clergy table (full height card style) === */
+.sticky-table-outer-card {
+  margin-bottom: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(44, 62, 80, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  padding: 0;
+  position: relative;
+  max-height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.sticky-table-header {
+  border-radius: 16px 16px 0 0;
+  margin-bottom: 0;
+  font-size: 0.95rem;
+  box-shadow: none;
+}
+.sticky-table-header thead th {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  font-size: 0.95rem;
+  border-bottom: 1px solid rgba(189, 195, 199, 0.4);
+}
+.sticky-table-header {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.sticky-table-container {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  border-radius: 0 0 16px 16px;
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  height: 100%;
+  padding: 0;
+}
+.sticky-table-body {
+  border-radius: 0 0 16px 16px;
+  margin-top: 0;
+  box-shadow: none;
+}
+.sticky-table-body thead th {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.sticky-table-body tbody tr:first-child td {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.sticky-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.sticky-table tbody {
+  display: block;
+  height: calc(100% - 42px);
+  overflow-y: auto;
+  width: 100%;
+}
+.sticky-table thead, .sticky-table tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+.sticky-table td, .sticky-table th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 768px) {
+  .sticky-table-outer-card {
+    height: calc(100vh - 56px - 1rem);
+    border-radius: 10px;
+    margin-bottom: 1rem;
+  }
+  .sticky-table-header {
+    border-radius: 10px 10px 0 0;
+  }
+  .sticky-table-container, .sticky-table-body {
+    border-radius: 0 0 10px 10px;
+  }
+} 
+
+/* Ensure the name column in the clergy table always fits the longest name */
+.sticky-table th.table-header-small.name-col,
+.sticky-table td.name-col {
+    white-space: nowrap;
+    width: 1%;
+    max-width: 400px;
+} 
+
+/* Make the Org. column very small and truncate overflow */
+.sticky-table th.table-header-small.org-col,
+.sticky-table td.org-col {
+    width: 60px;
+    max-width: 80px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+} 
+
+.form-control.search-input-wide, .btn-outline-secondary.filter-btn {
+    height: 48px;
+    min-height: 48px;
+    box-sizing: border-box;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    font-size: var(--fluid-0);
+} 
+
+/* Hide action buttons by default and show as overlay on row hover */
+.clergy-action-group {
+    position: absolute;
+    right: 12px;
+    top: 8px;
+    bottom: 8px;
+    height: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, right 0.2s;
+    background: rgba(255,255,255,0.95);
+    box-shadow: 0 2px 8px rgba(44,62,80,0.08);
+    border-radius: 6px;
+    padding: 2px 6px;
+    z-index: 10;
+}
+
+td:last-child {
+    position: relative;
+    min-width: 80px;
+    width: 1%;
+    padding-right: 48px;
+    background: transparent;
+    overflow: visible;
+}
+
+td:last-child:hover .clergy-action-group,
+tr:hover td:last-child .clergy-action-group {
+    opacity: 1;
+    pointer-events: auto;
+    right: 12px;
 } 

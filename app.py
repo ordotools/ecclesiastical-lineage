@@ -244,6 +244,15 @@ def clergy_list():
 
     clergy_list = query.all()
 
+    # Prefix names based on rank
+    for clergy in clergy_list:
+        if clergy.rank.lower() == 'bishop':
+            clergy.display_name = f"Most. Rev. {clergy.name}"
+        elif clergy.rank.lower() == 'priest':
+            clergy.display_name = f"Rev. {clergy.name}"
+        else:
+            clergy.display_name = clergy.name
+
     # Get all organizations for the filter dropdown
     organizations = Organization.query.order_by(Organization.name).all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
@@ -282,6 +291,16 @@ def clergy_filter_partial():
     if search:
         query = query.filter(Clergy.name.ilike(f'%{search}%'))
     clergy_list = query.all()
+
+    # Prefix names based on rank
+    for clergy in clergy_list:
+        if clergy.rank.lower() == 'bishop':
+            clergy.display_name = f"Most. Rev. {clergy.name}"
+        elif clergy.rank.lower() == 'priest':
+            clergy.display_name = f"Rev. {clergy.name}"
+        else:
+            clergy.display_name = clergy.name
+
     organizations = Organization.query.order_by(Organization.name).all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
     return render_template('clergy_table_body.html', clergy_list=clergy_list, org_abbreviation_map=org_abbreviation_map)

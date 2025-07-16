@@ -6,11 +6,19 @@ import os
 import json
 from add_sample_data import add_sample_data
 from uuid import uuid4
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecclesiastical_lineage.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///ecclesiastical_lineage.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Handle SQLite database URL for Render (convert postgres:// to sqlite:// if needed)
+if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
+    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://', 1)
 
 db = SQLAlchemy(app)
 

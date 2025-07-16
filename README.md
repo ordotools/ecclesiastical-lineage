@@ -1,73 +1,88 @@
-# Ecclesiastical Lineage - Flask Application
+# Ecclesiastical Lineage
 
-A Flask web application with admin user management. The first user to sign up becomes the admin, and subsequent users can only log in.
+A Flask web application for tracking and visualizing ecclesiastical lineages and ordination relationships.
 
 ## Features
 
-- **First User Admin**: The first user to sign up automatically becomes an admin
-- **Secure Authentication**: Password hashing and session management
-- **Modern UI**: Beautiful, responsive interface with Bootstrap 5
-- **HTMX Integration**: Dynamic interactions without full page reloads
-- **SQLite Database**: Simple file-based database for user storage
+- User authentication and authorization
+- Clergy record management
+- Lineage visualization with D3.js
+- Metadata management for ranks and organizations
+- Admin user management with invite system
 
-## Setup Instructions
+## Local Development
 
-1. **Install Dependencies**:
+1. Clone the repository
+2. Create a virtual environment:
+   ```bash
+   python -m venv env
+   source env/bin/activate  # On Windows: env\Scripts\activate
+   ```
+3. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-
-2. **Run the Application**:
+4. Set up environment variables (copy from `env.example`):
+   ```bash
+   cp env.example .env
+   # Edit .env with your configuration
+   ```
+5. Run the application:
    ```bash
    python app.py
    ```
+6. Visit `http://localhost:5000`
 
-3. **Access the Application**:
-   - Open your browser and go to `http://localhost:5000`
-   - If no users exist, you'll be redirected to the signup page
-   - Create your admin account with username and password
-   - After signup, you'll be redirected to login
-   - Log in to access the dashboard
+## Deployment on Render
 
-## Application Flow
+### Quick Deploy (Recommended)
 
-1. **First Visit**: If no users exist in the database, you'll see the signup page
-2. **Admin Creation**: The first user becomes an admin automatically
-3. **Subsequent Visits**: After the first user is created, only login is available
-4. **Dashboard**: Logged-in users see a personalized dashboard with their name
+1. Fork or push this repository to GitHub
+2. Go to [Render Dashboard](https://dashboard.render.com/)
+3. Click "New +" and select "Web Service"
+4. Connect your GitHub repository
+5. Configure the service:
+   - **Name**: `ecclesiastical-lineage` (or your preferred name)
+   - **Environment**: `Python 3`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn app:app`
+   - **Plan**: Free (for testing)
 
-## File Structure
+### Environment Variables
 
-```
-ecclesiastical-lineage/
-├── app.py                 # Main Flask application
-├── requirements.txt       # Python dependencies
-├── templates/            # HTML templates
-│   ├── base.html         # Base template with styling
-│   ├── signup.html       # Admin signup page
-│   ├── login.html        # Login page
-│   └── dashboard.html    # User dashboard
-└── ecclesiastical_lineage.db  # SQLite database (created automatically)
-```
+The following environment variables will be automatically set by Render:
+- `SECRET_KEY`: Automatically generated
+- `DATABASE_URL`: Uses SQLite by default
 
-## Security Features
+### Manual Deploy
 
-- Password hashing using Werkzeug
-- Session-based authentication
-- CSRF protection (built into Flask)
-- Secure password confirmation during signup
+If you prefer to use the `render.yaml` file:
 
-## HTMX Features
+1. Push your code to GitHub
+2. In Render Dashboard, click "New +" and select "Blueprint"
+3. Connect your repository
+4. Render will automatically detect and use the `render.yaml` configuration
 
-- **Dynamic Form Submission**: Forms submit without page reloads
-- **Loading Indicators**: Visual feedback during requests
-- **Flash Message Handling**: Automatic display and dismissal of messages
-- **Smart Redirects**: Seamless navigation after form submissions
-- **Error Handling**: Graceful error display and recovery
+## Database
 
-## Customization
+The application uses SQLite by default, which is suitable for testing and small deployments. For production use, consider:
 
-- Modify `app.py` to add new routes and functionality
-- Update templates in the `templates/` directory
-- Add new database models in the `User` class or create new models
-- Customize styling in the template files
+1. **PostgreSQL on Render**: Add a PostgreSQL service in Render and update the `DATABASE_URL`
+2. **External Database**: Use a managed database service and update the connection string
+
+## Testing with Real Users
+
+1. Deploy to Render using the instructions above
+2. Share the Render URL with your test users
+3. Monitor the application logs in the Render dashboard
+4. Use the admin features to manage users and data
+
+## Security Notes
+
+- Change the default secret key in production
+- Consider using HTTPS (handled automatically by Render)
+- Review and update security settings as needed for your use case
+
+## Support
+
+For issues or questions, please check the application logs in the Render dashboard or create an issue in the repository.

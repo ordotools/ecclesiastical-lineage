@@ -72,6 +72,7 @@ class Rank(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     description = db.Column(db.Text)
+    color = db.Column(db.String(7), nullable=False, default="#000000")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def __repr__(self):
@@ -82,6 +83,7 @@ class Organization(db.Model):
     name = db.Column(db.String(200), unique=True, nullable=False)
     abbreviation = db.Column(db.String(20), unique=True)  # Short code for the organization
     description = db.Column(db.Text)
+    color = db.Column(db.String(7), nullable=False, default="#27ae60")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def __repr__(self):
@@ -510,6 +512,7 @@ def add_rank():
     data = request.get_json()
     rank_name = data.get('name', '').strip()
     description = data.get('description', '').strip()
+    color = data.get('color', '#000000').strip() or '#000000'
     
     if not rank_name:
         return jsonify({'success': False, 'message': 'Rank name is required'}), 400
@@ -520,7 +523,7 @@ def add_rank():
         return jsonify({'success': False, 'message': 'Rank already exists'}), 400
     
     try:
-        new_rank = Rank(name=rank_name, description=description)
+        new_rank = Rank(name=rank_name, description=description, color=color)
         db.session.add(new_rank)
         db.session.commit()
         
@@ -530,7 +533,8 @@ def add_rank():
             'rank': {
                 'id': new_rank.id,
                 'name': new_rank.name,
-                'description': new_rank.description
+                'description': new_rank.description,
+                'color': new_rank.color
             }
         })
     except Exception as e:
@@ -546,6 +550,7 @@ def edit_rank(rank_id):
     data = request.get_json()
     rank_name = data.get('name', '').strip()
     description = data.get('description', '').strip()
+    color = data.get('color', '#000000').strip() or '#000000'
     
     if not rank_name:
         return jsonify({'success': False, 'message': 'Rank name is required'}), 400
@@ -559,6 +564,7 @@ def edit_rank(rank_id):
         old_name = rank.name
         rank.name = rank_name
         rank.description = description
+        rank.color = color
         db.session.commit()
         
         return jsonify({
@@ -567,7 +573,8 @@ def edit_rank(rank_id):
             'rank': {
                 'id': rank.id,
                 'name': rank.name,
-                'description': rank.description
+                'description': rank.description,
+                'color': rank.color
             }
         })
     except Exception as e:
@@ -606,6 +613,7 @@ def add_organization():
     org_name = data.get('name', '').strip()
     abbreviation = data.get('abbreviation', '').strip()
     description = data.get('description', '').strip()
+    color = data.get('color', '#27ae60').strip() or '#27ae60'
     
     if not org_name:
         return jsonify({'success': False, 'message': 'Organization name is required'}), 400
@@ -622,7 +630,7 @@ def add_organization():
             return jsonify({'success': False, 'message': f'Abbreviation "{abbreviation}" already exists'}), 400
     
     try:
-        new_org = Organization(name=org_name, abbreviation=abbreviation, description=description)
+        new_org = Organization(name=org_name, abbreviation=abbreviation, description=description, color=color)
         db.session.add(new_org)
         db.session.commit()
         
@@ -633,7 +641,8 @@ def add_organization():
                 'id': new_org.id,
                 'name': new_org.name,
                 'abbreviation': new_org.abbreviation,
-                'description': new_org.description
+                'description': new_org.description,
+                'color': new_org.color
             }
         })
     except Exception as e:
@@ -650,6 +659,7 @@ def edit_organization(org_id):
     org_name = data.get('name', '').strip()
     abbreviation = data.get('abbreviation', '').strip()
     description = data.get('description', '').strip()
+    color = data.get('color', '#27ae60').strip() or '#27ae60'
     
     if not org_name:
         return jsonify({'success': False, 'message': 'Organization name is required'}), 400
@@ -670,6 +680,7 @@ def edit_organization(org_id):
         org.name = org_name
         org.abbreviation = abbreviation if abbreviation else None
         org.description = description
+        org.color = color
         db.session.commit()
         
         return jsonify({
@@ -679,7 +690,8 @@ def edit_organization(org_id):
                 'id': org.id,
                 'name': org.name,
                 'abbreviation': org.abbreviation,
-                'description': org.description
+                'description': org.description,
+                'color': org.color
             }
         })
     except Exception as e:

@@ -45,6 +45,7 @@ def migrate_database():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name VARCHAR(100) UNIQUE NOT NULL,
                 description TEXT,
+                color VARCHAR(7) NOT NULL DEFAULT '#000000',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -55,6 +56,7 @@ def migrate_database():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name VARCHAR(200) UNIQUE NOT NULL,
                 description TEXT,
+                color VARCHAR(7) NOT NULL DEFAULT '#27ae60',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -103,7 +105,7 @@ def migrate_database():
             
             for rank_name, description in common_ranks:
                 try:
-                    cursor.execute('INSERT INTO rank (name, description) VALUES (?, ?)', (rank_name, description))
+                    cursor.execute('INSERT INTO rank (name, description, color) VALUES (?, ?, ?)', (rank_name, description, '#000000'))
                     print(f"  Added common rank: {rank_name}")
                 except sqlite3.IntegrityError:
                     print(f"  Rank already exists: {rank_name}")
@@ -125,7 +127,7 @@ def migrate_database():
             
             for org_name, description in common_organizations:
                 try:
-                    cursor.execute('INSERT INTO organization (name, description) VALUES (?, ?)', (org_name, description))
+                    cursor.execute('INSERT INTO organization (name, description, color) VALUES (?, ?, ?)', (org_name, description, '#27ae60'))
                     print(f"  Added common organization: {org_name}")
                 except sqlite3.IntegrityError:
                     print(f"  Organization already exists: {org_name}")
@@ -277,7 +279,52 @@ def migrate_date_of_death():
         if conn:
             conn.close()
 
+def add_color_columns():
+    """Add color columns to rank and organization tables."""
+    
+    db_path = 'instance/ecclesiastical_lineage.db'
+    
+    if not os.path.exists(db_path):
+        print(f"Database {db_path} not found. Please run the main migration first.")
+        return
+    
+    print("Adding color columns to rank and organization tables...")
+    
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Check if color column already exists in rank table
+        cursor.execute("PRAGMA table_info(rank)")
+        rank_columns = [column[1] for column in cursor.fetchall()]
+        
+        if 'color' not in rank_columns:
+            print("Adding color column to rank table...")
+            cursor.execute("ALTER TABLE rank ADD COLUMN color VARCHAR(7) NOT NULL DEFAULT '#000000'")
+            print("  Added color column to rank table")
+        else:
+            print("  Color column already exists in rank table")
+        
+        # Check if color column already exists in organization table
+        cursor.execute("PRAGMA table_info(organization)")
+        org_columns = [column[1] for column in cursor.fetchall()]
+        
+        if 'color' not in org_columns:
+            print("Adding color column to organization table...")
+            cursor.execute("ALTER TABLE organization ADD COLUMN color VARCHAR(7) NOT NULL DEFAULT '#27ae60'")
+            print("  Added color column to organization table")
+        else:
+            print("  Color column already exists in organization table")
+        
+        conn.commit()
+        conn.close()
+        print("Color columns migration completed successfully!")
+        
+    except Exception as e:
+        print(f"Error during color columns migration: {e}")
+
 if __name__ == '__main__':
     migrate_database()
     add_abbreviation_column()
-    migrate_date_of_death() 
+    migrate_date_of_death()
+    add_color_columns() 

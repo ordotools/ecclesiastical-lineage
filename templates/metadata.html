@@ -27,6 +27,10 @@
                         <div class="mb-3">
                             <label for="new-rank" class="form-label">Add New Rank</label>
                             <div class="input-group">
+                                <span class="input-group-text p-0" style="background: none; border: none; position: relative;">
+                                    <span class="color-dot" id="new-rank-color-display" style="background-color: #000000; width: 20px; height: 20px; border-radius: 50%; display: inline-block; border: 2px solid #ccc; cursor: pointer; margin: 0 8px;" onclick="document.getElementById('new-rank-color').click()" title="Click to change color"></span>
+                                    <input type="color" id="new-rank-color" value="#000000" style="position: absolute; top: 100%; left: 0; opacity: 0; pointer-events: none;" onchange="updateColorDisplay('new-rank-color-display', this.value)">
+                                </span>
                                 <input type="text" class="form-control" id="new-rank" placeholder="e.g., Bishop, Priest, Deacon">
                                 <input type="text" class="form-control" id="new-rank-description" placeholder="Description (optional)">
                                 <button class="btn btn-outline-primary" type="button" onclick="addRank()">
@@ -41,17 +45,18 @@
                                 <div class="list-group list-group-flush" id="ranks-list">
                                     {% for rank in ranks %}
                                     <div class="list-group-item d-flex justify-content-between align-items-center py-2" data-rank-id="{{ rank.id }}">
-                                        <div>
+                                        <div class="d-flex align-items-center">
+                                            <span class="color-dot me-2" style="background-color: {{ rank.color or '#000000' }}; width: 18px; height: 18px; border-radius: 50%; display: inline-block; border: 1px solid #ccc;" title="Color: {{ rank.color or '#000000' }}"></span>
                                             <span class="badge bg-secondary">{{ rank.name }}</span>
                                             {% if rank.description %}
-                                                <small class="text-muted d-block">{{ rank.description }}</small>
+                                                <small class="text-muted d-block ms-2">{{ rank.description }}</small>
                                             {% endif %}
                                         </div>
                                         <div class="d-flex align-items-center">
                                             {% if rank.name in clergy_ranks %}
                                                 <small class="text-muted me-2">Used in records</small>
                                             {% endif %}
-                                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editRank({{ rank.id }}, '{{ rank.name }}', '{{ rank.description or '' }}')" title="Edit rank">
+                                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editRank({{ rank.id }}, '{{ rank.name }}', '{{ rank.description or '' }}', '{{ rank.color or '#000000' }}')" title="Edit rank">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             <button class="btn btn-sm btn-outline-danger" onclick="deleteRank({{ rank.id }}, '{{ rank.name }}')" 
@@ -84,6 +89,10 @@
                         <div class="mb-3">
                             <label for="new-organization" class="form-label">Add New Organization</label>
                             <div class="input-group mb-2">
+                                <span class="input-group-text p-0" style="background: none; border: none; position: relative;">
+                                    <span class="color-dot" id="new-organization-color-display" style="background-color: #27ae60; width: 20px; height: 20px; border-radius: 50%; display: inline-block; border: 2px solid #ccc; cursor: pointer; margin: 0 8px;" onclick="document.getElementById('new-organization-color').click()" title="Click to change color"></span>
+                                    <input type="color" id="new-organization-color" value="#27ae60" style="position: absolute; top: 100%; left: 0; opacity: 0; pointer-events: none;" onchange="updateColorDisplay('new-organization-color-display', this.value)">
+                                </span>
                                 <input type="text" class="form-control" id="new-organization" placeholder="Organization name">
                                 <input type="text" class="form-control" id="new-organization-abbreviation" placeholder="Abbreviation (optional)">
                             </div>
@@ -101,20 +110,21 @@
                                 <div class="list-group list-group-flush" id="organizations-list">
                                     {% for organization in organizations %}
                                     <div class="list-group-item d-flex justify-content-between align-items-center py-2" data-org-id="{{ organization.id }}">
-                                        <div>
+                                        <div class="d-flex align-items-center">
+                                            <span class="color-dot me-2" style="background-color: {{ organization.color or '#27ae60' }}; width: 18px; height: 18px; border-radius: 50%; display: inline-block; border: 1px solid #ccc;" title="Color: {{ organization.color or '#27ae60' }}"></span>
                                             <span class="text-primary">{{ organization.name }}</span>
                                             {% if organization.abbreviation %}
                                                 <span class="badge bg-info ms-2">{{ organization.abbreviation }}</span>
                                             {% endif %}
                                             {% if organization.description %}
-                                                <small class="text-muted d-block">{{ organization.description }}</small>
+                                                <small class="text-muted d-block ms-2">{{ organization.description }}</small>
                                             {% endif %}
                                         </div>
                                         <div class="d-flex align-items-center">
                                             {% if organization.name in clergy_organizations %}
                                                 <small class="text-muted me-2">Used in records</small>
                                             {% endif %}
-                                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editOrganization({{ organization.id }}, '{{ organization.name }}', '{{ organization.abbreviation or '' }}', '{{ organization.description or '' }}')" title="Edit organization">
+                                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editOrganization({{ organization.id }}, '{{ organization.name }}', '{{ organization.abbreviation or '' }}', '{{ organization.description or '' }}', '{{ organization.color or '#27ae60' }}')" title="Edit organization">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             <button class="btn btn-sm btn-outline-danger" onclick="deleteOrganization({{ organization.id }}, '{{ organization.name }}')"
@@ -213,6 +223,14 @@
                             <label for="edit-rank-description" class="form-label">Description</label>
                             <input type="text" class="form-control" id="edit-rank-description" placeholder="Description (optional)">
                         </div>
+                        <div class="mb-3">
+                            <label for="edit-rank-color" class="form-label">Color</label>
+                            <div class="d-flex align-items-center" style="position: relative;">
+                                <span class="color-dot" id="edit-rank-color-display" style="background-color: #000000; width: 24px; height: 24px; border-radius: 50%; display: inline-block; border: 2px solid #ccc; cursor: pointer; margin-right: 12px;" onclick="document.getElementById('edit-rank-color').click()" title="Click to change color"></span>
+                                <input type="color" id="edit-rank-color" value="#000000" style="position: absolute; top: 100%; left: 0; opacity: 0; pointer-events: none;" onchange="updateColorDisplay('edit-rank-color-display', this.value)">
+                                <small class="text-muted">Click the dot to change color</small>
+                            </div>
+                        </div>
                         <div class="form-text">
                             <i class="fas fa-info-circle me-1"></i>
                             Press Enter to save, Escape to cancel
@@ -249,6 +267,14 @@
                         <div class="mb-3">
                             <label for="edit-organization-description" class="form-label">Description</label>
                             <input type="text" class="form-control" id="edit-organization-description" placeholder="Description (optional)">
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit-organization-color" class="form-label">Color</label>
+                            <div class="d-flex align-items-center" style="position: relative;">
+                                <span class="color-dot" id="edit-organization-color-display" style="background-color: #27ae60; width: 24px; height: 24px; border-radius: 50%; display: inline-block; border: 2px solid #ccc; cursor: pointer; margin-right: 12px;" onclick="document.getElementById('edit-organization-color').click()" title="Click to change color"></span>
+                                <input type="color" id="edit-organization-color" value="#27ae60" style="position: absolute; top: 100%; left: 0; opacity: 0; pointer-events: none;" onchange="updateColorDisplay('edit-organization-color-display', this.value)">
+                                <small class="text-muted">Click the dot to change color</small>
+                            </div>
                         </div>
                         <div class="form-text">
                             <i class="fas fa-info-circle me-1"></i>
@@ -321,11 +347,17 @@ function dismissNotification(closeButton) {
     }
 }
 
+function updateColorDisplay(displayId, color) {
+    document.getElementById(displayId).style.backgroundColor = color;
+}
+
 function addRank() {
     const nameInput = document.getElementById('new-rank');
     const descInput = document.getElementById('new-rank-description');
+    const colorInput = document.getElementById('new-rank-color');
     const rankName = nameInput.value.trim();
     const description = descInput.value.trim();
+    const color = colorInput.value.trim() || '#000000';
     
     if (!rankName) {
         showMessage('Please enter a rank name.', 'error');
@@ -339,7 +371,8 @@ function addRank() {
         },
         body: JSON.stringify({
             name: rankName,
-            description: description
+            description: description,
+            color: color
         })
     })
     .then(response => response.json())
@@ -395,9 +428,11 @@ function addOrganization() {
     const nameInput = document.getElementById('new-organization');
     const abbrInput = document.getElementById('new-organization-abbreviation');
     const descInput = document.getElementById('new-organization-description');
+    const colorInput = document.getElementById('new-organization-color');
     const orgName = nameInput.value.trim();
     const abbreviation = abbrInput.value.trim();
     const description = descInput.value.trim();
+    const color = colorInput.value.trim() || '#27ae60';
     
     if (!orgName) {
         showMessage('Please enter an organization name.', 'error');
@@ -412,7 +447,8 @@ function addOrganization() {
         body: JSON.stringify({
             name: orgName,
             abbreviation: abbreviation,
-            description: description
+            description: description,
+            color: color
         })
     })
     .then(response => response.json())
@@ -501,10 +537,12 @@ document.getElementById('new-organization-abbreviation').addEventListener('keypr
 });
 
 // Edit functions
-function editRank(rankId, rankName, rankDescription) {
+function editRank(rankId, rankName, rankDescription, rankColor) {
     document.getElementById('edit-rank-id').value = rankId;
     document.getElementById('edit-rank-name').value = rankName;
     document.getElementById('edit-rank-description').value = rankDescription;
+    document.getElementById('edit-rank-color').value = rankColor || '#000000';
+    document.getElementById('edit-rank-color-display').style.backgroundColor = rankColor || '#000000';
     
     const modal = new bootstrap.Modal(document.getElementById('editRankModal'));
     modal.show();
@@ -514,6 +552,7 @@ function saveRankEdit() {
     const rankId = document.getElementById('edit-rank-id').value;
     const rankName = document.getElementById('edit-rank-name').value.trim();
     const rankDescription = document.getElementById('edit-rank-description').value.trim();
+    const rankColor = document.getElementById('edit-rank-color').value.trim() || '#000000';
     
     if (!rankName) {
         showMessage('Please enter a rank name.', 'error');
@@ -527,7 +566,8 @@ function saveRankEdit() {
         },
         body: JSON.stringify({
             name: rankName,
-            description: rankDescription
+            description: rankDescription,
+            color: rankColor
         })
     })
     .then(response => response.json())
@@ -549,11 +589,13 @@ function saveRankEdit() {
     });
 }
 
-function editOrganization(orgId, orgName, orgAbbreviation, orgDescription) {
+function editOrganization(orgId, orgName, orgAbbreviation, orgDescription, orgColor) {
     document.getElementById('edit-organization-id').value = orgId;
     document.getElementById('edit-organization-name').value = orgName;
     document.getElementById('edit-organization-abbreviation').value = orgAbbreviation;
     document.getElementById('edit-organization-description').value = orgDescription;
+    document.getElementById('edit-organization-color').value = orgColor || '#27ae60';
+    document.getElementById('edit-organization-color-display').style.backgroundColor = orgColor || '#27ae60';
     
     const modal = new bootstrap.Modal(document.getElementById('editOrganizationModal'));
     modal.show();
@@ -564,6 +606,7 @@ function saveOrganizationEdit() {
     const orgName = document.getElementById('edit-organization-name').value.trim();
     const orgAbbreviation = document.getElementById('edit-organization-abbreviation').value.trim();
     const orgDescription = document.getElementById('edit-organization-description').value.trim();
+    const orgColor = document.getElementById('edit-organization-color').value.trim() || '#27ae60';
     
     if (!orgName) {
         showMessage('Please enter an organization name.', 'error');
@@ -578,7 +621,8 @@ function saveOrganizationEdit() {
         body: JSON.stringify({
             name: orgName,
             abbreviation: orgAbbreviation,
-            description: orgDescription
+            description: orgDescription,
+            color: orgColor
         })
     })
     .then(response => response.json())

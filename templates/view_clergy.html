@@ -17,7 +17,9 @@
                 <dd class="col-sm-9">
                     {% if clergy.organization %}
                         {% if org_abbreviation_map.get(clergy.organization) %}
-                            <span class="badge bg-info me-2">{{ org_abbreviation_map.get(clergy.organization) }}</span>
+                            <span class="badge me-2" style="background-color: {{ org_color_map.get(clergy.organization, '#27ae60') }}; color: {{ 'white' if getContrastColor(org_color_map.get(clergy.organization, '#27ae60')) == 'white' else 'black' }}; {{ getBorderStyle(org_color_map.get(clergy.organization, '#27ae60')) }}">
+                                {{ org_abbreviation_map.get(clergy.organization) }}
+                            </span>
                             {{ clergy.organization }}
                         {% else %}
                             {{ clergy.organization }}

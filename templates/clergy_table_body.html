@@ -1,35 +1,14 @@
 {% for clergy in clergy_list %}
-<tr>
+<tr class="clergy-row" data-clergy-id="{{ clergy.id }}" style="cursor: pointer;">
     <td class="name-col">
         <strong>{{ clergy.display_name }}</strong>
-    </td>
-    <td class="org-col">
-        {% if clergy.organization %}
-            {% if org_abbreviation_map.get(clergy.organization) %}
-                <span class="badge bg-info">{{ org_abbreviation_map.get(clergy.organization) }}</span>
-            {% else %}
-                {{ clergy.organization }}
-            {% endif %}
-        {% else %}
-            -
+        {% if clergy.organization and org_abbreviation_map.get(clergy.organization) %}
+            <span class="badge ms-2" style="background-color: {{ org_color_map.get(clergy.organization, '#27ae60') }}; color: {{ 'white' if getContrastColor(org_color_map.get(clergy.organization, '#27ae60')) == 'white' else 'black' }}; {{ getBorderStyle(org_color_map.get(clergy.organization, '#27ae60')) }}; font-size: 0.85em; vertical-align: middle;">{{ org_abbreviation_map.get(clergy.organization) }}</span>
         {% endif %}
     </td>
     <td>{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '-' }}</td>
+    <td>{% if clergy.ordaining_bishop %}{{ clergy.ordaining_bishop.display_name if clergy.ordaining_bishop.display_name is defined else clergy.ordaining_bishop.name }}{% else %}-{% endif %}</td>
     <td>{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else '-' }}</td>
-    <td>
-        <div class="clergy-action-group">
-            <a href="{{ url_for('view_clergy', clergy_id=clergy.id) }}" class="clergy-action-btn view">
-                <i class="fas fa-eye"></i>
-            </a>
-            <a href="{{ url_for('edit_clergy', clergy_id=clergy.id) }}" class="clergy-action-btn edit">
-                <i class="fas fa-edit"></i>
-            </a>
-            <form action="{{ url_for('delete_clergy', clergy_id=clergy.id) }}" method="post" style="display:inline;">
-                <button type="submit" class="clergy-action-btn delete" onclick="return confirm('Are you sure you want to delete this clergy record?');">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </form>
-        </div>
-    </td>
+    <td>{% if clergy.consecrator %}{{ clergy.consecrator.display_name if clergy.consecrator.display_name is defined else clergy.consecrator.name }}{% else %}-{% endif %}</td>
 </tr>
 {% endfor %} 

@@ -2,11 +2,21 @@
 // Usage: window.fuzzySearch(list, query) => [{item, score}, ...]
 
 function normalizeString(str) {
-    return str
+    if (!str) return '';
+    // De-accented version
+    const deAccented = str
         .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .replace(/[^\w\s]/g, '') // Remove other special characters
-        .toLowerCase();
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\w\s\-'.]/g, '')
+        .toLowerCase()
+        .trim();
+    // Accented version (keeps Latin-1 Supplement and Extended-A)
+    const accented = str
+        .normalize('NFD')
+        .replace(/[^\w\s\-'.\u00C0-\u017F]/g, '')
+        .toLowerCase()
+        .trim();
+    return { deAccented, accented };
 }
 
 function levenshtein(a, b) {
@@ -35,19 +45,50 @@ function levenshtein(a, b) {
 
 function fuzzySearch(list, query, keyFn) {
     if (!query || !list) return [];
-    const q = normalizeString(query);
     keyFn = keyFn || (x => x);
+    const qNorm = normalizeString(query);
     // Normalize all candidates once for efficiency
-    const normalizedList = list.map(item => ({
-        item,
-        norm: normalizeString(keyFn(item))
-    }));
-    let filtered = normalizedList.filter(obj => obj.norm.includes(q));
-    if (filtered.length === 0) filtered = normalizedList;
-    const scored = filtered.map(obj => ({
+    const normalizedList = list.map(item => {
+        const original = keyFn(item);
+        const norm = normalizeString(original);
+        return {
+            item,
+            deAccented: norm.deAccented,
+            accented: norm.accented,
+            original: original.toLowerCase()
+        };
+    });
+    // Try all combinations for exact and substring matches
+    let exactMatches = normalizedList.filter(obj =>
+        obj.original.includes(query.toLowerCase()) ||
+        obj.deAccented.includes(qNorm.deAccented) ||
+        obj.accented.includes(qNorm.accented)
+    );
+    if (exactMatches.length > 0) {
+        return exactMatches.map(obj => ({ item: obj.item, score: 0 }));
+    }
+    // Try normalized substring matches
+    let normalizedMatches = normalizedList.filter(obj =>
+        obj.deAccented.includes(qNorm.deAccented) ||
+        obj.accented.includes(qNorm.accented)
+    );
+    if (normalizedMatches.length > 0) {
+        return normalizedMatches.map(obj => ({ item: obj.item, score: 1 }));
+    }
+    // Fuzzy Levenshtein on all forms
+    const scored = normalizedList.map(obj => ({
         item: obj.item,
-        score: levenshtein(obj.norm, q)
+        score: Math.min(
+            levenshtein(obj.deAccented, qNorm.deAccented),
+            levenshtein(obj.accented, qNorm.accented),
+            levenshtein(obj.original, query.toLowerCase())
+        )
     }));
+    const goodMatches = scored.filter(result => result.score <= 5);
+    if (goodMatches.length > 0) {
+        goodMatches.sort((a, b) => a.score - b.score);
+        return goodMatches;
+    }
     scored.sort((a, b) => a.score - b.score);
     return scored;
 }

@@ -49,10 +49,11 @@
                                         </option>
                                     {% endfor %}
                                 </select>
-                                <button class="btn btn-outline-secondary" type="button" onclick="openAddOrganizationModal()">
-                                    <i class="fas fa-plus"></i>
+                                <button class="btn btn-outline-primary" type="button" onclick="openAddOrganizationModal()" title="Add new organization">
+                                    <i class="fas fa-plus me-1"></i>New
                                 </button>
                             </div>
+                            <div class="form-text">Can't find the organization? Click "New" to add it.</div>
                         </div>
                         
                         <div class="mb-3">
@@ -118,8 +119,8 @@
                             <div class="co-consecrators-container">
                                 <div class="input-group mb-2">
                                     <input type="text" class="form-control" id="co_consecrator_search" placeholder="Search for co-consecrators...">
-                                    <button class="btn btn-outline-secondary" type="button" id="add_co_consecrator">
-                                        <i class="fas fa-plus"></i> Add
+                                    <button class="btn btn-outline-primary" type="button" id="add_co_consecrator" title="Add selected co-consecrator">
+                                        <i class="fas fa-plus me-1"></i>Add
                                     </button>
                                 </div>
                                 <div id="selected_co_consecrators" class="d-flex flex-wrap gap-2 mb-2">
@@ -131,7 +132,7 @@
                                 <input type="hidden" id="co_consecrators" name="co_consecrators" 
                                        value="{% if edit_mode %}{{ clergy.get_co_consecrators() | join(',') }}{% endif %}">
                             </div>
-                            <div class="form-text">Search and add co-consecrators. Click the X to remove them.</div>
+                            <div class="form-text">Search for co-consecrators by name. Select from dropdown or click "Add" to add the first match. Click the X on tags to remove them.</div>
                         </div>
                     </div>
                     

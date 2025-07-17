@@ -22,6 +22,59 @@ if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
 
 db = SQLAlchemy(app)
 
+# Color contrast utility function for Jinja2 templates
+def getContrastColor(hexColor):
+    """Calculate the appropriate text color (black or white) for a given background color."""
+    if not hexColor or not hexColor.startswith('#'):
+        return 'black'
+    
+    # Convert hex to RGB
+    hex = hexColor.replace('#', '')
+    if len(hex) != 6:
+        return 'black'
+    
+    try:
+        r = int(hex[0:2], 16)
+        g = int(hex[2:4], 16)
+        b = int(hex[4:6], 16)
+        
+        # Calculate relative luminance (WCAG 2.1 formula)
+        luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        
+        # Return white for dark backgrounds, black for light backgrounds
+        return 'white' if luminance <= 0.5 else 'black'
+    except (ValueError, IndexError):
+        return 'black'
+
+def getBorderStyle(hexColor):
+    """Get border style for very light colors to ensure visibility."""
+    if not hexColor or not hexColor.startswith('#'):
+        return ''
+    
+    # Convert hex to RGB
+    hex = hexColor.replace('#', '')
+    if len(hex) != 6:
+        return ''
+    
+    try:
+        r = int(hex[0:2], 16)
+        g = int(hex[2:4], 16)
+        b = int(hex[4:6], 16)
+        
+        # Calculate relative luminance (WCAG 2.1 formula)
+        luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        
+        # Add border for very light colors (luminance > 0.8)
+        if luminance > 0.8:
+            return 'border: 1px solid #ccc;'
+        return ''
+    except (ValueError, IndexError):
+        return ''
+
+# Make the functions available to Jinja2 templates
+app.jinja_env.globals['getContrastColor'] = getContrastColor
+app.jinja_env.globals['getBorderStyle'] = getBorderStyle
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -258,11 +311,19 @@ def clergy_list():
     # Get all organizations for the filter dropdown
     organizations = Organization.query.order_by(Organization.name).all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
+    org_color_map = {org.name: org.color for org in organizations}
+
+    # Get ranks and all clergy for modal dropdowns
+    ranks = Rank.query.order_by(Rank.name).all()
+    all_clergy = Clergy.query.all()
 
     return render_template('clergy_list.html', 
                          clergy_list=clergy_list, 
                          org_abbreviation_map=org_abbreviation_map,
+                         org_color_map=org_color_map,
                          organizations=organizations,
+                         ranks=ranks,
+                         all_clergy=all_clergy,
                          exclude_priests=exclude_priests,
                          exclude_coconsecrators=exclude_coconsecrators,
                          exclude_organizations=exclude_organizations,
@@ -305,7 +366,8 @@ def clergy_filter_partial():
 
     organizations = Organization.query.order_by(Organization.name).all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
-    return render_template('clergy_table_body.html', clergy_list=clergy_list, org_abbreviation_map=org_abbreviation_map)
+    org_color_map = {org.name: org.color for org in organizations}
+    return render_template('clergy_table_body.html', clergy_list=clergy_list, org_abbreviation_map=org_abbreviation_map, org_color_map=org_color_map)
 
 @app.route('/clergy/add', methods=['GET', 'POST'])
 def add_clergy():
@@ -397,18 +459,95 @@ def view_clergy(clergy_id):
     # Get organization abbreviation mapping
     organizations = Organization.query.all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
+    org_color_map = {org.name: org.color for org in organizations}
     
     return render_template('view_clergy.html', 
                          clergy=clergy, 
-                         org_abbreviation_map=org_abbreviation_map)
+                         org_abbreviation_map=org_abbreviation_map,
+                         org_color_map=org_color_map)
+
+@app.route('/clergy/<int:clergy_id>/json')
+def clergy_json(clergy_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    clergy = Clergy.query.get_or_404(clergy_id)
+    
+    return jsonify({
+        'id': clergy.id,
+        'name': clergy.name,
+        'rank': clergy.rank,
+        'organization': clergy.organization,
+        'date_of_birth': clergy.date_of_birth.strftime('%Y-%m-%d') if clergy.date_of_birth else None,
+        'date_of_ordination': clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else None,
+        'ordaining_bishop_id': clergy.ordaining_bishop_id,
+        'date_of_consecration': clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else None,
+        'consecrator_id': clergy.consecrator_id,
+        'notes': clergy.notes
+    })
 
 @app.route('/clergy/<int:clergy_id>/edit', methods=['GET', 'POST'])
 def edit_clergy(clergy_id):
     if 'user_id' not in session:
         flash('Please log in to edit clergy records.', 'error')
         return redirect(url_for('login'))
+    
     clergy = Clergy.query.get_or_404(clergy_id)
+    
     if request.method == 'POST':
+        # Handle AJAX request (fetch/FormData or X-Requested-With)
+        content_type = request.headers.get('Content-Type', '')
+        is_ajax = (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+            content_type.startswith('multipart/form-data') or
+            content_type == 'application/x-www-form-urlencoded'
+        )
+        if is_ajax:
+            try:
+                clergy.name = request.form.get('name')
+                clergy.rank = request.form.get('rank')
+                clergy.organization = request.form.get('organization')
+                date_of_birth = request.form.get('date_of_birth')
+                date_of_ordination = request.form.get('date_of_ordination')
+                ordaining_bishop_id = request.form.get('ordaining_bishop_id')
+                date_of_consecration = request.form.get('date_of_consecration')
+                consecrator_id = request.form.get('consecrator_id')
+                co_consecrators = request.form.get('co_consecrators')
+                date_of_death = request.form.get('date_of_death')
+                clergy.notes = request.form.get('notes')
+                
+                if date_of_birth:
+                    clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+                else:
+                    clergy.date_of_birth = None
+                if date_of_ordination:
+                    clergy.date_of_ordination = datetime.strptime(date_of_ordination, '%Y-%m-%d').date()
+                else:
+                    clergy.date_of_ordination = None
+                if date_of_consecration:
+                    clergy.date_of_consecration = datetime.strptime(date_of_consecration, '%Y-%m-%d').date()
+                else:
+                    clergy.date_of_consecration = None
+                if date_of_death:
+                    clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
+                else:
+                    clergy.date_of_death = None
+                
+                clergy.ordaining_bishop_id = int(ordaining_bishop_id) if ordaining_bishop_id else None
+                clergy.consecrator_id = int(consecrator_id) if consecrator_id else None
+                
+                if co_consecrators:
+                    co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
+                    clergy.set_co_consecrators(co_consecrator_ids)
+                else:
+                    clergy.set_co_consecrators([])
+                
+                db.session.commit()
+                return jsonify({'success': True, 'message': 'Clergy record updated successfully!'})
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({'success': False, 'message': str(e)}), 400
+        # Handle regular form submission (fallback)
         clergy.name = request.form.get('name')
         clergy.rank = request.form.get('rank')
         clergy.organization = request.form.get('organization')
@@ -446,6 +585,7 @@ def edit_clergy(clergy_id):
         db.session.commit()
         flash('Clergy record updated successfully!', 'success')
         return redirect(url_for('clergy_list'))
+    
     all_clergy = Clergy.query.all()
     # Convert to list of dictionaries for JSON serialization
     all_clergy_data = [
@@ -473,13 +613,28 @@ def edit_clergy(clergy_id):
 @app.route('/clergy/<int:clergy_id>/delete', methods=['POST'])
 def delete_clergy(clergy_id):
     if 'user_id' not in session:
+        if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+            return jsonify({'success': False, 'message': 'Authentication required'}), 401
         flash('Please log in to delete clergy records.', 'error')
         return redirect(url_for('login'))
+    
     clergy = Clergy.query.get_or_404(clergy_id)
-    db.session.delete(clergy)
-    db.session.commit()
-    flash('Clergy record deleted successfully!', 'success')
-    return redirect(url_for('clergy_list'))
+    
+    try:
+        db.session.delete(clergy)
+        db.session.commit()
+        
+        if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+            return jsonify({'success': True, 'message': 'Clergy record deleted successfully!'})
+        
+        flash('Clergy record deleted successfully!', 'success')
+        return redirect(url_for('clergy_list'))
+    except Exception as e:
+        db.session.rollback()
+        if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+            return jsonify({'success': False, 'message': str(e)}), 500
+        flash('Error deleting clergy record.', 'error')
+        return redirect(url_for('clergy_list'))
 
 @app.route('/metadata')
 def metadata():

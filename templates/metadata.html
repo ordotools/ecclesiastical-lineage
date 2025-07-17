@@ -22,21 +22,30 @@
                         </h3>
                     </div>
                     <div class="card-body">
-                        <p class="text-muted mb-3">Common ranks used in ecclesiastical records</p>
+                        <!-- <p class="text-muted mb-3">Common ranks used in ecclesiastical records</p> -->
                         
-                        <div class="mb-3">
-                            <label for="new-rank" class="form-label">Add New Rank</label>
-                            <div class="input-group">
-                                <span class="input-group-text p-0" style="background: none; border: none; position: relative;">
-                                    <span class="color-dot" id="new-rank-color-display" style="background-color: #000000; width: 20px; height: 20px; border-radius: 50%; display: inline-block; border: 2px solid #ccc; cursor: pointer; margin: 0 8px;" onclick="document.getElementById('new-rank-color').click()" title="Click to change color"></span>
-                                    <input type="color" id="new-rank-color" value="#000000" style="position: absolute; top: 100%; left: 0; opacity: 0; pointer-events: none;" onchange="updateColorDisplay('new-rank-color-display', this.value)">
-                                </span>
-                                <input type="text" class="form-control" id="new-rank" placeholder="e.g., Bishop, Priest, Deacon">
-                                <input type="text" class="form-control" id="new-rank-description" placeholder="Description (optional)">
-                                <button class="btn btn-outline-primary" type="button" onclick="addRank()">
-                                    <i class="fas fa-plus"></i>
-                                </button>
+                        <div class="mb-4">
+                            <h6 class="mb-3">Add New Rank</h6>
+                            <div class="row g-2 align-items-center">
+                                <div class="col-auto">
+                                    <div class="d-flex align-items-center h-100">
+                                        <span class="color-dot me-2" id="new-rank-color-display" style="background-color: #000000; width: 24px; height: 24px; border-radius: 50%; display: inline-block; border: 2px solid #ccc; cursor: pointer;" onclick="document.getElementById('new-rank-color').click()" title="Click to change color"></span>
+                                        <input type="color" id="new-rank-color" value="#000000" style="position: absolute; opacity: 0; pointer-events: none;" onchange="updateColorDisplay('new-rank-color-display', this.value)">
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <input type="text" class="form-control" id="new-rank" placeholder="e.g., Bishop, Priest, Deacon">
+                                </div>
+                                <div class="col">
+                                    <input type="text" class="form-control" id="new-rank-description" placeholder="Description (optional)">
+                                </div>
+                                <div class="col-auto">
+                                    <button class="btn btn-primary" type="button" onclick="addRank()" title="Add new rank">
+                                        <i class="fas fa-plus me-1"></i>Add Rank
+                                    </button>
+                                </div>
                             </div>
+                            <div class="form-text mt-2">Click the color dot to change the rank's color. Press Enter in any field to add the rank.</div>
                         </div>
 
                         <div class="rank-list">
@@ -47,7 +56,7 @@
                                     <div class="list-group-item d-flex justify-content-between align-items-center py-2" data-rank-id="{{ rank.id }}">
                                         <div class="d-flex align-items-center">
                                             <span class="color-dot me-2" style="background-color: {{ rank.color or '#000000' }}; width: 18px; height: 18px; border-radius: 50%; display: inline-block; border: 1px solid #ccc;" title="Color: {{ rank.color or '#000000' }}"></span>
-                                            <span class="badge bg-secondary">{{ rank.name }}</span>
+                                            <span class="rank-badge" style="background-color: {{ rank.color or '#000000' }}; color: {{ 'white' if getContrastColor(rank.color or '#000000') == 'white' else 'black' }}; padding: 0.25em 0.5em; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 500; {{ getBorderStyle(rank.color or '#000000') }}">{{ rank.name }}</span>
                                             {% if rank.description %}
                                                 <small class="text-muted d-block ms-2">{{ rank.description }}</small>
                                             {% endif %}
@@ -84,24 +93,35 @@
                         </h3>
                     </div>
                     <div class="card-body">
-                        <p class="text-muted mb-3">Religious organizations and denominations</p>
+                        <!-- <p class="text-muted mb-3">Religious organizations and denominations</p> -->
                         
-                        <div class="mb-3">
-                            <label for="new-organization" class="form-label">Add New Organization</label>
-                            <div class="input-group mb-2">
-                                <span class="input-group-text p-0" style="background: none; border: none; position: relative;">
-                                    <span class="color-dot" id="new-organization-color-display" style="background-color: #27ae60; width: 20px; height: 20px; border-radius: 50%; display: inline-block; border: 2px solid #ccc; cursor: pointer; margin: 0 8px;" onclick="document.getElementById('new-organization-color').click()" title="Click to change color"></span>
-                                    <input type="color" id="new-organization-color" value="#27ae60" style="position: absolute; top: 100%; left: 0; opacity: 0; pointer-events: none;" onchange="updateColorDisplay('new-organization-color-display', this.value)">
-                                </span>
-                                <input type="text" class="form-control" id="new-organization" placeholder="Organization name">
-                                <input type="text" class="form-control" id="new-organization-abbreviation" placeholder="Abbreviation (optional)">
+                        <div class="mb-4">
+                            <h6 class="mb-3">Add New Organization</h6>
+                            <div class="row g-2 mb-2 align-items-center">
+                                <div class="col-auto">
+                                    <div class="d-flex align-items-center h-100">
+                                        <span class="color-dot me-2" id="new-organization-color-display" style="background-color: #27ae60; width: 24px; height: 24px; border-radius: 50%; display: inline-block; border: 2px solid #ccc; cursor: pointer;" onclick="document.getElementById('new-organization-color').click()" title="Click to change color"></span>
+                                        <input type="color" id="new-organization-color" value="#27ae60" style="position: absolute; opacity: 0; pointer-events: none;" onchange="updateColorDisplay('new-organization-color-display', this.value)">
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <input type="text" class="form-control" id="new-organization" placeholder="Organization name">
+                                </div>
+                                <div class="col">
+                                    <input type="text" class="form-control" id="new-organization-abbreviation" placeholder="Abbreviation (optional)">
+                                </div>
                             </div>
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="new-organization-description" placeholder="Description (optional)">
-                                <button class="btn btn-outline-primary" type="button" onclick="addOrganization()">
-                                    <i class="fas fa-plus"></i>
-                                </button>
+                            <div class="row g-2 align-items-center">
+                                <div class="col">
+                                    <input type="text" class="form-control" id="new-organization-description" placeholder="Description (optional)">
+                                </div>
+                                <div class="col-auto">
+                                    <button class="btn btn-primary" type="button" onclick="addOrganization()" title="Add new organization">
+                                        <i class="fas fa-plus me-1"></i>Add Organization
+                                    </button>
+                                </div>
                             </div>
+                            <div class="form-text mt-2">Click the color dot to change the organization's color. Press Enter in any field to add the organization.</div>
                         </div>
 
                         <div class="organization-list">
@@ -112,9 +132,9 @@
                                     <div class="list-group-item d-flex justify-content-between align-items-center py-2" data-org-id="{{ organization.id }}">
                                         <div class="d-flex align-items-center">
                                             <span class="color-dot me-2" style="background-color: {{ organization.color or '#27ae60' }}; width: 18px; height: 18px; border-radius: 50%; display: inline-block; border: 1px solid #ccc;" title="Color: {{ organization.color or '#27ae60' }}"></span>
-                                            <span class="text-primary">{{ organization.name }}</span>
+                                            <span class="organization-badge" style="background-color: {{ organization.color or '#27ae60' }}; color: {{ 'white' if getContrastColor(organization.color or '#27ae60') == 'white' else 'black' }}; padding: 0.25em 0.5em; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 500; {{ getBorderStyle(organization.color or '#27ae60') }}">{{ organization.name }}</span>
                                             {% if organization.abbreviation %}
-                                                <span class="badge bg-info ms-2">{{ organization.abbreviation }}</span>
+                                                <span class="organization-abbreviation-badge" style="background-color: {{ organization.color or '#27ae60' }}; color: {{ 'white' if getContrastColor(organization.color or '#27ae60') == 'white' else 'black' }}; padding: 0.25em 0.5em; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 500; margin-left: 0.5rem; {{ getBorderStyle(organization.color or '#27ae60') }}">{{ organization.abbreviation }}</span>
                                             {% endif %}
                                             {% if organization.description %}
                                                 <small class="text-muted d-block ms-2">{{ organization.description }}</small>
@@ -155,19 +175,114 @@
                         </h3>
                     </div>
                     <div class="card-body">
-                        <p class="text-muted mb-3">Standard date formats used in the system</p>
-                        <div class="list-group list-group-flush">
-                            <div class="list-group-item d-flex justify-content-between align-items-center py-2">
-                                <span>Birth Date</span>
-                                <code class="text-muted">YYYY-MM-DD</code>
+                        <p class="text-muted mb-3">Configure date formats used in the system</p>
+                        
+                        <!-- Birth Date Format -->
+                        <div class="mb-4 date-format-section">
+                            <h6 class="mb-3">Birth Date Format</h6>
+                            <div class="row g-2 align-items-center">
+                                <div class="col">
+                                    <select class="form-select date-format-select" id="birth-date-format" onchange="updateDateFormatPreview('birth')">
+                                        <option value="YYYY-MM-DD" selected>YYYY-MM-DD (ISO Standard)</option>
+                                        <option value="MM/DD/YYYY">MM/DD/YYYY (US Format)</option>
+                                        <option value="DD/MM/YYYY">DD/MM/YYYY (European Format)</option>
+                                        <option value="MM-DD-YYYY">MM-DD-YYYY (US with dashes)</option>
+                                        <option value="DD-MM-YYYY">DD-MM-YYYY (European with dashes)</option>
+                                        <option value="custom">Custom Format</option>
+                                    </select>
+                                </div>
+                                <div class="col-auto">
+                                    <button class="btn btn-outline-primary date-format-save-btn" type="button" onclick="saveDateFormat('birth')" title="Save birth date format">
+                                        <i class="fas fa-save me-1"></i>Save
+                                    </button>
+                                </div>
                             </div>
-                            <div class="list-group-item d-flex justify-content-between align-items-center py-2">
-                                <span>Ordination Date</span>
-                                <code class="text-muted">YYYY-MM-DD</code>
+                            <div class="mt-2 date-format-preview">
+                                <small class="text-muted">Preview: <span id="birth-date-preview" class="fw-bold">2024-01-15</span></small>
                             </div>
-                            <div class="list-group-item d-flex justify-content-between align-items-center py-2">
-                                <span>Consecration Date</span>
-                                <code class="text-muted">YYYY-MM-DD</code>
+                            <div class="mt-2" id="birth-custom-format" style="display: none;">
+                                <input type="text" class="form-control form-control-sm custom-format-input" id="birth-custom-format-input" 
+                                       placeholder="e.g., YYYY-MM-DD" value="YYYY-MM-DD" 
+                                       onchange="updateCustomDateFormatPreview('birth')">
+                                <small class="text-muted">Use YYYY for year, MM for month, DD for day</small>
+                            </div>
+                        </div>
+
+                        <!-- Ordination Date Format -->
+                        <div class="mb-4 date-format-section">
+                            <h6 class="mb-3">Ordination Date Format</h6>
+                            <div class="row g-2 align-items-center">
+                                <div class="col">
+                                    <select class="form-select date-format-select" id="ordination-date-format" onchange="updateDateFormatPreview('ordination')">
+                                        <option value="YYYY-MM-DD" selected>YYYY-MM-DD (ISO Standard)</option>
+                                        <option value="MM/DD/YYYY">MM/DD/YYYY (US Format)</option>
+                                        <option value="DD/MM/YYYY">DD/MM/YYYY (European Format)</option>
+                                        <option value="MM-DD-YYYY">MM-DD-YYYY (US with dashes)</option>
+                                        <option value="DD-MM-YYYY">DD-MM-YYYY (European with dashes)</option>
+                                        <option value="custom">Custom Format</option>
+                                    </select>
+                                </div>
+                                <div class="col-auto">
+                                    <button class="btn btn-outline-primary date-format-save-btn" type="button" onclick="saveDateFormat('ordination')" title="Save ordination date format">
+                                        <i class="fas fa-save me-1"></i>Save
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 date-format-preview">
+                                <small class="text-muted">Preview: <span id="ordination-date-preview" class="fw-bold">2024-01-15</span></small>
+                            </div>
+                            <div class="mt-2" id="ordination-custom-format" style="display: none;">
+                                <input type="text" class="form-control form-control-sm custom-format-input" id="ordination-custom-format-input" 
+                                       placeholder="e.g., YYYY-MM-DD" value="YYYY-MM-DD" 
+                                       onchange="updateCustomDateFormatPreview('ordination')">
+                                <small class="text-muted">Use YYYY for year, MM for month, DD for day</small>
+                            </div>
+                        </div>
+
+                        <!-- Consecration Date Format -->
+                        <div class="mb-4 date-format-section">
+                            <h6 class="mb-3">Consecration Date Format</h6>
+                            <div class="row g-2 align-items-center">
+                                <div class="col">
+                                    <select class="form-select date-format-select" id="consecration-date-format" onchange="updateDateFormatPreview('consecration')">
+                                        <option value="YYYY-MM-DD" selected>YYYY-MM-DD (ISO Standard)</option>
+                                        <option value="MM/DD/YYYY">MM/DD/YYYY (US Format)</option>
+                                        <option value="DD/MM/YYYY">DD/MM/YYYY (European Format)</option>
+                                        <option value="MM-DD-YYYY">MM-DD-YYYY (US with dashes)</option>
+                                        <option value="DD-MM-YYYY">DD-MM-YYYY (European with dashes)</option>
+                                        <option value="custom">Custom Format</option>
+                                    </select>
+                                </div>
+                                <div class="col-auto">
+                                    <button class="btn btn-outline-primary date-format-save-btn" type="button" onclick="saveDateFormat('consecration')" title="Save consecration date format">
+                                        <i class="fas fa-save me-1"></i>Save
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 date-format-preview">
+                                <small class="text-muted">Preview: <span id="consecration-date-preview" class="fw-bold">2024-01-15</span></small>
+                            </div>
+                            <div class="mt-2" id="consecration-custom-format" style="display: none;">
+                                <input type="text" class="form-control form-control-sm custom-format-input" id="consecration-custom-format-input" 
+                                       placeholder="e.g., YYYY-MM-DD" value="YYYY-MM-DD" 
+                                       onchange="updateCustomDateFormatPreview('consecration')">
+                                <small class="text-muted">Use YYYY for year, MM for month, DD for day</small>
+                            </div>
+                        </div>
+
+                        <!-- Global Actions -->
+                        <div class="border-top pt-3 date-format-actions">
+                            <div class="row g-2">
+                                <div class="col">
+                                    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="resetAllDateFormats()" title="Reset all formats to default">
+                                        <i class="fas fa-undo me-1"></i>Reset to Default
+                                    </button>
+                                </div>
+                                <div class="col">
+                                    <button class="btn btn-outline-info btn-sm" type="button" onclick="showDateFormatHelp()" title="Show date format help">
+                                        <i class="fas fa-question-circle me-1"></i>Format Help
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -293,6 +408,42 @@
 
 {% block extra_scripts %}
 <script>
+// Color contrast utility function
+function getContrastColor(hexColor) {
+    // Convert hex to RGB
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    
+    // Calculate relative luminance (WCAG 2.1 formula)
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    
+    // Return white for dark backgrounds, black for light backgrounds
+    return luminance > 0.5 ? 'black' : 'white';
+}
+
+// Function to update color display and preview contrast
+function updateColorDisplay(displayId, color) {
+    const displayElement = document.getElementById(displayId);
+    displayElement.style.backgroundColor = color;
+    
+    // If this is an edit modal, update the preview
+    if (displayId.includes('edit-rank-color-display')) {
+        const previewElement = document.getElementById('edit-rank-preview');
+        if (previewElement) {
+            previewElement.style.backgroundColor = color;
+            previewElement.style.color = getContrastColor(color);
+        }
+    } else if (displayId.includes('edit-organization-color-display')) {
+        const previewElement = document.getElementById('edit-organization-preview');
+        if (previewElement) {
+            previewElement.style.backgroundColor = color;
+            previewElement.style.color = getContrastColor(color);
+        }
+    }
+}
+
 function showMessage(message, type = 'success') {
     // Create notification element using the existing glass-morphism system
     const notificationDiv = document.createElement('div');
@@ -345,10 +496,6 @@ function dismissNotification(closeButton) {
             notification.remove();
         }, 300);
     }
-}
-
-function updateColorDisplay(displayId, color) {
-    document.getElementById(displayId).style.backgroundColor = color;
 }
 
 function addRank() {
@@ -714,6 +861,170 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // Initialize date format settings
+    initializeDateFormatSettings();
 });
+
+// Date Format Functions
+function initializeDateFormatSettings() {
+    // Load saved date formats from localStorage
+    const sections = ['birth', 'ordination', 'consecration'];
+    
+    sections.forEach(section => {
+        const savedFormat = localStorage.getItem(`${section}_dateFormat`);
+        if (savedFormat) {
+            const formatSelect = document.getElementById(`${section}-date-format`);
+            const customInput = document.getElementById(`${section}-custom-format-input`);
+            
+            // Check if it's a predefined format
+            const predefinedFormats = ['YYYY-MM-DD', 'MM/DD/YYYY', 'DD/MM/YYYY', 'MM-DD-YYYY', 'DD-MM-YYYY'];
+            if (predefinedFormats.includes(savedFormat)) {
+                formatSelect.value = savedFormat;
+            } else {
+                formatSelect.value = 'custom';
+                customInput.value = savedFormat;
+                customInput.style.display = 'block';
+            }
+        }
+        updateDateFormatPreview(section);
+    });
+}
+
+function updateDateFormatPreview(section) {
+    const formatSelect = document.getElementById(`${section}-date-format`);
+    const customInput = document.getElementById(`${section}-custom-format-input`);
+    const customFormatDiv = document.getElementById(`${section}-custom-format`);
+    const previewSpan = document.getElementById(`${section}-date-preview`);
+    
+    if (formatSelect.value === 'custom') {
+        customFormatDiv.style.display = 'block';
+        previewSpan.textContent = customInput.value || 'YYYY-MM-DD';
+    } else {
+        customFormatDiv.style.display = 'none';
+        previewSpan.textContent = formatSelect.value;
+    }
+}
+
+function updateCustomDateFormatPreview(section) {
+    const customInput = document.getElementById(`${section}-custom-format-input`);
+    const previewSpan = document.getElementById(`${section}-date-preview`);
+    previewSpan.textContent = customInput.value || 'YYYY-MM-DD';
+}
+
+function saveDateFormat(section) {
+    const formatSelect = document.getElementById(`${section}-date-format`);
+    const customInput = document.getElementById(`${section}-custom-format-input`);
+    let format = formatSelect.value;
+    
+    if (format === 'custom') {
+        format = customInput.value.trim();
+        if (!format) {
+            showMessage('Custom format cannot be empty.', 'error');
+            return;
+        }
+        // Basic validation for custom format
+        if (!format.includes('YYYY') || !format.includes('MM') || !format.includes('DD')) {
+            showMessage('Custom format must include YYYY, MM, and DD placeholders.', 'error');
+            return;
+        }
+    }
+    
+    localStorage.setItem(`${section}_dateFormat`, format);
+    showMessage(`${section.charAt(0).toUpperCase() + section.slice(1)} date format saved successfully.`, 'success');
+}
+
+function resetAllDateFormats() {
+    if (!confirm('Are you sure you want to reset all date formats to default?')) {
+        return;
+    }
+    
+    // Clear localStorage
+    localStorage.removeItem('birth_dateFormat');
+    localStorage.removeItem('ordination_dateFormat');
+    localStorage.removeItem('consecration_dateFormat');
+    
+    // Reset form elements
+    const sections = ['birth', 'ordination', 'consecration'];
+    sections.forEach(section => {
+        const formatSelect = document.getElementById(`${section}-date-format`);
+        const customInput = document.getElementById(`${section}-custom-format-input`);
+        const customFormatDiv = document.getElementById(`${section}-custom-format`);
+        
+        formatSelect.value = 'YYYY-MM-DD';
+        customInput.value = 'YYYY-MM-DD';
+        customFormatDiv.style.display = 'none';
+        updateDateFormatPreview(section);
+    });
+    
+    showMessage('All date formats have been reset to default (YYYY-MM-DD).', 'info');
+}
+
+function showDateFormatHelp() {
+    const helpText = `
+        <strong>Date Format Options:</strong><br>
+        • <strong>YYYY-MM-DD</strong>: ISO 8601 standard (recommended)<br>
+        • <strong>MM/DD/YYYY</strong>: US format (month/day/year)<br>
+        • <strong>DD/MM/YYYY</strong>: European format (day/month/year)<br>
+        • <strong>Custom</strong>: Define your own format using YYYY, MM, DD placeholders<br><br>
+        <strong>Examples:</strong><br>
+        • YYYY-MM-DD → 2024-01-15<br>
+        • MM/DD/YYYY → 01/15/2024<br>
+        • DD-MM-YYYY → 15-01-2024<br>
+        • Custom: YYYY.MM.DD → 2024.01.15
+    `;
+    
+    // Create a modal to show help
+    const helpModal = document.createElement('div');
+    helpModal.className = 'modal fade';
+    helpModal.id = 'dateFormatHelpModal';
+    helpModal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-question-circle me-2"></i>Date Format Help
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Date formats determine how dates are displayed and parsed throughout the system.
+                    </div>
+                    <div class="mb-3">
+                        ${helpText}
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Note:</strong> Changing date formats affects how dates are displayed in forms and lists. 
+                        Existing data will be reformatted according to the new format.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if present
+    const existingModal = document.getElementById('dateFormatHelpModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to body and show it
+    document.body.appendChild(helpModal);
+    const modal = new bootstrap.Modal(helpModal);
+    modal.show();
+    
+    // Clean up modal after it's hidden
+    helpModal.addEventListener('hidden.bs.modal', function() {
+        helpModal.remove();
+    });
+}
+
+
 </script>
 {% endblock %} 

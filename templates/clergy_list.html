@@ -64,54 +64,37 @@
 
     {% if clergy_list %}
         <div class="sticky-table-outer-card">
-            <!-- Table header (not scrollable) -->
+            {# Table header #}
             <table class="table mb-0 sticky-table sticky-table-header">
                 <thead class="table-dark">
                     <tr>
                         <th class="table-header-small name-col">Name</th>
-                        <th class="table-header-small org-col">Org.</th>
                         <th class="table-header-small">Ordination</th>
+                        <th class="table-header-small by-col">by</th>
                         <th class="table-header-small">Consecration</th>
-                        <!-- Removed Actions column header -->
+                        <th class="table-header-small by-col">by</th>
                     </tr>
                 </thead>
             </table>
-            <!-- Scrollable table body -->
+            {# Table body #}
             <div class="sticky-table-container">
                 <table class="table mb-0 sticky-table sticky-table-body">
                     <tbody id="clergyTableBody">
                         {% for clergy in clergy_list %}
-                        <tr>
+                        <tr class="clergy-row" data-clergy-id="{{ clergy.id }}" style="cursor: pointer;">
                             <td class="name-col">
                                 <strong>{{ clergy.display_name }}</strong>
-                            </td>
-                            <td class="org-col">
-                                {% if clergy.organization %}
-                                    {% if org_abbreviation_map.get(clergy.organization) %}
-                                        <span class="badge bg-info">{{ org_abbreviation_map.get(clergy.organization) }}</span>
-                                    {% else %}
-                                        {{ clergy.organization }}
-                                    {% endif %}
-                                {% else %}
-                                    -
+                                {% if clergy.organization and org_abbreviation_map.get(clergy.organization) %}
+                                    <span class="badge ms-2" style="background-color: {{ org_color_map.get(clergy.organization, '#27ae60') }}; color: {{ 'white' if getContrastColor(org_color_map.get(clergy.organization, '#27ae60')) == 'white' else 'black' }}; {{ getBorderStyle(org_color_map.get(clergy.organization, '#27ae60')) }}; font-size: 0.85em; vertical-align: middle;">{{ org_abbreviation_map.get(clergy.organization) }}</span>
                                 {% endif %}
                             </td>
                             <td>{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '-' }}</td>
+                            <td class="by-col" title="{{ clergy.ordaining_bishop.display_name if clergy.ordaining_bishop and clergy.ordaining_bishop.display_name is defined else (clergy.ordaining_bishop.name if clergy.ordaining_bishop else '') }}">
+                                {% if clergy.ordaining_bishop %}{{ clergy.ordaining_bishop.display_name if clergy.ordaining_bishop.display_name is defined else clergy.ordaining_bishop.name }}{% else %}-{% endif %}
+                            </td>
                             <td>{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else '-' }}</td>
-                            <td>
-                                <div class="clergy-action-group">
-                                    <a href="{{ url_for('view_clergy', clergy_id=clergy.id) }}" class="clergy-action-btn view">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <a href="{{ url_for('edit_clergy', clergy_id=clergy.id) }}" class="clergy-action-btn edit">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <form action="{{ url_for('delete_clergy', clergy_id=clergy.id) }}" method="post" style="display:inline;" class="action-form-inline">
-                                        <button type="submit" class="clergy-action-btn delete" onclick="return confirm('Are you sure you want to delete this clergy record?');">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
-                                </div>
+                            <td class="by-col" title="{{ clergy.consecrator.display_name if clergy.consecrator and clergy.consecrator.display_name is defined else (clergy.consecrator.name if clergy.consecrator else '') }}">
+                                {% if clergy.consecrator %}{{ clergy.consecrator.display_name if clergy.consecrator.display_name is defined else clergy.consecrator.name }}{% else %}-{% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -134,99 +117,265 @@
         </div>
     {% endif %}
     </div>
+
+    <!-- Clergy Modal -->
+    <div class="modal fade" id="clergyModal" tabindex="-1" aria-labelledby="clergyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="clergyModalLabel">Clergy Record</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="clergyForm" method="POST">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">Name</label>
+                                    <input type="text" class="form-control" id="name" name="name" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="rank" class="form-label">Rank</label>
+                                    <select class="form-select" id="rank" name="rank" required>
+                                        <option value="">Select Rank</option>
+                                        {% for rank in ranks %}
+                                            <option value="{{ rank.name }}">{{ rank.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="organization" class="form-label">Organization</label>
+                                    <select class="form-select" id="organization" name="organization">
+                                        <option value="">Select Organization</option>
+                                        {% for org in organizations %}
+                                            <option value="{{ org.name }}">{{ org.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="date_of_birth" class="form-label">Date of Birth</label>
+                                    <input type="date" class="form-control" id="date_of_birth" name="date_of_birth">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="date_of_ordination" class="form-label">Date of Ordination</label>
+                                    <input type="date" class="form-control" id="date_of_ordination" name="date_of_ordination">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="ordaining_bishop_id" class="form-label">Ordaining Bishop</label>
+                                    <select class="form-select" id="ordaining_bishop_id" name="ordaining_bishop_id">
+                                        <option value="">Select Bishop</option>
+                                        {% for bishop in all_clergy %}
+                                            {% if bishop.rank.lower() == 'bishop' %}
+                                                <option value="{{ bishop.id }}">{{ bishop.name }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="date_of_consecration" class="form-label">Date of Consecration</label>
+                                    <input type="date" class="form-control" id="date_of_consecration" name="date_of_consecration">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="consecrator_id" class="form-label">Consecrating Bishop</label>
+                                    <select class="form-select" id="consecrator_id" name="consecrator_id">
+                                        <option value="">Select Bishop</option>
+                                        {% for bishop in all_clergy %}
+                                            {% if bishop.rank.lower() == 'bishop' %}
+                                                <option value="{{ bishop.id }}">{{ bishop.name }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-danger" id="deleteBtn">Delete</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block extra_styles %}
+<style>
+.clergy-row:hover {
+    background-color: rgba(52, 152, 219, 0.08);
+    transition: background-color 0.2s ease;
+}
+
+.clergy-row.selected {
+    background-color: rgba(52, 152, 219, 0.2) !important;
+}
+</style>
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="/static/js/fuzzySearch.js"></script>
 <script>
-// Remove static variables and make functions dynamic
-const input = document.getElementById('clergySearchInput');
-const clearBtn = document.getElementById('clearSearchBtn');
-
-// Function to get current clergy names from the DOM
-function getCurrentClergyNames() {
-    const rows = document.querySelectorAll('#clergyTableBody tr');
-    return Array.from(rows).map(row => {
-        const nameElement = row.querySelector('td.name-col strong');
-        return nameElement ? nameElement.textContent : '';
-    }).filter(name => name.length > 0);
-}
-
-// Function to get current clergy rows from the DOM
-function getCurrentClergyRows() {
-    return Array.from(document.querySelectorAll('#clergyTableBody tr'));
-}
-
-function filterTable(query) {
-    if (!query || query.trim().length < 1) {
-        const rows = getCurrentClergyRows();
-        rows.forEach(row => row.style.display = '');
-        return;
+document.addEventListener('DOMContentLoaded', function() {
+    // Search functionality
+    const searchInput = document.getElementById('clergySearchInput');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const tableRows = document.querySelectorAll('.clergy-row');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.trim();
+            
+            // Show/hide clear button
+            if (searchTerm.length > 0) {
+                clearSearchBtn.style.display = 'block';
+            } else {
+                clearSearchBtn.style.display = 'none';
+            }
+            
+            // Normalize search term (remove accents, lowercase)
+            const normalizedSearchTerm = searchTerm
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+                .toLowerCase();
+            
+            // Filter table rows
+            tableRows.forEach(row => {
+                const nameCell = row.querySelector('.name-col');
+                if (nameCell) {
+                    const nameText = nameCell.textContent;
+                    // Normalize name text the same way
+                    const normalizedName = nameText
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+                        .toLowerCase();
+                    
+                    if (normalizedName.includes(normalizedSearchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        });
+        
+        // Clear search functionality
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+            });
+        }
     }
-    
-    const clergyNames = getCurrentClergyNames();
-    const clergyRows = getCurrentClergyRows();
-    
-    if (clergyNames.length === 0) return;
-    
-    const results = window.fuzzySearch(clergyNames, query).slice(0, Math.max(8, Math.ceil(clergyRows.length * 0.5)));
-    const matches = new Set(results.map(r => r.item));
-    
-    clergyRows.forEach(row => {
-        const name = row.querySelector('td.name-col strong').textContent;
-        row.style.display = matches.has(name) ? '' : 'none';
+
+    // Row click modal logic
+    const modalEl = document.getElementById('clergyModal');
+    const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
+    const form = document.getElementById('clergyForm');
+    const deleteBtn = document.getElementById('deleteBtn');
+    let currentClergyId = null;
+
+    // Row click handler
+    document.querySelectorAll('.clergy-row').forEach(row => {
+        row.addEventListener('click', function() {
+            const clergyId = this.dataset.clergyId;
+            currentClergyId = clergyId;
+
+            // Remove previous selection
+            document.querySelectorAll('.clergy-row').forEach(r => r.classList.remove('selected'));
+            this.classList.add('selected');
+
+            // Load clergy data into modal
+            fetch(`/clergy/${clergyId}/json`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Clergy data received:', data); // Debug log
+                    document.getElementById('name').value = data.name || '';
+                    document.getElementById('rank').value = data.rank || '';
+                    document.getElementById('organization').value = data.organization || '';
+                    document.getElementById('date_of_birth').value = data.date_of_birth || '';
+                    document.getElementById('date_of_ordination').value = data.date_of_ordination || '';
+                    document.getElementById('ordaining_bishop_id').value = data.ordaining_bishop_id || '';
+                    document.getElementById('date_of_consecration').value = data.date_of_consecration || '';
+                    document.getElementById('consecrator_id').value = data.consecrator_id || '';
+                    document.getElementById('notes').value = data.notes || '';
+                    console.log('Modal should show now'); // Debug log
+                    if (modal) modal.show();
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error); // Debug log
+                    alert('Error loading clergy data');
+                });
+        });
     });
-}
 
-input.addEventListener('input', function() {
-    const query = input.value.trim();
-    filterTable(query);
-    clearBtn.style.display = query.length > 0 ? '' : 'none';
-});
+    // Form submit handler
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!currentClergyId) return;
+            const formData = new FormData(form);
+            console.log('Submitting form for clergy ID:', currentClergyId); // Debug log
+            console.log('Form data:', Object.fromEntries(formData)); // Debug log
+            
+            fetch(`/clergy/${currentClergyId}/edit`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                console.log('Response status:', response.status); // Debug log
+                console.log('Response headers:', response.headers); // Debug log
+                return response.text().then(text => {
+                    console.log('Response text:', text); // Debug log
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error('Failed to parse JSON:', e); // Debug log
+                        throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+                    }
+                });
+            })
+            .then(data => {
+                console.log('Response data:', data); // Debug log
+                if (data.success) {
+                    if (modal) modal.hide();
+                    location.reload();
+                } else {
+                    alert('Error updating clergy record: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error details:', error); // Debug log
+                alert('Error updating clergy record');
+            });
+        });
+    }
 
-input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        input.blur();
+    // Delete handler
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function() {
+            if (!currentClergyId) return;
+            if (confirm('Are you sure you want to delete this clergy record?')) {
+                fetch(`/clergy/${currentClergyId}/delete`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (modal) modal.hide();
+                        location.reload();
+                    } else {
+                        alert('Error deleting clergy record: ' + data.message);
+                    }
+                })
+                .catch(() => alert('Error deleting clergy record'));
+            }
+        });
     }
 });
-
-// Dynamically set the width of the name column to fit the longest name
-function setNameColumnWidth() {
-    const nameCells = document.querySelectorAll('td.name-col strong');
-    let maxWidth = 0;
-    nameCells.forEach(cell => {
-        // Create a temporary span to measure width
-        const span = document.createElement('span');
-        span.style.visibility = 'hidden';
-        span.style.position = 'absolute';
-        span.style.whiteSpace = 'nowrap';
-        span.style.font = window.getComputedStyle(cell).font;
-        span.textContent = cell.textContent;
-        document.body.appendChild(span);
-        maxWidth = Math.max(maxWidth, span.offsetWidth);
-        document.body.removeChild(span);
-    });
-    // Add some padding
-    maxWidth += 32;
-    // Set the width for all name-col cells and header
-    document.querySelectorAll('th.name-col, td.name-col').forEach(el => {
-        el.style.width = maxWidth + 'px';
-        el.style.maxWidth = maxWidth + 'px';
-    });
-}
-
-window.addEventListener('DOMContentLoaded', setNameColumnWidth);
-window.addEventListener('resize', setNameColumnWidth);
-document.addEventListener('htmx:afterSwap', function(event) {
-    if (event.target.id === 'clergyTableBody') {
-        setNameColumnWidth();
-    }
-});
-// If using HTMX or AJAX to update table, call setNameColumnWidth() after update
-
 </script>
 {% endblock %} 

@@ -882,17 +882,31 @@ def lineage_visualization():
     # Get all clergy for the visualization
     all_clergy = Clergy.query.all()
     
+    # Get all organizations and ranks for color lookup
+    organizations = {org.name: org.color for org in Organization.query.all()}
+    ranks = {rank.name: rank.color for rank in Rank.query.all()}
+
+    # SVG placeholder (simple person icon, base64-encoded)
+    placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="24" r="14" fill="#bdc3c7"/><ellipse cx="32" cy="50" rx="20" ry="12" fill="#bdc3c7"/></svg>'''
+    import base64
+    placeholder_data_url = 'data:image/svg+xml;base64,' + base64.b64encode(placeholder_svg.encode('utf-8')).decode('utf-8')
+
     # Prepare data for D3.js
     nodes = []
     links = []
     
-    # Create nodes for each clergy
+    # Create nodes for each clergy, including both colors and image
     for clergy in all_clergy:
+        org_color = organizations.get(clergy.organization) or '#2c3e50'
+        rank_color = ranks.get(clergy.rank) or '#888888'
         nodes.append({
             'id': clergy.id,
             'name': clergy.name,
             'rank': clergy.rank,
-            'organization': clergy.organization
+            'organization': clergy.organization,
+            'org_color': org_color,
+            'rank_color': rank_color,
+            'image_url': placeholder_data_url
         })
     
     # Create links for ordinations (black arrows)

@@ -156,6 +156,10 @@
                                     <label for="date_of_birth" class="form-label">Date of Birth</label>
                                     <input type="date" class="form-control" id="date_of_birth" name="date_of_birth">
                                 </div>
+                                <div class="mb-3">
+                                    <label for="date_of_death" class="form-label">Date of Death</label>
+                                    <input type="date" class="form-control" id="date_of_death" name="date_of_death">
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
@@ -193,6 +197,25 @@
                         <div class="mb-3">
                             <label for="notes" class="form-label">Notes</label>
                             <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="co_consecrators" class="form-label">Co-consecrators</label>
+                            <div class="co-consecrators-container">
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" id="co_consecrator_search_modal" placeholder="Search for co-consecrators...">
+                                    <button class="btn btn-outline-primary" type="button" id="add_co_consecrator_modal" title="Add selected co-consecrator">
+                                        <i class="fas fa-plus me-1"></i>Add
+                                    </button>
+                                </div>
+                                <div id="selected_co_consecrators_modal" class="d-flex flex-wrap gap-2 mb-2">
+                                    <!-- Selected co-consecrators will appear here as removable tags -->
+                                </div>
+                                <div id="co_consecrator_dropdown_modal" class="dropdown-menu w-100" style="max-height: 200px; overflow-y: auto; display: none;">
+                                    <!-- Dropdown options will be populated dynamically -->
+                                </div>
+                                <input type="hidden" id="co_consecrators_modal" name="co_consecrators">
+                            </div>
+                            <div class="form-text">Search for co-consecrators by name. Select from dropdown or click "Add" to add the first match. Click the X on tags to remove them.</div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -281,6 +304,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteBtn = document.getElementById('deleteBtn');
     let currentClergyId = null;
 
+    // Co-consecrator modal logic
+    let allClergyModal = [];
+    let selectedCoConsecratorsModal = [];
+
+    // Fetch all clergy for co-consecrator search (reuse from add_clergy.html logic)
+    fetch('/clergy')
+        .then(response => response.text())
+        .then(html => {
+            // Parse all clergy from a script tag or endpoint if available
+            // For now, fallback to window.allClergyData if set elsewhere
+            if (window.allClergyData) {
+                allClergyModal = window.allClergyData;
+            }
+        });
+
     // Row click handler
     document.querySelectorAll('.clergy-row').forEach(row => {
         row.addEventListener('click', function() {
@@ -295,7 +333,6 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(`/clergy/${clergyId}/json`)
                 .then(response => response.json())
                 .then(data => {
-                    console.log('Clergy data received:', data); // Debug log
                     document.getElementById('name').value = data.name || '';
                     document.getElementById('rank').value = data.rank || '';
                     document.getElementById('organization').value = data.organization || '';
@@ -305,15 +342,117 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('date_of_consecration').value = data.date_of_consecration || '';
                     document.getElementById('consecrator_id').value = data.consecrator_id || '';
                     document.getElementById('notes').value = data.notes || '';
-                    console.log('Modal should show now'); // Debug log
+                    // Co-consecrators
+                    let coIds = [];
+                    if (data.co_consecrators) {
+                        coIds = data.co_consecrators.split(',').filter(id => id.trim());
+                    }
+                    selectedCoConsecratorsModal = [];
+                    if (window.allClergyData) {
+                        coIds.forEach(id => {
+                            const clergyMember = window.allClergyData.find(c => c.id == parseInt(id));
+                            if (clergyMember) selectedCoConsecratorsModal.push(clergyMember);
+                        });
+                    }
+                    updateSelectedDisplayModal();
+                    updateHiddenInputModal();
                     if (modal) modal.show();
                 })
                 .catch(error => {
-                    console.error('Fetch error:', error); // Debug log
                     alert('Error loading clergy data');
                 });
         });
     });
+
+    // Co-consecrator modal search logic
+    const searchInputModal = document.getElementById('co_consecrator_search_modal');
+    const addButtonModal = document.getElementById('add_co_consecrator_modal');
+    const dropdownModal = document.getElementById('co_consecrator_dropdown_modal');
+    const selectedContainerModal = document.getElementById('selected_co_consecrators_modal');
+    const hiddenInputModal = document.getElementById('co_consecrators_modal');
+
+    if (searchInputModal && addButtonModal && dropdownModal && selectedContainerModal && hiddenInputModal) {
+        searchInputModal.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            if (searchTerm.length < 2) {
+                dropdownModal.style.display = 'none';
+                return;
+            }
+            const filteredClergy = (window.allClergyData || []).filter(clergy =>
+                clergy.name.toLowerCase().includes(searchTerm) &&
+                !selectedCoConsecratorsModal.some(selected => selected.id === clergy.id)
+            );
+            if (filteredClergy.length > 0) {
+                dropdownModal.innerHTML = filteredClergy.map(clergy =>
+                    `<a class="dropdown-item" href="#" data-id="${clergy.id}" data-name="${clergy.name}" data-rank="${clergy.rank}">
+                        ${clergy.name} (${clergy.rank})
+                    </a>`
+                ).join('');
+                dropdownModal.style.display = 'block';
+            } else {
+                dropdownModal.style.display = 'none';
+            }
+        });
+        dropdownModal.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (e.target.classList.contains('dropdown-item')) {
+                const id = parseInt(e.target.dataset.id);
+                const name = e.target.dataset.name;
+                const rank = e.target.dataset.rank;
+                addCoConsecratorModal(id, name, rank);
+                searchInputModal.value = '';
+                dropdownModal.style.display = 'none';
+            }
+        });
+        addButtonModal.addEventListener('click', function() {
+            const searchTerm = searchInputModal.value.trim();
+            if (searchTerm.length < 2) return;
+            const filteredClergy = (window.allClergyData || []).filter(clergy =>
+                clergy.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                !selectedCoConsecratorsModal.some(selected => selected.id === clergy.id)
+            );
+            if (filteredClergy.length > 0) {
+                const clergy = filteredClergy[0];
+                addCoConsecratorModal(clergy.id, clergy.name, clergy.rank);
+                searchInputModal.value = '';
+                dropdownModal.style.display = 'none';
+            }
+        });
+        function addCoConsecratorModal(id, name, rank) {
+            if (selectedCoConsecratorsModal.some(selected => selected.id === id)) return;
+            selectedCoConsecratorsModal.push({id, name, rank});
+            updateSelectedDisplayModal();
+            updateHiddenInputModal();
+        }
+        function removeCoConsecratorModal(id) {
+            selectedCoConsecratorsModal = selectedCoConsecratorsModal.filter(selected => selected.id !== id);
+            updateSelectedDisplayModal();
+            updateHiddenInputModal();
+        }
+        function updateSelectedDisplayModal() {
+            selectedContainerModal.innerHTML = selectedCoConsecratorsModal.map(clergy =>
+                `<span class="badge bg-primary d-flex align-items-center gap-1" style="font-size: 0.875rem;">
+                    ${clergy.name} (${clergy.rank})
+                    <button type="button" class="btn-close btn-close-white" style="font-size: 0.5rem;" onclick="removeCoConsecratorModal(${clergy.id})" aria-label="Remove"></button>
+                </span>`
+            ).join('');
+        }
+        function updateHiddenInputModal() {
+            hiddenInputModal.value = selectedCoConsecratorsModal.map(clergy => clergy.id).join(',');
+        }
+        window.removeCoConsecratorModal = removeCoConsecratorModal;
+        document.addEventListener('click', function(e) {
+            if (!searchInputModal.contains(e.target) && !dropdownModal.contains(e.target) && !addButtonModal.contains(e.target)) {
+                dropdownModal.style.display = 'none';
+            }
+        });
+        searchInputModal.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addButtonModal.click();
+            }
+        });
+    }
 
     // Form submit handler
     if (form) {
@@ -321,28 +460,22 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             if (!currentClergyId) return;
             const formData = new FormData(form);
-            console.log('Submitting form for clergy ID:', currentClergyId); // Debug log
-            console.log('Form data:', Object.fromEntries(formData)); // Debug log
-            
+            // Add co-consecrators from modal
+            formData.set('co_consecrators', document.getElementById('co_consecrators_modal').value);
             fetch(`/clergy/${currentClergyId}/edit`, {
                 method: 'POST',
                 body: formData
             })
             .then(response => {
-                console.log('Response status:', response.status); // Debug log
-                console.log('Response headers:', response.headers); // Debug log
                 return response.text().then(text => {
-                    console.log('Response text:', text); // Debug log
                     try {
                         return JSON.parse(text);
                     } catch (e) {
-                        console.error('Failed to parse JSON:', e); // Debug log
                         throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
                     }
                 });
             })
             .then(data => {
-                console.log('Response data:', data); // Debug log
                 if (data.success) {
                     if (modal) modal.hide();
                     location.reload();
@@ -351,7 +484,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                console.error('Fetch error details:', error); // Debug log
                 alert('Error updating clergy record');
             });
         });

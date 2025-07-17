@@ -16,137 +16,119 @@
         <div class="card-body p-4">
             <form method="POST">
                 <div class="row">
-                    <!-- Basic Information -->
                     <div class="col-md-6">
-                        <h4 class="mb-3">Basic Information</h4>
-                        
                         <div class="mb-3">
                             <label for="name" class="form-label">Name *</label>
-                            <input type="text" class="form-control" id="name" name="name" 
-                                   value="{{ clergy.name if edit_mode else '' }}" required>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ clergy.name if edit_mode else '' }}" required>
                         </div>
-                        
                         <div class="mb-3">
                             <label for="rank" class="form-label">Rank *</label>
                             <select class="form-select" id="rank" name="rank" required>
                                 <option value="">Select Rank</option>
                                 {% for rank in ranks %}
-                                    <option value="{{ rank.name }}" {% if edit_mode and clergy.rank == rank.name %}selected{% endif %}>
-                                        {{ rank.name }}{% if rank.description %} - {{ rank.description }}{% endif %}
-                                    </option>
+                                    <option value="{{ rank.name }}" {% if edit_mode and clergy.rank == rank.name %}selected{% endif %}>{{ rank.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        
                         <div class="mb-3">
                             <label for="organization" class="form-label">Organization</label>
                             <div class="input-group">
                                 <select class="form-select" id="organization" name="organization">
                                     <option value="">Select Organization (Optional)</option>
                                     {% for organization in organizations %}
-                                        <option value="{{ organization.name }}" {% if edit_mode and clergy.organization == organization.name %}selected{% endif %}>
-                                            {{ organization.name }}{% if organization.abbreviation %} ({{ organization.abbreviation }}){% endif %}{% if organization.description %} - {{ organization.description }}{% endif %}
-                                        </option>
+                                        <option value="{{ organization.name }}" {% if edit_mode and clergy.organization == organization.name %}selected{% endif %}>{{ organization.name }}{% if organization.abbreviation %} ({{ organization.abbreviation }}){% endif %}</option>
                                     {% endfor %}
                                 </select>
                                 <button class="btn btn-outline-primary" type="button" onclick="openAddOrganizationModal()" title="Add new organization">
                                     <i class="fas fa-plus me-1"></i>New
                                 </button>
                             </div>
-                            <div class="form-text">Can't find the organization? Click "New" to add it.</div>
                         </div>
-                        
                         <div class="mb-3">
                             <label for="date_of_birth" class="form-label">Date of Birth</label>
-                            <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
-                                   value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_birth else '' }}">
+                            <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_birth else '' }}">
                         </div>
-                        
                         <div class="mb-3">
                             <label for="date_of_death" class="form-label">Date of Death</label>
-                            <input type="date" class="form-control" id="date_of_death" name="date_of_death" 
-                                   value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_death else '' }}">
+                            <input type="date" class="form-control" id="date_of_death" name="date_of_death" value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_death else '' }}">
                         </div>
                     </div>
-                    
-                    <!-- Ordination Information -->
                     <div class="col-md-6">
-                        <h4 class="mb-3">Ordination Information</h4>
-                        
                         <div class="mb-3">
                             <label for="date_of_ordination" class="form-label">Date of Ordination</label>
-                            <input type="date" class="form-control" id="date_of_ordination" name="date_of_ordination" 
-                                   value="{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_ordination else '' }}">
+                            <input type="date" class="form-control" id="date_of_ordination" name="date_of_ordination" value="{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_ordination else '' }}">
                         </div>
-                        
                         <div class="mb-3">
                             <label for="ordaining_bishop_id" class="form-label">Ordaining Bishop</label>
                             <select class="form-select" id="ordaining_bishop_id" name="ordaining_bishop_id">
                                 <option value="">Select Ordaining Bishop</option>
+                                {% set ord_date = clergy.date_of_ordination if edit_mode else None %}
                                 {% for clergy_member in all_clergy %}
-                                    <option value="{{ clergy_member.id }}" {% if edit_mode and clergy.ordaining_bishop_id == clergy_member.id %}selected{% endif %}>{{ clergy_member.name }} ({{ clergy_member.rank }})</option>
+                                    {% if clergy_member.rank.lower() == 'bishop' %}
+                                        {% set valid = True %}
+                                        {% if ord_date and clergy_member.date_of_consecration and clergy_member.date_of_consecration > ord_date %}
+                                            {% set valid = False %}
+                                        {% endif %}
+                                        {% if ord_date and clergy_member.date_of_death and clergy_member.date_of_death < ord_date %}
+                                            {% set valid = False %}
+                                        {% endif %}
+                                        {% if valid %}
+                                            <option value="{{ clergy_member.id }}" {% if edit_mode and clergy.ordaining_bishop_id == clergy_member.id %}selected{% endif %}>{{ clergy_member.name }} ({{ clergy_member.rank }})</option>
+                                        {% endif %}
+                                    {% endif %}
                                 {% endfor %}
                             </select>
                         </div>
-                    </div>
-                </div>
-                
-                <hr class="my-4">
-                
-                <div class="row">
-                    <!-- Consecration Information -->
-                    <div class="col-md-6">
-                        <h4 class="mb-3">Consecration Information</h4>
-                        
                         <div class="mb-3">
                             <label for="date_of_consecration" class="form-label">Date of Consecration</label>
-                            <input type="date" class="form-control" id="date_of_consecration" name="date_of_consecration" 
-                                   value="{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_consecration else '' }}">
+                            <input type="date" class="form-control" id="date_of_consecration" name="date_of_consecration" value="{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_consecration else '' }}">
                         </div>
-                        
                         <div class="mb-3">
                             <label for="consecrator_id" class="form-label">Consecrator</label>
                             <select class="form-select" id="consecrator_id" name="consecrator_id">
                                 <option value="">Select Consecrator</option>
+                                {% set cons_date = clergy.date_of_consecration if edit_mode else None %}
                                 {% for clergy_member in all_clergy %}
-                                    <option value="{{ clergy_member.id }}" {% if edit_mode and clergy.consecrator_id == clergy_member.id %}selected{% endif %}>{{ clergy_member.name }} ({{ clergy_member.rank }})</option>
+                                    {% if clergy_member.rank.lower() == 'bishop' %}
+                                        {% set valid = True %}
+                                        {% if cons_date and clergy_member.date_of_consecration and clergy_member.date_of_consecration > cons_date %}
+                                            {% set valid = False %}
+                                        {% endif %}
+                                        {% if cons_date and clergy_member.date_of_death and clergy_member.date_of_death < cons_date %}
+                                            {% set valid = False %}
+                                        {% endif %}
+                                        {% if valid %}
+                                            <option value="{{ clergy_member.id }}" {% if edit_mode and clergy.consecrator_id == clergy_member.id %}selected{% endif %}>{{ clergy_member.name }} ({{ clergy_member.rank }})</option>
+                                        {% endif %}
+                                    {% endif %}
                                 {% endfor %}
                             </select>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="co_consecrators" class="form-label">Co-consecrators</label>
-                            <div class="co-consecrators-container">
-                                <div class="input-group mb-2">
-                                    <input type="text" class="form-control" id="co_consecrator_search" placeholder="Search for co-consecrators...">
-                                    <button class="btn btn-outline-primary" type="button" id="add_co_consecrator" title="Add selected co-consecrator">
-                                        <i class="fas fa-plus me-1"></i>Add
-                                    </button>
-                                </div>
-                                <div id="selected_co_consecrators" class="d-flex flex-wrap gap-2 mb-2">
-                                    <!-- Selected co-consecrators will appear here as removable tags -->
-                                </div>
-                                <div id="co_consecrator_dropdown" class="dropdown-menu w-100" style="max-height: 200px; overflow-y: auto; display: none;">
-                                    <!-- Dropdown options will be populated dynamically -->
-                                </div>
-                                <input type="hidden" id="co_consecrators" name="co_consecrators" 
-                                       value="{% if edit_mode %}{{ clergy.get_co_consecrators() | join(',') }}{% endif %}">
-                            </div>
-                            <div class="form-text">Search for co-consecrators by name. Select from dropdown or click "Add" to add the first match. Click the X on tags to remove them.</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Additional Information -->
-                    <div class="col-md-6">
-                        <h4 class="mb-3">Additional Information</h4>
-                        
-                        <div class="mb-3">
-                            <label for="notes" class="form-label">Notes</label>
-                            <textarea class="form-control" id="notes" name="notes" rows="6" placeholder="Additional notes about this clergy member...">{{ clergy.notes if edit_mode else '' }}</textarea>
-                        </div>
                     </div>
                 </div>
-                
+                <div class="mb-3">
+                    <label for="co_consecrators" class="form-label">Co-consecrators</label>
+                    <div class="co-consecrators-container">
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" id="co_consecrator_search" placeholder="Search for co-consecrators...">
+                            <button class="btn btn-outline-primary" type="button" id="add_co_consecrator" title="Add selected co-consecrator">
+                                <i class="fas fa-plus me-1"></i>Add
+                            </button>
+                        </div>
+                        <div id="selected_co_consecrators" class="d-flex flex-wrap gap-2 mb-2">
+                            <!-- Selected co-consecrators will appear here as removable tags -->
+                        </div>
+                        <div id="co_consecrator_dropdown" class="dropdown-menu w-100" style="max-height: 200px; overflow-y: auto; display: none;">
+                            <!-- Dropdown options will be populated dynamically -->
+                        </div>
+                        <input type="hidden" id="co_consecrators" name="co_consecrators" value="{% if edit_mode %}{{ clergy.get_co_consecrators() | join(',') }}{% endif %}">
+                    </div>
+                    <div class="form-text">Search for co-consecrators by name. Select from dropdown or click "Add" to add the first match. Click the X on tags to remove them.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="notes" class="form-label">Notes</label>
+                    <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Additional notes about this clergy member...">{{ clergy.notes if edit_mode else '' }}</textarea>
+                </div>
                 <div class="d-flex justify-content-end gap-2 mt-4">
                     <a href="{{ url_for('clergy_list') }}" class="btn btn-outline-secondary">Cancel</a>
                     <button type="submit" class="btn btn-primary">

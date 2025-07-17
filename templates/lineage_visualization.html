@@ -8,6 +8,49 @@
   document.documentElement.style.setProperty('--lineage-black', '#000000');
 </script>
 <div class="full-viewport-container">
+    <!-- Floating Menu Button (Mobile Only) -->
+    <button id="mobile-menu-btn" class="d-block d-md-none floating-menu-btn" aria-label="Open menu" style="position:fixed;bottom:20px;left:20px;z-index:1100;display:none;">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <rect x="6" y="10" width="20" height="2.5" rx="1.2" fill="#2c3e50"/>
+        <rect x="6" y="15" width="20" height="2.5" rx="1.2" fill="#2c3e50"/>
+        <rect x="6" y="20" width="20" height="2.5" rx="1.2" fill="#2c3e50"/>
+      </svg>
+    </button>
+
+    <!-- Modal Overlay for Mobile Menu -->
+    <div id="mobile-menu-modal" class="mobile-menu-modal" style="display:none;">
+      <div class="mobile-menu-modal-content">
+        <button id="close-mobile-menu" class="close-mobile-menu" aria-label="Close menu">&times;</button>
+        <div class="mobile-menu-legend-controls">
+          <!-- Legend -->
+          <div class="legend-visualization-mobile">
+            <h6 class="fw-bold mb-2 text-dark">Lineage Types</h6>
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 20px; height: 2px; background: var(--lineage-black); margin-right: 8px;"></div>
+                <small class="text-dark">Ordination</small>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 20px; height: 2px; background: var(--lineage-green); margin-right: 8px;"></div>
+                <small class="text-dark">Consecration</small>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 20px; height: 2px; background: var(--lineage-green); border-top: 2px dotted var(--lineage-green); margin-right: 8px;"></div>
+                <small class="text-dark">Co-consecration</small>
+            </div>
+          </div>
+          <!-- Controls -->
+          <div class="visualization-controls-mobile mt-3">
+            <button id="reset-zoom-mobile" class="btn btn-sm btn-outline-secondary mb-2 w-100">
+                <i class="fas fa-search-plus me-1"></i>Reset Zoom
+            </button>
+            <button id="center-graph-mobile" class="btn btn-sm btn-outline-secondary w-100">
+                <i class="fas fa-crosshairs me-1"></i>Center Graph
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Legend -->
     <div class="legend-visualization">
         <h6 class="fw-bold mb-2 text-dark">Lineage Types</h6>
@@ -56,11 +99,64 @@
 {% endblock %}
 
 {% block extra_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/visualizer.css') }}">
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
+    // Visualization constants
+    const LINK_DISTANCE = 144;
+    const CHARGE_STRENGTH = -400;
+    const COLLISION_RADIUS = 48;
+    const OUTER_RADIUS = 18; // Organization ring
+    const INNER_RADIUS = 14; // Rank ring
+    const IMAGE_SIZE = 20;
+    const LABEL_DY = 30;
+    const ARROWHEAD_LENGTH = 12; // Should match marker refX
+    const ARROW_OFFSET = 4; // Small offset beyond node edge
+
+    // Show/hide floating menu button and hide fixed legend/controls on mobile
+    function handleMobileMenuDisplay() {
+      const isMobile = window.innerWidth <= 768;
+      document.getElementById('mobile-menu-btn').style.display = isMobile ? 'block' : 'none';
+      document.querySelector('.legend-visualization').style.display = isMobile ? 'none' : '';
+      document.querySelector('.visualization-controls').style.display = isMobile ? 'none' : '';
+    }
+    window.addEventListener('resize', handleMobileMenuDisplay);
+    document.addEventListener('DOMContentLoaded', handleMobileMenuDisplay);
+
+    // Mobile menu open/close logic
+    const menuBtn = document.getElementById('mobile-menu-btn');
+    const menuModal = document.getElementById('mobile-menu-modal');
+    const closeBtn = document.getElementById('close-mobile-menu');
+    if (menuBtn && menuModal && closeBtn) {
+      menuBtn.addEventListener('click', () => {
+        menuModal.style.display = 'block';
+      });
+      closeBtn.addEventListener('click', () => {
+        menuModal.style.display = 'none';
+      });
+      menuModal.addEventListener('click', (e) => {
+        if (e.target === menuModal) menuModal.style.display = 'none';
+      });
+    }
+    // Wire up mobile controls to main controls
+    const resetZoomMobile = document.getElementById('reset-zoom-mobile');
+    const centerGraphMobile = document.getElementById('center-graph-mobile');
+    if (resetZoomMobile) {
+      resetZoomMobile.addEventListener('click', function() {
+        document.getElementById('reset-zoom').click();
+        menuModal.style.display = 'none';
+      });
+    }
+    if (centerGraphMobile) {
+      centerGraphMobile.addEventListener('click', function() {
+        document.getElementById('center-graph').click();
+        menuModal.style.display = 'none';
+      });
+    }
+
     // Specify the dimensions of the chart
     const width = window.innerWidth;
     const height = window.innerHeight - 76;
@@ -68,12 +164,12 @@
     // Define color constants for consistency
     const GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim() || '#27ae60';
     const BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-black').trim() || '#000000';
-    const NODE_BORDER_BISHOP = '#1e5f1e';
-    const NODE_BORDER_DEFAULT = '#2c3e50';
 
     // The force simulation mutates links and nodes, so create a copy
-    const links = {{ links | safe }}.map(d => ({...d}));
-    const nodes = {{ nodes | safe }}.map(d => ({...d}));
+    const linksRaw = {{ links | safe }};
+    const nodesRaw = {{ nodes | safe }};
+    const links = linksRaw.map(d => ({...d}));
+    const nodes = nodesRaw.map(d => ({...d}));
 
     // Function to detect and offset parallel links
     function processParallelLinks(links) {
@@ -119,10 +215,10 @@
 
     // Create a simulation with several forces
     const simulation = d3.forceSimulation(nodes)
-        .force("link", d3.forceLink(processedLinks).id(d => d.id).distance(144))
-        .force("charge", d3.forceManyBody().strength(-400))
+        .force("link", d3.forceLink(processedLinks).id(d => d.id).distance(LINK_DISTANCE))
+        .force("charge", d3.forceManyBody().strength(CHARGE_STRENGTH))
         .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collision", d3.forceCollide().radius(48))
+        .force("collision", d3.forceCollide().radius(COLLISION_RADIUS))
         .on("tick", ticked);
 
     // Create the SVG container
@@ -170,11 +266,11 @@
         .attr("d", "M0,-5L10,0L0,5")
         .attr("fill", GREEN_COLOR);
 
-    // Add a line for each link
+    // Add a line for each link (restore this block before nodeGroup)
     const link = container.append("g")
         .attr("stroke", "#999")
         .attr("stroke-opacity", 1)
-        .selectAll()
+        .selectAll("line")
         .data(processedLinks)
         .join("line")
         .attr("stroke-width", 3.2)
@@ -190,40 +286,48 @@
             return "url(#arrowhead-black)";
         });
 
-    // Link labels removed for cleaner visualization
-
-    // Add a circle for each node
-    const NODE_RADIUS = 14; // Slightly smaller nodes
-    const node = container.append("g")
-        .selectAll()
+    // Add a group for each node to allow concentric rings and image
+    const nodeGroup = container.append("g")
+        .selectAll("g")
         .data(nodes)
-        .join("circle")
-        .attr("r", NODE_RADIUS)
+        .join("g")
+        .attr("class", "node-group");
+
+    // Outer ring (organization color)
+    nodeGroup.append("circle")
+        .attr("r", OUTER_RADIUS)
         .attr("fill", "#fcfaf5")
-        .attr("stroke", d => {
-            // Dark green border for bishops and archbishops
-            if (d.rank && (d.rank.toLowerCase().includes('bishop') || d.rank.toLowerCase().includes('archbishop'))) {
-                return GREEN_COLOR;
-            }
-            return NODE_BORDER_DEFAULT;
-        })
-        .attr("stroke-width", 2.4);
+        .attr("stroke", d => d.org_color)
+        .attr("stroke-width", 4);
 
-    // Add node labels
-    const nodeLabel = container.append("g")
-        .selectAll()
-        .data(nodes)
-        .join("text")
+    // Inner ring (rank color)
+    nodeGroup.append("circle")
+        .attr("r", INNER_RADIUS)
+        .attr("fill", "#fcfaf5")
+        .attr("stroke", d => d.rank_color)
+        .attr("stroke-width", 3);
+
+    // Image (centered)
+    nodeGroup.append("image")
+        .attr("xlink:href", d => d.image_url)
+        .attr("x", -IMAGE_SIZE/2)
+        .attr("y", -IMAGE_SIZE/2)
+        .attr("width", IMAGE_SIZE)
+        .attr("height", IMAGE_SIZE)
+        .attr("clip-path", "circle(10px at 10px 10px)");
+
+    // Node label (unchanged)
+    nodeGroup.append("text")
         .attr("class", "node-label")
-        .attr("dy", 25)
+        .attr("dy", LABEL_DY)
         .text(d => d.name);
 
     // Add tooltips
-    node.append("title")
+    nodeGroup.append("title")
         .text(d => d.name);
 
     // Add a drag behavior
-    node.call(d3.drag()
+    nodeGroup.call(d3.drag()
         .on("start", dragstarted)
         .on("drag", dragged)
         .on("end", dragended));
@@ -232,7 +336,7 @@
     let isDragging = false;
     let clickedNode = null;
     
-    node.on("mousedown", function(event, d) {
+    nodeGroup.on("mousedown", function(event, d) {
         isDragging = false;
         clickedNode = d;
     })
@@ -265,8 +369,6 @@
 
     // Set the position attributes of links and nodes each time the simulation ticks
     function ticked() {
-        const ARROWHEAD_LENGTH = 12; // Should match marker refX
-        const ARROW_OFFSET = 4; // Small offset beyond node edge
         link
             .attr("x1", d => {
                 const dx = d.target.x - d.source.x;
@@ -274,8 +376,8 @@
                 const angle = Math.atan2(dy, dx);
                 const offsetX = Math.cos(angle + Math.PI/2) * d.parallelOffset;
                 const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
-                // Move start point out from center by NODE_RADIUS
-                return d.source.x + offsetX + Math.cos(angle) * NODE_RADIUS;
+                // Move start point out from center by OUTER_RADIUS
+                return d.source.x + offsetX + Math.cos(angle) * OUTER_RADIUS;
             })
             .attr("y1", d => {
                 const dx = d.target.x - d.source.x;
@@ -283,7 +385,7 @@
                 const angle = Math.atan2(dy, dx);
                 const offsetX = Math.cos(angle + Math.PI/2) * d.parallelOffset;
                 const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
-                return d.source.y + offsetY + Math.sin(angle) * NODE_RADIUS;
+                return d.source.y + offsetY + Math.sin(angle) * OUTER_RADIUS;
             })
             .attr("x2", d => {
                 const dx = d.target.x - d.source.x;
@@ -292,7 +394,7 @@
                 const offsetX = Math.cos(angle + Math.PI/2) * d.parallelOffset;
                 const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
                 // Move end point just outside node edge
-                return d.target.x + offsetX - Math.cos(angle) * (NODE_RADIUS + ARROW_OFFSET);
+                return d.target.x + offsetX - Math.cos(angle) * (OUTER_RADIUS + ARROW_OFFSET);
             })
             .attr("y2", d => {
                 const dx = d.target.x - d.source.x;
@@ -300,16 +402,11 @@
                 const angle = Math.atan2(dy, dx);
                 const offsetX = Math.cos(angle + Math.PI/2) * d.parallelOffset;
                 const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
-                return d.target.y + offsetY - Math.sin(angle) * (NODE_RADIUS + ARROW_OFFSET);
+                return d.target.y + offsetY - Math.sin(angle) * (OUTER_RADIUS + ARROW_OFFSET);
             });
 
-        node
-            .attr("cx", d => d.x)
-            .attr("cy", d => d.y);
-
-        nodeLabel
-            .attr("x", d => d.x)
-            .attr("y", d => d.y);
+        nodeGroup.attr("transform", d => `translate(${d.x},${d.y})`);
+        // Removed nodeLabel positioning, handled by group transform
     }
 
     // Reheat the simulation when drag starts, and fix the subject position

@@ -59,50 +59,28 @@
                             <input type="date" class="form-control" id="date_of_ordination" name="date_of_ordination" value="{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_ordination else '' }}">
                         </div>
                         <div class="mb-3">
-                            <label for="ordaining_bishop_id" class="form-label">Ordaining Bishop</label>
-                            <select class="form-select" id="ordaining_bishop_id" name="ordaining_bishop_id">
-                                <option value="">Select Ordaining Bishop</option>
-                                {% set ord_date = clergy.date_of_ordination if edit_mode else None %}
-                                {% for clergy_member in all_clergy %}
-                                    {% if clergy_member.rank.lower() == 'bishop' %}
-                                        {% set valid = True %}
-                                        {% if ord_date and clergy_member.date_of_consecration and clergy_member.date_of_consecration > ord_date %}
-                                            {% set valid = False %}
-                                        {% endif %}
-                                        {% if ord_date and clergy_member.date_of_death and clergy_member.date_of_death < ord_date %}
-                                            {% set valid = False %}
-                                        {% endif %}
-                                        {% if valid %}
-                                            <option value="{{ clergy_member.id }}" {% if edit_mode and clergy.ordaining_bishop_id == clergy_member.id %}selected{% endif %}>{{ clergy_member.name }} ({{ clergy_member.rank }})</option>
-                                        {% endif %}
-                                    {% endif %}
-                                {% endfor %}
-                            </select>
+                            <label for="ordaining_bishop_input" class="form-label">Ordaining Bishop</label>
+                            <div class="co-consecrators-container">
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" id="ordaining_bishop_input" name="ordaining_bishop_input" placeholder="Search or enter ordaining bishop..." autocomplete="off">
+                                </div>
+                                <div id="ordaining_bishop_dropdown" class="dropdown-menu co-consecrator-dropdown" style="display: none;"></div>
+                                <input type="hidden" id="ordaining_bishop_id" name="ordaining_bishop_id">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="consecrator_input" class="form-label">Consecrating Bishop</label>
+                            <div class="co-consecrators-container">
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" id="consecrator_input" name="consecrator_input" placeholder="Search or enter consecrating bishop..." autocomplete="off">
+                                </div>
+                                <div id="consecrator_dropdown" class="dropdown-menu co-consecrator-dropdown" style="display: none;"></div>
+                                <input type="hidden" id="consecrator_id" name="consecrator_id">
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="date_of_consecration" class="form-label">Date of Consecration</label>
                             <input type="date" class="form-control" id="date_of_consecration" name="date_of_consecration" value="{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if edit_mode and clergy.date_of_consecration else '' }}">
-                        </div>
-                        <div class="mb-3">
-                            <label for="consecrator_id" class="form-label">Consecrator</label>
-                            <select class="form-select" id="consecrator_id" name="consecrator_id">
-                                <option value="">Select Consecrator</option>
-                                {% set cons_date = clergy.date_of_consecration if edit_mode else None %}
-                                {% for clergy_member in all_clergy %}
-                                    {% if clergy_member.rank.lower() == 'bishop' %}
-                                        {% set valid = True %}
-                                        {% if cons_date and clergy_member.date_of_consecration and clergy_member.date_of_consecration > cons_date %}
-                                            {% set valid = False %}
-                                        {% endif %}
-                                        {% if cons_date and clergy_member.date_of_death and clergy_member.date_of_death < cons_date %}
-                                            {% set valid = False %}
-                                        {% endif %}
-                                        {% if valid %}
-                                            <option value="{{ clergy_member.id }}" {% if edit_mode and clergy.consecrator_id == clergy_member.id %}selected{% endif %}>{{ clergy_member.name }} ({{ clergy_member.rank }})</option>
-                                        {% endif %}
-                                    {% endif %}
-                                {% endfor %}
-                            </select>
                         </div>
                     </div>
                 </div>
@@ -111,14 +89,11 @@
                     <div class="co-consecrators-container">
                         <div class="input-group mb-2">
                             <input type="text" class="form-control" id="co_consecrator_search" placeholder="Search for co-consecrators...">
-                            <button class="btn btn-outline-primary" type="button" id="add_co_consecrator" title="Add selected co-consecrator">
-                                <i class="fas fa-plus me-1"></i>Add
-                            </button>
                         </div>
                         <div id="selected_co_consecrators" class="d-flex flex-wrap gap-2 mb-2">
                             <!-- Selected co-consecrators will appear here as removable tags -->
                         </div>
-                        <div id="co_consecrator_dropdown" class="dropdown-menu w-100" style="max-height: 200px; overflow-y: auto; display: none;">
+                        <div id="co_consecrator_dropdown" class="dropdown-menu co-consecrator-dropdown" style="display: none;">
                             <!-- Dropdown options will be populated dynamically -->
                         </div>
                         <input type="hidden" id="co_consecrators" name="co_consecrators" value="{% if edit_mode %}{{ clergy.get_co_consecrators() | join(',') }}{% endif %}">
@@ -173,310 +148,13 @@
 {% endblock %}
 
 {% block extra_styles %}
+<link rel="stylesheet" href="/static/css/visualizer.css">
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="/static/js/fuzzySearch.js"></script>
 <script>
-    // Auto-hide flash messages after 5 seconds (handled by notification system)
-
-    // Organization management functions
-    function openAddOrganizationModal() {
-        const modal = new bootstrap.Modal(document.getElementById('addOrganizationModal'));
-        modal.show();
-    }
-
-    function addOrganization() {
-        const nameInput = document.getElementById('new-organization-name');
-        const abbrInput = document.getElementById('new-organization-abbreviation');
-        const descInput = document.getElementById('new-organization-description');
-        
-        const orgName = nameInput.value.trim();
-        const abbreviation = abbrInput.value.trim();
-        const description = descInput.value.trim();
-        
-        if (!orgName) {
-            showMessage('Please enter an organization name.', 'error');
-            return;
-        }
-        
-        fetch('/metadata/organization/add', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                name: orgName,
-                abbreviation: abbreviation,
-                description: description
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showMessage(data.message, 'success');
-                
-                // Add the new organization to the dropdown
-                const organizationSelect = document.getElementById('organization');
-                const newOption = document.createElement('option');
-                newOption.value = data.organization.name;
-                newOption.textContent = data.organization.name;
-                if (data.organization.abbreviation) {
-                    newOption.textContent += ` (${data.organization.abbreviation})`;
-                }
-                if (data.organization.description) {
-                    newOption.textContent += ` - ${data.organization.description}`;
-                }
-                organizationSelect.appendChild(newOption);
-                
-                // Select the newly added organization
-                organizationSelect.value = data.organization.name;
-                
-                // Clear the form
-                nameInput.value = '';
-                abbrInput.value = '';
-                descInput.value = '';
-                
-                // Close the modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('addOrganizationModal'));
-                modal.hide();
-            } else {
-                showMessage(data.message, 'error');
-            }
-        })
-        .catch(error => {
-            showMessage('Error adding organization. Please try again.', 'error');
-            console.error('Error:', error);
-        });
-    }
-
-    function showMessage(message, type) {
-        // Create notification element using the existing glass-morphism system
-        const notificationDiv = document.createElement('div');
-        notificationDiv.className = `notification notification-${type === 'error' ? 'danger' : type}`;
-        notificationDiv.innerHTML = `
-            <div class="notification-content">
-                <span class="notification-message">${message}</span>
-                <button type="button" class="notification-close" onclick="dismissNotification(this)">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-        
-        // Find or create notification container
-        let container = document.getElementById('notification-container');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'notification-container';
-            container.className = 'notification-container';
-            document.body.appendChild(container);
-        }
-        
-        // Add notification to container
-        container.appendChild(notificationDiv);
-        
-        // Trigger show animation
-        setTimeout(() => {
-            notificationDiv.classList.add('show');
-        }, 10);
-        
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            if (notificationDiv.parentNode) {
-                notificationDiv.classList.add('hide');
-                setTimeout(() => {
-                    if (notificationDiv.parentNode) {
-                        notificationDiv.remove();
-                    }
-                }, 300);
-            }
-        }, 5000);
-    }
-
-    // Add the dismissNotification function if it doesn't exist
-    function dismissNotification(closeButton) {
-        const notification = closeButton.closest('.notification');
-        if (notification) {
-            notification.classList.add('hide');
-            setTimeout(function() {
-                notification.remove();
-            }, 300);
-        }
-    }
-
-    // Co-consecrators functionality
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchInput = document.getElementById('co_consecrator_search');
-        const addButton = document.getElementById('add_co_consecrator');
-        const dropdown = document.getElementById('co_consecrator_dropdown');
-        const selectedContainer = document.getElementById('selected_co_consecrators');
-        const hiddenInput = document.getElementById('co_consecrators');
-        
-        // Get all clergy data from the page
-        const allClergy = JSON.parse('{{ all_clergy_data | tojson | safe }}');
-        
-        let selectedCoConsecrators = [];
-        
-
-        
-        // Initialize co-consecrators if in edit mode
-        const initialCoConsecrators = '{{ clergy.get_co_consecrators() | join(",") if edit_mode else "" }}';
-        if (initialCoConsecrators) {
-            const coConsecratorIds = initialCoConsecrators.split(',').filter(id => id.trim());
-            coConsecratorIds.forEach(id => {
-                const clergyMember = allClergy.find(c => c.id == parseInt(id));
-                if (clergyMember) {
-                    selectedCoConsecrators.push(clergyMember);
-                }
-            });
-            updateSelectedDisplay();
-        }
-        
-        // Search functionality
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            if (searchTerm.length < 2) {
-                dropdown.style.display = 'none';
-                return;
-            }
-            
-            const filteredClergy = allClergy.filter(clergy => 
-                clergy.name.toLowerCase().includes(searchTerm) &&
-                !selectedCoConsecrators.some(selected => selected.id === clergy.id)
-            );
-            
-            if (filteredClergy.length > 0) {
-                dropdown.innerHTML = filteredClergy.map(clergy => 
-                    `<a class="dropdown-item" href="#" data-id="${clergy.id}" data-name="${clergy.name}" data-rank="${clergy.rank}">
-                        ${clergy.name} (${clergy.rank})
-                    </a>`
-                ).join('');
-                dropdown.style.display = 'block';
-            } else {
-                dropdown.style.display = 'none';
-            }
-        });
-        
-        // Handle dropdown item selection
-        dropdown.addEventListener('click', function(e) {
-            e.preventDefault();
-            if (e.target.classList.contains('dropdown-item')) {
-                const id = parseInt(e.target.dataset.id);
-                const name = e.target.dataset.name;
-                const rank = e.target.dataset.rank;
-                
-                addCoConsecrator(id, name, rank);
-                searchInput.value = '';
-                dropdown.style.display = 'none';
-            }
-        });
-        
-        // Add button functionality
-        addButton.addEventListener('click', function() {
-            const searchTerm = searchInput.value.trim();
-            if (searchTerm.length < 2) return;
-            
-            const filteredClergy = allClergy.filter(clergy => 
-                clergy.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-                !selectedCoConsecrators.some(selected => selected.id === clergy.id)
-            );
-            
-            if (filteredClergy.length > 0) {
-                const clergy = filteredClergy[0];
-                addCoConsecrator(clergy.id, clergy.name, clergy.rank);
-                searchInput.value = '';
-                dropdown.style.display = 'none';
-            }
-        });
-        
-        // Add co-consecrator function
-        function addCoConsecrator(id, name, rank) {
-            if (selectedCoConsecrators.some(selected => selected.id === id)) {
-                return; // Already selected
-            }
-            
-            selectedCoConsecrators.push({id, name, rank});
-            updateSelectedDisplay();
-            updateHiddenInput();
-        }
-        
-        // Remove co-consecrator function
-        function removeCoConsecrator(id) {
-            selectedCoConsecrators = selectedCoConsecrators.filter(selected => selected.id !== id);
-            updateSelectedDisplay();
-            updateHiddenInput();
-        }
-        
-        // Update the visual display of selected co-consecrators
-        function updateSelectedDisplay() {
-            selectedContainer.innerHTML = selectedCoConsecrators.map(clergy => 
-                `<span class="badge bg-primary d-flex align-items-center gap-1" style="font-size: 0.875rem;">
-                    ${clergy.name} (${clergy.rank})
-                    <button type="button" class="btn-close btn-close-white" style="font-size: 0.5rem;" 
-                            onclick="removeCoConsecrator(${clergy.id})" aria-label="Remove"></button>
-                </span>`
-            ).join('');
-        }
-        
-        // Update the hidden input value
-        function updateHiddenInput() {
-            hiddenInput.value = selectedCoConsecrators.map(clergy => clergy.id).join(',');
-        }
-        
-        // Make removeCoConsecrator globally accessible
-        window.removeCoConsecrator = removeCoConsecrator;
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!searchInput.contains(e.target) && !dropdown.contains(e.target) && !addButton.contains(e.target)) {
-                dropdown.style.display = 'none';
-            }
-        });
-        
-        // Handle Enter key in search input
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                addButton.click();
-            }
-        });
-
-        // Add keyboard event handlers for the organization modal
-        const addOrganizationModal = document.getElementById('addOrganizationModal');
-        if (addOrganizationModal) {
-            addOrganizationModal.addEventListener('shown.bs.modal', function() {
-                document.getElementById('new-organization-name').focus();
-            });
-            
-            // Enter key to add organization
-            document.getElementById('new-organization-name').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addOrganization();
-                }
-            });
-            
-            document.getElementById('new-organization-abbreviation').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addOrganization();
-                }
-            });
-            
-            document.getElementById('new-organization-description').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addOrganization();
-                }
-            });
-            
-            // Escape key to cancel
-            addOrganizationModal.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    const modal = bootstrap.Modal.getInstance(addOrganizationModal);
-                    modal.hide();
-                }
-            });
-        }
-    });
+    window.allClergy = {{ all_clergy_data | tojson | safe }};
 </script>
+<script src="/static/js/modalClergy.js"></script>
 {% endblock %} 

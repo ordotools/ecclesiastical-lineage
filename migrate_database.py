@@ -328,3 +328,20 @@ if __name__ == '__main__':
     add_abbreviation_column()
     migrate_date_of_death()
     add_color_columns() 
+
+import sqlite3
+
+conn = sqlite3.connect('instance/ecclesiastical_lineage.db')
+c = conn.cursor()
+
+# Add 'incomplete' column if it doesn't exist
+c.execute("PRAGMA table_info(clergy)")
+columns = [row[1] for row in c.fetchall()]
+if 'incomplete' not in columns:
+    c.execute("ALTER TABLE clergy ADD COLUMN incomplete BOOLEAN DEFAULT 0")
+    print("Added 'incomplete' column to clergy table.")
+else:
+    print("'incomplete' column already exists.")
+
+conn.commit()
+conn.close() 

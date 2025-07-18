@@ -2,13 +2,18 @@
 <tr class="clergy-row" data-clergy-id="{{ clergy.id }}" style="cursor: pointer;">
     <td class="name-col">
         <strong>{{ clergy.display_name }}</strong>
+        {% if not clergy.ordaining_bishop or (clergy.rank and clergy.rank.lower() == 'bishop' and not clergy.consecrator) %}
+            <span title="Incomplete record. Please edit and complete this entry." style="color: #e67e22; margin-left: 0.5em;">
+                <i class="fas fa-exclamation-triangle"></i>
+            </span>
+        {% endif %}
         {% if clergy.organization and org_abbreviation_map.get(clergy.organization) %}
             <span class="badge ms-2" style="background-color: {{ org_color_map.get(clergy.organization, '#27ae60') }}; color: {{ 'white' if getContrastColor(org_color_map.get(clergy.organization, '#27ae60')) == 'white' else 'black' }}; {{ getBorderStyle(org_color_map.get(clergy.organization, '#27ae60')) }}; font-size: 0.85em; vertical-align: middle;">{{ org_abbreviation_map.get(clergy.organization) }}</span>
         {% endif %}
     </td>
-    <td>{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '-' }}</td>
-    <td>{% if clergy.ordaining_bishop %}{{ clergy.ordaining_bishop.display_name if clergy.ordaining_bishop.display_name is defined else clergy.ordaining_bishop.name }}{% else %}-{% endif %}</td>
-    <td>{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else '-' }}</td>
-    <td>{% if clergy.consecrator %}{{ clergy.consecrator.display_name if clergy.consecrator.display_name is defined else clergy.consecrator.name }}{% else %}-{% endif %}</td>
+    <td class="truncate-cell">{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '-' }}</td>
+    <td class="truncate-cell">{% if clergy.ordaining_bishop %}{{ clergy.ordaining_bishop.display_name if clergy.ordaining_bishop.display_name is defined else clergy.ordaining_bishop.name }}{% else %}-{% endif %}</td>
+    <td class="truncate-cell">{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else '-' }}</td>
+    <td class="truncate-cell">{% if clergy.consecrator %}{{ clergy.consecrator.display_name if clergy.consecrator.display_name is defined else clergy.consecrator.name }}{% else %}-{% endif %}</td>
 </tr>
 {% endfor %} 

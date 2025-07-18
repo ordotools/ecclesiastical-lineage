@@ -223,6 +223,30 @@
   margin-bottom: 10px;
 }
 
+/* Shared styles for co-consecrator dropdown */
+.co-consecrators-container {
+    position: relative;
+}
+
+.co-consecrator-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: max-content;
+    min-width: 100%;
+    max-width: 400px;
+    z-index: 1000;
+    box-sizing: border-box;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.truncate-cell {
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (max-width: 768px) {
   .full-viewport-container {
     min-height: calc(100vh - 56px); /* Assume smaller navbar on mobile */

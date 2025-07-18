@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, render_template_string
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
@@ -47,26 +47,19 @@ def getContrastColor(hexColor):
         return 'black'
 
 def getBorderStyle(hexColor):
-    """Get border style for very light colors to ensure visibility."""
+    """Get border style for very light colors to ensure visibility. Always returns a string that is either empty or starts with a semicolon."""
     if not hexColor or not hexColor.startswith('#'):
         return ''
-    
-    # Convert hex to RGB
     hex = hexColor.replace('#', '')
     if len(hex) != 6:
         return ''
-    
     try:
         r = int(hex[0:2], 16)
         g = int(hex[2:4], 16)
         b = int(hex[4:6], 16)
-        
-        # Calculate relative luminance (WCAG 2.1 formula)
         luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-        
-        # Add border for very light colors (luminance > 0.8)
         if luminance > 0.8:
-            return 'border: 1px solid #ccc;'
+            return '; border: 1px solid #ccc'
         return ''
     except (ValueError, IndexError):
         return ''
@@ -316,6 +309,18 @@ def clergy_list():
     # Get ranks and all clergy for modal dropdowns
     ranks = Rank.query.order_by(Rank.name).all()
     all_clergy = Clergy.query.all()
+    # Add this block to serialize all clergy for JS
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': getattr(clergy_member, 'display_name', clergy_member.name),
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    import json
+    all_clergy_json = json.dumps(all_clergy_data)
 
     return render_template('clergy_list.html', 
                          clergy_list=clergy_list, 
@@ -324,6 +329,7 @@ def clergy_list():
                          organizations=organizations,
                          ranks=ranks,
                          all_clergy=all_clergy,
+                         all_clergy_json=all_clergy_json,
                          exclude_priests=exclude_priests,
                          exclude_coconsecrators=exclude_coconsecrators,
                          exclude_organizations=exclude_organizations,
@@ -382,49 +388,89 @@ def add_clergy():
         date_of_birth = request.form.get('date_of_birth')
         date_of_ordination = request.form.get('date_of_ordination')
         ordaining_bishop_id = request.form.get('ordaining_bishop_id')
+        ordaining_bishop_input = request.form.get('ordaining_bishop_input')
         date_of_consecration = request.form.get('date_of_consecration')
         consecrator_id = request.form.get('consecrator_id')
+        consecrator_input = request.form.get('consecrator_input')
         co_consecrators = request.form.get('co_consecrators')
         date_of_death = request.form.get('date_of_death')
         notes = request.form.get('notes')
-        
-        if not name or not rank:
-            flash('Name and rank are required.', 'error')
-            return render_template('add_clergy.html')
-        
-        clergy = Clergy(
-            name=name,
-            rank=rank,
-            organization=organization,
-            notes=notes
+
+        # Detect AJAX (modal) submission
+        content_type = request.headers.get('Content-Type', '')
+        is_ajax = (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+            content_type.startswith('multipart/form-data') or
+            content_type == 'application/x-www-form-urlencoded'
         )
-        
-        # Handle dates
-        if date_of_birth:
-            clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
-        if date_of_ordination:
-            clergy.date_of_ordination = datetime.strptime(date_of_ordination, '%Y-%m-%d').date()
-        if date_of_consecration:
-            clergy.date_of_consecration = datetime.strptime(date_of_consecration, '%Y-%m-%d').date()
-        if date_of_death:
-            clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
-        
-        # Handle foreign keys
-        if ordaining_bishop_id:
-            clergy.ordaining_bishop_id = int(ordaining_bishop_id)
-        if consecrator_id:
-            clergy.consecrator_id = int(consecrator_id)
-        
-        # Handle co-consecrators
-        if co_consecrators:
-            co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
-            clergy.set_co_consecrators(co_consecrator_ids)
-        
-        db.session.add(clergy)
-        db.session.commit()
-        
-        flash('Clergy record added successfully!', 'success')
-        return redirect(url_for('clergy_list'))
+        try:
+            if not name or not rank:
+                if is_ajax:
+                    return jsonify({'success': False, 'message': 'Name and rank are required.'}), 400
+                flash('Name and rank are required.', 'error')
+                return render_template('add_clergy.html')
+
+            clergy = Clergy(
+                name=name,
+                rank=rank,
+                organization=organization,
+                notes=notes
+            )
+
+            # Handle dates
+            if date_of_birth:
+                clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+            if date_of_ordination:
+                clergy.date_of_ordination = datetime.strptime(date_of_ordination, '%Y-%m-%d').date()
+            if date_of_consecration:
+                clergy.date_of_consecration = datetime.strptime(date_of_consecration, '%Y-%m-%d').date()
+            if date_of_death:
+                clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
+
+            # Handle ordaining bishop (allow new name)
+            if ordaining_bishop_id and ordaining_bishop_id != 'None':
+                clergy.ordaining_bishop_id = int(ordaining_bishop_id)
+            elif ordaining_bishop_input:
+                existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
+                if existing:
+                    clergy.ordaining_bishop_id = existing.id
+                else:
+                    new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
+                    db.session.add(new_bishop)
+                    db.session.flush()
+                    clergy.ordaining_bishop_id = new_bishop.id
+
+            # Handle consecrator (allow new name)
+            if consecrator_id and consecrator_id != 'None':
+                clergy.consecrator_id = int(consecrator_id)
+            elif consecrator_input:
+                existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
+                if existing:
+                    clergy.consecrator_id = existing.id
+                else:
+                    new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
+                    db.session.add(new_bishop)
+                    db.session.flush()
+                    clergy.consecrator_id = new_bishop.id
+
+            # Handle co-consecrators
+            if co_consecrators:
+                co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
+                clergy.set_co_consecrators(co_consecrator_ids)
+
+            db.session.add(clergy)
+            db.session.commit()
+
+            if is_ajax:
+                return jsonify({'success': True, 'message': 'Clergy record added successfully!'})
+            flash('Clergy record added successfully!', 'success')
+            return redirect(url_for('clergy_list'))
+        except Exception as e:
+            db.session.rollback()
+            if is_ajax:
+                return jsonify({'success': False, 'message': str(e)}), 400
+            flash('Error adding clergy record.', 'error')
+            return render_template('add_clergy.html')
     
     # Get all clergy for dropdowns
     all_clergy = Clergy.query.all()
@@ -510,8 +556,10 @@ def edit_clergy(clergy_id):
                 date_of_birth = request.form.get('date_of_birth')
                 date_of_ordination = request.form.get('date_of_ordination')
                 ordaining_bishop_id = request.form.get('ordaining_bishop_id')
+                ordaining_bishop_input = request.form.get('ordaining_bishop_input')
                 date_of_consecration = request.form.get('date_of_consecration')
                 consecrator_id = request.form.get('consecrator_id')
+                consecrator_input = request.form.get('consecrator_input')
                 co_consecrators = request.form.get('co_consecrators')
                 date_of_death = request.form.get('date_of_death')
                 clergy.notes = request.form.get('notes')
@@ -533,8 +581,35 @@ def edit_clergy(clergy_id):
                 else:
                     clergy.date_of_death = None
                 
-                clergy.ordaining_bishop_id = int(ordaining_bishop_id) if ordaining_bishop_id else None
-                clergy.consecrator_id = int(consecrator_id) if consecrator_id else None
+                # Handle ordaining bishop (allow new name)
+                if ordaining_bishop_id and ordaining_bishop_id != 'None':
+                    clergy.ordaining_bishop_id = int(ordaining_bishop_id)
+                elif ordaining_bishop_input:
+                    existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
+                    if existing:
+                        clergy.ordaining_bishop_id = existing.id
+                    else:
+                        new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
+                        db.session.add(new_bishop)
+                        db.session.flush()
+                        clergy.ordaining_bishop_id = new_bishop.id
+                else:
+                    clergy.ordaining_bishop_id = None
+
+                # Handle consecrator (allow new name)
+                if consecrator_id and consecrator_id != 'None':
+                    clergy.consecrator_id = int(consecrator_id)
+                elif consecrator_input:
+                    existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
+                    if existing:
+                        clergy.consecrator_id = existing.id
+                    else:
+                        new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
+                        db.session.add(new_bishop)
+                        db.session.flush()
+                        clergy.consecrator_id = new_bishop.id
+                else:
+                    clergy.consecrator_id = None
                 
                 if co_consecrators:
                     co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
@@ -554,8 +629,10 @@ def edit_clergy(clergy_id):
         date_of_birth = request.form.get('date_of_birth')
         date_of_ordination = request.form.get('date_of_ordination')
         ordaining_bishop_id = request.form.get('ordaining_bishop_id')
+        ordaining_bishop_input = request.form.get('ordaining_bishop_input')
         date_of_consecration = request.form.get('date_of_consecration')
         consecrator_id = request.form.get('consecrator_id')
+        consecrator_input = request.form.get('consecrator_input')
         co_consecrators = request.form.get('co_consecrators')
         date_of_death = request.form.get('date_of_death')
         clergy.notes = request.form.get('notes')
@@ -575,8 +652,8 @@ def edit_clergy(clergy_id):
             clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
         else:
             clergy.date_of_death = None
-        clergy.ordaining_bishop_id = int(ordaining_bishop_id) if ordaining_bishop_id else None
-        clergy.consecrator_id = int(consecrator_id) if consecrator_id else None
+        clergy.ordaining_bishop_id = int(ordaining_bishop_id) if ordaining_bishop_id and ordaining_bishop_id != 'None' else None
+        clergy.consecrator_id = int(consecrator_id) if consecrator_id and consecrator_id != 'None' else None
         if co_consecrators:
             co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
             clergy.set_co_consecrators(co_consecrator_ids)
@@ -612,26 +689,39 @@ def edit_clergy(clergy_id):
 
 @app.route('/clergy/<int:clergy_id>/delete', methods=['POST'])
 def delete_clergy(clergy_id):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     if 'user_id' not in session:
-        if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+        if is_ajax:
             return jsonify({'success': False, 'message': 'Authentication required'}), 401
         flash('Please log in to delete clergy records.', 'error')
         return redirect(url_for('login'))
-    
     clergy = Clergy.query.get_or_404(clergy_id)
-    
     try:
+        # Clean up ordaining_bishop_id and consecrator_id references
+        referencing_clergy = Clergy.query.filter(
+            (Clergy.ordaining_bishop_id == clergy_id) | (Clergy.consecrator_id == clergy_id)
+        ).all()
+        for c in referencing_clergy:
+            if c.ordaining_bishop_id == clergy_id:
+                c.ordaining_bishop_id = None
+            if c.consecrator_id == clergy_id:
+                c.consecrator_id = None
+        # Clean up co-consecrator references
+        all_clergy = Clergy.query.all()
+        for c in all_clergy:
+            co_consecrators = c.get_co_consecrators()
+            if clergy_id in co_consecrators:
+                co_consecrators = [cid for cid in co_consecrators if cid != clergy_id]
+                c.set_co_consecrators(co_consecrators)
         db.session.delete(clergy)
         db.session.commit()
-        
-        if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+        if is_ajax:
             return jsonify({'success': True, 'message': 'Clergy record deleted successfully!'})
-        
         flash('Clergy record deleted successfully!', 'success')
         return redirect(url_for('clergy_list'))
     except Exception as e:
         db.session.rollback()
-        if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+        if is_ajax:
             return jsonify({'success': False, 'message': str(e)}), 500
         flash('Error deleting clergy record.', 'error')
         return redirect(url_for('clergy_list'))
@@ -1008,6 +1098,55 @@ def admin_invite_signup(token):
         flash('Admin account created successfully! Please log in.', 'success')
         return redirect(url_for('login'))
     return render_template('signup.html', invite_token=token)
+
+@app.route('/clergy/modal/add')
+def clergy_modal_add():
+    if 'user_id' not in session:
+        return '', 401
+    all_clergy = Clergy.query.all()
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': getattr(clergy_member, 'display_name', clergy_member.name),
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    return render_template('clergy_modal_wrapper.html',
+        clergy=None,
+        all_clergy_data=all_clergy_data,
+        ranks=ranks,
+        organizations=organizations,
+        edit_mode=False
+    )
+
+@app.route('/clergy/modal/<int:clergy_id>/edit')
+def clergy_modal_edit(clergy_id):
+    if 'user_id' not in session:
+        return '', 401
+    clergy = Clergy.query.get_or_404(clergy_id)
+    all_clergy = Clergy.query.all()
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': getattr(clergy_member, 'display_name', clergy_member.name),
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    return render_template('clergy_modal_wrapper.html',
+        clergy=clergy,
+        all_clergy_data=all_clergy_data,
+        ranks=ranks,
+        organizations=organizations,
+        edit_mode=True
+    )
 
 
 if __name__ == '__main__':

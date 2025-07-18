@@ -1039,15 +1039,6 @@ def lineage_visualization():
                          nodes=json.dumps(nodes), 
                          links=json.dumps(links))
 
-@app.route('/admin/load_test_data', methods=['POST'])
-def load_test_data():
-    if 'user_id' not in session or not session.get('is_admin'):
-        flash('Admin access required.', 'error')
-        return redirect(url_for('dashboard'))
-    add_sample_data()
-    flash('Test data loaded successfully!', 'success')
-    return redirect(url_for('dashboard'))
-
 @app.route('/settings')
 def settings():
     if 'user_id' not in session or not session.get('is_admin'):

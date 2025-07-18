@@ -50,11 +50,7 @@
         </div>
     </div>
     {% if user.is_admin %}
-    <form id="load-test-data-form" method="POST" action="{{ url_for('load_test_data') }}" class="dashboard-admin-btn">
-        <button type="submit" class="btn btn-warning shadow-lg" onclick="return confirm('Are you sure you want to load test data? This will overwrite current clergy data.')">
-            <i class="fas fa-vial me-2"></i>Load Test Data
-        </button>
-    </form>
+    
     {% endif %}
 {% endblock %}
 

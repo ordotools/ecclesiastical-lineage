@@ -16,10 +16,6 @@ services:
           property: connectionString
       - key: ADD_SAMPLE_DATA
         value: true
-    databases:
-      - name: ecclesiastical-lineage-db
-        databaseName: ecclesiastical_lineage
-        user: ecclesiastical_lineage_user
 
 databases:
   - name: ecclesiastical-lineage-db

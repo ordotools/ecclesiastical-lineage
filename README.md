@@ -70,6 +70,25 @@ The application uses SQLite by default, which is suitable for testing and small 
 1. **PostgreSQL on Render**: Add a PostgreSQL service in Render and update the `DATABASE_URL`
 2. **External Database**: Use a managed database service and update the connection string
 
+### Setting Up Persistent Database on Render
+
+This application is configured to use a persistent PostgreSQL database on Render.com:
+
+1. **Automatic Setup**: The `render.yaml` file is configured to automatically create a PostgreSQL database service
+2. **Database Initialization**: The `init_db.py` script will automatically create all necessary tables
+3. **Sample Data**: Set `ADD_SAMPLE_DATA=true` in environment variables to include sample data
+
+**Manual Setup (if not using render.yaml):**
+1. In Render Dashboard, create a new PostgreSQL database service
+2. Copy the database connection string
+3. Add it as an environment variable: `DATABASE_URL`
+4. Deploy your application
+
+**Database Migration:**
+- The application automatically handles database schema creation
+- No manual migration steps required
+- Data persists between deployments
+
 ## Testing with Real Users
 
 1. Deploy to Render using the instructions above

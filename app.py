@@ -19,7 +19,24 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///ecclesiastical_lineage.db')
+
+# Get database URL with fallback
+database_url = os.environ.get('DATABASE_URL', 'sqlite:///ecclesiastical_lineage.db')
+
+# Debug: Print database URL (without sensitive info)
+if database_url and 'postgresql' in database_url:
+    # Mask the password in the URL for logging
+    if '@' in database_url:
+        parts = database_url.split('@')
+        if ':' in parts[0]:
+            user_pass = parts[0].split(':')
+            if len(user_pass) >= 3:  # postgresql://user:pass@host
+                masked_url = f"{user_pass[0]}:{user_pass[1]}:***@{parts[1]}"
+                print(f"🔍 Database URL: {masked_url}")
+    else:
+        print(f"🔍 Database URL: {database_url}")
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Handle database URL for Render and ensure psycopg3 compatibility

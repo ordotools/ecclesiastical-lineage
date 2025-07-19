@@ -92,9 +92,95 @@ def test_database_connection():
         print(f"🔍 Engine URL: {db.engine.url}")
         return False
 
-# Test the connection when the app starts
+# Database migration function
+def run_database_migration():
+    """Run database migration to ensure all required columns and tables exist"""
+    try:
+        with app.app_context():
+            print("🔧 Running database migration...")
+            
+            # Create all tables
+            db.create_all()
+            print("✅ All tables created")
+            
+            # Initialize roles and permissions
+            initialize_roles_and_permissions()
+            print("✅ Roles and permissions initialized")
+            
+            # Check if user table has required columns
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
+            
+            # Get current columns
+            columns = [col['name'] for col in inspector.get_columns('user')]
+            print(f"Current user table columns: {columns}")
+            
+            # Required columns for RBAC
+            required_columns = ['email', 'full_name', 'is_active', 'created_at', 'last_login', 'role_id']
+            missing_columns = [col for col in required_columns if col not in columns]
+            
+            if missing_columns:
+                print(f"❌ Missing columns: {missing_columns}")
+                print("🔧 Adding missing columns...")
+                
+                # Add missing columns manually
+                for col in missing_columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            if col == 'email':
+                                conn.execute(db.text("ALTER TABLE \"user\" ADD COLUMN email VARCHAR(120)"))
+                            elif col == 'full_name':
+                                conn.execute(db.text("ALTER TABLE \"user\" ADD COLUMN full_name VARCHAR(200)"))
+                            elif col == 'is_active':
+                                conn.execute(db.text("ALTER TABLE \"user\" ADD COLUMN is_active BOOLEAN DEFAULT true"))
+                            elif col == 'created_at':
+                                conn.execute(db.text("ALTER TABLE \"user\" ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                            elif col == 'last_login':
+                                conn.execute(db.text("ALTER TABLE \"user\" ADD COLUMN last_login TIMESTAMP"))
+                            elif col == 'role_id':
+                                conn.execute(db.text("ALTER TABLE \"user\" ADD COLUMN role_id INTEGER"))
+                            conn.commit()
+                        
+                        print(f"✅ Added column: {col}")
+                    except Exception as e:
+                        print(f"⚠️  Column {col} might already exist: {e}")
+            
+            # Update existing users to have Super Admin role
+            super_admin_role = Role.query.filter_by(name='Super Admin').first()
+            if super_admin_role:
+                existing_users = User.query.filter_by(role_id=None).all()
+                for user in existing_users:
+                    user.role_id = super_admin_role.id
+                    user.is_active = True
+                    if not user.created_at:
+                        user.created_at = datetime.utcnow()
+                
+                db.session.commit()
+                print(f"✅ Updated {len(existing_users)} users with Super Admin role")
+            
+            print("✅ Database migration completed successfully!")
+            return True
+            
+    except Exception as e:
+        print(f"❌ Database migration failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+# Test the connection and run migration when the app starts
 if __name__ == '__main__':
     test_database_connection()
+    run_database_migration()
+
+# Run migration on app startup
+def startup_migration():
+    """Run migration before the first request"""
+    print("🚀 Running startup migration...")
+    run_database_migration()
+
+# Register the migration to run before first request
+with app.app_context():
+    startup_migration()
 
 # Color contrast utility function for Jinja2 templates
 def getContrastColor(hexColor):

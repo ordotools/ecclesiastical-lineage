@@ -13,7 +13,12 @@ python debug_env.py
 
 # Initialize database
 echo "🗄️  Initializing database..."
-python3 init_postgres_db.py
+if python3 init_postgres_db.py; then
+    echo "✅ Database initialization completed successfully!"
+else
+    echo "❌ Database initialization failed!"
+    exit 1
+fi
 
 # Start the application
 echo "🌐 Starting application..."

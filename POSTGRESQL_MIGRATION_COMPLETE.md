@@ -19,10 +19,8 @@ Successfully migrated the Ecclesiastical Lineage application from SQLite to Post
 - ✅ Enhanced PostgreSQL connection configuration
 
 ### 3. Updated Development Scripts
-- ✅ Modified `dev_start.sh` to use PostgreSQL sync
-- ✅ Updated `sync_postgres_local.sh` to use DATABASE_URL from .env
-- ✅ Created `sync_remote_to_local.sh` for comprehensive database sync
-- ✅ Updated `setup_postgres_dev.sh` to use new sync script
+- ✅ Created `start_dev.sh` for complete development setup
+- ✅ Created `sync_dev_db.sh` for database synchronization
 
 ### 4. Updated Configuration
 - ✅ Updated `env.example` to show PostgreSQL configuration
@@ -34,9 +32,9 @@ Successfully migrated the Ecclesiastical Lineage application from SQLite to Post
 ### Local Development
 - **Database**: PostgreSQL local instance (`ecclesiastical_lineage_dev`)
 - **Connection**: `postgresql://localhost:5432/ecclesiastical_lineage_dev`
-- **Setup**: `./setup_postgres_dev.sh`
-- **Sync**: `./sync_remote_to_local.sh`
-- **Start**: `./dev_start.sh`
+- **Setup**: `./start_dev.sh`
+- **Sync**: `./sync_dev_db.sh`
+- **Start**: `./start_dev.sh`
 
 ### Production (Render)
 - **Database**: PostgreSQL on Render (automatically provisioned)
@@ -59,14 +57,9 @@ Successfully migrated the Ecclesiastical Lineage application from SQLite to Post
    # Edit .env to set your DATABASE_URL
    ```
 
-3. **Initialize database**:
+3. **Start development**:
    ```bash
-   ./setup_postgres_dev.sh
-   ```
-
-4. **Start development**:
-   ```bash
-   ./dev_start.sh
+   ./start_dev.sh
    ```
 
 ### For Existing Developers
@@ -78,20 +71,18 @@ Successfully migrated the Ecclesiastical Lineage application from SQLite to Post
 
 2. **Sync from remote** (optional):
    ```bash
-   ./sync_remote_to_local.sh
+   ./sync_dev_db.sh
    ```
 
 3. **Start development**:
    ```bash
-   ./dev_start.sh
+   ./start_dev.sh
    ```
 
 ## Database Management Commands
 
-- **Sync entire remote database**: `./sync_remote_to_local.sh`
-
-- **Quick start with sync**: `./dev_start.sh`
-- **Setup development environment**: `./setup_postgres_dev.sh`
+- **Sync entire remote database**: `./sync_dev_db.sh`
+- **Complete development setup**: `./start_dev.sh`
 
 ## Benefits of PostgreSQL Migration
 

@@ -39,13 +39,9 @@ A Flask web application for tracking and visualizing ecclesiastical lineages and
    cp env.example .env
    # Edit .env with your configuration
    ```
-5. Set up the local database:
+5. Start the development server:
    ```bash
-   ./setup_postgres_dev.sh
-   ```
-6. Start the development server:
-   ```bash
-   ./dev_start.sh
+   ./start_dev.sh
    ```
 7. Visit `http://localhost:5001`
 
@@ -53,9 +49,6 @@ A Flask web application for tracking and visualizing ecclesiastical lineages and
 
 - **Complete development setup**: `./start_dev.sh` - Syncs remote database, sets up environment, and starts server
 - **Sync database only**: `./sync_dev_db.sh` - Syncs remote database to local without starting server
-- **Sync from remote**: `./sync_remote_to_local.sh` - Copies entire remote database to local
-
-- **Quick start**: `./dev_start.sh` - Syncs and starts the server
 
 ## Deployment on Render
 
@@ -121,7 +114,7 @@ For local development, the application uses a local PostgreSQL database:
 
 - **Database Name**: `ecclesiastical_lineage_dev`
 - **Connection**: `postgresql://localhost:5432/ecclesiastical_lineage_dev`
-- **Sync from Remote**: Use `./sync_remote_to_local.sh` to copy production data locally
+- **Sync from Remote**: Use `./sync_dev_db.sh` to copy production data locally
 
 
 ## Testing with Real Users

@@ -51,6 +51,8 @@ A Flask web application for tracking and visualizing ecclesiastical lineages and
 
 ### Database Management
 
+- **Complete development setup**: `./start_dev.sh` - Syncs remote database, sets up environment, and starts server
+- **Sync database only**: `./sync_dev_db.sh` - Syncs remote database to local without starting server
 - **Sync from remote**: `./sync_remote_to_local.sh` - Copies entire remote database to local
 - **Initialize with sample data**: `ADD_SAMPLE_DATA=true python3 init_postgres_db.py`
 - **Quick start**: `./dev_start.sh` - Syncs and starts the server

@@ -1,72 +1,101 @@
 {% extends 'base.html' %}
-{% block content %}
+{% block full_content %}
 <div class="container mt-4">
-  <h2>Settings</h2>
-  <hr>
-  
-  <!-- Password Change Section -->
-  <div class="row">
-    <div class="col-md-6">
-      <h4>Change Password</h4>
-      <form id="change-password-form" method="post" action="{{ url_for('change_password') }}">
-        <div class="mb-3">
-          <label for="current_password" class="form-label">Current Password</label>
-          <input type="password" class="form-control" id="current_password" name="current_password" required>
-        </div>
-        <div class="mb-3">
-          <label for="new_password" class="form-label">New Password</label>
-          <input type="password" class="form-control" id="new_password" name="new_password" required>
-          <div class="form-text">
-            <small>Password must contain:</small>
-            <ul class="password-requirements" style="font-size: 0.875em; margin-top: 0.25rem;">
-              <li id="req-length">At least 8 characters</li>
-              <li id="req-uppercase">One uppercase letter (A-Z)</li>
-              <li id="req-lowercase">One lowercase letter (a-z)</li>
-              <li id="req-number">One number (0-9)</li>
-              <li id="req-special">One special character (!@#$%^&*(),.?":{}|<>)</li>
-            </ul>
-          </div>
-        </div>
-        <div class="mb-3">
-          <label for="confirm_password" class="form-label">Confirm New Password</label>
-          <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
-        </div>
-        <button type="submit" class="btn btn-primary">Change Password</button>
-      </form>
-    </div>
+  <div class="welcome-section text-center mb-4">
+    <h1 class="display-5 fw-bold mb-2 text-dark">Settings</h1>
+    <p class="lead text-secondary mb-0">Manage your account settings and preferences</p>
   </div>
-
-  <hr class="my-4">
-
-  <!-- Admin Invite Section (only for admins) -->
-  {% if user.is_admin %}
+  
   <div class="row">
-    <div class="col-md-6">
-      <h4>Invite a New Admin</h4>
-      <form id="invite-admin-form" method="post" action="{{ url_for('generate_admin_invite') }}">
-        <button type="submit" class="btn btn-primary">Generate Admin Invite Link</button>
-      </form>
-      <div id="invite-link-section" class="mt-3">
-        {% if invite_link %}
-          <div class="alert alert-success d-flex align-items-center">
-            <div>
-              <strong>Invite Link:</strong> 
-              <a href="{{ invite_link }}" id="invite-link" class="truncate-link" title="{{ invite_link }}">
-                <span id="invite-link-text">
-                  {{ invite_link }}
-                </span>
-              </a>
-              <button class="btn btn-outline-secondary btn-sm ms-2" onclick="copyInviteLink()" type="button" id="copy-btn">
-                <i class="fas fa-copy"></i> Copy
-              </button>
+    <!-- Password Change Section -->
+    <div class="col-lg-6 mb-4">
+      <div class="card h-100">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-primary bg-opacity-10 p-3 rounded me-3">
+              <i class="fas fa-lock text-primary" style="font-size: 1.5rem;"></i>
             </div>
-            <span id="copy-feedback" class="ms-3 text-success" style="display:none;">Copied!</span>
+            <div>
+              <h4 class="card-title mb-1">Change Password</h4>
+              <p class="text-muted mb-0">Update your account password</p>
+            </div>
           </div>
-        {% endif %}
+          
+          <form id="change-password-form" method="post" action="{{ url_for('change_password') }}">
+            <div class="mb-3">
+              <label for="current_password" class="form-label">Current Password</label>
+              <input type="password" class="form-control" id="current_password" name="current_password" required>
+            </div>
+            <div class="mb-3">
+              <label for="new_password" class="form-label">New Password</label>
+              <input type="password" class="form-control" id="new_password" name="new_password" required>
+              <div class="form-text">
+                <small>Password must contain:</small>
+                <ul class="password-requirements" style="font-size: 0.875em; margin-top: 0.25rem;">
+                  <li id="req-length">At least 8 characters</li>
+                  <li id="req-uppercase">One uppercase letter (A-Z)</li>
+                  <li id="req-lowercase">One lowercase letter (a-z)</li>
+                  <li id="req-number">One number (0-9)</li>
+                  <li id="req-special">One special character (!@#$%^&*(),.?":{}|<>)</li>
+                </ul>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="confirm_password" class="form-label">Confirm New Password</label>
+              <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-key me-2"></i>Change Password
+            </button>
+          </form>
+        </div>
       </div>
     </div>
+
+    <!-- Admin Invite Section (only for admins) -->
+    {% if user.is_admin %}
+    <div class="col-lg-6 mb-4">
+      <div class="card h-100">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-success bg-opacity-10 p-3 rounded me-3">
+              <i class="fas fa-user-plus text-success" style="font-size: 1.5rem;"></i>
+            </div>
+            <div>
+              <h4 class="card-title mb-1">Invite a New Admin</h4>
+              <p class="text-muted mb-0">Generate admin invitation links</p>
+            </div>
+          </div>
+          
+          <form id="invite-admin-form" method="post" action="{{ url_for('generate_admin_invite') }}">
+            <button type="submit" class="btn btn-success">
+              <i class="fas fa-link me-2"></i>Generate Admin Invite Link
+            </button>
+          </form>
+          
+          <div id="invite-link-section" class="mt-3">
+            {% if invite_link %}
+              <div class="alert alert-success d-flex align-items-center">
+                <div class="flex-grow-1">
+                  <strong>Invite Link:</strong> 
+                  <a href="{{ invite_link }}" id="invite-link" class="truncate-link" title="{{ invite_link }}">
+                    <span id="invite-link-text">
+                      {{ invite_link }}
+                    </span>
+                  </a>
+                  <button class="btn btn-outline-secondary btn-sm ms-2" onclick="copyInviteLink()" type="button" id="copy-btn">
+                    <i class="fas fa-copy"></i> Copy
+                  </button>
+                </div>
+                <span id="copy-feedback" class="ms-3 text-success" style="display:none;">Copied!</span>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
 </div>
 
 <script>
@@ -121,6 +150,22 @@
       }, 1500);
     });
   }
+  
+  // Handle logout redirect
+  document.body.addEventListener('htmx:afterRequest', function(evt) {
+    if (evt.detail.xhr.status === 200) {
+      const response = evt.detail.xhr.responseText;
+      if (response.includes('logout')) {
+        const redirectDiv = evt.detail.target.querySelector('#redirect');
+        if (redirectDiv) {
+          const url = redirectDiv.getAttribute('data-url');
+          setTimeout(function() {
+            window.location.href = url;
+          }, 1000);
+        }
+      }
+    }
+  });
 </script>
 
 <style>

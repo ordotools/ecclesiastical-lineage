@@ -11,8 +11,8 @@
         </div>
         
         <form hx-post="{{ url_for('login') }}" 
-              hx-target="#flash-messages" 
-              hx-swap="beforeend"
+              hx-target="body" 
+              hx-swap="innerHTML"
               hx-indicator="#loading-spinner">
             
             <div class="mb-3">
@@ -40,8 +40,6 @@
         </form>
     </div>
 </div>
-
-<div id="flash-messages"></div>
 
 <script>
     // Handle successful login redirect for HTMX

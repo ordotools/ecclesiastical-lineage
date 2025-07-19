@@ -8,30 +8,26 @@ from add_sample_data import add_sample_data
 from uuid import uuid4
 from dotenv import load_dotenv
 
-# Import psycopg3 to ensure it's available for SQLAlchemy
+# Import psycopg3 for PostgreSQL connections
 try:
     import psycopg
 except ImportError:
-    pass  # psycopg2 will be used as fallback
+    print("Warning: psycopg3 not found. Install with: pip install psycopg[binary]")
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 
-# Get database URL with fallback
-database_url = os.environ.get('DATABASE_URL', 'sqlite:///ecclesiastical_lineage.db')
+# Get database URL - PostgreSQL is required
+database_url = os.environ.get('DATABASE_URL')
+if not database_url:
+    raise ValueError("DATABASE_URL environment variable is required. Set it to your PostgreSQL connection string.")
 
-# Fix incomplete Render database URLs
-if database_url and 'postgresql' in database_url and 'dpg-d1sreeje5dus73dsvvkg-a' in database_url:
-    # Fix the incomplete hostname and add port
-    if not database_url.endswith('.render.com'):
-        # Add the missing domain and port
-        database_url = database_url.replace('dpg-d1sreeje5dus73dsvvkg-a/', 'dpg-d1sreeje5dus73dsvvkg-a.oregon-postgres.render.com:5432/')
-        print(f"🔧 Fixed incomplete database URL")
-    
-    # Debug: Print database URL (without sensitive info)
+# Debug: Print database URL (without sensitive info)
+if database_url and 'postgresql' in database_url:
+    # Mask the password in the URL for logging
     if '@' in database_url:
         parts = database_url.split('@')
         if ':' in parts[0]:

@@ -12,6 +12,18 @@ A Flask web application for tracking and visualizing ecclesiastical lineages and
 
 ## Local Development
 
+### Prerequisites
+
+1. **PostgreSQL**: Install and start PostgreSQL locally
+   ```bash
+   brew install postgresql@16
+   brew services start postgresql@16
+   ```
+
+2. **Python**: Ensure you have Python 3.8+ installed
+
+### Setup
+
 1. Clone the repository
 2. Create a virtual environment:
    ```bash
@@ -22,16 +34,26 @@ A Flask web application for tracking and visualizing ecclesiastical lineages and
    ```bash
    pip install -r requirements.txt
    ```
-4. Set up environment variables (copy from `env.example`):
+4. Set up environment variables:
    ```bash
    cp env.example .env
    # Edit .env with your configuration
    ```
-5. Run the application:
+5. Set up the local database:
    ```bash
-   python app.py
+   ./setup_postgres_dev.sh
    ```
-6. Visit `http://localhost:5000`
+6. Start the development server:
+   ```bash
+   ./dev_start.sh
+   ```
+7. Visit `http://localhost:5001`
+
+### Database Management
+
+- **Sync from remote**: `./sync_remote_to_local.sh` - Copies entire remote database to local
+- **Initialize with sample data**: `ADD_SAMPLE_DATA=true python3 init_postgres_db.py`
+- **Quick start**: `./dev_start.sh` - Syncs and starts the server
 
 ## Deployment on Render
 
@@ -52,7 +74,7 @@ A Flask web application for tracking and visualizing ecclesiastical lineages and
 
 The following environment variables will be automatically set by Render:
 - `SECRET_KEY`: Automatically generated
-- `DATABASE_URL`: Uses SQLite by default
+- `DATABASE_URL`: Uses PostgreSQL by default
 
 ### Manual Deploy
 
@@ -65,17 +87,19 @@ If you prefer to use the `render.yaml` file:
 
 ## Database
 
-The application uses SQLite by default, which is suitable for testing and small deployments. For production use, consider:
+The application uses PostgreSQL for all environments, which provides:
 
-1. **PostgreSQL on Render**: Add a PostgreSQL service in Render and update the `DATABASE_URL`
-2. **External Database**: Use a managed database service and update the connection string
+- Better performance and concurrent access
+- ACID compliance for data integrity
+- Advanced features like JSON support and full-text search
+- Production-ready scalability
 
 ### Setting Up Persistent Database on Render
 
 This application is configured to use a persistent PostgreSQL database on Render.com:
 
 1. **Automatic Setup**: The `render.yaml` file is configured to automatically create a PostgreSQL database service
-2. **Database Initialization**: The `init_db.py` script will automatically create all necessary tables
+2. **Database Initialization**: The `init_postgres_db.py` script will automatically create all necessary tables
 3. **Sample Data**: Set `ADD_SAMPLE_DATA=true` in environment variables to include sample data
 
 **Manual Setup (if not using render.yaml):**
@@ -88,6 +112,15 @@ This application is configured to use a persistent PostgreSQL database on Render
 - The application automatically handles database schema creation
 - No manual migration steps required
 - Data persists between deployments
+
+### Local Development Database
+
+For local development, the application uses a local PostgreSQL database:
+
+- **Database Name**: `ecclesiastical_lineage_dev`
+- **Connection**: `postgresql://localhost:5432/ecclesiastical_lineage_dev`
+- **Sync from Remote**: Use `./sync_remote_to_local.sh` to copy production data locally
+- **Sample Data**: Use `ADD_SAMPLE_DATA=true python3 init_postgres_db.py` for testing
 
 ## Testing with Real Users
 

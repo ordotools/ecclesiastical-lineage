@@ -31,7 +31,7 @@ read -p "Enter choice (1 or 2): " choice
 case $choice in
   1)
     echo "🔄 Syncing from remote PostgreSQL..."
-    ./sync_postgres_local.sh
+    ./sync_remote_to_local.sh
     ;;
   2)
     echo "📊 Setting up local database with sample data..."

@@ -7,6 +7,10 @@ echo "🚀 Starting deployment..."
 echo "📦 Installing dependencies..."
 pip install -r requirements.txt
 
+# Debug environment variables
+echo "🔍 Debugging environment variables..."
+python debug_env.py
+
 # Initialize database (only if tables don't exist)
 echo "🗄️  Checking database..."
 python -c "

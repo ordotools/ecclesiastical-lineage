@@ -89,7 +89,7 @@ Successfully migrated the Ecclesiastical Lineage application from SQLite to Post
 ## Database Management Commands
 
 - **Sync entire remote database**: `./sync_remote_to_local.sh`
-- **Initialize with sample data**: `ADD_SAMPLE_DATA=true python3 init_postgres_db.py`
+
 - **Quick start with sync**: `./dev_start.sh`
 - **Setup development environment**: `./setup_postgres_dev.sh`
 

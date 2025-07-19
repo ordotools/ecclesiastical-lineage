@@ -15,7 +15,7 @@ fi
 source env/bin/activate
 
 echo "📊 Initializing database with sample data..."
-ADD_SAMPLE_DATA=true python3 init_db.py
+python3 init_db.py
 
 echo "👤 Creating admin user..."
 python3 create_admin_user.py

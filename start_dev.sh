@@ -117,7 +117,7 @@ DATABASE_URL=$LOCAL_DATABASE_URL
 REMOTE_DATABASE_URL=$DATABASE_URL
 
 # Optional: Set to 'true' to add sample data during initialization
-# ADD_SAMPLE_DATA=true
+
 EOF
 fi
 

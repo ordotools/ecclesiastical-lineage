@@ -54,7 +54,7 @@ A Flask web application for tracking and visualizing ecclesiastical lineages and
 - **Complete development setup**: `./start_dev.sh` - Syncs remote database, sets up environment, and starts server
 - **Sync database only**: `./sync_dev_db.sh` - Syncs remote database to local without starting server
 - **Sync from remote**: `./sync_remote_to_local.sh` - Copies entire remote database to local
-- **Initialize with sample data**: `ADD_SAMPLE_DATA=true python3 init_postgres_db.py`
+
 - **Quick start**: `./dev_start.sh` - Syncs and starts the server
 
 ## Deployment on Render
@@ -102,7 +102,7 @@ This application is configured to use a persistent PostgreSQL database on Render
 
 1. **Automatic Setup**: The `render.yaml` file is configured to automatically create a PostgreSQL database service
 2. **Database Initialization**: The `init_postgres_db.py` script will automatically create all necessary tables
-3. **Sample Data**: Set `ADD_SAMPLE_DATA=true` in environment variables to include sample data
+
 
 **Manual Setup (if not using render.yaml):**
 1. In Render Dashboard, create a new PostgreSQL database service
@@ -122,7 +122,7 @@ For local development, the application uses a local PostgreSQL database:
 - **Database Name**: `ecclesiastical_lineage_dev`
 - **Connection**: `postgresql://localhost:5432/ecclesiastical_lineage_dev`
 - **Sync from Remote**: Use `./sync_remote_to_local.sh` to copy production data locally
-- **Sample Data**: Use `ADD_SAMPLE_DATA=true python3 init_postgres_db.py` for testing
+
 
 ## Testing with Real Users
 

@@ -140,7 +140,7 @@ This script:
 
 #### Manual Local Setup:
 ```bash
-ADD_SAMPLE_DATA=true python3 init_postgres_db.py
+python3 init_postgres_db.py
 ```
 
 This script:
@@ -185,7 +185,7 @@ If you want to add sample data to your local database for testing:
 
 ```bash
 source env/bin/activate
-ADD_SAMPLE_DATA=true python3 init_db.py
+python3 init_db.py
 ```
 
 ## Troubleshooting

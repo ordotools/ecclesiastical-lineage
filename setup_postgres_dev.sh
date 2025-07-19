@@ -35,7 +35,7 @@ case $choice in
     ;;
   2)
     echo "📊 Setting up local database with sample data..."
-    ADD_SAMPLE_DATA=true python3 init_postgres_db.py
+    python3 init_postgres_db.py
     ;;
   *)
     echo "Invalid choice. Exiting."

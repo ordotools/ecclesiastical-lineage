@@ -4,7 +4,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os
 import json
-from add_sample_data import add_sample_data
 from uuid import uuid4
 from dotenv import load_dotenv
 
@@ -1216,8 +1215,6 @@ def clergy_modal_edit(clergy_id):
 def init_database_endpoint():
     """Initialize database tables - for development/debugging only"""
     try:
-        from add_sample_data import add_sample_data
-        
         print("🔍 Manual Database Initialization via endpoint")
         print("=" * 50)
         
@@ -1241,11 +1238,6 @@ def init_database_endpoint():
         inspector = inspect(db.engine)
         new_tables = inspector.get_table_names()
         print(f"📋 All tables after creation: {new_tables}")
-        
-        # Add sample data
-        print("📝 Adding sample data...")
-        add_sample_data()
-        print("✅ Sample data added successfully!")
         
         # Create admin user
         existing_admin = User.query.filter_by(is_admin=True).first()

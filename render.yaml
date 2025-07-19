@@ -14,7 +14,7 @@ services:
         fromDatabase:
           name: ecclesiastical-lineage-db
           property: connectionString
-      - key: ADD_SAMPLE_DATA
+      
         value: true
 
 databases:

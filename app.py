@@ -55,7 +55,9 @@ if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
 
 # Configure SQLAlchemy for PostgreSQL connections
 if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgresql://'):
-    # Use standard PostgreSQL URL format (let SQLAlchemy choose the driver)
+    # Force SQLAlchemy to use psycopg3 by updating the URL
+    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgresql://', 'postgresql+psycopg://', 1)
+    
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'connect_args': {
             'connect_timeout': 10

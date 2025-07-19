@@ -21,6 +21,16 @@
             <div class="mb-3">
                 <label for="password" class="form-label">Password</label>
                 <input type="password" class="form-control" id="password" name="password" required>
+                <div class="form-text">
+                    <small>Password must contain:</small>
+                    <ul class="password-requirements" style="font-size: 0.875em; margin-top: 0.25rem;">
+                        <li id="req-length">At least 8 characters</li>
+                        <li id="req-uppercase">One uppercase letter (A-Z)</li>
+                        <li id="req-lowercase">One lowercase letter (a-z)</li>
+                        <li id="req-number">One number (0-9)</li>
+                        <li id="req-special">One special character (!@#$%^&*(),.?":{}|<>)</li>
+                    </ul>
+                </div>
             </div>
             <div class="mb-4">
                 <label for="confirm_password" class="form-label">Confirm Password</label>
@@ -35,4 +45,67 @@
         <div id="flash-messages"></div>
     </div>
 </div>
+
+<script>
+  // Password validation
+  document.getElementById('password').addEventListener('input', function() {
+    const password = this.value;
+    const requirements = {
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /\d/.test(password),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    };
+    
+    // Update requirement indicators
+    document.getElementById('req-length').className = requirements.length ? 'text-success' : 'text-danger';
+    document.getElementById('req-uppercase').className = requirements.uppercase ? 'text-success' : 'text-danger';
+    document.getElementById('req-lowercase').className = requirements.lowercase ? 'text-success' : 'text-danger';
+    document.getElementById('req-number').className = requirements.number ? 'text-success' : 'text-danger';
+    document.getElementById('req-special').className = requirements.special ? 'text-success' : 'text-danger';
+    
+    // Check if passwords match
+    const confirmPassword = document.getElementById('confirm_password').value;
+    if (confirmPassword) {
+      checkPasswordMatch();
+    }
+  });
+  
+  document.getElementById('confirm_password').addEventListener('input', checkPasswordMatch);
+  
+  function checkPasswordMatch() {
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+    const confirmField = document.getElementById('confirm_password');
+    
+    if (confirmPassword && password !== confirmPassword) {
+      confirmField.setCustomValidity('Passwords do not match');
+      confirmField.classList.add('is-invalid');
+    } else {
+      confirmField.setCustomValidity('');
+      confirmField.classList.remove('is-invalid');
+    }
+  }
+</script>
+
+<style>
+  .password-requirements li {
+    list-style: none;
+    margin-bottom: 0.25rem;
+  }
+  
+  .password-requirements li:before {
+    content: "• ";
+    margin-right: 0.5rem;
+  }
+  
+  .text-success:before {
+    content: "✓ ";
+  }
+  
+  .text-danger:before {
+    content: "✗ ";
+  }
+</style>
 {% endblock %} 

@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os
 import json
+import re
 from uuid import uuid4
 from dotenv import load_dotenv
 
@@ -152,6 +153,32 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+def validate_password(password):
+    """
+    Validate password strength requirements:
+    - At least 8 characters long
+    - Contains at least one uppercase letter
+    - Contains at least one lowercase letter
+    - Contains at least one digit
+    - Contains at least one special character
+    """
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter"
+    
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter"
+    
+    if not re.search(r'\d', password):
+        return False, "Password must contain at least one number"
+    
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        return False, "Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)"
+    
+    return True, "Password meets all requirements"
+
 class Clergy(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
@@ -259,6 +286,14 @@ def signup():
         
         if User.query.filter_by(username=username).first():
             flash('Username already exists.', 'error')
+            if request.headers.get('HX-Request'):
+                return render_template('flash_messages.html')
+            return render_template('signup.html')
+        
+        # Validate password strength
+        is_valid, message = validate_password(password)
+        if not is_valid:
+            flash(f'Password validation failed: {message}', 'error')
             if request.headers.get('HX-Request'):
                 return render_template('flash_messages.html')
             return render_template('signup.html')
@@ -1134,6 +1169,44 @@ def generate_admin_invite():
     user = User.query.get(session['user_id'])
     return render_template('settings.html', user=user, invite_link=invite_link)
 
+@app.route('/settings/change-password', methods=['POST'])
+def change_password():
+    if 'user_id' not in session:
+        flash('You must be logged in to change your password.', 'error')
+        return redirect(url_for('login'))
+    
+    user = User.query.get(session['user_id'])
+    if not user:
+        flash('User not found.', 'error')
+        return redirect(url_for('login'))
+    
+    current_password = request.form.get('current_password')
+    new_password = request.form.get('new_password')
+    confirm_password = request.form.get('confirm_password')
+    
+    # Validate current password
+    if not user.check_password(current_password):
+        flash('Current password is incorrect.', 'error')
+        return redirect(url_for('settings'))
+    
+    # Check if new password and confirmation match
+    if new_password != confirm_password:
+        flash('New password and confirmation do not match.', 'error')
+        return redirect(url_for('settings'))
+    
+    # Validate new password strength
+    is_valid, message = validate_password(new_password)
+    if not is_valid:
+        flash(f'Password validation failed: {message}', 'error')
+        return redirect(url_for('settings'))
+    
+    # Update password
+    user.set_password(new_password)
+    db.session.commit()
+    
+    flash('Password changed successfully!', 'success')
+    return redirect(url_for('settings'))
+
 @app.route('/admin/invite/<token>', methods=['GET', 'POST'])
 def admin_invite_signup(token):
     invite = AdminInvite.query.filter_by(token=token).first()
@@ -1153,6 +1226,13 @@ def admin_invite_signup(token):
         if User.query.filter_by(username=username).first():
             flash('Username already exists.', 'error')
             return render_template('signup.html', invite_token=token)
+        
+        # Validate password strength
+        is_valid, message = validate_password(password)
+        if not is_valid:
+            flash(f'Password validation failed: {message}', 'error')
+            return render_template('signup.html', invite_token=token)
+        
         user = User(username=username, is_admin=True)
         user.set_password(password)
         db.session.add(user)

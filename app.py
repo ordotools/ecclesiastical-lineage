@@ -38,6 +38,14 @@ if database_url and 'postgresql' in database_url:
     else:
         print(f"🔍 Database URL: {database_url}")
 
+# Parse and validate the database URL
+try:
+    from urllib.parse import urlparse
+    parsed_url = urlparse(database_url)
+    print(f"🔍 Parsed URL - Scheme: {parsed_url.scheme}, Host: {parsed_url.hostname}, Port: {parsed_url.port}, Database: {parsed_url.path[1:]}")
+except Exception as e:
+    print(f"❌ URL parsing error: {e}")
+
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -45,19 +53,45 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
     app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://', 1)
 
-# Configure SQLAlchemy to use psycopg3 for PostgreSQL connections
+# Configure SQLAlchemy for PostgreSQL connections
 if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgresql://'):
-    # Force SQLAlchemy to use psycopg3 by updating the URL
-    if 'psycopg2' not in app.config['SQLALCHEMY_DATABASE_URI']:
-        app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgresql://', 'postgresql+psycopg://', 1)
-    
+    # Use standard PostgreSQL URL format (let SQLAlchemy choose the driver)
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'connect_args': {
             'connect_timeout': 10
         }
     }
+    
+    # Debug: Print the final database URI (masked)
+    final_uri = app.config['SQLALCHEMY_DATABASE_URI']
+    if '@' in final_uri:
+        parts = final_uri.split('@')
+        if ':' in parts[0]:
+            user_pass = parts[0].split(':')
+            if len(user_pass) >= 3:
+                masked_final_uri = f"{user_pass[0]}:{user_pass[1]}:***@{parts[1]}"
+                print(f"🔧 Final Database URI: {masked_final_uri}")
+    else:
+        print(f"🔧 Final Database URI: {final_uri}")
 
 db = SQLAlchemy(app)
+
+# Test database connection on startup
+def test_database_connection():
+    try:
+        with app.app_context():
+            # Try to connect to the database
+            db.engine.connect()
+            print("✅ Database connection test successful")
+        return True
+    except Exception as e:
+        print(f"❌ Database connection test failed: {e}")
+        print(f"🔍 Engine URL: {db.engine.url}")
+        return False
+
+# Test the connection when the app starts
+if __name__ == '__main__':
+    test_database_connection()
 
 # Color contrast utility function for Jinja2 templates
 def getContrastColor(hexColor):

@@ -12,9 +12,14 @@ def init_postgres_database():
     from add_sample_data import add_sample_data
     
     with app.app_context():
-        print("📊 Creating database tables...")
-        db.create_all()
-        print("✅ Database tables created successfully!")
+        try:
+            print("📊 Creating database tables...")
+            db.create_all()
+            print("✅ Database tables created successfully!")
+        except Exception as e:
+            print(f"❌ Error creating database tables: {e}")
+            print(f"🔍 Database URL: {app.config['SQLALCHEMY_DATABASE_URI']}")
+            raise
         
         # Check if we should add sample data
         if os.environ.get('ADD_SAMPLE_DATA', 'false').lower() == 'true':

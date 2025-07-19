@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import os
 import json
 import re
+import time
 from uuid import uuid4
 from dotenv import load_dotenv
 from functools import wraps
@@ -64,9 +65,13 @@ if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgresql://'):
         'pool_recycle': 300,
         'pool_timeout': 20,
         'max_overflow': 0,
+        'pool_size': 5,
         'connect_args': {
             'connect_timeout': 10,
-            'sslmode': 'require'
+            'sslmode': 'require',
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5
         }
     }
     
@@ -83,6 +88,20 @@ if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgresql://'):
         print(f"🔧 Final Database URI: {final_uri}")
 
 db = SQLAlchemy(app)
+
+def retry_db_operation(func, max_retries=3, delay=1):
+    """Retry database operations with exponential backoff"""
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise e
+            print(f"⚠️  Database operation failed (attempt {attempt + 1}/{max_retries}): {e}")
+            time.sleep(delay * (2 ** attempt))
+            # Force a new connection
+            db.session.rollback()
+            db.session.remove()
 
 # Test database connection on startup
 def test_database_connection():

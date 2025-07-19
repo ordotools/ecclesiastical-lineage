@@ -8,6 +8,12 @@ from add_sample_data import add_sample_data
 from uuid import uuid4
 from dotenv import load_dotenv
 
+# Import psycopg3 to ensure it's available for SQLAlchemy
+try:
+    import psycopg
+except ImportError:
+    pass  # psycopg2 will be used as fallback
+
 # Load environment variables
 load_dotenv()
 
@@ -16,9 +22,17 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-i
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///ecclesiastical_lineage.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Handle SQLite database URL for Render (convert postgres:// to sqlite:// if needed)
+# Handle database URL for Render and ensure psycopg3 compatibility
 if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
     app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://', 1)
+
+# Configure SQLAlchemy to use psycopg3 for PostgreSQL connections
+if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgresql://'):
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'connect_args': {
+            'connect_timeout': 10
+        }
+    }
 
 db = SQLAlchemy(app)
 

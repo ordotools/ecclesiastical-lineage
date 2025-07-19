@@ -1,1 +1,1 @@
-web: bash -c "pip install -r requirements.txt && python3 init_postgres_db.py && python3 migrate_to_rbac.py && python3 verify_migration.py && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 30" 
+web: bash -c "pip install -r requirements.txt && python3 check_db_state.py && python3 force_migrate.py && python3 verify_migration.py && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 30" 

@@ -178,9 +178,7 @@ def startup_migration():
     print("🚀 Running startup migration...")
     run_database_migration()
 
-# Register the migration to run before first request
-with app.app_context():
-    startup_migration()
+# Register the migration to run after all functions are defined
 
 # Color contrast utility function for Jinja2 templates
 def getContrastColor(hexColor):
@@ -2784,4 +2782,8 @@ if __name__ == '__main__':
     
     with app.app_context():
         db.create_all()
-    app.run(debug=True, port=port) 
+    app.run(debug=True, port=port)
+
+# Run migration on app startup (after all functions are defined)
+with app.app_context():
+    startup_migration() 

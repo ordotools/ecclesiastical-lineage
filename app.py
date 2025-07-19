@@ -23,9 +23,15 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-i
 # Get database URL with fallback
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///ecclesiastical_lineage.db')
 
-# Debug: Print database URL (without sensitive info)
-if database_url and 'postgresql' in database_url:
-    # Mask the password in the URL for logging
+# Fix incomplete Render database URLs
+if database_url and 'postgresql' in database_url and 'dpg-d1sreeje5dus73dsvvkg-a' in database_url:
+    # Fix the incomplete hostname and add port
+    if not database_url.endswith('.render.com'):
+        # Add the missing domain and port
+        database_url = database_url.replace('dpg-d1sreeje5dus73dsvvkg-a/', 'dpg-d1sreeje5dus73dsvvkg-a.oregon-postgres.render.com:5432/')
+        print(f"🔧 Fixed incomplete database URL")
+    
+    # Debug: Print database URL (without sensitive info)
     if '@' in database_url:
         parts = database_url.split('@')
         if ':' in parts[0]:

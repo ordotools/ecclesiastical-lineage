@@ -6,9 +6,29 @@
 <div class="card">
     <div class="card-body p-4">
         <div class="text-center mb-4">
-            <h2 class="fw-bold text-primary">Create Admin Account</h2>
+            <h2 class="fw-bold text-primary">
+                {% if role_info %}
+                    Create {{ role_info.name }} Account
+                {% else %}
+                    Create Admin Account
+                {% endif %}
+            </h2>
             {% if invite_token %}
-                <p class="text-success">You have been invited to become an admin. Complete your registration below.</p>
+                {% if role_info %}
+                    <p class="text-success">You have been invited to join as a <strong>{{ role_info.name }}</strong>. Complete your registration below.</p>
+                    <div class="alert alert-info">
+                        <strong>Access Level:</strong> {{ role_info.name }}<br>
+                        <small class="text-muted">{{ role_info.description }}</small>
+                        {% if invite %}
+                        <br><small class="text-muted">
+                            <strong>Expires:</strong> {{ invite.expires_at.strftime('%Y-%m-%d %H:%M') }}<br>
+                            <strong>Uses:</strong> {{ invite.current_uses }}/{{ invite.max_uses }}
+                        </small>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <p class="text-success">You have been invited to become an admin. Complete your registration below.</p>
+                {% endif %}
             {% else %}
                 <p class="text-muted">You are the first user. Create your admin account below.</p>
             {% endif %}
@@ -38,7 +58,11 @@
             </div>
             <div class="d-grid">
                 <button type="submit" class="btn btn-primary">
-                    Create Admin Account
+                    {% if role_info %}
+                        Create {{ role_info.name }} Account
+                    {% else %}
+                        Create Admin Account
+                    {% endif %}
                 </button>
             </div>
         </form>

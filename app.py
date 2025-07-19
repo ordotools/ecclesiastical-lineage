@@ -60,20 +60,48 @@ if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgresql://'):
     # Force SQLAlchemy to use psycopg3 by updating the URL
     app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgresql://', 'postgresql+psycopg://', 1)
     
-    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'pool_pre_ping': True,
-        'pool_recycle': 300,
-        'pool_timeout': 20,
-        'max_overflow': 0,
-        'pool_size': 5,
-        'connect_args': {
-            'connect_timeout': 10,
-            'sslmode': 'require',
-            'keepalives_idle': 30,
-            'keepalives_interval': 10,
-            'keepalives_count': 5
+    # Check if this is a local development connection
+    is_local_dev = (
+        'localhost' in app.config['SQLALCHEMY_DATABASE_URI'] or 
+        '127.0.0.1' in app.config['SQLALCHEMY_DATABASE_URI'] or
+        'postgresql://localhost' in app.config['SQLALCHEMY_DATABASE_URI']
+    )
+    
+    # Configure connection options based on environment
+    if is_local_dev:
+        # Local development - no SSL required
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,
+            'pool_recycle': 300,
+            'pool_timeout': 20,
+            'max_overflow': 0,
+            'pool_size': 5,
+            'connect_args': {
+                'connect_timeout': 10,
+                'sslmode': 'disable',  # Disable SSL for local development
+                'keepalives_idle': 30,
+                'keepalives_interval': 10,
+                'keepalives_count': 5
+            }
         }
-    }
+        print("🔧 Local development mode detected - SSL disabled")
+    else:
+        # Production - SSL required
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,
+            'pool_recycle': 300,
+            'pool_timeout': 20,
+            'max_overflow': 0,
+            'pool_size': 5,
+            'connect_args': {
+                'connect_timeout': 10,
+                'sslmode': 'require',
+                'keepalives_idle': 30,
+                'keepalives_interval': 10,
+                'keepalives_count': 5
+            }
+        }
+        print("🔧 Production mode detected - SSL enabled")
     
     # Debug: Print the final database URI (masked)
     final_uri = app.config['SQLALCHEMY_DATABASE_URI']
@@ -193,8 +221,15 @@ def run_database_migration():
 
 # Test the connection and run migration when the app starts
 if __name__ == '__main__':
-    test_database_connection()
-    run_database_migration()
+    # Only test connection if we're not in a Flask app context
+    try:
+        test_database_connection()
+        run_database_migration()
+    except RuntimeError as e:
+        if "Working outside of application context" in str(e):
+            print("⚠️  Skipping database tests - will run when app starts")
+        else:
+            raise e
 
 # Run migration on app startup
 def startup_migration():
@@ -249,6 +284,70 @@ def getBorderStyle(hexColor):
 # Make the functions available to Jinja2 templates
 app.jinja_env.globals['getContrastColor'] = getContrastColor
 app.jinja_env.globals['getBorderStyle'] = getBorderStyle
+
+def generate_breadcrumbs(current_page, **kwargs):
+    """Generate breadcrumb navigation for the current page"""
+    breadcrumbs = [
+        {'text': 'Dashboard', 'url': url_for('dashboard')}
+    ]
+    
+    if current_page == 'dashboard':
+        breadcrumbs = [{'text': 'Dashboard', 'url': None}]
+    elif current_page == 'clergy_list':
+        breadcrumbs.append({'text': 'Clergy Records', 'url': None})
+    elif current_page == 'add_clergy':
+        breadcrumbs.extend([
+            {'text': 'Clergy Records', 'url': url_for('clergy_list')},
+            {'text': 'Add Clergy', 'url': None}
+        ])
+    elif current_page == 'view_clergy':
+        clergy = kwargs.get('clergy')
+        breadcrumbs.extend([
+            {'text': 'Clergy Records', 'url': url_for('clergy_list')},
+            {'text': clergy.name if clergy else 'View Clergy', 'url': None}
+        ])
+    elif current_page == 'edit_clergy':
+        clergy = kwargs.get('clergy')
+        breadcrumbs.extend([
+            {'text': 'Clergy Records', 'url': url_for('clergy_list')},
+            {'text': clergy.name if clergy else 'Edit Clergy', 'url': url_for('view_clergy', clergy_id=clergy.id) if clergy else None},
+            {'text': 'Edit', 'url': None}
+        ])
+    elif current_page == 'clergy_comments':
+        clergy = kwargs.get('clergy')
+        breadcrumbs.extend([
+            {'text': 'Clergy Records', 'url': url_for('clergy_list')},
+            {'text': clergy.name if clergy else 'Clergy', 'url': url_for('view_clergy', clergy_id=clergy.id) if clergy else None},
+            {'text': 'Comments', 'url': None}
+        ])
+    elif current_page == 'resolved_comments':
+        clergy = kwargs.get('clergy')
+        breadcrumbs.extend([
+            {'text': 'Clergy Records', 'url': url_for('clergy_list')},
+            {'text': clergy.name if clergy else 'Clergy', 'url': url_for('view_clergy', clergy_id=clergy.id) if clergy else None},
+            {'text': 'Resolved Comments', 'url': None}
+        ])
+    elif current_page == 'metadata':
+        breadcrumbs.append({'text': 'Metadata Management', 'url': None})
+    elif current_page == 'user_management':
+        breadcrumbs.append({'text': 'User Management', 'url': None})
+    elif current_page == 'comments_management':
+        breadcrumbs.append({'text': 'Comments Management', 'url': None})
+    elif current_page == 'audit_logs':
+        breadcrumbs.append({'text': 'Audit Logs', 'url': None})
+    elif current_page == 'lineage_visualization':
+        # No breadcrumbs for lineage visualization page
+        return None
+    elif current_page == 'settings':
+        breadcrumbs.append({'text': 'Settings', 'url': None})
+    elif current_page == 'login':
+        breadcrumbs = [{'text': 'Login', 'url': None}]
+    elif current_page == 'signup':
+        breadcrumbs = [{'text': 'Sign Up', 'url': None}]
+    elif current_page == 'admin_invite':
+        breadcrumbs = [{'text': 'Admin Invitation', 'url': None}]
+    
+    return breadcrumbs
 
 # Add custom Jinja2 filters
 def from_json(value):
@@ -383,6 +482,10 @@ class User(db.Model):
     def is_admin(self):
         """Backward compatibility - check if user is super admin"""
         return self.role and self.role.name == 'Super Admin'
+    
+    def is_admin_or_super_admin(self):
+        """Check if user is admin or super admin"""
+        return self.role and self.role.name in ['Super Admin', 'Admin']
 
 class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -520,9 +623,33 @@ class AdminInvite(db.Model):
     used = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     invited_by = db.Column(db.Integer, db.ForeignKey('user.id'))  # Who created the invite
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=True)  # Role for the invited user
+    max_uses = db.Column(db.Integer, default=1)  # Maximum number of times this invite can be used
+    current_uses = db.Column(db.Integer, default=0)  # Current number of times used
+    expires_in_hours = db.Column(db.Integer, default=24)  # Hours until expiration
 
     def is_valid(self):
-        return not self.used and datetime.utcnow() < self.expires_at
+        return self.current_uses < self.max_uses and datetime.utcnow() < self.expires_at
+    
+    def can_be_used_by_role(self, user_role):
+        """Check if a user with the given role can use this invite"""
+        if not self.role_id:
+            return True  # No role restriction
+        
+        target_role = Role.query.get(self.role_id)
+        if not target_role:
+            return False
+        
+        # Super Admin can use any invite
+        if user_role.name == 'Super Admin':
+            return True
+        
+        # Admin can use any invite except for Super Admin role
+        if user_role.name == 'Admin':
+            return target_role.name != 'Super Admin'
+        
+        # Regular users can only use invites for their own role or lower
+        return target_role.name == user_role.name
 
 
 def require_permission(permission):
@@ -640,7 +767,8 @@ def signup():
             return '<div id="redirect" data-url="' + url_for('login') + '">redirect</div><script>setTimeout(function(){window.location.href="' + url_for('login') + '";},1000);</script>'
         return redirect(url_for('login'))
     
-    return render_template('signup.html')
+    breadcrumbs = generate_breadcrumbs('signup')
+    return render_template('signup.html', breadcrumbs=breadcrumbs)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -768,7 +896,8 @@ def login():
             if request.headers.get('HX-Request'):
                 return render_template('flash_messages.html')
     
-    return render_template('login.html')
+    breadcrumbs = generate_breadcrumbs('login')
+    return render_template('login.html', breadcrumbs=breadcrumbs)
 
 @app.route('/dashboard')
 def dashboard():
@@ -782,7 +911,8 @@ def dashboard():
         flash('User not found. Please log in again.', 'error')
         return redirect(url_for('login'))
     
-    return render_template('dashboard.html', user=user)
+    breadcrumbs = generate_breadcrumbs('dashboard')
+    return render_template('dashboard.html', user=user, breadcrumbs=breadcrumbs)
 
 @app.route('/logout')
 def logout():
@@ -965,10 +1095,12 @@ def clergy_list():
     if 'user_id' in session:
         user = User.query.get(session['user_id'])
     
+    breadcrumbs = generate_breadcrumbs('clergy_list')
     return render_template('clergy_list.html', 
                          clergy_list=clergy_list, 
                          org_abbreviation_map=org_abbreviation_map,
                          org_color_map=org_color_map,
+                         breadcrumbs=breadcrumbs,
                          organizations=organizations,
                          ranks=ranks,
                          all_clergy=all_clergy,
@@ -1154,11 +1286,13 @@ def add_clergy():
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
     
+    breadcrumbs = generate_breadcrumbs('add_clergy')
     return render_template('add_clergy.html', 
                          all_clergy=all_clergy, 
                          all_clergy_data=all_clergy_data,
                          ranks=ranks,
-                         organizations=organizations)
+                         organizations=organizations,
+                         breadcrumbs=breadcrumbs)
 
 @app.route('/clergy/<int:clergy_id>')
 def view_clergy(clergy_id):
@@ -1181,12 +1315,14 @@ def view_clergy(clergy_id):
     # Get comments for this clergy (exclude resolved comments from main view)
     comments = ClergyComment.query.filter_by(clergy_id=clergy_id, is_public=True, is_resolved=False).order_by(ClergyComment.created_at.desc()).all()
     
+    breadcrumbs = generate_breadcrumbs('view_clergy', clergy=clergy)
     return render_template('clergy_detail_with_comments.html', 
                          clergy=clergy, 
                          user=user,
                          comments=comments,
                          org_abbreviation_map=org_abbreviation_map,
-                         org_color_map=org_color_map)
+                         org_color_map=org_color_map,
+                         breadcrumbs=breadcrumbs)
 
 @app.route('/clergy/<int:clergy_id>/json')
 def clergy_json(clergy_id):
@@ -1406,6 +1542,7 @@ def edit_clergy(clergy_id):
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
     
+    breadcrumbs = generate_breadcrumbs('edit_clergy', clergy=clergy)
     return render_template('edit_clergy_with_comments.html', 
                          clergy=clergy, 
                          user=user,
@@ -1414,9 +1551,10 @@ def edit_clergy(clergy_id):
                          all_clergy_data=all_clergy_data,
                          ranks=ranks,
                          organizations=organizations,
-                                                  org_abbreviation_map=org_abbreviation_map,
+                         org_abbreviation_map=org_abbreviation_map,
                          org_color_map=org_color_map,
-                         edit_mode=True)
+                         edit_mode=True,
+                         breadcrumbs=breadcrumbs)
     
     if request.method == 'POST':
         # Handle AJAX request (fetch/FormData or X-Requested-With)
@@ -1679,11 +1817,13 @@ def metadata():
     clergy_rank_list = [rank[0] for rank in clergy_ranks]
     clergy_organization_list = [org[0] for org in clergy_organizations]
     
+    breadcrumbs = generate_breadcrumbs('metadata')
     return render_template('metadata.html', 
                          ranks=ranks, 
                          organizations=organizations,
                          clergy_ranks=clergy_rank_list,
-                         clergy_organizations=clergy_organization_list)
+                         clergy_organizations=clergy_organization_list,
+                         breadcrumbs=breadcrumbs)
 
 @app.route('/metadata/rank/add', methods=['POST'])
 @require_permission('manage_metadata')
@@ -2070,17 +2210,84 @@ def settings():
         flash('Admin access required.', 'error')
         return redirect(url_for('login'))
     user = User.query.get(session['user_id'])
-    return render_template('settings.html', user=user)
+    
+    # Filter roles based on user permissions
+    all_roles = Role.query.order_by(Role.name).all()
+    available_roles = []
+    
+    for role in all_roles:
+        # Super Admin can invite anyone
+        if user.is_admin():
+            available_roles.append(role)
+        # Admin can invite anyone except Super Admin
+        elif user.role and user.role.name == 'Admin':
+            if role.name != 'Super Admin':
+                available_roles.append(role)
+        # Regular users cannot invite anyone
+        else:
+            break
+    
+    breadcrumbs = generate_breadcrumbs('settings')
+    return render_template('settings.html', user=user, roles=available_roles, breadcrumbs=breadcrumbs)
 
 @app.route('/settings/invite', methods=['POST'])
 def generate_admin_invite():
     if 'user_id' not in session or not session.get('is_admin'):
         flash('Admin access required.', 'error')
         return redirect(url_for('login'))
-    # Generate unique token and expiry (24 hours)
+    
+    user = User.query.get(session['user_id'])
+    
+    # Get form parameters
+    role_id = request.form.get('role_id')
+    expires_in_hours = int(request.form.get('expires_in_hours', 24))
+    max_uses = int(request.form.get('max_uses', 1))
+    
+    if not role_id:
+        flash('Please select a role for the invited user.', 'error')
+        return redirect(url_for('settings'))
+    
+    # Validate the role exists
+    role = Role.query.get(role_id)
+    if not role:
+        flash('Selected role does not exist.', 'error')
+        return redirect(url_for('settings'))
+    
+    # Check permissions based on user role
+    if not user.is_admin():
+        # Admin can only invite non-Super Admin roles
+        if role.name == 'Super Admin':
+            flash('You do not have permission to invite Super Admin users.', 'error')
+            return redirect(url_for('settings'))
+    
+    # Enforce restrictions for admin roles
+    if role.name in ['Super Admin', 'Admin']:
+        expires_in_hours = 24  # Fixed 24 hours for admin roles
+        max_uses = 1  # Fixed 1 use for admin roles
+    else:
+        # Validate parameters for regular roles
+        if expires_in_hours < 1 or expires_in_hours > 168:  # 1 hour to 1 week
+            flash('Expiration time must be between 1 and 168 hours.', 'error')
+            return redirect(url_for('settings'))
+        
+        if max_uses < 1 or max_uses > 100:  # 1 to 100 uses
+            flash('Maximum uses must be between 1 and 100.', 'error')
+            return redirect(url_for('settings'))
+    
+    # Generate unique token and expiry
     token = str(uuid4())
-    expires_at = datetime.utcnow() + timedelta(hours=24)
-    invite = AdminInvite(token=token, expires_at=expires_at, invited_by=session['user_id'])
+    expires_at = datetime.utcnow() + timedelta(hours=expires_in_hours)
+    
+    invite = AdminInvite(
+        token=token, 
+        expires_at=expires_at, 
+        invited_by=session['user_id'], 
+        role_id=role_id,
+        expires_in_hours=expires_in_hours,
+        max_uses=max_uses,
+        current_uses=0
+    )
+    
     db.session.add(invite)
     db.session.commit()
     
@@ -2089,17 +2296,33 @@ def generate_admin_invite():
         action='generate_invite',
         entity_type='admin_invite',
         entity_id=invite.id,
-        entity_name=f"Admin invite for {token[:8]}...",
+        entity_name=f"User invite for {token[:8]}...",
         details={
             'token': token,
             'expires_at': expires_at.isoformat(),
-            'invited_by': session['user_id']
+            'invited_by': session['user_id'],
+            'role_id': role_id,
+            'role_name': role.name,
+            'expires_in_hours': expires_in_hours,
+            'max_uses': max_uses
         }
     )
     
     invite_link = url_for('admin_invite_signup', token=token, _external=True)
-    user = User.query.get(session['user_id'])
-    return render_template('settings.html', user=user, invite_link=invite_link)
+    
+    # Filter roles for display
+    all_roles = Role.query.order_by(Role.name).all()
+    available_roles = []
+    
+    for r in all_roles:
+        if user.is_admin():
+            available_roles.append(r)
+        elif user.role and user.role.name == 'Admin':
+            if r.name != 'Super Admin':
+                available_roles.append(r)
+    
+    breadcrumbs = generate_breadcrumbs('settings')
+    return render_template('settings.html', user=user, roles=available_roles, invite_link=invite_link, breadcrumbs=breadcrumbs)
 
 @app.route('/settings/change-password', methods=['POST'])
 def change_password():
@@ -2174,16 +2397,24 @@ def admin_invite_signup(token):
             flash(f'Password validation failed: {message}', 'error')
             return render_template('signup.html', invite_token=token)
         
-        # Get Super Admin role
-        super_admin_role = Role.query.filter_by(name='Super Admin').first()
-        if not super_admin_role:
-            initialize_roles_and_permissions()
-            super_admin_role = Role.query.filter_by(name='Super Admin').first()
+        # Get the role from the invite
+        role = Role.query.get(invite.role_id) if invite.role_id else None
+        if not role:
+            # Fallback to Super Admin if no role specified (backward compatibility)
+            role = Role.query.filter_by(name='Super Admin').first()
+            if not role:
+                initialize_roles_and_permissions()
+                role = Role.query.filter_by(name='Super Admin').first()
         
-        user = User(username=username, role_id=super_admin_role.id)
+        user = User(username=username, role_id=role.id)
         user.set_password(password)
         db.session.add(user)
-        invite.used = True
+        
+        # Update invite usage
+        invite.current_uses += 1
+        if invite.current_uses >= invite.max_uses:
+            invite.used = True
+        
         db.session.commit()
         
         # Log user creation via invite
@@ -2201,9 +2432,20 @@ def admin_invite_signup(token):
             user_id=user.id  # Use the new user's ID since no one is logged in yet
         )
         
-        flash('Admin account created successfully! Please log in.', 'success')
+        flash('Account created successfully! Please log in.', 'success')
         return redirect(url_for('login'))
-    return render_template('signup.html', invite_token=token)
+    
+    # Get role information for display
+    role_info = None
+    if invite.role_id:
+        role = Role.query.get(invite.role_id)
+        if role:
+            role_info = {
+                'name': role.name,
+                'description': role.description
+            }
+    
+    return render_template('signup.html', invite_token=token, role_info=role_info, invite=invite)
 
 @app.route('/clergy/modal/add')
 def clergy_modal_add():
@@ -2369,6 +2611,12 @@ def initialize_roles_and_permissions():
             'description': 'Full system access and administration',
             'permissions': list(permissions.keys())
         },
+        'Admin': {
+            'description': 'System administration with limited user management',
+            'permissions': ['view_clergy', 'add_clergy', 'edit_clergy', 'delete_clergy', 
+                          'manage_metadata', 'add_comments', 'view_comments', 
+                          'resolve_comments', 'view_lineage', 'export_data', 'view_audit_logs']
+        },
         'Editor': {
             'description': 'Full content management capabilities',
             'permissions': ['view_clergy', 'add_clergy', 'edit_clergy', 'delete_clergy', 
@@ -2411,7 +2659,8 @@ def user_management():
     """User management page for admins"""
     users = User.query.all()
     roles = Role.query.all()
-    return render_template('user_management.html', users=users, roles=roles)
+    breadcrumbs = generate_breadcrumbs('user_management')
+    return render_template('user_management.html', users=users, roles=roles, breadcrumbs=breadcrumbs)
 
 @app.route('/users/add', methods=['POST'])
 @require_permission('manage_users')
@@ -2605,7 +2854,8 @@ def clergy_comments(clergy_id):
     user = User.query.get(session['user_id'])
     clergy = Clergy.query.get_or_404(clergy_id)
     comments = ClergyComment.query.filter_by(clergy_id=clergy_id, is_public=True, is_resolved=False).order_by(ClergyComment.created_at.desc()).all()
-    return render_template('clergy_comments.html', clergy=clergy, comments=comments, user=user)
+    breadcrumbs = generate_breadcrumbs('clergy_comments', clergy=clergy)
+    return render_template('clergy_comments.html', clergy=clergy, comments=comments, user=user, breadcrumbs=breadcrumbs)
 
 @app.route('/clergy/<int:clergy_id>/comments/add', methods=['POST'])
 @require_permission('add_comments')
@@ -2676,7 +2926,8 @@ def comments_management():
         # Show only public comments for other users
         comments = ClergyComment.query.filter_by(is_public=True).order_by(ClergyComment.created_at.desc()).all()
     
-    return render_template('comments_management.html', comments=comments, user=user)
+    breadcrumbs = generate_breadcrumbs('comments_management')
+    return render_template('comments_management.html', comments=comments, user=user, breadcrumbs=breadcrumbs)
 
 @app.route('/comments/<int:comment_id>/resolve', methods=['POST'])
 @require_permission('resolve_comments')
@@ -2725,10 +2976,12 @@ def view_resolved_comments(clergy_id):
         is_resolved=True
     ).order_by(ClergyComment.created_at.desc()).all()
     
+    breadcrumbs = generate_breadcrumbs('resolved_comments', clergy=clergy)
     return render_template('resolved_comments.html', 
                          clergy=clergy, 
                          comments=resolved_comments, 
-                         user=user)
+                         user=user,
+                         breadcrumbs=breadcrumbs)
 
 @app.route('/audit-logs')
 @require_permission('view_audit_logs')
@@ -2782,6 +3035,7 @@ def audit_logs():
     entity_types = db.session.query(AuditLog.entity_type).distinct().all()
     users = db.session.query(User.username).distinct().all()
     
+    breadcrumbs = generate_breadcrumbs('audit_logs')
     return render_template('audit_logs.html', 
                          audit_logs=audit_logs,
                          actions=[a[0] for a in actions],
@@ -2792,7 +3046,8 @@ def audit_logs():
                          entity_type_filter=entity_type_filter,
                          user_filter=user_filter,
                          date_from=date_from,
-                         date_to=date_to)
+                         date_to=date_to,
+                         breadcrumbs=breadcrumbs)
 
 
 if __name__ == '__main__':

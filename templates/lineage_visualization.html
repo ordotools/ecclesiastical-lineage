@@ -79,16 +79,10 @@
     </div>
 
     <!-- Admin Navigation Button -->
-    {% if session.is_admin %}
-    <div class="admin-nav-container">
-        <a href="{{ url_for('clergy_list') }}" class="btn admin-nav-btn">
-            <i class="fas fa-list me-2"></i>Back to Clergy List
-        </a>
-    </div>
-    {% elif session.user_id %}
+    {% if session.user_id %}
     <div class="admin-nav-container">
         <a href="{{ url_for('dashboard') }}" class="btn admin-nav-btn">
-            <i class="fas fa-tachometer-alt me-2"></i>Back to Dashboard
+            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
         </a>
     </div>
     {% endif %}
@@ -213,10 +207,170 @@
     // Process links to handle parallel connections
     const processedLinks = processParallelLinks(links);
 
+    // Function to find connected components (disjoint subgraphs)
+    function findConnectedComponents(nodes, links) {
+        const visited = new Set();
+        const components = [];
+        
+        function dfs(nodeId, component) {
+            if (visited.has(nodeId)) return;
+            visited.add(nodeId);
+            component.push(nodeId);
+            
+            // Find all connected nodes
+            links.forEach(link => {
+                if (link.source.id === nodeId && !visited.has(link.target.id)) {
+                    dfs(link.target.id, component);
+                } else if (link.target.id === nodeId && !visited.has(link.source.id)) {
+                    dfs(link.source.id, component);
+                }
+            });
+        }
+        
+        nodes.forEach(node => {
+            if (!visited.has(node.id)) {
+                const component = [];
+                dfs(node.id, component);
+                components.push(component);
+            }
+        });
+        
+        return components;
+    }
+
+    // Find connected components
+    const components = findConnectedComponents(nodes, processedLinks);
+    
+    // Assign component IDs to nodes and set initial positions
+    nodes.forEach(node => {
+        const componentIndex = components.findIndex(comp => comp.includes(node.id));
+        node.component = componentIndex;
+        
+        // Set initial positions in a circle pattern for each component
+        if (componentIndex >= 0) {
+            const component = components[componentIndex];
+            const nodeIndex = component.indexOf(node.id);
+            const angle = (nodeIndex / component.length) * 2 * Math.PI;
+            const radius = 50 + (componentIndex * 100); // Each component gets its own radius
+            
+            // Spread components around the center
+            const componentAngle = (componentIndex / components.length) * 2 * Math.PI;
+            const componentRadius = 200;
+            
+            node.x = width / 2 + Math.cos(componentAngle) * componentRadius + Math.cos(angle) * radius;
+            node.y = height / 2 + Math.sin(componentAngle) * componentRadius + Math.sin(angle) * radius;
+        }
+    });
+
+    // Custom force for component separation
+    function componentForce() {
+        const strength = 0.15; // Increased strength for better separation
+        const padding = 150; // Increased minimum distance between components
+        
+        return function(alpha) {
+            for (let i = 0; i < components.length; i++) {
+                for (let j = i + 1; j < components.length; j++) {
+                    const comp1 = components[i];
+                    const comp2 = components[j];
+                    
+                    // Calculate center of each component
+                    let center1 = { x: 0, y: 0 };
+                    let center2 = { x: 0, y: 0 };
+                    
+                    comp1.forEach(nodeId => {
+                        const node = nodes.find(n => n.id === nodeId);
+                        if (node) {
+                            center1.x += node.x;
+                            center1.y += node.y;
+                        }
+                    });
+                    center1.x /= comp1.length;
+                    center1.y /= comp1.length;
+                    
+                    comp2.forEach(nodeId => {
+                        const node = nodes.find(n => n.id === nodeId);
+                        if (node) {
+                            center2.x += node.x;
+                            center2.y += node.y;
+                        }
+                    });
+                    center2.x /= comp2.length;
+                    center2.y /= comp2.length;
+                    
+                    // Calculate distance between component centers
+                    const dx = center2.x - center1.x;
+                    const dy = center2.y - center1.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < padding) {
+                        const force = (padding - distance) * strength * alpha;
+                        const fx = (dx / distance) * force;
+                        const fy = (dy / distance) * force;
+                        
+                        // Apply force to all nodes in both components
+                        comp1.forEach(nodeId => {
+                            const node = nodes.find(n => n.id === nodeId);
+                            if (node) {
+                                node.vx -= fx / comp1.length;
+                                node.vy -= fy / comp1.length;
+                            }
+                        });
+                        
+                        comp2.forEach(nodeId => {
+                            const node = nodes.find(n => n.id === nodeId);
+                            if (node) {
+                                node.vx += fx / comp2.length;
+                                node.vy += fy / comp2.length;
+                            }
+                        });
+                    }
+                }
+            }
+        };
+    }
+
+    // Custom charge force with stronger repulsion for bishops
+    function customChargeForce() {
+        return function(alpha) {
+            const strength = CHARGE_STRENGTH;
+            const bishopMultiplier = 1.2; // 20% stronger repulsion for bishops
+            const minDistance = 1; // Minimum distance to prevent division by zero
+            
+            for (let i = 0; i < nodes.length; i++) {
+                const node = nodes[i];
+                const isBishop = node.rank && node.rank.toLowerCase().includes('bishop');
+                const nodeStrength = isBishop ? strength * bishopMultiplier : strength;
+                
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const other = nodes[j];
+                    const otherIsBishop = other.rank && other.rank.toLowerCase().includes('bishop');
+                    const otherStrength = otherIsBishop ? strength * bishopMultiplier : strength;
+                    
+                    // Use the stronger of the two forces
+                    const effectiveStrength = Math.max(nodeStrength, otherStrength);
+                    
+                    const dx = other.x - node.x;
+                    const dy = other.y - node.y;
+                    const distance = Math.max(Math.sqrt(dx * dx + dy * dy), minDistance);
+                    
+                    const force = effectiveStrength * alpha / (distance * distance);
+                    const fx = (dx / distance) * force;
+                    const fy = (dy / distance) * force;
+                    
+                    node.vx -= fx;
+                    node.vy -= fy;
+                    other.vx += fx;
+                    other.vy += fy;
+                }
+            }
+        };
+    }
+
     // Create a simulation with several forces
     const simulation = d3.forceSimulation(nodes)
         .force("link", d3.forceLink(processedLinks).id(d => d.id).distance(LINK_DISTANCE))
-        .force("charge", d3.forceManyBody().strength(CHARGE_STRENGTH))
+        .force("charge", customChargeForce())
+        .force("component", componentForce())
         .force("center", d3.forceCenter(width / 2, height / 2))
         .force("collision", d3.forceCollide().radius(COLLISION_RADIUS))
         .on("tick", ticked);
@@ -441,6 +595,9 @@
     document.getElementById("center-graph").addEventListener("click", function() {
         simulation.force("center", d3.forceCenter(width / 2, height / 2));
         simulation.alpha(1).restart();
+        
+        // Also restart component force to ensure proper separation
+        simulation.force("component", componentForce());
     });
 
     // Handle window resize
@@ -449,6 +606,7 @@
         const newHeight = window.innerHeight - 76;
         svg.attr("width", newWidth).attr("height", newHeight);
         simulation.force("center", d3.forceCenter(newWidth / 2, newHeight / 2));
+        simulation.force("component", componentForce());
         simulation.alpha(1).restart();
     });
 

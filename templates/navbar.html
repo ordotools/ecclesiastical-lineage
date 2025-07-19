@@ -19,5 +19,31 @@
     </div>
   </div>
 </nav>
+
+<!-- Breadcrumb Navigation -->
+{% if breadcrumbs %}
+<div class="breadcrumb-header" style="position:fixed; top:48px; left:0; width:100vw; z-index:1040; height:36px; min-height:36px;">
+  <div class="container-fluid px-3">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+          {% if loop.last %}
+            <li class="breadcrumb-item active" aria-current="page">
+              {{ breadcrumb.text }}
+            </li>
+          {% else %}
+            <li class="breadcrumb-item">
+              <a href="{{ breadcrumb.url }}">{{ breadcrumb.text }}</a>
+            </li>
+          {% endif %}
+        {% endfor %}
+      </ol>
+    </nav>
+  </div>
+</div>
+<!-- Spacer to prevent content from being hidden behind navbar and breadcrumbs -->
+<div style="height:84px;"></div>
+{% else %}
 <!-- Spacer to prevent content from being hidden behind navbar -->
-<div style="height:48px;"></div> 
+<div style="height:48px;"></div>
+{% endif %} 

@@ -133,8 +133,8 @@
     </div>
     {% endif %}
 
-    <!-- Admin Invite Section (only for Super Admins) -->
-    {% if user.is_admin() %}
+    <!-- User Invite Section (only for Admins and Super Admins) -->
+    {% if user.is_admin_or_super_admin() %}
     <div class="col-lg-6 mb-4">
       <div class="card h-100">
         <div class="card-body p-4">
@@ -143,14 +143,56 @@
               <i class="fas fa-user-plus text-success" style="font-size: 1.5rem;"></i>
             </div>
             <div>
-              <h4 class="card-title mb-1">Invite a New Admin</h4>
-              <p class="text-muted mb-0">Generate admin invitation links</p>
+              <h4 class="card-title mb-1">Invite a New User</h4>
+              <p class="text-muted mb-0">Generate user invitation links with specific access levels</p>
             </div>
           </div>
           
           <form id="invite-admin-form" method="post" action="{{ url_for('generate_admin_invite') }}">
+            <div class="mb-3">
+              <label for="role_id" class="form-label">Access Level</label>
+              <select class="form-select" id="role_id" name="role_id" required>
+                <option value="">Select access level...</option>
+                {% for role in roles %}
+                <option value="{{ role.id }}" data-description="{{ role.description }}">
+                  {{ role.name }}
+                </option>
+                {% endfor %}
+              </select>
+              <div class="form-text" id="role-description"></div>
+            </div>
+            
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="expires_in_hours" class="form-label">
+                    Expires In (Hours)
+                    <span id="expires-icon" class="ms-1" style="display: none;">
+                      <i class="fas fa-lock text-muted" title="Fixed for admin roles"></i>
+                    </span>
+                  </label>
+                  <input type="number" class="form-control" id="expires_in_hours" name="expires_in_hours" 
+                         value="24" min="1" max="168" required>
+                  <div class="form-text" id="expires-help">1-168 hours (1 week max)</div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="max_uses" class="form-label">
+                    Maximum Uses
+                    <span id="uses-icon" class="ms-1" style="display: none;">
+                      <i class="fas fa-lock text-muted" title="Fixed for admin roles"></i>
+                    </span>
+                  </label>
+                  <input type="number" class="form-control" id="max_uses" name="max_uses" 
+                         value="1" min="1" max="100" required>
+                  <div class="form-text" id="uses-help">1-100 uses</div>
+                </div>
+              </div>
+            </div>
+            
             <button type="submit" class="btn btn-success">
-              <i class="fas fa-link me-2"></i>Generate Admin Invite Link
+              <i class="fas fa-link me-2"></i>Generate Invite Link
             </button>
           </form>
           
@@ -232,6 +274,95 @@
     });
   }
   
+  // Role description display and field management
+  document.getElementById('role_id').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const description = selectedOption.getAttribute('data-description');
+    const descriptionDiv = document.getElementById('role-description');
+    const roleName = selectedOption.textContent;
+    
+    // Update description
+    if (description) {
+      descriptionDiv.textContent = description;
+      descriptionDiv.style.display = 'block';
+    } else {
+      descriptionDiv.style.display = 'none';
+    }
+    
+    // Handle field restrictions for admin roles
+    const expiresField = document.getElementById('expires_in_hours');
+    const maxUsesField = document.getElementById('max_uses');
+    const expiresHelp = document.getElementById('expires-help');
+    const usesHelp = document.getElementById('uses-help');
+    const expiresIcon = document.getElementById('expires-icon');
+    const usesIcon = document.getElementById('uses-icon');
+    
+    if (roleName === 'Super Admin' || roleName === 'Admin') {
+      // Disable fields for admin roles
+      expiresField.disabled = true;
+      maxUsesField.disabled = true;
+      expiresField.value = '24'; // Fixed 24 hours for admin roles
+      maxUsesField.value = '1';  // Fixed 1 use for admin roles
+      
+      // Update help text
+      expiresHelp.textContent = 'Fixed at 24 hours for admin roles';
+      usesHelp.textContent = 'Fixed at 1 use for admin roles';
+      
+      // Add visual indication - gray out the fields
+      expiresField.classList.add('form-control-plaintext', 'bg-light', 'text-muted');
+      maxUsesField.classList.add('form-control-plaintext', 'bg-light', 'text-muted');
+      
+      // Gray out the labels too
+      const expiresLabel = expiresField.previousElementSibling;
+      const usesLabel = maxUsesField.previousElementSibling;
+      if (expiresLabel && expiresLabel.tagName === 'LABEL') {
+        expiresLabel.classList.add('text-muted');
+      }
+      if (usesLabel && usesLabel.tagName === 'LABEL') {
+        usesLabel.classList.add('text-muted');
+      }
+      
+      // Add a subtle border to indicate disabled state
+      expiresField.style.border = '1px solid #dee2e6';
+      maxUsesField.style.border = '1px solid #dee2e6';
+      
+      // Show lock icons
+      expiresIcon.style.display = 'inline';
+      usesIcon.style.display = 'inline';
+      
+    } else {
+      // Enable fields for regular roles
+      expiresField.disabled = false;
+      maxUsesField.disabled = false;
+      
+      // Restore help text
+      expiresHelp.textContent = '1-168 hours (1 week max)';
+      usesHelp.textContent = '1-100 uses';
+      
+      // Remove visual indication
+      expiresField.classList.remove('form-control-plaintext', 'bg-light', 'text-muted');
+      maxUsesField.classList.remove('form-control-plaintext', 'bg-light', 'text-muted');
+      
+      // Restore label styling
+      const expiresLabel = expiresField.previousElementSibling;
+      const usesLabel = maxUsesField.previousElementSibling;
+      if (expiresLabel && expiresLabel.tagName === 'LABEL') {
+        expiresLabel.classList.remove('text-muted');
+      }
+      if (usesLabel && usesLabel.tagName === 'LABEL') {
+        usesLabel.classList.remove('text-muted');
+      }
+      
+      // Remove custom border
+      expiresField.style.border = '';
+      maxUsesField.style.border = '';
+      
+      // Hide lock icons
+      expiresIcon.style.display = 'none';
+      usesIcon.style.display = 'none';
+    }
+  });
+  
   // Handle logout redirect
   document.body.addEventListener('htmx:afterRequest', function(evt) {
     if (evt.detail.xhr.status === 200) {
@@ -244,6 +375,46 @@
             window.location.href = url;
           }, 1000);
         }
+      }
+    }
+  });
+  
+  // Initialize field states on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    const roleSelect = document.getElementById('role_id');
+    if (roleSelect && roleSelect.value) {
+      // Trigger change event to set initial state
+      roleSelect.dispatchEvent(new Event('change'));
+    } else if (roleSelect) {
+      // If no role is selected, ensure fields are enabled by default
+      const expiresField = document.getElementById('expires_in_hours');
+      const maxUsesField = document.getElementById('max_uses');
+      const expiresIcon = document.getElementById('expires-icon');
+      const usesIcon = document.getElementById('uses-icon');
+      
+      if (expiresField && maxUsesField) {
+        expiresField.disabled = false;
+        maxUsesField.disabled = false;
+        expiresField.classList.remove('form-control-plaintext', 'bg-light', 'text-muted');
+        maxUsesField.classList.remove('form-control-plaintext', 'bg-light', 'text-muted');
+        
+        // Restore label styling
+        const expiresLabel = expiresField.previousElementSibling;
+        const usesLabel = maxUsesField.previousElementSibling;
+        if (expiresLabel && expiresLabel.tagName === 'LABEL') {
+          expiresLabel.classList.remove('text-muted');
+        }
+        if (usesLabel && usesLabel.tagName === 'LABEL') {
+          usesLabel.classList.remove('text-muted');
+        }
+        
+        // Remove custom border
+        expiresField.style.border = '';
+        maxUsesField.style.border = '';
+        
+        // Hide lock icons
+        if (expiresIcon) expiresIcon.style.display = 'none';
+        if (usesIcon) usesIcon.style.display = 'none';
       }
     }
   });
@@ -266,6 +437,49 @@
   
   .text-danger:before {
     content: "✗ ";
+  }
+  
+  /* Enhanced disabled field styling */
+  .form-control:disabled,
+  .form-control-plaintext.bg-light {
+    background-color: #f8f9fa !important;
+    color: #6c757d !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+  
+  .form-control:disabled:focus,
+  .form-control-plaintext.bg-light:focus {
+    box-shadow: none;
+    border-color: #dee2e6;
+  }
+  
+  /* Label styling for disabled fields */
+  label.text-muted {
+    color: #6c757d !important;
+    font-weight: normal;
+  }
+  
+  /* Subtle animation for state changes */
+  .form-control {
+    transition: all 0.2s ease-in-out;
+  }
+  
+  /* Additional styling for disabled fields */
+  .form-control:disabled {
+    pointer-events: none;
+  }
+  
+  /* Lock icon styling */
+  #expires-icon i,
+  #uses-icon i {
+    font-size: 0.875em;
+  }
+  
+  /* Help text styling for disabled fields */
+  .form-text {
+    font-size: 0.875em;
+    color: #6c757d;
   }
 </style>
 {% endblock %} 

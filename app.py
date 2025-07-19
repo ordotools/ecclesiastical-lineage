@@ -210,6 +210,48 @@ def run_database_migration():
                 db.session.commit()
                 print(f"✅ Updated {len(existing_users)} users with Super Admin role")
             
+            # Migrate admin_invite table columns
+            print("🔧 Migrating admin_invite table columns...")
+            try:
+                # Check if admin_invite table exists
+                if 'admin_invite' in inspector.get_table_names():
+                    # Get current columns
+                    admin_invite_columns = [col['name'] for col in inspector.get_columns('admin_invite')]
+                    print(f"Current admin_invite columns: {admin_invite_columns}")
+                    
+                    # Define required columns
+                    required_admin_invite_columns = {
+                        'role_id': 'INTEGER',
+                        'max_uses': 'INTEGER DEFAULT 1',
+                        'current_uses': 'INTEGER DEFAULT 0',
+                        'expires_in_hours': 'INTEGER DEFAULT 24'
+                    }
+                    
+                    # Check for missing columns
+                    missing_admin_invite_columns = [col for col in required_admin_invite_columns.keys() if col not in admin_invite_columns]
+                    
+                    if missing_admin_invite_columns:
+                        print(f"🔧 Adding missing admin_invite columns: {missing_admin_invite_columns}")
+                        
+                        # Add missing columns
+                        with db.engine.connect() as conn:
+                            for col in missing_admin_invite_columns:
+                                try:
+                                    sql = f"ALTER TABLE admin_invite ADD COLUMN {col} {required_admin_invite_columns[col]}"
+                                    print(f"Executing: {sql}")
+                                    conn.execute(db.text(sql))
+                                    print(f"✅ Added admin_invite column: {col}")
+                                except Exception as e:
+                                    print(f"⚠️  Admin_invite column {col} might already exist: {e}")
+                            
+                            conn.commit()
+                    else:
+                        print("✅ All required admin_invite columns already exist!")
+                else:
+                    print("ℹ️  admin_invite table does not exist yet, will be created by db.create_all()")
+            except Exception as e:
+                print(f"⚠️  Admin invite migration failed: {e}")
+            
             print("✅ Database migration completed successfully!")
             return True
             

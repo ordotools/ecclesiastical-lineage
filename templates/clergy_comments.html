@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% block full_content %}
+<div class="container mt-4">
+  <div class="welcome-section text-center mb-4">
+    <h1 class="display-5 fw-bold mb-2 text-dark">Comments & Feedback</h1>
+    <p class="lead text-secondary mb-0">Comments for {{ clergy.name }}</p>
+  </div>
+  
+  <div class="row">
+    <!-- Clergy Info -->
+    <div class="col-12 mb-4">
+      <div class="card">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-primary bg-opacity-10 p-3 rounded me-3">
+              <i class="fas fa-user text-primary" style="font-size: 1.5rem;"></i>
+            </div>
+            <div>
+              <h4 class="card-title mb-1">{{ clergy.name }}</h4>
+              <p class="text-muted mb-0">{{ clergy.rank }} {% if clergy.organization %}- {{ clergy.organization }}{% endif %}</p>
+            </div>
+          </div>
+          <a href="{{ url_for('view_clergy', clergy_id=clergy.id) }}" class="btn btn-outline-primary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Clergy Record
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Comment Section -->
+    {% if session.user_id and user.can_comment() %}
+    <div class="col-12 mb-4">
+      <div class="card">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-success bg-opacity-10 p-3 rounded me-3">
+              <i class="fas fa-comment text-success" style="font-size: 1.5rem;"></i>
+            </div>
+            <div>
+              <h4 class="card-title mb-1">Add Comment</h4>
+              <p class="text-muted mb-0">Share feedback or suggestions about this record</p>
+            </div>
+          </div>
+          
+          <form id="add-comment-form">
+            <div class="mb-3">
+              <label for="comment-content" class="form-label">Comment</label>
+              <textarea class="form-control" id="comment-content" name="content" rows="4" placeholder="Enter your comment or feedback..." required></textarea>
+            </div>
+            <button type="submit" class="btn btn-success">
+              <i class="fas fa-paper-plane me-2"></i>Add Comment
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Comments List -->
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-info bg-opacity-10 p-3 rounded me-3">
+              <i class="fas fa-comments text-info" style="font-size: 1.5rem;"></i>
+            </div>
+            <div>
+              <h4 class="card-title mb-1">Comments ({{ comments|length }})</h4>
+              <p class="text-muted mb-0">Feedback and suggestions from users</p>
+            </div>
+          </div>
+          
+          {% if comments %}
+          <div id="comments-list">
+            {% for comment in comments %}
+            <div class="comment-item border-bottom pb-3 mb-3 {% if comment.is_resolved %}opacity-75{% endif %}">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <strong>{{ comment.author.username }}</strong>
+                  <small class="text-muted ms-2">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                  {% if comment.is_resolved %}
+                  <span class="badge bg-success ms-2">Resolved</span>
+                  {% endif %}
+                </div>
+                {% if user.can_resolve_comments() and not comment.is_resolved %}
+                <button class="btn btn-sm btn-outline-success resolve-comment-btn" data-comment-id="{{ comment.id }}">
+                  <i class="fas fa-check me-1"></i>Resolve
+                </button>
+                {% endif %}
+              </div>
+              <div class="comment-content">
+                {{ comment.content|nl2br }}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-center py-4">
+            <i class="fas fa-comments text-muted" style="font-size: 3rem;"></i>
+            <p class="text-muted mt-3">No comments yet. Be the first to add feedback!</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Add comment form submission
+  document.getElementById('add-comment-form')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const content = document.getElementById('comment-content').value.trim();
+    if (!content) {
+      alert('Please enter a comment.');
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('content', content);
+    
+    fetch('{{ url_for("add_clergy_comment", clergy_id=clergy.id) }}', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert('Comment added successfully!');
+        location.reload();
+      } else {
+        alert('Error: ' + data.message);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('An error occurred while adding the comment.');
+    });
+  });
+  
+  // Resolve comment functionality
+  document.querySelectorAll('.resolve-comment-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      if (confirm('Mark this comment as resolved?')) {
+        const commentId = this.getAttribute('data-comment-id');
+        
+        fetch(`/comments/${commentId}/resolve`, {
+          method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert('Comment marked as resolved!');
+            location.reload();
+          } else {
+            alert('Error: ' + data.message);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('An error occurred while resolving the comment.');
+        });
+      }
+    });
+  });
+</script>
+
+<style>
+  .comment-item:last-child {
+    border-bottom: none !important;
+  }
+  
+  .comment-content {
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+</style>
+{% endblock %} 

@@ -6,6 +6,63 @@
     <p class="lead text-secondary mb-0">Manage your account settings and preferences</p>
   </div>
   
+  <!-- User Info Section -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-secondary bg-opacity-10 p-3 rounded me-3">
+              <i class="fas fa-user text-secondary" style="font-size: 1.5rem;"></i>
+            </div>
+            <div>
+              <h4 class="card-title mb-1">Account Information</h4>
+              <p class="text-muted mb-0">Your current account details and permissions</p>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <p><strong>Username:</strong> {{ user.username }}</p>
+              <p><strong>Full Name:</strong> {{ user.full_name or 'Not specified' }}</p>
+              <p><strong>Email:</strong> {{ user.email or 'Not specified' }}</p>
+              <p><strong>Role:</strong> <span class="badge bg-primary">{{ user.role.name }}</span></p>
+              <p><strong>Account Status:</strong> 
+                {% if user.is_active %}
+                <span class="badge bg-success">Active</span>
+                {% else %}
+                <span class="badge bg-danger">Inactive</span>
+                {% endif %}
+              </p>
+            </div>
+            <div class="col-md-6">
+              <p><strong>Member Since:</strong> {{ user.created_at.strftime('%Y-%m-%d') }}</p>
+              <p><strong>Last Login:</strong> {{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never' }}</p>
+              <p><strong>Permissions:</strong></p>
+              <ul class="list-unstyled">
+                {% if user.can_edit_clergy() %}
+                <li><i class="fas fa-check text-success me-2"></i>Edit clergy records</li>
+                {% endif %}
+                {% if user.can_delete_clergy() %}
+                <li><i class="fas fa-check text-success me-2"></i>Delete clergy records</li>
+                {% endif %}
+                {% if user.can_manage_metadata() %}
+                <li><i class="fas fa-check text-success me-2"></i>Manage metadata</li>
+                {% endif %}
+                {% if user.can_manage_users() %}
+                <li><i class="fas fa-check text-success me-2"></i>Manage users</li>
+                {% endif %}
+                {% if user.can_comment() %}
+                <li><i class="fas fa-check text-success me-2"></i>Add comments</li>
+                {% endif %}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
   <div class="row">
     <!-- Password Change Section -->
     <div class="col-lg-6 mb-4">
@@ -52,8 +109,32 @@
       </div>
     </div>
 
-    <!-- Admin Invite Section (only for admins) -->
-    {% if user.is_admin %}
+    <!-- User Management Section (only for users with manage_users permission) -->
+    {% if user.can_manage_users() %}
+    <div class="col-lg-6 mb-4">
+      <div class="card h-100">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-info bg-opacity-10 p-3 rounded me-3">
+              <i class="fas fa-users text-info" style="font-size: 1.5rem;"></i>
+            </div>
+            <div>
+              <h4 class="card-title mb-1">User Management</h4>
+              <p class="text-muted mb-0">Manage user accounts and roles</p>
+            </div>
+          </div>
+          
+          <p class="text-muted mb-3">Add, edit, and manage user accounts with different permission levels.</p>
+          <a href="{{ url_for('user_management') }}" class="btn btn-info">
+            <i class="fas fa-users me-2"></i>Manage Users
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Admin Invite Section (only for Super Admins) -->
+    {% if user.is_admin() %}
     <div class="col-lg-6 mb-4">
       <div class="card h-100">
         <div class="card-body p-4">

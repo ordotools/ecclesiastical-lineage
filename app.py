@@ -7,6 +7,7 @@ import json
 import re
 from uuid import uuid4
 from dotenv import load_dotenv
+from functools import wraps
 
 # Import psycopg3 for PostgreSQL connections
 try:
@@ -145,13 +146,99 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)
+    email = db.Column(db.String(120), unique=True, nullable=True)
+    full_name = db.Column(db.String(200), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime, nullable=True)
+    
+    # Role relationship
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
+    role = db.relationship('Role', backref='users')
+    
+    # Comments relationship
+    comments = db.relationship('ClergyComment', backref='author', lazy='dynamic', cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    def has_permission(self, permission):
+        """Check if user has a specific permission"""
+        return self.role and self.role.has_permission(permission)
+    
+    def can_edit_clergy(self):
+        """Check if user can edit clergy records"""
+        return self.has_permission('edit_clergy')
+    
+    def can_delete_clergy(self):
+        """Check if user can delete clergy records"""
+        return self.has_permission('delete_clergy')
+    
+    def can_manage_metadata(self):
+        """Check if user can manage metadata"""
+        return self.has_permission('manage_metadata')
+    
+    def can_manage_users(self):
+        """Check if user can manage users"""
+        return self.has_permission('manage_users')
+    
+    def can_comment(self):
+        """Check if user can add comments"""
+        return self.has_permission('add_comments')
+    
+    def is_admin(self):
+        """Backward compatibility - check if user is super admin"""
+        return self.role and self.role.name == 'Super Admin'
+
+class Role(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Permissions relationship
+    permissions = db.relationship('Permission', secondary='role_permissions', backref='roles')
+    
+    def has_permission(self, permission_name):
+        """Check if role has a specific permission"""
+        return any(p.name == permission_name for p in self.permissions)
+    
+    def __repr__(self):
+        return f'<Role {self.name}>'
+
+class Permission(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<Permission {self.name}>'
+
+# Association table for role-permission relationship
+role_permissions = db.Table('role_permissions',
+    db.Column('role_id', db.Integer, db.ForeignKey('role.id'), primary_key=True),
+    db.Column('permission_id', db.Integer, db.ForeignKey('permission.id'), primary_key=True)
+)
+
+class ClergyComment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    is_public = db.Column(db.Boolean, default=True)
+    is_resolved = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship to clergy
+    clergy = db.relationship('Clergy', backref='comments')
+    
+    def __repr__(self):
+        return f'<ClergyComment {self.id} on Clergy {self.clergy_id}>'
 
 def validate_password(password):
     """
@@ -246,6 +333,30 @@ class AdminInvite(db.Model):
         return not self.used and datetime.utcnow() < self.expires_at
 
 
+def require_permission(permission):
+    """Decorator to require a specific permission"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                flash('Please log in to access this feature.', 'error')
+                return redirect(url_for('login'))
+            
+            user = User.query.get(session['user_id'])
+            if not user or not user.is_active:
+                session.clear()
+                flash('User not found or inactive. Please log in again.', 'error')
+                return redirect(url_for('login'))
+            
+            if not user.has_permission(permission):
+                flash('You do not have permission to access this feature.', 'error')
+                return redirect(url_for('dashboard'))
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
 @app.route('/')
 def index():
     # Check if user is logged in
@@ -298,8 +409,15 @@ def signup():
                 return render_template('flash_messages.html')
             return render_template('signup.html')
         
-        # Create the first user as admin
-        user = User(username=username, is_admin=True)
+        # Get or create Super Admin role
+        super_admin_role = Role.query.filter_by(name='Super Admin').first()
+        if not super_admin_role:
+            # Initialize roles if they don't exist
+            initialize_roles_and_permissions()
+            super_admin_role = Role.query.filter_by(name='Super Admin').first()
+        
+        # Create the first user as Super Admin
+        user = User(username=username, role_id=super_admin_role.id)
         user.set_password(password)
         
         db.session.add(user)
@@ -308,7 +426,7 @@ def signup():
         flash('Admin account created successfully! Please log in.', 'success')
         if request.headers.get('HX-Request'):
             # Return a special response for HTMX to handle redirect
-            return '<div id="redirect" data-url="' + url_for('login') + '">redirect</div>'
+            return '<div id="redirect" data-url="' + url_for('login') + '">redirect</div><script>setTimeout(function(){window.location.href="' + url_for('login') + '";},1000);</script>'
         return redirect(url_for('login'))
     
     return render_template('signup.html')
@@ -321,10 +439,16 @@ def login():
         
         user = User.query.filter_by(username=username).first()
         
-        if user and user.check_password(password):
+        if user and user.check_password(password) and user.is_active:
             session['user_id'] = user.id
             session['username'] = user.username
-            session['is_admin'] = user.is_admin
+            session['role'] = user.role.name if user.role else 'Unknown'
+            session['is_admin'] = user.is_admin()
+            
+            # Update last login
+            user.last_login = datetime.utcnow()
+            db.session.commit()
+            
             flash(f'Welcome back, {username}!', 'success')
             if request.headers.get('HX-Request'):
                 # Return a loading page with spinner for HTMX to handle redirect
@@ -407,6 +531,16 @@ def login():
                     </style>
                     <div id="redirect" data-url="{{ url_for('dashboard') }}" style="display:none;">redirect</div>
                 </div>
+                <script>
+                    // Handle login redirect
+                    setTimeout(function() {
+                        const redirectDiv = document.getElementById('redirect');
+                        if (redirectDiv) {
+                            const url = redirectDiv.getAttribute('data-url');
+                            window.location.href = url;
+                        }
+                    }, 1000);
+                </script>
                 ''')
             return redirect(url_for('dashboard'))
         else:
@@ -515,6 +649,16 @@ def logout():
             </style>
             <div id="redirect" data-url="{{ url_for('lineage_visualization') }}" style="display:none;">logout</div>
         </div>
+        <script>
+            // Handle logout redirect
+            setTimeout(function() {
+                const redirectDiv = document.getElementById('redirect');
+                if (redirectDiv) {
+                    const url = redirectDiv.getAttribute('data-url');
+                    window.location.href = url;
+                }
+            }, 1000);
+        </script>
         ''')
     return redirect(url_for('lineage_visualization'))
 
@@ -587,6 +731,11 @@ def clergy_list():
     import json
     all_clergy_json = json.dumps(all_clergy_data)
 
+    # Get current user for permission checks
+    user = None
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+    
     return render_template('clergy_list.html', 
                          clergy_list=clergy_list, 
                          org_abbreviation_map=org_abbreviation_map,
@@ -598,7 +747,8 @@ def clergy_list():
                          exclude_priests=exclude_priests,
                          exclude_coconsecrators=exclude_coconsecrators,
                          exclude_organizations=exclude_organizations,
-                         search=search)
+                         search=search,
+                         user=user)
 
 @app.route('/clergy/filter_partial')
 def clergy_filter_partial():
@@ -641,6 +791,7 @@ def clergy_filter_partial():
     return render_template('clergy_table_body.html', clergy_list=clergy_list, org_abbreviation_map=org_abbreviation_map, org_color_map=org_color_map)
 
 @app.route('/clergy/add', methods=['GET', 'POST'])
+@require_permission('add_clergy')
 def add_clergy():
     if 'user_id' not in session:
         flash('Please log in to add clergy records.', 'error')
@@ -798,6 +949,7 @@ def clergy_json(clergy_id):
     })
 
 @app.route('/clergy/<int:clergy_id>/edit', methods=['GET', 'POST'])
+@require_permission('edit_clergy')
 def edit_clergy(clergy_id):
     if 'user_id' not in session:
         flash('Please log in to edit clergy records.', 'error')
@@ -953,6 +1105,7 @@ def edit_clergy(clergy_id):
                          edit_mode=True)
 
 @app.route('/clergy/<int:clergy_id>/delete', methods=['POST'])
+@require_permission('delete_clergy')
 def delete_clergy(clergy_id):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     if 'user_id' not in session:
@@ -992,6 +1145,7 @@ def delete_clergy(clergy_id):
         return redirect(url_for('clergy_list'))
 
 @app.route('/metadata')
+@require_permission('manage_metadata')
 def metadata():
     if 'user_id' not in session:
         flash('Please log in to access metadata.', 'error')
@@ -1015,6 +1169,7 @@ def metadata():
                          clergy_organizations=clergy_organization_list)
 
 @app.route('/metadata/rank/add', methods=['POST'])
+@require_permission('manage_metadata')
 def add_rank():
     if 'user_id' not in session or not session.get('is_admin'):
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
@@ -1052,6 +1207,7 @@ def add_rank():
         return jsonify({'success': False, 'message': 'Error adding rank'}), 500
 
 @app.route('/metadata/rank/<int:rank_id>/edit', methods=['PUT'])
+@require_permission('manage_metadata')
 def edit_rank(rank_id):
     if 'user_id' not in session or not session.get('is_admin'):
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
@@ -1092,6 +1248,7 @@ def edit_rank(rank_id):
         return jsonify({'success': False, 'message': 'Error updating rank'}), 500
 
 @app.route('/metadata/rank/<int:rank_id>/delete', methods=['DELETE'])
+@require_permission('manage_metadata')
 def delete_rank(rank_id):
     if 'user_id' not in session or not session.get('is_admin'):
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
@@ -1115,6 +1272,7 @@ def delete_rank(rank_id):
         return jsonify({'success': False, 'message': 'Error deleting rank'}), 500
 
 @app.route('/metadata/organization/add', methods=['POST'])
+@require_permission('manage_metadata')
 def add_organization():
     if 'user_id' not in session or not session.get('is_admin'):
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
@@ -1160,6 +1318,7 @@ def add_organization():
         return jsonify({'success': False, 'message': 'Error adding organization'}), 500
 
 @app.route('/metadata/organization/<int:org_id>/edit', methods=['PUT'])
+@require_permission('manage_metadata')
 def edit_organization(org_id):
     if 'user_id' not in session or not session.get('is_admin'):
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
@@ -1209,6 +1368,7 @@ def edit_organization(org_id):
         return jsonify({'success': False, 'message': 'Error updating organization'}), 500
 
 @app.route('/metadata/organization/<int:org_id>/delete', methods=['DELETE'])
+@require_permission('manage_metadata')
 def delete_organization(org_id):
     if 'user_id' not in session or not session.get('is_admin'):
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
@@ -1391,7 +1551,13 @@ def admin_invite_signup(token):
             flash(f'Password validation failed: {message}', 'error')
             return render_template('signup.html', invite_token=token)
         
-        user = User(username=username, is_admin=True)
+        # Get Super Admin role
+        super_admin_role = Role.query.filter_by(name='Super Admin').first()
+        if not super_admin_role:
+            initialize_roles_and_permissions()
+            super_admin_role = Role.query.filter_by(name='Super Admin').first()
+        
+        user = User(username=username, role_id=super_admin_role.id)
         user.set_password(password)
         db.session.add(user)
         invite.used = True
@@ -1494,6 +1660,10 @@ def init_database_endpoint():
         else:
             print(f"ℹ️  Admin user already exists: {existing_admin.username}")
         
+        # Initialize roles and permissions
+        initialize_roles_and_permissions()
+        print("✅ Roles and Permissions initialized.")
+
         print("=" * 50)
         print("✅ Database initialization completed successfully!")
         
@@ -1512,6 +1682,268 @@ def init_database_endpoint():
             'success': False,
             'error': str(e)
         }), 500
+
+def initialize_roles_and_permissions():
+    """Initialize default roles and permissions"""
+    # Create permissions
+    permissions = {
+        'view_clergy': 'View clergy records',
+        'add_clergy': 'Add new clergy records',
+        'edit_clergy': 'Edit existing clergy records',
+        'delete_clergy': 'Delete clergy records',
+        'manage_metadata': 'Manage ranks and organizations',
+        'manage_users': 'Manage user accounts and roles',
+        'add_comments': 'Add comments to clergy records',
+        'view_comments': 'View comments on clergy records',
+        'resolve_comments': 'Resolve comments and feedback',
+        'view_lineage': 'View lineage visualization',
+        'export_data': 'Export data from the system'
+    }
+    
+    for perm_name, perm_desc in permissions.items():
+        perm = Permission.query.filter_by(name=perm_name).first()
+        if not perm:
+            perm = Permission(name=perm_name, description=perm_desc)
+            db.session.add(perm)
+    
+    # Create roles with their permissions
+    roles_config = {
+        'Super Admin': {
+            'description': 'Full system access and administration',
+            'permissions': list(permissions.keys())
+        },
+        'Editor': {
+            'description': 'Full content management capabilities',
+            'permissions': ['view_clergy', 'add_clergy', 'edit_clergy', 'delete_clergy', 
+                          'manage_metadata', 'add_comments', 'view_comments', 
+                          'resolve_comments', 'view_lineage', 'export_data']
+        },
+        'Contributor': {
+            'description': 'Can add and edit clergy records with approval workflow',
+            'permissions': ['view_clergy', 'add_clergy', 'edit_clergy', 'add_comments', 
+                          'view_comments', 'view_lineage']
+        },
+        'Reviewer': {
+            'description': 'Can view records and provide feedback',
+            'permissions': ['view_clergy', 'add_comments', 'view_comments', 'view_lineage']
+        },
+        'Viewer': {
+            'description': 'Read-only access to clergy records and lineage',
+            'permissions': ['view_clergy', 'view_lineage']
+        }
+    }
+    
+    for role_name, role_config in roles_config.items():
+        role = Role.query.filter_by(name=role_name).first()
+        if not role:
+            role = Role(name=role_name, description=role_config['description'])
+            db.session.add(role)
+            db.session.flush()  # Get the role ID
+        
+        # Add permissions to role
+        for perm_name in role_config['permissions']:
+            perm = Permission.query.filter_by(name=perm_name).first()
+            if perm and perm not in role.permissions:
+                role.permissions.append(perm)
+    
+    db.session.commit()
+
+@app.route('/users')
+@require_permission('manage_users')
+def user_management():
+    """User management page for admins"""
+    users = User.query.all()
+    roles = Role.query.all()
+    return render_template('user_management.html', users=users, roles=roles)
+
+@app.route('/users/add', methods=['POST'])
+@require_permission('manage_users')
+def add_user():
+    """Add a new user"""
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    email = data.get('email', '').strip()
+    full_name = data.get('full_name', '').strip()
+    role_id = data.get('role_id')
+    password = data.get('password', '').strip()
+    
+    if not username or not password or not role_id:
+        return jsonify({'success': False, 'message': 'Username, password, and role are required'}), 400
+    
+    # Validate password strength
+    is_valid, message = validate_password(password)
+    if not is_valid:
+        return jsonify({'success': False, 'message': f'Password validation failed: {message}'}), 400
+    
+    # Check if username already exists
+    if User.query.filter_by(username=username).first():
+        return jsonify({'success': False, 'message': 'Username already exists'}), 400
+    
+    # Check if email already exists (if provided)
+    if email and User.query.filter_by(email=email).first():
+        return jsonify({'success': False, 'message': 'Email already exists'}), 400
+    
+    try:
+        user = User(
+            username=username,
+            email=email if email else None,
+            full_name=full_name if full_name else None,
+            role_id=role_id
+        )
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'User "{username}" created successfully',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'full_name': user.full_name,
+                'role': user.role.name,
+                'is_active': user.is_active
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Error creating user'}), 500
+
+@app.route('/users/<int:user_id>/edit', methods=['PUT'])
+@require_permission('manage_users')
+def edit_user(user_id):
+    """Edit an existing user"""
+    user = User.query.get_or_404(user_id)
+    data = request.get_json()
+    
+    username = data.get('username', '').strip()
+    email = data.get('email', '').strip()
+    full_name = data.get('full_name', '').strip()
+    role_id = data.get('role_id')
+    is_active = data.get('is_active', True)
+    
+    if not username or not role_id:
+        return jsonify({'success': False, 'message': 'Username and role are required'}), 400
+    
+    # Check if new username conflicts with existing user (excluding current user)
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user and existing_user.id != user_id:
+        return jsonify({'success': False, 'message': 'Username already exists'}), 400
+    
+    # Check if new email conflicts with existing user (excluding current user)
+    if email:
+        existing_email = User.query.filter_by(email=email).first()
+        if existing_email and existing_email.id != user_id:
+            return jsonify({'success': False, 'message': 'Email already exists'}), 400
+    
+    try:
+        old_username = user.username
+        user.username = username
+        user.email = email if email else None
+        user.full_name = full_name if full_name else None
+        user.role_id = role_id
+        user.is_active = is_active
+        
+        # Update password if provided
+        if data.get('password'):
+            is_valid, message = validate_password(data['password'])
+            if not is_valid:
+                return jsonify({'success': False, 'message': f'Password validation failed: {message}'}), 400
+            user.set_password(data['password'])
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'User "{old_username}" updated successfully',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'full_name': user.full_name,
+                'role': user.role.name,
+                'is_active': user.is_active
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Error updating user'}), 500
+
+@app.route('/users/<int:user_id>/delete', methods=['DELETE'])
+@require_permission('manage_users')
+def delete_user(user_id):
+    """Delete a user"""
+    user = User.query.get_or_404(user_id)
+    
+    # Prevent deleting the last Super Admin
+    if user.role.name == 'Super Admin':
+        super_admin_count = User.query.join(Role).filter(Role.name == 'Super Admin').count()
+        if super_admin_count <= 1:
+            return jsonify({'success': False, 'message': 'Cannot delete the last Super Admin user'}), 400
+    
+    try:
+        username = user.username
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'User "{username}" deleted successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Error deleting user'}), 500
+
+@app.route('/clergy/<int:clergy_id>/comments')
+def clergy_comments(clergy_id):
+    """Get comments for a clergy member"""
+    clergy = Clergy.query.get_or_404(clergy_id)
+    comments = clergy.comments.filter_by(is_public=True).order_by(ClergyComment.created_at.desc()).all()
+    return render_template('clergy_comments.html', clergy=clergy, comments=comments)
+
+@app.route('/clergy/<int:clergy_id>/comments/add', methods=['POST'])
+@require_permission('add_comments')
+def add_clergy_comment(clergy_id):
+    """Add a comment to a clergy record"""
+    clergy = Clergy.query.get_or_404(clergy_id)
+    content = request.form.get('content', '').strip()
+    
+    if not content:
+        return jsonify({'success': False, 'message': 'Comment content is required'}), 400
+    
+    try:
+        comment = ClergyComment(
+            clergy_id=clergy_id,
+            author_id=session['user_id'],
+            content=content
+        )
+        db.session.add(comment)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Comment added successfully',
+            'comment': {
+                'id': comment.id,
+                'content': comment.content,
+                'author': comment.author.username,
+                'created_at': comment.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Error adding comment'}), 500
+
+@app.route('/comments/<int:comment_id>/resolve', methods=['POST'])
+@require_permission('resolve_comments')
+def resolve_comment(comment_id):
+    """Mark a comment as resolved"""
+    comment = ClergyComment.query.get_or_404(comment_id)
+    
+    try:
+        comment.is_resolved = True
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Comment marked as resolved'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Error resolving comment'}), 500
 
 
 if __name__ == '__main__':

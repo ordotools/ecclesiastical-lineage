@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Comments Management - Ecclesiastical Lineage{% endblock %}
+
+{% block full_content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h2 mb-0">
+            <i class="fas fa-comments me-2"></i>Comments Management
+        </h1>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('clergy_list') }}" class="btn btn-secondary">
+                <i class="fas fa-list me-2"></i>Back to Clergy List
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Controls -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <label for="statusFilter" class="form-label">Status</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="all">All Comments</option>
+                        <option value="unresolved">Unresolved Only</option>
+                        <option value="resolved">Resolved Only</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="visibilityFilter" class="form-label">Visibility</label>
+                    <select class="form-select" id="visibilityFilter">
+                        <option value="all">All Comments</option>
+                        <option value="public">Public Only</option>
+                        <option value="private">Private Only</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="searchComments" class="form-label">Search</label>
+                    <input type="text" class="form-control" id="searchComments" placeholder="Search comments by content or author...">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comments List -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Comments ({{ comments|length }})</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if comments %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Clergy</th>
+                                <th>Comment</th>
+                                <th>Author</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="commentsTableBody">
+                            {% for comment in comments %}
+                            <tr class="comment-row {% if comment.is_resolved %}table-secondary{% endif %}" 
+                                data-status="{% if comment.is_resolved %}resolved{% else %}unresolved{% endif %}"
+                                data-visibility="{% if comment.is_public %}public{% else %}private{% endif %}"
+                                data-search="{{ comment.content.lower() }} {{ comment.author.full_name or comment.author.username | lower }} {{ comment.clergy.name | lower }}"
+                                data-clergy-id="{{ comment.clergy.id }}"
+                                style="cursor: pointer;"
+                                onclick="navigateToClergy({{ comment.clergy.id }})">
+                                <td>
+                                    <strong>{{ comment.clergy.name }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ comment.clergy.rank }}</small>
+                                </td>
+                                <td>
+                                    <div class="comment-content">
+                                        {{ comment.content[:100] }}{% if comment.content|length > 100 %}...{% endif %}
+                                    </div>
+                                    {% if comment.field_name %}
+                                    <div class="mt-1">
+                                        <small class="text-muted">
+                                            <i class="fas fa-tag me-1"></i>{{ comment.field_name|title }}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                    {% if comment.content|length > 100 %}
+                                    <button class="btn btn-sm btn-link p-0" onclick="showFullComment({{ comment.id }})">
+                                        Show full comment
+                                    </button>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div>{{ comment.author.full_name or comment.author.username }}</div>
+                                    <small class="text-muted">{{ comment.author.role.name }}</small>
+                                </td>
+                                <td>
+                                    <div>{{ comment.created_at.strftime('%Y-%m-%d') }}</div>
+                                    <small class="text-muted">{{ comment.created_at.strftime('%H:%M') }}</small>
+                                </td>
+                                <td>
+                                    {% if comment.is_resolved %}
+                                        <span class="badge bg-success">Resolved</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Unresolved</span>
+                                    {% endif %}
+                                    <br>
+                                    {% if comment.is_public %}
+                                        <span class="badge bg-info">Public</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Private</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        {% if user.can_resolve_comments() and not comment.is_resolved %}
+                                        <button class="btn btn-sm btn-outline-success" 
+                                                onclick="resolveComment({{ comment.id }})"
+                                                title="Mark as resolved">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                    <h4>No Comments Found</h4>
+                    <p class="text-muted">There are no comments to display.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Full Comment Modal -->
+<div class="modal fade" id="fullCommentModal" tabindex="-1" aria-labelledby="fullCommentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="fullCommentModalLabel">Full Comment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="fullCommentContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Filter functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const statusFilter = document.getElementById('statusFilter');
+    const visibilityFilter = document.getElementById('visibilityFilter');
+    const searchInput = document.getElementById('searchComments');
+    
+    function filterComments() {
+        const statusValue = statusFilter.value;
+        const visibilityValue = visibilityFilter.value;
+        const searchValue = searchInput.value.toLowerCase();
+        
+        const rows = document.querySelectorAll('.comment-row');
+        let visibleCount = 0;
+        
+        rows.forEach(row => {
+            const status = row.dataset.status;
+            const visibility = row.dataset.visibility;
+            const searchText = row.dataset.search;
+            
+            let show = true;
+            
+            // Status filter
+            if (statusValue !== 'all' && status !== statusValue) {
+                show = false;
+            }
+            
+            // Visibility filter
+            if (visibilityValue !== 'all' && visibility !== visibilityValue) {
+                show = false;
+            }
+            
+            // Search filter
+            if (searchValue && !searchText.includes(searchValue)) {
+                show = false;
+            }
+            
+            row.style.display = show ? '' : 'none';
+            if (show) visibleCount++;
+        });
+        
+        // Update count in header
+        const header = document.querySelector('.card-header h5');
+        header.textContent = `Comments (${visibleCount})`;
+    }
+    
+    statusFilter.addEventListener('change', filterComments);
+    visibilityFilter.addEventListener('change', filterComments);
+    searchInput.addEventListener('input', filterComments);
+});
+
+function showFullComment(commentId) {
+    // This would typically fetch the full comment content via AJAX
+    // For now, we'll show a placeholder
+    document.getElementById('fullCommentContent').innerHTML = `
+        <p>Loading full comment content...</p>
+        <p><em>This would show the complete comment text for comment ID ${commentId}</em></p>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('fullCommentModal'));
+    modal.show();
+}
+
+function navigateToClergy(clergyId) {
+    // Navigate to the clergy record in the same tab
+    window.location.href = `/clergy/${clergyId}`;
+}
+
+function resolveComment(commentId) {
+    if (confirm('Mark this comment as resolved?')) {
+        fetch(`/comments/${commentId}/resolve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the row to show as resolved
+                const row = document.querySelector(`[onclick*="${commentId}"]`).closest('tr');
+                row.classList.add('table-secondary');
+                row.dataset.status = 'resolved';
+                
+                // Update the status badge
+                const statusCell = row.querySelector('td:nth-child(5)');
+                statusCell.innerHTML = '<span class="badge bg-success">Resolved</span><br><span class="badge bg-info">Public</span>';
+                
+                // Remove the resolve button
+                const resolveBtn = row.querySelector('button[onclick*="resolveComment"]');
+                if (resolveBtn) {
+                    resolveBtn.remove();
+                }
+                
+                // Trigger filter to update count
+                document.getElementById('statusFilter').dispatchEvent(new Event('change'));
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while resolving the comment.');
+        });
+    }
+}
+</script>
+{% endblock %} 

@@ -142,6 +142,81 @@ def getBorderStyle(hexColor):
 app.jinja_env.globals['getContrastColor'] = getContrastColor
 app.jinja_env.globals['getBorderStyle'] = getBorderStyle
 
+# Add custom Jinja2 filters
+def from_json(value):
+    """Convert JSON string to Python object"""
+    try:
+        return json.loads(value)
+    except (ValueError, TypeError):
+        return value
+
+app.jinja_env.filters['from_json'] = from_json
+
+# Audit Trail System
+class AuditLog(db.Model):
+    """Model to track all changes and actions in the system"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    action = db.Column(db.String(50), nullable=False)  # create, update, delete, comment, login, etc.
+    entity_type = db.Column(db.String(50), nullable=False)  # clergy, user, rank, organization, comment, etc.
+    entity_id = db.Column(db.Integer, nullable=True)  # ID of the affected entity
+    entity_name = db.Column(db.String(200), nullable=True)  # Name/description of the affected entity
+    details = db.Column(db.Text, nullable=True)  # JSON string with additional details
+    ip_address = db.Column(db.String(45), nullable=True)  # IPv4 or IPv6 address
+    user_agent = db.Column(db.Text, nullable=True)  # Browser/device information
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationship to user
+    user = db.relationship('User', backref='audit_logs')
+    
+    def __repr__(self):
+        return f'<AuditLog {self.action} on {self.entity_type} by {self.user_id}>'
+
+def log_audit_event(action, entity_type, entity_id=None, entity_name=None, details=None, user_id=None):
+    """Helper function to log audit events"""
+    try:
+        # Get user_id from session if not provided
+        if user_id is None and 'user_id' in session:
+            user_id = session['user_id']
+        
+        # Get request information
+        ip_address = request.remote_addr if request else None
+        user_agent = request.headers.get('User-Agent') if request else None
+        
+        # Convert details to JSON if it's a dict
+        if isinstance(details, dict):
+            details = json.dumps(details)
+        
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        db.session.add(audit_log)
+        db.session.commit()
+        
+    except Exception as e:
+        # Don't let audit logging break the main functionality
+        print(f"Warning: Failed to log audit event: {e}")
+        db.session.rollback()
+
+def get_changes_dict(old_data, new_data):
+    """Helper function to create a dictionary of changes between old and new data"""
+    changes = {}
+    for key in new_data:
+        if key in old_data and old_data[key] != new_data[key]:
+            changes[key] = {
+                'old': old_data[key],
+                'new': new_data[key]
+            }
+    return changes
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -189,6 +264,14 @@ class User(db.Model):
         """Check if user can add comments"""
         return self.has_permission('add_comments')
     
+    def can_resolve_comments(self):
+        """Check if user can resolve comments"""
+        return self.has_permission('resolve_comments')
+    
+    def can_view_audit_logs(self):
+        """Check if user can view audit logs"""
+        return self.has_permission('view_audit_logs')
+    
     def is_admin(self):
         """Backward compatibility - check if user is super admin"""
         return self.role and self.role.name == 'Super Admin'
@@ -229,6 +312,7 @@ class ClergyComment(db.Model):
     clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False)
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    field_name = db.Column(db.String(50), nullable=True)  # Which field this comment is about
     is_public = db.Column(db.Boolean, default=True)
     is_resolved = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -357,6 +441,11 @@ def require_permission(permission):
     return decorator
 
 
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon to prevent 404 errors"""
+    return '', 204
+
 @app.route('/')
 def index():
     # Check if user is logged in
@@ -423,6 +512,20 @@ def signup():
         db.session.add(user)
         db.session.commit()
         
+        # Log user creation (first admin user)
+        log_audit_event(
+            action='create',
+            entity_type='user',
+            entity_id=user.id,
+            entity_name=user.username,
+            details={
+                'username': user.username,
+                'role': user.role.name,
+                'is_first_user': True
+            },
+            user_id=user.id  # Use the new user's ID since no one is logged in yet
+        )
+        
         flash('Admin account created successfully! Please log in.', 'success')
         if request.headers.get('HX-Request'):
             # Return a special response for HTMX to handle redirect
@@ -448,6 +551,15 @@ def login():
             # Update last login
             user.last_login = datetime.utcnow()
             db.session.commit()
+            
+            # Log successful login
+            log_audit_event(
+                action='login',
+                entity_type='user',
+                entity_id=user.id,
+                entity_name=user.username,
+                details={'login_method': 'password'}
+            )
             
             flash(f'Welcome back, {username}!', 'success')
             if request.headers.get('HX-Request'):
@@ -566,6 +678,15 @@ def dashboard():
 
 @app.route('/logout')
 def logout():
+    # Log logout before clearing session
+    if 'user_id' in session:
+        log_audit_event(
+            action='logout',
+            entity_type='user',
+            entity_id=session['user_id'],
+            entity_name=session.get('username', 'Unknown')
+        )
+    
     session.clear()
     flash('You have been logged out.', 'info')
     if request.headers.get('HX-Request'):
@@ -754,6 +875,10 @@ def clergy_list():
 def clergy_filter_partial():
     if 'user_id' not in session:
         return '', 401
+    
+    # Get current user for permission checks
+    user = User.query.get(session['user_id'])
+    
     # Get filter parameters from request
     exclude_priests = request.args.get('exclude_priests') == '1'
     exclude_coconsecrators = request.args.get('exclude_coconsecrators') == '1'
@@ -788,7 +913,7 @@ def clergy_filter_partial():
     organizations = Organization.query.order_by(Organization.name).all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
     org_color_map = {org.name: org.color for org in organizations}
-    return render_template('clergy_table_body.html', clergy_list=clergy_list, org_abbreviation_map=org_abbreviation_map, org_color_map=org_color_map)
+    return render_template('clergy_table_body.html', clergy_list=clergy_list, org_abbreviation_map=org_abbreviation_map, org_color_map=org_color_map, user=user)
 
 @app.route('/clergy/add', methods=['GET', 'POST'])
 @require_permission('add_clergy')
@@ -877,6 +1002,22 @@ def add_clergy():
             db.session.add(clergy)
             db.session.commit()
 
+            # Log clergy creation
+            log_audit_event(
+                action='create',
+                entity_type='clergy',
+                entity_id=clergy.id,
+                entity_name=clergy.name,
+                details={
+                    'rank': clergy.rank,
+                    'organization': clergy.organization,
+                    'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
+                    'date_of_ordination': clergy.date_of_ordination.isoformat() if clergy.date_of_ordination else None,
+                    'date_of_consecration': clergy.date_of_consecration.isoformat() if clergy.date_of_consecration else None,
+                    'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None
+                }
+            )
+
             if is_ajax:
                 return jsonify({'success': True, 'message': 'Clergy record added successfully!'})
             flash('Clergy record added successfully!', 'success')
@@ -916,15 +1057,26 @@ def view_clergy(clergy_id):
     if 'user_id' not in session:
         flash('Please log in to view clergy records.', 'error')
         return redirect(url_for('login'))
+    
+    user = User.query.get(session['user_id'])
     clergy = Clergy.query.get_or_404(clergy_id)
+    
+    # If user has edit privileges, redirect to edit view with comments
+    if user.can_edit_clergy():
+        return redirect(url_for('edit_clergy', clergy_id=clergy_id))
     
     # Get organization abbreviation mapping
     organizations = Organization.query.all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
     org_color_map = {org.name: org.color for org in organizations}
     
-    return render_template('view_clergy.html', 
+    # Get comments for this clergy (exclude resolved comments from main view)
+    comments = ClergyComment.query.filter_by(clergy_id=clergy_id, is_public=True, is_resolved=False).order_by(ClergyComment.created_at.desc()).all()
+    
+    return render_template('clergy_detail_with_comments.html', 
                          clergy=clergy, 
+                         user=user,
+                         comments=comments,
                          org_abbreviation_map=org_abbreviation_map,
                          org_color_map=org_color_map)
 
@@ -951,11 +1103,21 @@ def clergy_json(clergy_id):
 @app.route('/clergy/<int:clergy_id>/edit', methods=['GET', 'POST'])
 @require_permission('edit_clergy')
 def edit_clergy(clergy_id):
+    """Edit clergy record with comments sidebar"""
     if 'user_id' not in session:
         flash('Please log in to edit clergy records.', 'error')
         return redirect(url_for('login'))
     
+    user = User.query.get(session['user_id'])
     clergy = Clergy.query.get_or_404(clergy_id)
+    
+    # Get comments for this clergy (exclude resolved comments from main view)
+    comments = ClergyComment.query.filter_by(clergy_id=clergy_id, is_public=True, is_resolved=False).order_by(ClergyComment.created_at.desc()).all()
+    
+    # Get organization abbreviation mapping
+    organizations = Organization.query.all()
+    org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
+    org_color_map = {org.name: org.color for org in organizations}
     
     if request.method == 'POST':
         # Handle AJAX request (fetch/FormData or X-Requested-With)
@@ -1035,6 +1197,26 @@ def edit_clergy(clergy_id):
                     clergy.set_co_consecrators([])
                 
                 db.session.commit()
+                
+                # Log clergy update
+                log_audit_event(
+                    action='update',
+                    entity_type='clergy',
+                    entity_id=clergy.id,
+                    entity_name=clergy.name,
+                    details={
+                        'rank': clergy.rank,
+                        'organization': clergy.organization,
+                        'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
+                        'date_of_ordination': clergy.date_of_ordination.isoformat() if clergy.date_of_ordination else None,
+                        'date_of_consecration': clergy.date_of_consecration.isoformat() if clergy.date_of_consecration else None,
+                        'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
+                        'ordaining_bishop_id': clergy.ordaining_bishop_id,
+                        'consecrator_id': clergy.consecrator_id,
+                        'co_consecrators': clergy.get_co_consecrators()
+                    }
+                )
+                
                 return jsonify({'success': True, 'message': 'Clergy record updated successfully!'})
             except Exception as e:
                 db.session.rollback()
@@ -1077,6 +1259,217 @@ def edit_clergy(clergy_id):
         else:
             clergy.set_co_consecrators([])
         db.session.commit()
+        
+        # Log clergy update
+        log_audit_event(
+            action='update',
+            entity_type='clergy',
+            entity_id=clergy.id,
+            entity_name=clergy.name,
+            details={
+                'rank': clergy.rank,
+                'organization': clergy.organization,
+                'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
+                'date_of_ordination': clergy.date_of_ordination.isoformat() if clergy.date_of_ordination else None,
+                'date_of_consecration': clergy.date_of_consecration.isoformat() if clergy.date_of_consecration else None,
+                'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
+                'ordaining_bishop_id': clergy.ordaining_bishop_id,
+                'consecrator_id': clergy.consecrator_id,
+                'co_consecrators': clergy.get_co_consecrators()
+            }
+        )
+        
+        flash('Clergy record updated successfully!', 'success')
+        return redirect(url_for('clergy_list'))
+    
+    all_clergy = Clergy.query.all()
+    # Convert to list of dictionaries for JSON serialization
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': clergy_member.name,
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    
+    # Get ranks and organizations from metadata
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    
+    return render_template('edit_clergy_with_comments.html', 
+                         clergy=clergy, 
+                         user=user,
+                         comments=comments,
+                         all_clergy=all_clergy, 
+                         all_clergy_data=all_clergy_data,
+                         ranks=ranks,
+                         organizations=organizations,
+                                                  org_abbreviation_map=org_abbreviation_map,
+                         org_color_map=org_color_map,
+                         edit_mode=True)
+    
+    if request.method == 'POST':
+        # Handle AJAX request (fetch/FormData or X-Requested-With)
+        content_type = request.headers.get('Content-Type', '')
+        is_ajax = (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+            content_type.startswith('multipart/form-data') or
+            content_type == 'application/x-www-form-urlencoded'
+        )
+        if is_ajax:
+            try:
+                clergy.name = request.form.get('name')
+                clergy.rank = request.form.get('rank')
+                clergy.organization = request.form.get('organization')
+                date_of_birth = request.form.get('date_of_birth')
+                date_of_ordination = request.form.get('date_of_ordination')
+                ordaining_bishop_id = request.form.get('ordaining_bishop_id')
+                ordaining_bishop_input = request.form.get('ordaining_bishop_input')
+                date_of_consecration = request.form.get('date_of_consecration')
+                consecrator_id = request.form.get('consecrator_id')
+                consecrator_input = request.form.get('consecrator_input')
+                co_consecrators = request.form.get('co_consecrators')
+                date_of_death = request.form.get('date_of_death')
+                clergy.notes = request.form.get('notes')
+                
+                if date_of_birth:
+                    clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+                else:
+                    clergy.date_of_birth = None
+                if date_of_ordination:
+                    clergy.date_of_ordination = datetime.strptime(date_of_ordination, '%Y-%m-%d').date()
+                else:
+                    clergy.date_of_ordination = None
+                if date_of_consecration:
+                    clergy.date_of_consecration = datetime.strptime(date_of_consecration, '%Y-%m-%d').date()
+                else:
+                    clergy.date_of_consecration = None
+                if date_of_death:
+                    clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
+                else:
+                    clergy.date_of_death = None
+                
+                # Handle ordaining bishop (allow new name)
+                if ordaining_bishop_id and ordaining_bishop_id != 'None':
+                    clergy.ordaining_bishop_id = int(ordaining_bishop_id)
+                elif ordaining_bishop_input:
+                    existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
+                    if existing:
+                        clergy.ordaining_bishop_id = existing.id
+                    else:
+                        new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
+                        db.session.add(new_bishop)
+                        db.session.flush()
+                        clergy.ordaining_bishop_id = new_bishop.id
+                else:
+                    clergy.ordaining_bishop_id = None
+
+                # Handle consecrator (allow new name)
+                if consecrator_id and consecrator_id != 'None':
+                    clergy.consecrator_id = int(consecrator_id)
+                elif consecrator_input:
+                    existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
+                    if existing:
+                        clergy.consecrator_id = existing.id
+                    else:
+                        new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
+                        db.session.add(new_bishop)
+                        db.session.flush()
+                        clergy.consecrator_id = new_bishop.id
+                else:
+                    clergy.consecrator_id = None
+                
+                if co_consecrators:
+                    co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
+                    clergy.set_co_consecrators(co_consecrator_ids)
+                else:
+                    clergy.set_co_consecrators([])
+                
+                db.session.commit()
+                
+                # Log clergy update
+                log_audit_event(
+                    action='update',
+                    entity_type='clergy',
+                    entity_id=clergy.id,
+                    entity_name=clergy.name,
+                    details={
+                        'rank': clergy.rank,
+                        'organization': clergy.organization,
+                        'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
+                        'date_of_ordination': clergy.date_of_ordination.isoformat() if clergy.date_of_ordination else None,
+                        'date_of_consecration': clergy.date_of_consecration.isoformat() if clergy.date_of_consecration else None,
+                        'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
+                        'ordaining_bishop_id': clergy.ordaining_bishop_id,
+                        'consecrator_id': clergy.consecrator_id,
+                        'co_consecrators': clergy.get_co_consecrators()
+                    }
+                )
+                
+                return jsonify({'success': True, 'message': 'Clergy record updated successfully!'})
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({'success': False, 'message': str(e)}), 400
+        # Handle regular form submission (fallback)
+        clergy.name = request.form.get('name')
+        clergy.rank = request.form.get('rank')
+        clergy.organization = request.form.get('organization')
+        date_of_birth = request.form.get('date_of_birth')
+        date_of_ordination = request.form.get('date_of_ordination')
+        ordaining_bishop_id = request.form.get('ordaining_bishop_id')
+        ordaining_bishop_input = request.form.get('ordaining_bishop_input')
+        date_of_consecration = request.form.get('date_of_consecration')
+        consecrator_id = request.form.get('consecrator_id')
+        consecrator_input = request.form.get('consecrator_input')
+        co_consecrators = request.form.get('co_consecrators')
+        date_of_death = request.form.get('date_of_death')
+        clergy.notes = request.form.get('notes')
+        if date_of_birth:
+            clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+        else:
+            clergy.date_of_birth = None
+        if date_of_ordination:
+            clergy.date_of_ordination = datetime.strptime(date_of_ordination, '%Y-%m-%d').date()
+        else:
+            clergy.date_of_ordination = None
+        if date_of_consecration:
+            clergy.date_of_consecration = datetime.strptime(date_of_consecration, '%Y-%m-%d').date()
+        else:
+            clergy.date_of_consecration = None
+        if date_of_death:
+            clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
+        else:
+            clergy.date_of_death = None
+        clergy.ordaining_bishop_id = int(ordaining_bishop_id) if ordaining_bishop_id and ordaining_bishop_id != 'None' else None
+        clergy.consecrator_id = int(consecrator_id) if consecrator_id and consecrator_id != 'None' else None
+        if co_consecrators:
+            co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
+            clergy.set_co_consecrators(co_consecrator_ids)
+        else:
+            clergy.set_co_consecrators([])
+        db.session.commit()
+        
+        # Log clergy update
+        log_audit_event(
+            action='update',
+            entity_type='clergy',
+            entity_id=clergy.id,
+            entity_name=clergy.name,
+            details={
+                'rank': clergy.rank,
+                'organization': clergy.organization,
+                'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
+                'date_of_ordination': clergy.date_of_ordination.isoformat() if clergy.date_of_ordination else None,
+                'date_of_consecration': clergy.date_of_consecration.isoformat() if clergy.date_of_consecration else None,
+                'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
+                'ordaining_bishop_id': clergy.ordaining_bishop_id,
+                'consecrator_id': clergy.consecrator_id,
+                'co_consecrators': clergy.get_co_consecrators()
+            }
+        )
+        
         flash('Clergy record updated successfully!', 'success')
         return redirect(url_for('clergy_list'))
     
@@ -1131,6 +1524,22 @@ def delete_clergy(clergy_id):
             if clergy_id in co_consecrators:
                 co_consecrators = [cid for cid in co_consecrators if cid != clergy_id]
                 c.set_co_consecrators(co_consecrators)
+        # Log clergy deletion before deleting
+        log_audit_event(
+            action='delete',
+            entity_type='clergy',
+            entity_id=clergy.id,
+            entity_name=clergy.name,
+            details={
+                'rank': clergy.rank,
+                'organization': clergy.organization,
+                'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
+                'date_of_ordination': clergy.date_of_ordination.isoformat() if clergy.date_of_ordination else None,
+                'date_of_consecration': clergy.date_of_consecration.isoformat() if clergy.date_of_consecration else None,
+                'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None
+            }
+        )
+        
         db.session.delete(clergy)
         db.session.commit()
         if is_ajax:
@@ -1192,6 +1601,19 @@ def add_rank():
         db.session.add(new_rank)
         db.session.commit()
         
+        # Log rank creation
+        log_audit_event(
+            action='create',
+            entity_type='rank',
+            entity_id=new_rank.id,
+            entity_name=new_rank.name,
+            details={
+                'name': new_rank.name,
+                'description': new_rank.description,
+                'color': new_rank.color
+            }
+        )
+        
         return jsonify({
             'success': True, 
             'message': f'Rank "{rank_name}" added successfully',
@@ -1233,6 +1655,20 @@ def edit_rank(rank_id):
         rank.color = color
         db.session.commit()
         
+        # Log rank update
+        log_audit_event(
+            action='update',
+            entity_type='rank',
+            entity_id=rank.id,
+            entity_name=rank.name,
+            details={
+                'old_name': old_name,
+                'new_name': rank.name,
+                'description': rank.description,
+                'color': rank.color
+            }
+        )
+        
         return jsonify({
             'success': True, 
             'message': f'Rank "{old_name}" updated to "{rank_name}" successfully',
@@ -1264,6 +1700,19 @@ def delete_rank(rank_id):
         }), 400
     
     try:
+        # Log rank deletion before deleting
+        log_audit_event(
+            action='delete',
+            entity_type='rank',
+            entity_id=rank.id,
+            entity_name=rank.name,
+            details={
+                'name': rank.name,
+                'description': rank.description,
+                'color': rank.color
+            }
+        )
+        
         db.session.delete(rank)
         db.session.commit()
         return jsonify({'success': True, 'message': f'Rank "{rank.name}" deleted successfully'})
@@ -1301,6 +1750,20 @@ def add_organization():
         new_org = Organization(name=org_name, abbreviation=abbreviation, description=description, color=color)
         db.session.add(new_org)
         db.session.commit()
+        
+        # Log organization creation
+        log_audit_event(
+            action='create',
+            entity_type='organization',
+            entity_id=new_org.id,
+            entity_name=new_org.name,
+            details={
+                'name': new_org.name,
+                'abbreviation': new_org.abbreviation,
+                'description': new_org.description,
+                'color': new_org.color
+            }
+        )
         
         return jsonify({
             'success': True, 
@@ -1352,6 +1815,21 @@ def edit_organization(org_id):
         org.color = color
         db.session.commit()
         
+        # Log organization update
+        log_audit_event(
+            action='update',
+            entity_type='organization',
+            entity_id=org.id,
+            entity_name=org.name,
+            details={
+                'old_name': old_name,
+                'new_name': org.name,
+                'abbreviation': org.abbreviation,
+                'description': org.description,
+                'color': org.color
+            }
+        )
+        
         return jsonify({
             'success': True, 
             'message': f'Organization "{old_name}" updated to "{org_name}" successfully',
@@ -1384,6 +1862,20 @@ def delete_organization(org_id):
         }), 400
     
     try:
+        # Log organization deletion before deleting
+        log_audit_event(
+            action='delete',
+            entity_type='organization',
+            entity_id=org.id,
+            entity_name=org.name,
+            details={
+                'name': org.name,
+                'abbreviation': org.abbreviation,
+                'description': org.description,
+                'color': org.color
+            }
+        )
+        
         db.session.delete(org)
         db.session.commit()
         return jsonify({'success': True, 'message': f'Organization "{org.name}" deleted successfully'})
@@ -1483,6 +1975,20 @@ def generate_admin_invite():
     invite = AdminInvite(token=token, expires_at=expires_at, invited_by=session['user_id'])
     db.session.add(invite)
     db.session.commit()
+    
+    # Log admin invite generation
+    log_audit_event(
+        action='generate_invite',
+        entity_type='admin_invite',
+        entity_id=invite.id,
+        entity_name=f"Admin invite for {token[:8]}...",
+        details={
+            'token': token,
+            'expires_at': expires_at.isoformat(),
+            'invited_by': session['user_id']
+        }
+    )
+    
     invite_link = url_for('admin_invite_signup', token=token, _external=True)
     user = User.query.get(session['user_id'])
     return render_template('settings.html', user=user, invite_link=invite_link)
@@ -1521,6 +2027,15 @@ def change_password():
     # Update password
     user.set_password(new_password)
     db.session.commit()
+    
+    # Log password change
+    log_audit_event(
+        action='change_password',
+        entity_type='user',
+        entity_id=user.id,
+        entity_name=user.username,
+        details={'password_changed': True}
+    )
     
     flash('Password changed successfully!', 'success')
     return redirect(url_for('settings'))
@@ -1562,6 +2077,22 @@ def admin_invite_signup(token):
         db.session.add(user)
         invite.used = True
         db.session.commit()
+        
+        # Log user creation via invite
+        log_audit_event(
+            action='create',
+            entity_type='user',
+            entity_id=user.id,
+            entity_name=user.username,
+            details={
+                'username': user.username,
+                'role': user.role.name,
+                'invited_by': invite.invited_by,
+                'invite_token': invite.token
+            },
+            user_id=user.id  # Use the new user's ID since no one is logged in yet
+        )
+        
         flash('Admin account created successfully! Please log in.', 'success')
         return redirect(url_for('login'))
     return render_template('signup.html', invite_token=token)
@@ -1614,6 +2145,23 @@ def clergy_modal_edit(clergy_id):
         organizations=organizations,
         edit_mode=True
     )
+
+@app.route('/clergy/modal/<int:clergy_id>/comment')
+def clergy_modal_comment(clergy_id):
+    if 'user_id' not in session:
+        return '', 401
+    
+    user = User.query.get(session['user_id'])
+    if not user.can_comment():
+        return '', 403
+    
+    clergy = Clergy.query.get_or_404(clergy_id)
+    comments = ClergyComment.query.filter_by(clergy_id=clergy_id).order_by(ClergyComment.created_at.desc()).all()
+    
+    return render_template('_clergy_comment_modal.html', 
+                         clergy=clergy, 
+                         comments=comments,
+                         user=user)
 
 @app.route('/init-db')
 def init_database_endpoint():
@@ -1697,7 +2245,8 @@ def initialize_roles_and_permissions():
         'view_comments': 'View comments on clergy records',
         'resolve_comments': 'Resolve comments and feedback',
         'view_lineage': 'View lineage visualization',
-        'export_data': 'Export data from the system'
+        'export_data': 'Export data from the system',
+        'view_audit_logs': 'View audit logs and system history'
     }
     
     for perm_name, perm_desc in permissions.items():
@@ -1794,6 +2343,21 @@ def add_user():
         db.session.add(user)
         db.session.commit()
         
+        # Log user creation
+        log_audit_event(
+            action='create',
+            entity_type='user',
+            entity_id=user.id,
+            entity_name=user.username,
+            details={
+                'username': user.username,
+                'email': user.email,
+                'full_name': user.full_name,
+                'role': user.role.name,
+                'is_active': user.is_active
+            }
+        )
+        
         return jsonify({
             'success': True,
             'message': f'User "{username}" created successfully',
@@ -1854,6 +2418,23 @@ def edit_user(user_id):
         
         db.session.commit()
         
+        # Log user update
+        log_audit_event(
+            action='update',
+            entity_type='user',
+            entity_id=user.id,
+            entity_name=user.username,
+            details={
+                'old_username': old_username,
+                'new_username': user.username,
+                'email': user.email,
+                'full_name': user.full_name,
+                'role': user.role.name,
+                'is_active': user.is_active,
+                'password_changed': bool(data.get('password'))
+            }
+        )
+        
         return jsonify({
             'success': True,
             'message': f'User "{old_username}" updated successfully',
@@ -1884,6 +2465,21 @@ def delete_user(user_id):
     
     try:
         username = user.username
+        # Log user deletion before deleting
+        log_audit_event(
+            action='delete',
+            entity_type='user',
+            entity_id=user.id,
+            entity_name=user.username,
+            details={
+                'username': user.username,
+                'email': user.email,
+                'full_name': user.full_name,
+                'role': user.role.name,
+                'is_active': user.is_active
+            }
+        )
+        
         db.session.delete(user)
         db.session.commit()
         return jsonify({'success': True, 'message': f'User "{username}" deleted successfully'})
@@ -1894,9 +2490,14 @@ def delete_user(user_id):
 @app.route('/clergy/<int:clergy_id>/comments')
 def clergy_comments(clergy_id):
     """Get comments for a clergy member"""
+    if 'user_id' not in session:
+        flash('Please log in to view comments.', 'error')
+        return redirect(url_for('login'))
+    
+    user = User.query.get(session['user_id'])
     clergy = Clergy.query.get_or_404(clergy_id)
-    comments = clergy.comments.filter_by(is_public=True).order_by(ClergyComment.created_at.desc()).all()
-    return render_template('clergy_comments.html', clergy=clergy, comments=comments)
+    comments = ClergyComment.query.filter_by(clergy_id=clergy_id, is_public=True, is_resolved=False).order_by(ClergyComment.created_at.desc()).all()
+    return render_template('clergy_comments.html', clergy=clergy, comments=comments, user=user)
 
 @app.route('/clergy/<int:clergy_id>/comments/add', methods=['POST'])
 @require_permission('add_comments')
@@ -1904,6 +2505,8 @@ def add_clergy_comment(clergy_id):
     """Add a comment to a clergy record"""
     clergy = Clergy.query.get_or_404(clergy_id)
     content = request.form.get('content', '').strip()
+    field_name = request.form.get('field_name', '').strip()
+    is_public = request.form.get('is_public') == '1'
     
     if not content:
         return jsonify({'success': False, 'message': 'Comment content is required'}), 400
@@ -1912,10 +2515,27 @@ def add_clergy_comment(clergy_id):
         comment = ClergyComment(
             clergy_id=clergy_id,
             author_id=session['user_id'],
-            content=content
+            content=content,
+            field_name=field_name if field_name else None,
+            is_public=is_public
         )
         db.session.add(comment)
         db.session.commit()
+        
+        # Log comment creation
+        log_audit_event(
+            action='create',
+            entity_type='comment',
+            entity_id=comment.id,
+            entity_name=f"Comment on {comment.clergy.name}",
+            details={
+                'clergy_id': comment.clergy_id,
+                'clergy_name': comment.clergy.name,
+                'content': comment.content,
+                'field_name': comment.field_name,
+                'is_public': comment.is_public
+            }
+        )
         
         return jsonify({
             'success': True,
@@ -1923,13 +2543,32 @@ def add_clergy_comment(clergy_id):
             'comment': {
                 'id': comment.id,
                 'content': comment.content,
-                'author': comment.author.username,
-                'created_at': comment.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                'field_name': comment.field_name,
+                'author_name': comment.author.full_name or comment.author.username,
+                'created_at': comment.created_at.strftime('%Y-%m-%d %H:%M'),
+                'is_public': comment.is_public,
+                'is_resolved': comment.is_resolved
             }
         })
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Error adding comment'}), 500
+
+@app.route('/comments')
+@require_permission('view_comments')
+def comments_management():
+    """Comments management page"""
+    user = User.query.get(session['user_id'])
+    
+    # Get comments based on user permissions
+    if user.can_resolve_comments():
+        # Show all comments for users who can resolve them
+        comments = ClergyComment.query.order_by(ClergyComment.created_at.desc()).all()
+    else:
+        # Show only public comments for other users
+        comments = ClergyComment.query.filter_by(is_public=True).order_by(ClergyComment.created_at.desc()).all()
+    
+    return render_template('comments_management.html', comments=comments, user=user)
 
 @app.route('/comments/<int:comment_id>/resolve', methods=['POST'])
 @require_permission('resolve_comments')
@@ -1940,10 +2579,112 @@ def resolve_comment(comment_id):
     try:
         comment.is_resolved = True
         db.session.commit()
+        
+        # Log comment resolution
+        log_audit_event(
+            action='resolve',
+            entity_type='comment',
+            entity_id=comment.id,
+            entity_name=f"Comment on {comment.clergy.name}",
+            details={
+                'clergy_id': comment.clergy_id,
+                'clergy_name': comment.clergy.name,
+                'content': comment.content,
+                'field_name': comment.field_name
+            }
+        )
+        
         return jsonify({'success': True, 'message': 'Comment marked as resolved'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Error resolving comment'}), 500
+
+@app.route('/clergy/<int:clergy_id>/comments/resolved')
+@require_permission('view_comments')
+def view_resolved_comments(clergy_id):
+    """View resolved comments for a clergy member (admin only)"""
+    user = User.query.get(session['user_id'])
+    clergy = Clergy.query.get_or_404(clergy_id)
+    
+    # Only show resolved comments to users who can resolve comments
+    if not user.can_resolve_comments():
+        flash('You do not have permission to view resolved comments.', 'error')
+        return redirect(url_for('view_clergy', clergy_id=clergy_id))
+    
+    resolved_comments = ClergyComment.query.filter_by(
+        clergy_id=clergy_id, 
+        is_public=True, 
+        is_resolved=True
+    ).order_by(ClergyComment.created_at.desc()).all()
+    
+    return render_template('resolved_comments.html', 
+                         clergy=clergy, 
+                         comments=resolved_comments, 
+                         user=user)
+
+@app.route('/audit-logs')
+@require_permission('view_audit_logs')
+def audit_logs():
+    """View audit logs - admin and super admin only"""
+    if 'user_id' not in session:
+        flash('Please log in to view audit logs.', 'error')
+        return redirect(url_for('login'))
+    
+    user = User.query.get(session['user_id'])
+    if not user.can_view_audit_logs():
+        flash('You do not have permission to view audit logs.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get filter parameters
+    action_filter = request.args.get('action', '')
+    entity_type_filter = request.args.get('entity_type', '')
+    user_filter = request.args.get('user', '')
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    
+    # Build query
+    query = AuditLog.query.join(User).order_by(AuditLog.created_at.desc())
+    
+    if action_filter:
+        query = query.filter(AuditLog.action == action_filter)
+    if entity_type_filter:
+        query = query.filter(AuditLog.entity_type == entity_type_filter)
+    if user_filter:
+        query = query.filter(User.username.ilike(f'%{user_filter}%'))
+    if date_from:
+        try:
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(AuditLog.created_at >= date_from_obj)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(AuditLog.created_at < date_to_obj)
+        except ValueError:
+            pass
+    
+    # Pagination
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    audit_logs = query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    # Get unique values for filters
+    actions = db.session.query(AuditLog.action).distinct().all()
+    entity_types = db.session.query(AuditLog.entity_type).distinct().all()
+    users = db.session.query(User.username).distinct().all()
+    
+    return render_template('audit_logs.html', 
+                         audit_logs=audit_logs,
+                         actions=[a[0] for a in actions],
+                         entity_types=[e[0] for e in entity_types],
+                         users=[u[0] for u in users],
+                         user=user,
+                         action_filter=action_filter,
+                         entity_type_filter=entity_type_filter,
+                         user_filter=user_filter,
+                         date_from=date_from,
+                         date_to=date_to)
 
 
 if __name__ == '__main__':

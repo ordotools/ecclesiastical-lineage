@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Resolved Comments - {{ clergy.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Resolved Comments for {{ clergy.name }}</h2>
+                <div>
+                    <a href="{{ url_for('view_clergy', clergy_id=clergy.id) }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to {{ clergy.name }}
+                    </a>
+                </div>
+            </div>
+            
+            {% if comments %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    These comments have been resolved and are no longer shown in the main view.
+                </div>
+                
+                <div class="comments-section">
+                    {% for comment in comments %}
+                        <div class="comment-item resolved-comment mb-3 p-3 border rounded">
+                            <div class="comment-header d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <strong>{{ comment.author.full_name or comment.author.username }}</strong>
+                                    <small class="text-muted ml-2">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                    {% if comment.field_name %}
+                                        <span class="badge badge-secondary ml-2">{{ comment.field_name }}</span>
+                                    {% endif %}
+                                </div>
+                                <span class="badge badge-success">
+                                    <i class="fas fa-check"></i> Resolved
+                                </span>
+                            </div>
+                            <div class="comment-content">
+                                {{ comment.content }}
+                            </div>
+                            {% if comment.field_name %}
+                                <div class="comment-field mt-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-arrow-left"></i> Commenting on: {{ comment.field_name }}
+                                    </small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    No resolved comments found for {{ clergy.name }}.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.resolved-comment {
+    background-color: #f8f9fa;
+    border-left: 4px solid #28a745 !important;
+}
+
+.resolved-comment .comment-content {
+    color: #6c757d;
+}
+
+.badge-success {
+    background-color: #28a745;
+}
+</style>
+{% endblock %} 

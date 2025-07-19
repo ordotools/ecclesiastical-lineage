@@ -1,0 +1,209 @@
+<!-- Comment Modal -->
+<div class="modal fade" id="clergyModal" tabindex="-1" aria-labelledby="clergyModalLabel">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-dark fw-bold" id="clergyModalLabel">
+                    <i class="fas fa-comments me-2 text-primary"></i>Comments for {{ clergy.display_name if clergy.display_name is defined else clergy.name }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Clergy Info Summary -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title">Clergy Information</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Name:</strong> {{ clergy.name }}<br>
+                                <strong>Rank:</strong> {{ clergy.rank }}<br>
+                                {% if clergy.organization %}
+                                <strong>Organization:</strong> {{ clergy.organization }}
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                {% if clergy.date_of_ordination %}
+                                <strong>Ordination:</strong> {{ clergy.date_of_ordination.strftime('%Y-%m-%d') }}<br>
+                                {% endif %}
+                                {% if clergy.date_of_consecration %}
+                                <strong>Consecration:</strong> {{ clergy.date_of_consecration.strftime('%Y-%m-%d') }}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add New Comment -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title">Add Comment</h6>
+                        <form id="commentForm" action="/clergy/{{ clergy.id }}/comments/add" method="POST">
+                            <div class="mb-3">
+                                <label for="commentContent" class="form-label">Your Comment</label>
+                                <textarea class="form-control" id="commentContent" name="content" rows="3" 
+                                          placeholder="Add your comment, suggestion, or feedback about this clergy record..." required></textarea>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="isPublic" name="is_public" value="1" checked>
+                                <label class="form-check-label" for="isPublic">
+                                    Make this comment public (visible to other users)
+                                </label>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane me-2"></i>Submit Comment
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Comments List -->
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title">Comments ({{ comments|length }})</h6>
+                        <div id="commentsList">
+                            {% if comments %}
+                                {% for comment in comments %}
+                                <div class="comment-item border-bottom pb-3 mb-3 {% if comment.is_resolved %}opacity-75{% endif %}">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <strong class="me-2">{{ comment.author.full_name or comment.author.username }}</strong>
+                                                <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                                {% if comment.is_public %}
+                                                    <span class="badge bg-info ms-2">Public</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary ms-2">Private</span>
+                                                {% endif %}
+                                                {% if comment.is_resolved %}
+                                                    <span class="badge bg-success ms-2">Resolved</span>
+                                                {% endif %}
+                                            </div>
+                                            <p class="mb-2">{{ comment.content }}</p>
+                                        </div>
+                                        {% if user.can_resolve_comments() and not comment.is_resolved %}
+                                        <div class="ms-2">
+                                            <button class="btn btn-sm btn-success" 
+                                                    onclick="resolveComment({{ comment.id }})"
+                                                    title="Mark as resolved">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">No comments yet. Be the first to add one!</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                {% if user.can_edit_clergy() %}
+                <a href="/clergy/modal/{{ clergy.id }}/edit" class="btn btn-primary">
+                    <i class="fas fa-edit me-2"></i>Edit Record
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Handle comment form submission
+document.getElementById('commentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const content = formData.get('content').trim();
+    
+    if (!content) {
+        alert('Please enter a comment.');
+        return;
+    }
+    
+    fetch(this.action, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams(formData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Clear the form
+            document.getElementById('commentContent').value = '';
+            document.getElementById('isPublic').checked = true;
+            
+            // Add the new comment to the list
+            const commentsList = document.getElementById('commentsList');
+            const newComment = createCommentHTML(data.comment);
+            commentsList.insertBefore(newComment, commentsList.firstChild);
+            
+            // Update comment count
+            const title = document.querySelector('.card-title');
+            const currentCount = parseInt(title.textContent.match(/\((\d+)\)/)[1]);
+            title.textContent = `Comments (${currentCount + 1})`;
+            
+            // Show success message
+            console.log('Comment submitted successfully');
+        } else {
+            alert('Error: ' + (data.message || 'Unknown error occurred'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while submitting the comment. Please try again.');
+    });
+});
+
+function createCommentHTML(comment) {
+    const div = document.createElement('div');
+    div.className = 'comment-item border-bottom pb-3 mb-3';
+    div.innerHTML = `
+        <div class="d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1">
+                <div class="d-flex align-items-center mb-2">
+                    <strong class="me-2">${comment.author_name}</strong>
+                    <small class="text-muted">${comment.created_at}</small>
+                    <span class="badge bg-info ms-2">Public</span>
+                </div>
+                <p class="mb-2">${comment.content}</p>
+            </div>
+        </div>
+    `;
+    return div;
+}
+
+function resolveComment(commentId) {
+    if (confirm('Mark this comment as resolved?')) {
+        fetch(`/comments/${commentId}/resolve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload the modal to show updated state
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while resolving the comment.');
+        });
+    }
+}
+</script> 

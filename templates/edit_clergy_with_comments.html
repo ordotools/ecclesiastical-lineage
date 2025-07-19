@@ -1,0 +1,958 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ clergy.name }} - Comments & Details{% endblock %}
+
+{% block full_content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <a href="{{ url_for('clergy_list') }}" class="btn btn-link">
+            <i class="fas fa-arrow-left me-2"></i>Back to List
+        </a>
+        <div class="btn-group">
+            <a href="{{ url_for('view_clergy', clergy_id=clergy.id) }}" class="btn btn-outline-secondary">
+                <i class="fas fa-eye me-2"></i>View Only
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column: Edit Form -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="h4 mb-0">Edit {{ clergy.name }}</h2>
+                </div>
+                <div class="card-body">
+                    <form id="editClergyForm" method="POST">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">Name *</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="name" name="name" value="{{ clergy.name }}" required>
+                                        {% if user.can_comment() %}
+                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="name" data-field-label="Name" 
+                                                title="Add comment about this field">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="rank" class="form-label">Rank *</label>
+                                    <div class="input-group">
+                                        <select class="form-select" id="rank" name="rank" required>
+                                            <option value="">Select Rank</option>
+                                            {% for rank in ranks %}
+                                            <option value="{{ rank.name }}" {% if clergy.rank == rank.name %}selected{% endif %}>
+                                                {{ rank.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        {% if user.can_comment() %}
+                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="rank" data-field-label="Rank" 
+                                                title="Add comment about this field">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="organization" class="form-label">Organization</label>
+                                    <div class="input-group">
+                                        <select class="form-select" id="organization" name="organization">
+                                            <option value="">Select Organization</option>
+                                            {% for org in organizations %}
+                                            <option value="{{ org.name }}" {% if clergy.organization == org.name %}selected{% endif %}>
+                                                {{ org.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        {% if user.can_comment() %}
+                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="organization" data-field-label="Organization">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="date_of_birth" class="form-label">Date of Birth</label>
+                                    <div class="input-group">
+                                        <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
+                                               value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if clergy.date_of_birth else '' }}">
+                                        {% if user.can_comment() %}
+                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="date_of_birth" data-field-label="Date of Birth">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="date_of_ordination" class="form-label">Date of Ordination</label>
+                                    <div class="input-group">
+                                        <input type="date" class="form-control" id="date_of_ordination" name="date_of_ordination" 
+                                               value="{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '' }}">
+                                        {% if user.can_comment() %}
+                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="date_of_ordination" data-field-label="Date of Ordination">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="ordaining_bishop_id" class="form-label">Ordaining Bishop</label>
+                                    <div class="input-group">
+                                        <select class="form-select" id="ordaining_bishop_id" name="ordaining_bishop_id">
+                                            <option value="">Select Bishop</option>
+                                            {% for bishop in all_clergy %}
+                                            {% if bishop.rank and 'bishop' in bishop.rank.lower() %}
+                                            <option value="{{ bishop.id }}" {% if clergy.ordaining_bishop_id == bishop.id %}selected{% endif %}>
+                                                {{ bishop.name }}
+                                            </option>
+                                            {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                        {% if user.can_comment() %}
+                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="ordaining_bishop_id" data-field-label="Ordaining Bishop">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="date_of_consecration" class="form-label">Date of Consecration</label>
+                                    <div class="input-group">
+                                        <input type="date" class="form-control" id="date_of_consecration" name="date_of_consecration" 
+                                               value="{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else '' }}">
+                                        {% if user.can_comment() %}
+                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="date_of_consecration" data-field-label="Date of Consecration">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="consecrator_id" class="form-label">Principal Consecrator</label>
+                                    <div class="input-group">
+                                        <select class="form-select" id="consecrator_id" name="consecrator_id">
+                                            <option value="">Select Bishop</option>
+                                            {% for bishop in all_clergy %}
+                                            {% if bishop.rank and 'bishop' in bishop.rank.lower() %}
+                                            <option value="{{ bishop.id }}" {% if clergy.consecrator_id == bishop.id %}selected{% endif %}>
+                                                {{ bishop.name }}
+                                            </option>
+                                            {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                        {% if user.can_comment() %}
+                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="consecrator_id" data-field-label="Principal Consecrator">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="date_of_death" class="form-label">Date of Death</label>
+                                    <div class="input-group">
+                                        <input type="date" class="form-control" id="date_of_death" name="date_of_death" 
+                                               value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if clergy.date_of_death else '' }}">
+                                        {% if user.can_comment() %}
+                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="date_of_death" data-field-label="Date of Death">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="co_consecrators" class="form-label">Co-Consecrators (comma-separated IDs)</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="co_consecrators" name="co_consecrators" 
+                                               value="{{ clergy.get_co_consecrators()|join(',') if clergy.get_co_consecrators() else '' }}"
+                                               placeholder="e.g., 1,2,3">
+                                        {% if user.can_comment() %}
+                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="co_consecrators" data-field-label="Co-Consecrators">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <div class="input-group">
+                                <textarea class="form-control" id="notes" name="notes" rows="3">{{ clergy.notes or '' }}</textarea>
+                                {% if user.can_comment() %}
+                                <button type="button" class="btn btn-outline-secondary comment-btn" data-field="notes" data-field-label="Notes">
+                                    <i class="fas fa-comment"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Changes
+                            </button>
+                            <a href="{{ url_for('view_clergy', clergy_id=clergy.id) }}" class="btn btn-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Comments -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="h5 mb-0">Comments & Feedback</h3>
+                    <div class="btn-group">
+                        {% if user.can_resolve_comments() %}
+                        <a href="{{ url_for('view_resolved_comments', clergy_id=clergy.id) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-check-circle me-2"></i>View Resolved
+                        </a>
+                        {% endif %}
+                        {% if user.can_comment() %}
+                        <button class="btn btn-sm btn-primary" id="add-comment-btn">
+                            <i class="fas fa-plus me-2"></i>Add Comment
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Add Comment Form (Hidden by default) -->
+                    {% if user.can_comment() %}
+                    <div id="comment-form" class="mb-4" style="display: none;">
+                        <form id="new-comment-form">
+                            <div class="mb-3">
+                                <label for="comment-field" class="form-label">Commenting on:</label>
+                                <input type="text" class="form-control" id="comment-field" readonly>
+                                <input type="hidden" id="comment-field-name">
+                            </div>
+                            <div class="mb-3">
+                                <label for="comment-content" class="form-label">Your Comment</label>
+                                <textarea class="form-control" id="comment-content" name="content" rows="3" 
+                                          placeholder="Add your comment, suggestion, or feedback..." required></textarea>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="isPublic" name="is_public" value="1" checked>
+                                <label class="form-check-label" for="isPublic">
+                                    Make this comment public (visible to other users)
+                                </label>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane me-2"></i>Submit Comment
+                                </button>
+                                <button type="button" class="btn btn-secondary" id="cancel-comment-btn">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    <!-- Comments List -->
+                    <div id="comments-list">
+                        {% if comments %}
+                            {% for comment in comments %}
+                            <div class="comment-item border-bottom pb-3 mb-3 {% if comment.is_resolved %}opacity-75{% endif %}" 
+                                 data-comment-id="{{ comment.id }}" data-field="{{ comment.field_name or '' }}">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <strong>{{ comment.author.full_name or comment.author.username }}</strong>
+                                        <small class="text-muted ms-2">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                        {% if comment.field_name %}
+                                        <span class="badge bg-info ms-2">{{ comment.field_name|title }}</span>
+                                        {% endif %}
+                                        {% if comment.is_resolved %}
+                                        <span class="badge bg-success ms-2">Resolved</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if user.can_resolve_comments() and not comment.is_resolved %}
+                                    <button class="btn btn-sm btn-outline-success resolve-comment-btn" data-comment-id="{{ comment.id }}">
+                                        <i class="fas fa-check me-1"></i>Resolve
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                <div class="comment-content">
+                                    {{ comment.content|safe }}
+                                </div>
+                                {% if comment.field_name %}
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-arrow-left me-1"></i>Commenting on: {{ comment.field_name|title }}
+                                    </small>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-comments text-muted" style="font-size: 3rem;"></i>
+                                <p class="text-muted mt-3">No comments yet. Add feedback to help improve this record!</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Visual connection lines -->
+<div id="connection-lines"></div>
+
+<style>
+.comment-item {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.comment-item:hover {
+    background-color: rgba(0,123,255,0.05);
+    border-radius: 4px;
+    padding: 8px;
+    margin: -8px;
+}
+
+.comment-item.highlighted {
+    background-color: rgba(255,193,7,0.2);
+    border-left: 4px solid #ffc107;
+}
+
+.comment-item.clicked {
+    background-color: rgba(255,193,7,0.15);
+    border-left: 4px solid #ffc107;
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+}
+
+.form-control.highlighted {
+    background-color: rgba(255,193,7,0.2);
+    border-color: #ffc107;
+}
+
+.form-control.clicked {
+    background-color: rgba(255,193,7,0.1);
+    border-color: #ffc107;
+    box-shadow: 0 0 8px rgba(255, 193, 7, 0.4);
+}
+
+#connection-lines {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    background: transparent;
+}
+
+.connection-line {
+    stroke: #ff6b35;
+    stroke-width: 4;
+    stroke-dasharray: 10,6;
+    animation: dash 2s linear infinite;
+    filter: drop-shadow(0 0 6px rgba(255, 107, 53, 0.8));
+}
+
+.connection-line:hover {
+    stroke: #ff4500;
+    stroke-width: 4;
+    filter: drop-shadow(0 0 6px rgba(255, 69, 0, 0.8));
+}
+
+@keyframes dash {
+    to {
+        stroke-dashoffset: -16;
+    }
+}
+
+.comment-btn {
+    transition: all 0.2s ease;
+}
+
+.comment-btn:hover {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: white;
+    transform: scale(1.1);
+}
+
+.comment-btn.active {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: white;
+}
+
+/* Enhanced comment button styling for better anchoring */
+.comment-btn {
+    position: relative;
+    z-index: 10;
+}
+
+.comment-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 10px rgba(255, 107, 53, 0.5);
+}
+
+/* Add visual indicator for anchor points */
+.comment-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    background: #ffc107;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.comment-btn:hover::after {
+    opacity: 1;
+}
+
+/* Enhanced anchor point styling for clicked state */
+.comment-btn.clicked::after {
+    opacity: 1;
+    width: 6px;
+    height: 6px;
+    background: #ffc107;
+    box-shadow: 0 0 8px rgba(255, 193, 7, 0.6);
+}
+
+/* Improved connection line styling */
+.connection-line {
+    stroke: #ffc107;
+    stroke-width: 3;
+    stroke-dasharray: 8,4;
+    animation: dash 1.5s linear infinite;
+    filter: drop-shadow(0 0 4px rgba(255, 193, 7, 0.6));
+    transition: all 0.3s ease;
+}
+
+.connection-line.clicked {
+    stroke: #ffc107;
+    stroke-width: 4;
+    stroke-dasharray: 12,6;
+    filter: drop-shadow(0 0 8px rgba(255, 193, 7, 0.8));
+    animation: dash 1s linear infinite;
+}
+
+@keyframes dash {
+    to {
+        stroke-dashoffset: -12;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addCommentBtn = document.getElementById('add-comment-btn');
+    const commentForm = document.getElementById('comment-form');
+    const newCommentForm = document.getElementById('new-comment-form');
+    const cancelCommentBtn = document.getElementById('cancel-comment-btn');
+    const commentField = document.getElementById('comment-field');
+    const commentFieldName = document.getElementById('comment-field-name');
+    const commentContent = document.getElementById('comment-content');
+    const editForm = document.getElementById('editClergyForm');
+    const connectionLines = document.getElementById('connection-lines');
+
+    // Handle add comment button
+    if (addCommentBtn) {
+        addCommentBtn.addEventListener('click', function() {
+            commentForm.style.display = 'block';
+            commentField.value = 'General Comment';
+            commentFieldName.value = '';
+            commentContent.focus();
+            commentForm.scrollIntoView({ behavior: 'smooth' });
+        });
+    }
+
+    // Handle field-specific comment buttons
+    document.querySelectorAll('.comment-btn').forEach(btn => {
+        // Add tooltip if not already present
+        if (!btn.getAttribute('title')) {
+            const fieldLabel = btn.getAttribute('data-field-label');
+            btn.setAttribute('title', `Add comment about ${fieldLabel}`);
+        }
+        
+        btn.addEventListener('click', function() {
+            const fieldName = this.getAttribute('data-field');
+            const fieldLabel = this.getAttribute('data-field-label');
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.comment-btn').forEach(b => b.classList.remove('active'));
+            
+            // Add active class to clicked button
+            this.classList.add('active');
+            
+            commentForm.style.display = 'block';
+            commentField.value = fieldLabel;
+            commentFieldName.value = fieldName;
+            commentContent.focus();
+            commentForm.scrollIntoView({ behavior: 'smooth' });
+            
+            // Highlight the related form field
+            const formField = document.querySelector(`[name="${fieldName}"]`);
+            if (formField) {
+                formField.classList.add('highlighted');
+                setTimeout(() => {
+                    formField.classList.remove('highlighted');
+                }, 2000);
+            }
+        });
+    });
+
+    // Handle cancel button
+    if (cancelCommentBtn) {
+        cancelCommentBtn.addEventListener('click', function() {
+            commentForm.style.display = 'none';
+            newCommentForm.reset();
+            
+            // Remove active class from all comment buttons
+            document.querySelectorAll('.comment-btn').forEach(b => b.classList.remove('active'));
+        });
+    }
+
+    // Handle comment form submission
+    if (newCommentForm) {
+        newCommentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const content = commentContent.value.trim();
+            if (!content) {
+                alert('Please enter a comment.');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('content', content);
+            formData.append('field_name', commentFieldName.value);
+            formData.append('is_public', document.getElementById('isPublic').checked ? '1' : '0');
+            
+            fetch('{{ url_for("add_clergy_comment", clergy_id=clergy.id) }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Hide form and reload comments
+                    commentForm.style.display = 'none';
+                    newCommentForm.reset();
+                    
+                    // Remove active class from all comment buttons
+                    document.querySelectorAll('.comment-btn').forEach(b => b.classList.remove('active'));
+                    
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while submitting the comment.');
+            });
+        });
+    }
+
+    // Handle edit form submission
+    if (editForm) {
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Clergy record updated successfully!');
+                    // Optionally reload the page to show updated data
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while saving the record.');
+            });
+        });
+    }
+
+    // Handle resolve comment buttons
+    document.querySelectorAll('.resolve-comment-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            if (confirm('Mark this comment as resolved?')) {
+                const commentId = this.getAttribute('data-comment-id');
+                
+                fetch(`/comments/${commentId}/resolve`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while resolving the comment.');
+                });
+            }
+        });
+    });
+
+    // Visual connections between comments and form fields - focused system
+    function clearConnections() {
+        if (!connectionLines) return;
+        connectionLines.innerHTML = '';
+    }
+
+    function createConnection(from, to, anchorType = 'auto') {
+        if (!connectionLines) return;
+        
+        clearConnections();
+        
+        const fromRect = from.getBoundingClientRect();
+        const toRect = to.getBoundingClientRect();
+        
+        // Create SVG for the connection
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', window.innerWidth);
+        svg.setAttribute('height', window.innerHeight);
+        svg.style.position = 'fixed';
+        svg.style.top = '0';
+        svg.style.left = '0';
+        svg.style.pointerEvents = 'none';
+        
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        
+        // Smart anchoring system - connect from edge to edge
+        function getAnchorPoint(element, anchorType) {
+            const rect = element.getBoundingClientRect();
+            const centerY = rect.top + rect.height / 2;
+            
+            // Account for any CSS transforms that might affect positioning
+            const computedStyle = window.getComputedStyle(element);
+            const transform = computedStyle.transform;
+            let offsetX = 0;
+            
+            if (transform && transform !== 'none') {
+                // Extract translation from transform matrix
+                const matrix = new DOMMatrix(transform);
+                offsetX = matrix.m41; // horizontal translation
+            }
+            
+            switch(anchorType) {
+                case 'comment-button':
+                    // Anchor to the right edge of the comment button
+                    const commentBtn = element.querySelector('.comment-btn');
+                    if (commentBtn) {
+                        const btnRect = commentBtn.getBoundingClientRect();
+                        return { x: btnRect.right + offsetX, y: btnRect.top + btnRect.height / 2 };
+                    }
+                    return { x: rect.right + offsetX, y: centerY };
+                case 'comment':
+                    // Anchor to the left edge of the comment
+                    return { x: rect.left + offsetX, y: centerY };
+                case 'comment-right':
+                    // Anchor to the right edge of the comment
+                    return { x: rect.right + offsetX, y: centerY };
+                case 'field':
+                    // Anchor to the right edge of the form field (where comment button is)
+                    return { x: rect.right + offsetX, y: centerY };
+                default:
+                    // Auto-detect based on element type
+                    if (element.classList.contains('comment-btn')) {
+                        return { x: rect.right + offsetX, y: centerY };
+                    } else if (element.classList.contains('comment-item')) {
+                        return { x: rect.left + offsetX, y: centerY };
+                    } else {
+                        return { x: rect.right + offsetX, y: centerY };
+                    }
+            }
+        }
+        
+        // Determine which element is the comment and which is the field
+        const isFromComment = from.classList.contains('comment-item');
+        const isToComment = to.classList.contains('comment-item');
+        
+        // Always connect from field to comment (field on left, comment on right)
+        const fieldElement = isFromComment ? to : from;
+        const commentElement = isFromComment ? from : to;
+        
+        // Get anchor points - connect from field (right edge) to comment (left edge)
+        const fromAnchor = getAnchorPoint(fieldElement, 'field');
+        const toAnchor = getAnchorPoint(commentElement, 'comment');
+        
+        // Always use left edge of comment for cleaner visual connection
+        // (This ensures the line connects to the comment's left edge regardless of position)
+        
+        // Create a curved path with control points
+        const distance = Math.abs(toAnchor.x - fromAnchor.x);
+        const controlDistance = Math.min(distance * 0.3, 100);
+        
+        // Ensure control points create a smooth curve in the correct direction
+        let cp1x, cp1y, cp2x, cp2y;
+        
+        if (fromAnchor.x < toAnchor.x) {
+            // Field to comment (left to right)
+            cp1x = fromAnchor.x + controlDistance;
+            cp1y = fromAnchor.y;
+            cp2x = toAnchor.x - controlDistance;
+            cp2y = toAnchor.y;
+        } else {
+            // Comment to field (right to left)
+            cp1x = fromAnchor.x - controlDistance;
+            cp1y = fromAnchor.y;
+            cp2x = toAnchor.x + controlDistance;
+            cp2y = toAnchor.y;
+        }
+        
+        const path = `M ${fromAnchor.x} ${fromAnchor.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${toAnchor.x} ${toAnchor.y}`;
+        line.setAttribute('d', path);
+        
+        // Check if this is a clicked connection
+        const isClickedConnection = from.classList.contains('clicked') || to.classList.contains('clicked');
+        line.setAttribute('class', `connection-line${isClickedConnection ? ' clicked' : ''}`);
+        
+        line.setAttribute('stroke', '#ffc107');
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('fill', 'none');
+        
+        svg.appendChild(line);
+        connectionLines.appendChild(svg);
+    }
+
+
+
+    // Focused connection system - no initial connections
+    // Connections will be created on hover/focus events
+
+    // Focused connection system - highlight and show connections on hover/click
+    document.querySelectorAll('.comment-item').forEach(commentItem => {
+        let isClicked = false;
+        
+        commentItem.addEventListener('mouseenter', function() {
+            // Don't change state if this comment or any other comment is clicked
+            const anyCommentClicked = document.querySelector('.comment-item.clicked');
+            if (anyCommentClicked) return;
+            
+            const fieldName = this.getAttribute('data-field');
+            if (fieldName) {
+                const formField = document.querySelector(`[name="${fieldName}"]`);
+                if (formField) {
+                    formField.classList.add('highlighted');
+                    // Create connection from field to comment
+                    createConnection(formField, this);
+                }
+            }
+            this.classList.add('highlighted');
+        });
+
+        commentItem.addEventListener('mouseleave', function() {
+            // Don't change state if this comment or any other comment is clicked
+            const anyCommentClicked = document.querySelector('.comment-item.clicked');
+            if (anyCommentClicked) return;
+            
+            const fieldName = this.getAttribute('data-field');
+            if (fieldName) {
+                const formField = document.querySelector(`[name="${fieldName}"]`);
+                if (formField) {
+                    formField.classList.remove('highlighted');
+                }
+            }
+            this.classList.remove('highlighted');
+            clearConnections();
+        });
+        
+        commentItem.addEventListener('click', function() {
+            const fieldName = this.getAttribute('data-field');
+            if (fieldName) {
+                const formField = document.querySelector(`[name="${fieldName}"]`);
+                if (formField) {
+                    // Check if this comment is already clicked
+                    if (this.classList.contains('clicked')) {
+                        // Unclick this comment
+                        this.classList.remove('clicked');
+                        this.classList.remove('highlighted');
+                        formField.classList.remove('highlighted');
+                        formField.classList.remove('clicked');
+                        
+                        // Remove clicked class from comment button
+                        const commentBtn = formField.parentElement.querySelector('.comment-btn');
+                        if (commentBtn) {
+                            commentBtn.classList.remove('clicked');
+                        }
+                        
+                        clearConnections();
+                        return;
+                    }
+                    
+                    // Clear all previous highlights and clicked states
+                    document.querySelectorAll('.comment-item').forEach(item => {
+                        if (item !== this) { // Don't clear the current comment
+                            item.classList.remove('clicked');
+                            item.classList.remove('highlighted');
+                        }
+                    });
+                    document.querySelectorAll('input, textarea, select').forEach(field => {
+                        field.classList.remove('highlighted');
+                        field.classList.remove('clicked');
+                    });
+                    document.querySelectorAll('.comment-btn').forEach(btn => {
+                        btn.classList.remove('clicked');
+                    });
+                    clearConnections();
+                    
+                    // Set clicked state for this comment
+                    this.classList.add('clicked');
+                    this.classList.add('highlighted');
+                    
+                    // Highlight and focus the field
+                    formField.classList.add('highlighted');
+                    formField.classList.add('clicked');
+                    formField.focus();
+                    
+                    // Add clicked class to comment button
+                    const commentBtn = formField.parentElement.querySelector('.comment-btn');
+                    if (commentBtn) {
+                        commentBtn.classList.add('clicked');
+                    }
+                    
+                    // Create persistent connection
+                    createConnection(formField, this);
+                    
+                    // Scroll to field if needed
+                    formField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        });
+    });
+    
+    // Clear clicked state when clicking elsewhere
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.comment-item') && !e.target.closest('input, textarea, select')) {
+            document.querySelectorAll('.comment-item').forEach(item => {
+                item.classList.remove('clicked');
+                item.classList.remove('highlighted');
+            });
+            document.querySelectorAll('input, textarea, select').forEach(field => {
+                field.classList.remove('highlighted');
+                field.classList.remove('clicked');
+            });
+            document.querySelectorAll('.comment-btn').forEach(btn => {
+                btn.classList.remove('clicked');
+            });
+            clearConnections();
+        }
+    });
+
+    // Focused connection system - show connections when form fields are focused
+    document.querySelectorAll('input, textarea, select').forEach(field => {
+        field.addEventListener('focus', function() {
+            const fieldName = this.getAttribute('name');
+            
+            // Clear all previous highlights and clicked states
+            document.querySelectorAll('.comment-item').forEach(comment => {
+                comment.classList.remove('highlighted');
+                comment.classList.remove('clicked');
+            });
+            document.querySelectorAll('input, textarea, select').forEach(field => {
+                if (field !== this) { // Don't clear the current field
+                    field.classList.remove('highlighted');
+                    field.classList.remove('clicked');
+                }
+            });
+            document.querySelectorAll('.comment-btn').forEach(btn => {
+                btn.classList.remove('clicked');
+            });
+            clearConnections();
+            
+            if (fieldName) {
+                // Find comments for this field
+                const comments = document.querySelectorAll(`.comment-item[data-field="${fieldName}"]`);
+                if (comments.length > 0) {
+                    // Check if any comment is clicked
+                    const clickedComment = Array.from(comments).find(comment => comment.classList.contains('clicked'));
+                    
+                    if (clickedComment) {
+                        // If comment is clicked, maintain the clicked state
+                        this.classList.add('clicked');
+                        createConnection(clickedComment, this);
+                    } else {
+                        // Normal focus behavior
+                        comments.forEach(comment => {
+                            comment.classList.add('highlighted');
+                        });
+                        createConnection(comments[0], this);
+                    }
+                }
+            }
+        });
+
+        field.addEventListener('blur', function() {
+            const fieldName = this.getAttribute('name');
+            if (fieldName) {
+                // Only remove highlighting if no comment is clicked
+                const comments = document.querySelectorAll(`.comment-item[data-field="${fieldName}"]`);
+                const hasClickedComment = Array.from(comments).some(comment => comment.classList.contains('clicked'));
+                
+                if (!hasClickedComment) {
+                    comments.forEach(comment => {
+                        comment.classList.remove('highlighted');
+                    });
+                    this.classList.remove('clicked');
+                    clearConnections();
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %} 

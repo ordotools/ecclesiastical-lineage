@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: ./deploy.sh
+    startCommand: ./deploy_with_migration.sh
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.18

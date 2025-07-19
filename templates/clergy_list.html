@@ -158,8 +158,10 @@ window.allClergyData = {{ all_clergy_json | safe }};
 function attachClergyRowClickHandlers() {
     document.querySelectorAll('.clergy-row').forEach(row => {
         row.removeEventListener('click', clergyRowClickHandler);
-        // Only add click handler if user can edit clergy (check if addClergyBtn exists)
-        if (document.getElementById('addClergyBtn')) {
+        // Add click handler if user can edit clergy OR comment
+        const canEdit = document.getElementById('addClergyBtn') !== null;
+        const canComment = {{ 'true' if user and user.can_comment() else 'false' }};
+        if (canEdit || canComment) {
             row.addEventListener('click', clergyRowClickHandler);
         }
     });
@@ -167,30 +169,8 @@ function attachClergyRowClickHandlers() {
 
 function clergyRowClickHandler() {
     const clergyId = this.dataset.clergyId;
-    fetch(`/clergy/modal/${clergyId}/edit`)
-        .then(response => response.text())
-        .then(html => {
-            const modalContainer = document.getElementById('clergyModalContainer');
-            modalContainer.innerHTML = '';
-            modalContainer.innerHTML = html;
-            // Evaluate any inline <script> tags in the loaded HTML
-            modalContainer.querySelectorAll('script').forEach(script => {
-                const newScript = document.createElement('script');
-                if (script.src) {
-                    newScript.src = script.src;
-                } else {
-                    newScript.textContent = script.textContent;
-                }
-                document.body.appendChild(newScript);
-            });
-            const modalEl = document.getElementById('clergyModal');
-            if (modalEl) {
-                const modal = new bootstrap.Modal(modalEl);
-                modal.show();
-            } else {
-                alert('Failed to load modal!');
-            }
-        });
+    // Navigate to the integrated view instead of opening a modal
+    window.location.href = `/clergy/${clergyId}`;
 }
 
 document.addEventListener('DOMContentLoaded', function() {

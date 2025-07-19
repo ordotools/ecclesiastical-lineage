@@ -89,7 +89,7 @@
                 {% endif %}
               </div>
               <div class="comment-content">
-                {{ comment.content|nl2br }}
+                {{ comment.content|safe }}
               </div>
             </div>
             {% endfor %}

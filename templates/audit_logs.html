@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Logs - Ecclesiastical Lineage{% endblock %}
+
+{% block full_content %}
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2 mb-0">Audit Logs</h1>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+
+        <!-- Filters -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-filter me-2"></i>Filters
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-2">
+                        <label for="action" class="form-label">Action</label>
+                        <select class="form-select" id="action" name="action">
+                            <option value="">All Actions</option>
+                            {% for action in actions %}
+                            <option value="{{ action }}" {% if action == action_filter %}selected{% endif %}>{{ action|title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="entity_type" class="form-label">Entity Type</label>
+                        <select class="form-select" id="entity_type" name="entity_type">
+                            <option value="">All Types</option>
+                            {% for entity_type in entity_types %}
+                            <option value="{{ entity_type }}" {% if entity_type == entity_type_filter %}selected{% endif %}>{{ entity_type|title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="user" class="form-label">User</label>
+                        <select class="form-select" id="user" name="user">
+                            <option value="">All Users</option>
+                            {% for username in users %}
+                            <option value="{{ username }}" {% if username == user_filter %}selected{% endif %}>{{ username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="date_from" class="form-label">From Date</label>
+                        <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="date_to" class="form-label">To Date</label>
+                        <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <div class="d-flex gap-2 w-100">
+                            <button type="submit" class="btn btn-primary flex-fill">
+                                <i class="fas fa-search me-1"></i>Filter
+                            </button>
+                            <a href="{{ url_for('audit_logs') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Clear
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Audit Logs Table -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>System Activity Log
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                {% if audit_logs.items %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Entity Type</th>
+                                <th>Entity</th>
+                                <th>Details</th>
+                                <th>IP Address</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in audit_logs.items %}
+                            <tr>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ log.user.username }}</span>
+                                </td>
+                                <td>
+                                    {% if log.action == 'create' %}
+                                        <span class="badge bg-success">Create</span>
+                                    {% elif log.action == 'update' %}
+                                        <span class="badge bg-warning">Update</span>
+                                    {% elif log.action == 'delete' %}
+                                        <span class="badge bg-danger">Delete</span>
+                                    {% elif log.action == 'login' %}
+                                        <span class="badge bg-info">Login</span>
+                                    {% elif log.action == 'logout' %}
+                                        <span class="badge bg-secondary">Logout</span>
+                                    {% elif log.action == 'comment' %}
+                                        <span class="badge bg-primary">Comment</span>
+                                    {% elif log.action == 'resolve' %}
+                                        <span class="badge bg-success">Resolve</span>
+                                    {% elif log.action == 'change_password' %}
+                                        <span class="badge bg-warning">Password Change</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ log.action|title }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info text-dark">{{ log.entity_type|title }}</span>
+                                </td>
+                                <td>
+                                    {% if log.entity_name %}
+                                        <strong>{{ log.entity_name }}</strong>
+                                        {% if log.entity_id %}
+                                            <small class="text-muted">(ID: {{ log.entity_id }})</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.details %}
+                                        <button class="btn btn-sm btn-outline-info" type="button" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#detailsModal{{ log.id }}">
+                                            <i class="fas fa-eye me-1"></i>View Details
+                                        </button>
+                                    {% else %}
+                                        <span class="text-muted">No details</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.ip_address %}
+                                        <small class="text-muted">{{ log.ip_address }}</small>
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No audit logs found</h5>
+                    <p class="text-muted">Try adjusting your filters or check back later for activity.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if audit_logs.pages > 1 %}
+        <nav aria-label="Audit logs pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if audit_logs.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('audit_logs', page=audit_logs.prev_num, action=action_filter, entity_type=entity_type_filter, user=user_filter, date_from=date_from, date_to=date_to) }}">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in audit_logs.iter_pages() %}
+                    {% if page_num %}
+                        {% if page_num != audit_logs.page %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('audit_logs', page=page_num, action=action_filter, entity_type=entity_type_filter, user=user_filter, date_from=date_from, date_to=date_to) }}">
+                                {{ page_num }}
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if audit_logs.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('audit_logs', page=audit_logs.next_num, action=action_filter, entity_type=entity_type_filter, user=user_filter, date_from=date_from, date_to=date_to) }}">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        <!-- Summary -->
+        {% if audit_logs.items %}
+        <div class="text-center mt-3">
+            <small class="text-muted">
+                Showing {{ audit_logs.items|length }} of {{ audit_logs.total }} audit log entries
+                {% if audit_logs.pages > 1 %}
+                    (Page {{ audit_logs.page }} of {{ audit_logs.pages }})
+                {% endif %}
+            </small>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Audit Log Detail Modals -->
+    {% for log in audit_logs.items %}
+        {% if log.details %}
+        <div class="modal fade audit-log-modal" id="detailsModal{{ log.id }}" tabindex="-1" aria-labelledby="detailsModalLabel{{ log.id }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="detailsModalLabel{{ log.id }}">
+                            <i class="fas fa-info-circle me-2"></i>Audit Log Details
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>User:</strong> 
+                                <span class="badge bg-secondary">{{ log.user.username }}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Action:</strong> 
+                                {% if log.action == 'create' %}
+                                    <span class="badge bg-success">Create</span>
+                                {% elif log.action == 'update' %}
+                                    <span class="badge bg-warning">Update</span>
+                                {% elif log.action == 'delete' %}
+                                    <span class="badge bg-danger">Delete</span>
+                                {% elif log.action == 'login' %}
+                                    <span class="badge bg-info">Login</span>
+                                {% elif log.action == 'logout' %}
+                                    <span class="badge bg-secondary">Logout</span>
+                                {% elif log.action == 'comment' %}
+                                    <span class="badge bg-primary">Comment</span>
+                                {% elif log.action == 'resolve' %}
+                                    <span class="badge bg-success">Resolve</span>
+                                {% elif log.action == 'change_password' %}
+                                    <span class="badge bg-warning">Password Change</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ log.action|title }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Entity Type:</strong> 
+                                <span class="badge bg-info text-dark">{{ log.entity_type|title }}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Entity:</strong> 
+                                {% if log.entity_name %}
+                                    {{ log.entity_name }}
+                                    {% if log.entity_id %}
+                                        <small class="text-muted">(ID: {{ log.entity_id }})</small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Timestamp:</strong> 
+                                <span class="text-muted">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>IP Address:</strong> 
+                                {% if log.ip_address %}
+                                    <span class="text-muted">{{ log.ip_address }}</span>
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <strong>Details:</strong>
+                                {% if log.details %}
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn btn-outline-primary btn-sm active" 
+                                                onclick="toggleDetailsView('{{ log.id }}', 'formatted')">
+                                            Formatted
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                                onclick="toggleDetailsView('{{ log.id }}', 'raw')">
+                                            Raw JSON
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="mt-2">
+                                {% if log.details %}
+                                    {% set details_json = log.details|from_json %}
+                                    {% if details_json is mapping %}
+                                        <div id="formatted-{{ log.id }}" class="details-view">
+                                            <div class="bg-light p-3 rounded border">
+                                                {% for key, value in details_json.items() %}
+                                                    <div class="mb-2">
+                                                        <strong class="text-primary">{{ key|replace('_', ' ')|title }}:</strong>
+                                                        {% if value is mapping %}
+                                                            <ul class="list-unstyled ms-3 mb-0">
+                                                                {% for sub_key, sub_value in value.items() %}
+                                                                    <li><strong>{{ sub_key|replace('_', ' ')|title }}:</strong> 
+                                                                        {% if sub_value is none %}
+                                                                            <span class="text-muted">None</span>
+                                                                        {% else %}
+                                                                            {{ sub_value }}
+                                                                        {% endif %}
+                                                                    </li>
+                                                                {% endfor %}
+                                                            </ul>
+                                                        {% elif value is sequence and value is not string %}
+                                                            <ul class="list-unstyled ms-3 mb-0">
+                                                                {% for item in value %}
+                                                                    <li>{{ item }}</li>
+                                                                {% endfor %}
+                                                            </ul>
+                                                        {% elif value is none %}
+                                                            <span class="text-muted">None</span>
+                                                        {% else %}
+                                                            {{ value }}
+                                                        {% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        <div id="raw-{{ log.id }}" class="details-view" style="display: none;">
+                                            <pre class="bg-light p-3 rounded border"><code>{{ log.details }}</code></pre>
+                                        </div>
+                                    {% else %}
+                                        <pre class="bg-light p-3 rounded border"><code>{{ log.details }}</code></pre>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">No details available</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+
+    <script>
+        function toggleDetailsView(logId, viewType) {
+            // Hide all detail views for this log
+            document.querySelectorAll(`[id^="${viewType}-${logId}"]`).forEach(el => {
+                el.style.display = 'none';
+            });
+            
+            // Show the selected view
+            const targetElement = document.getElementById(`${viewType}-${logId}`);
+            if (targetElement) {
+                targetElement.style.display = 'block';
+            }
+            
+            // Update button states
+            const modal = document.getElementById(`detailsModal${logId}`);
+            if (modal) {
+                const buttons = modal.querySelectorAll('.btn-group .btn');
+                buttons.forEach(btn => {
+                    btn.classList.remove('active', 'btn-primary', 'btn-secondary');
+                    btn.classList.add('btn-outline-secondary');
+                });
+                
+                // Activate the clicked button
+                const clickedButton = event.target;
+                clickedButton.classList.remove('btn-outline-secondary');
+                if (viewType === 'formatted') {
+                    clickedButton.classList.add('btn-primary');
+                } else {
+                    clickedButton.classList.add('btn-secondary');
+                }
+                clickedButton.classList.add('active');
+            }
+        }
+    </script>
+{% endblock %} 

@@ -14,15 +14,18 @@ if [ -f .env ]; then
   export $(grep -v '^#' .env | xargs)
 fi
 
-# Check if DATABASE_URL is set for remote sync
-if [ -z "$DATABASE_URL" ]; then
-  echo "❌ Error: DATABASE_URL environment variable not set."
+# Check if RENDER_PG_URL is set for remote sync
+if [ -z "$RENDER_PG_URL" ]; then
+  echo "❌ Error: RENDER_PG_URL environment variable not set."
   echo "Please set it in your .env file to your remote PostgreSQL connection string."
-  echo "Example: DATABASE_URL=postgresql://user:pass@host:port/dbname"
+  echo "Example: RENDER_PG_URL=postgresql://user:pass@host:port/dbname"
   echo ""
   echo "You can get this from your Render dashboard or from the production environment."
   exit 1
 fi
+
+# Use RENDER_PG_URL for syncing from remote
+REMOTE_DATABASE_URL="$RENDER_PG_URL"
 
 # Check for required tools
 echo "🔍 Checking required tools..."
@@ -52,7 +55,7 @@ LOCAL_PG_URL="postgresql://localhost:5432/$LOCAL_DB_NAME"
 
 echo ""
 echo "🔄 Database Sync Configuration:"
-echo "   Remote: $DATABASE_URL"
+echo "   Remote: $REMOTE_DATABASE_URL"
 echo "   Local:  $LOCAL_PG_URL"
 echo ""
 
@@ -75,7 +78,7 @@ createdb "$LOCAL_DB_NAME"
 
 # Export from remote and import to local
 echo "📤 Exporting data from remote PostgreSQL..."
-pg_dump --clean --if-exists --no-owner --no-privileges "$DATABASE_URL" > /tmp/remote_dump.sql
+pg_dump --clean --if-exists --no-owner --no-privileges "$REMOTE_DATABASE_URL" > /tmp/remote_dump.sql
 
 echo "📥 Importing data to local PostgreSQL..."
 psql "$LOCAL_PG_URL" < /tmp/remote_dump.sql
@@ -150,7 +153,7 @@ echo "🎉 Development environment setup complete!"
 echo ""
 echo "📊 Database Information:"
 echo "   Local Database: $LOCAL_DATABASE_URL"
-echo "   Remote Database: $DATABASE_URL"
+echo "   Remote Database: $REMOTE_DATABASE_URL"
 echo ""
 echo "👤 Admin Login:"
 echo "   Username: admin"

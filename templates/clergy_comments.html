@@ -118,7 +118,7 @@
     const formData = new FormData();
     formData.append('content', content);
     
-    fetch('{{ url_for("add_clergy_comment", clergy_id=clergy.id) }}', {
+    fetch('{{ url_for("routes.add_clergy_comment", clergy_id=clergy.id) }}', {
       method: 'POST',
       body: formData
     })

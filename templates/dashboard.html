@@ -24,7 +24,7 @@
                             </div>
                         </div>
                         <p class="text-muted">Add, view, and manage clergy records including ordination and consecration information.</p>
-                        <a href="{{ url_for('clergy_list') }}" class="btn btn-primary">
+                        <a href="{{ url_for('routes.clergy_list') }}" class="btn btn-primary">
                             <i class="fas fa-arrow-right me-2"></i>Manage Clergy
                         </a>
                     </div>
@@ -44,7 +44,7 @@
                             </div>
                         </div>
                         <p class="text-muted">View clergy records and lineage information. You can also add comments and feedback.</p>
-                        <a href="{{ url_for('clergy_list') }}" class="btn btn-info">
+                        <a href="{{ url_for('routes.clergy_list') }}" class="btn btn-info">
                             <i class="fas fa-arrow-right me-2"></i>View Clergy
                         </a>
                     </div>
@@ -66,7 +66,7 @@
                             </div>
                         </div>
                         <p class="text-muted">Track and visualize apostolic succession and ecclesiastical lineage.</p>
-                        <a href="{{ url_for('lineage_visualization') }}" class="btn btn-success">
+                        <a href="{{ url_for('routes.lineage_visualization') }}" class="btn btn-success">
                             <i class="fas fa-chart-line me-2"></i>View Lineage
                         </a>
                     </div>
@@ -90,7 +90,7 @@
                             </div>
                         </div>
                         <p class="text-muted">Configure ranks, organizations, and other metadata used in clergy records.</p>
-                        <a href="{{ url_for('metadata') }}" class="btn btn-warning">
+                        <a href="{{ url_for('routes.metadata') }}" class="btn btn-warning">
                             <i class="fas fa-cogs me-2"></i>Manage Metadata
                         </a>
                     </div>
@@ -112,7 +112,7 @@
                             </div>
                         </div>
                         <p class="text-muted">Add, edit, and manage user accounts with different permission levels.</p>
-                        <a href="{{ url_for('user_management') }}" class="btn btn-danger">
+                        <a href="{{ url_for('routes.user_management') }}" class="btn btn-danger">
                             <i class="fas fa-user-cog me-2"></i>Manage Users
                         </a>
                     </div>
@@ -134,7 +134,7 @@
                             </div>
                         </div>
                         <p class="text-muted">Review comments on clergy records, provide feedback, and track resolution status.</p>
-                        <a href="{{ url_for('comments_management') }}" class="btn btn-info">
+                        <a href="{{ url_for('routes.comments_management') }}" class="btn btn-info">
                             <i class="fas fa-comments me-2"></i>Manage Comments
                         </a>
                     </div>
@@ -156,7 +156,7 @@
                             </div>
                         </div>
                         <p class="text-muted">View detailed audit logs of all system activities, changes, and user actions.</p>
-                        <a href="{{ url_for('audit_logs') }}" class="btn btn-dark">
+                        <a href="{{ url_for('routes.audit_logs') }}" class="btn btn-dark">
                             <i class="fas fa-history me-2"></i>View Audit Logs
                         </a>
                     </div>

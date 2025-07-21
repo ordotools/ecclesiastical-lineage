@@ -81,7 +81,7 @@
     <!-- Admin Navigation Button -->
     {% if session.user_id %}
     <div class="admin-nav-container">
-        <a href="{{ url_for('dashboard') }}" class="btn admin-nav-btn">
+        <a href="{{ url_for('routes.dashboard') }}" class="btn admin-nav-btn">
             <i class="fas fa-tachometer-alt me-2"></i>Dashboard
         </a>
     </div>

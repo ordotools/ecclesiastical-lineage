@@ -33,7 +33,7 @@
                 <p class="text-muted">You are the first user. Create your admin account below.</p>
             {% endif %}
         </div>
-        <form method="post" action="{{ url_for('admin_invite_signup', token=invite_token) if invite_token else url_for('signup') }}">
+        <form method="post" action="{{ url_for('routes.admin_invite_signup', token=invite_token) if invite_token else url_for('routes.signup') }}">
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>
                 <input type="text" class="form-control" id="username" name="username" required>

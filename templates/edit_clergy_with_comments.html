@@ -6,7 +6,7 @@
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="btn-group">
-            <a href="{{ url_for('view_clergy', clergy_id=clergy.id) }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('routes.view_clergy', clergy_id=clergy.id) }}" class="btn btn-outline-secondary">
                 <i class="fas fa-eye me-2"></i>View Only
             </a>
         </div>
@@ -222,7 +222,7 @@
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save me-2"></i>Save Changes
                             </button>
-                            <a href="{{ url_for('view_clergy', clergy_id=clergy.id) }}" class="btn btn-secondary">
+                            <a href="{{ url_for('routes.view_clergy', clergy_id=clergy.id) }}" class="btn btn-secondary">
                                 Cancel
                             </a>
                         </div>
@@ -238,7 +238,7 @@
                     <h3 class="h5 mb-0">Comments & Feedback</h3>
                     <div class="btn-group">
                         {% if user.can_resolve_comments() %}
-                        <a href="{{ url_for('view_resolved_comments', clergy_id=clergy.id) }}" class="btn btn-sm btn-outline-secondary">
+                        <a href="{{ url_for('routes.view_resolved_comments', clergy_id=clergy.id) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="fas fa-check-circle me-2"></i>View Resolved
                         </a>
                         {% endif %}
@@ -565,7 +565,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('field_name', commentFieldName.value);
             formData.append('is_public', document.getElementById('isPublic').checked ? '1' : '0');
             
-            fetch('{{ url_for("add_clergy_comment", clergy_id=clergy.id) }}', {
+            fetch('{{ url_for("routes.add_clergy_comment", clergy_id=clergy.id) }}', {
                 method: 'POST',
                 body: formData
             })

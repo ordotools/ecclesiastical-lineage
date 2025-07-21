@@ -8,12 +8,23 @@
             </span>
         {% endif %}
         {% if clergy.organization and org_abbreviation_map.get(clergy.organization) %}
-            <span class="badge ms-2" style="background-color: {{ org_color_map.get(clergy.organization, '#27ae60') }}; color: {{ 'white' if getContrastColor(org_color_map.get(clergy.organization, '#27ae60')) == 'white' else 'black' }}; {{ getBorderStyle(org_color_map.get(clergy.organization, '#27ae60')) }}; font-size: 0.85em; vertical-align: middle;">{{ org_abbreviation_map.get(clergy.organization) }}</span>
+            {% set org_color = org_color_map.get(clergy.organization, '#27ae60') %}
+            {% set text_color = 'white' if getContrastColor(org_color) == 'white' else 'black' %}
+            {% set border_style = getBorderStyle(org_color) %}
+            <span class="badge ms-2" style="background-color: {{ org_color }}; color: {{ text_color }}; {{ border_style }}; font-size: 0.85em; vertical-align: middle;">{{ org_abbreviation_map.get(clergy.organization) }}</span>
         {% endif %}
-        {% if user and user.can_comment() and clergy.comments.filter_by(is_resolved=False).count() > 0 %}
-            <span class="badge bg-warning ms-1" title="Has unresolved comments">
-                <i class="fas fa-comment"></i> {{ clergy.comments.filter_by(is_resolved=False).count() }}
-            </span>
+        {% if user and user.can_comment() %}
+            {% set unresolved_count = 0 %}
+            {% for comment in clergy.comments %}
+                {% if not comment.is_resolved %}
+                    {% set unresolved_count = unresolved_count + 1 %}
+                {% endif %}
+            {% endfor %}
+            {% if unresolved_count > 0 %}
+                <span class="badge bg-warning ms-1" title="Has unresolved comments">
+                    <i class="fas fa-comment"></i> {{ unresolved_count }}
+                </span>
+            {% endif %}
         {% endif %}
     </td>
     <td class="truncate-cell">{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '-' }}</td>

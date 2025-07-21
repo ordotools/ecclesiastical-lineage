@@ -57,7 +57,7 @@
                             <button type="submit" class="btn btn-primary flex-fill">
                                 <i class="fas fa-search me-1"></i>Filter
                             </button>
-                            <a href="{{ url_for('audit_logs') }}" class="btn btn-outline-secondary">
+                            <a href="{{ url_for('routes.audit_logs') }}" class="btn btn-outline-secondary">
                                 <i class="fas fa-times me-1"></i>Clear
                             </a>
                         </div>
@@ -172,7 +172,7 @@
             <ul class="pagination justify-content-center">
                 {% if audit_logs.has_prev %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('audit_logs', page=audit_logs.prev_num, action=action_filter, entity_type=entity_type_filter, user=user_filter, date_from=date_from, date_to=date_to) }}">
+                    <a class="page-link" href="{{ url_for('routes.audit_logs', page=audit_logs.prev_num, action=action_filter, entity_type=entity_type_filter, user=user_filter, date_from=date_from, date_to=date_to) }}">
                         <i class="fas fa-chevron-left"></i> Previous
                     </a>
                 </li>
@@ -182,7 +182,7 @@
                     {% if page_num %}
                         {% if page_num != audit_logs.page %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('audit_logs', page=page_num, action=action_filter, entity_type=entity_type_filter, user=user_filter, date_from=date_from, date_to=date_to) }}">
+                            <a class="page-link" href="{{ url_for('routes.audit_logs', page=page_num, action=action_filter, entity_type=entity_type_filter, user=user_filter, date_from=date_from, date_to=date_to) }}">
                                 {{ page_num }}
                             </a>
                         </li>
@@ -200,7 +200,7 @@
                 
                 {% if audit_logs.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('audit_logs', page=audit_logs.next_num, action=action_filter, entity_type=entity_type_filter, user=user_filter, date_from=date_from, date_to=date_to) }}">
+                    <a class="page-link" href="{{ url_for('routes.audit_logs', page=audit_logs.next_num, action=action_filter, entity_type=entity_type_filter, user=user_filter, date_from=date_from, date_to=date_to) }}">
                         Next <i class="fas fa-chevron-right"></i>
                     </a>
                 </li>

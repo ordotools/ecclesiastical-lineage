@@ -4,12 +4,14 @@
 **Goal:** Track and visualize ecclesiastical lineages and consecration relationships between clergy members.
 
 ## 📋 Current Sprint / Active Tasks
+- [ ] Get rid of the alert when we save an edit to the clergy
 - [ ] ⚡ Remove all of the Javascript from the HTML files and have them stand alone
-- [ ] 🔥 Change the d3 graph so that all the nodes stay together and the bishops repulse other bishops more strongly
+- [x] 🔥 Change the d3 graph so that all the nodes stay together and the bishops repulse other bishops more strongly
 - [ ] Review and test lineage visualization functionality
-- [ ] Check for any database migration issues
+- [x] Check for any database migration issues
 - [ ] Verify clergy modal functionality works properly
 - [ ] 🔥 Test fuzzy search implementation
+- [ ] 🔥 **TOP PRIORITY:** Refactor routes.py into multiple blueprints/modules for maintainability and efficiency
 
 ## 🚀 Upcoming Features
 - [ ] **Enhanced Lineage Visualization**

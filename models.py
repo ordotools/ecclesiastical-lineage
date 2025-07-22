@@ -111,6 +111,16 @@ class Clergy(db.Model):
             return json.loads(self.co_consecrators)
         return []
 
+    def was_alive_on(self, date):
+        """Return True if this clergy was alive on the given date (or if date unknown, assume alive)."""
+        if not date:
+            return True
+        if self.date_of_birth and date < self.date_of_birth:
+            return False
+        if self.date_of_death and date > self.date_of_death:
+            return False
+        return True
+
     def __repr__(self):
         return f'<Clergy {self.name}>'
 

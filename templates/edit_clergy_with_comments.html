@@ -113,18 +113,11 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="ordaining_bishop_id" class="form-label">Ordaining Bishop</label>
-                                    <div class="input-group">
-                                        <select class="form-select" id="ordaining_bishop_id" name="ordaining_bishop_id">
-                                            <option value="">Select Bishop</option>
-                                            {% for bishop in all_clergy %}
-                                            {% if bishop.rank and 'bishop' in bishop.rank.lower() %}
-                                            <option value="{{ bishop.id }}" {% if clergy.ordaining_bishop_id == bishop.id %}selected{% endif %}>
-                                                {{ bishop.name }}
-                                            </option>
-                                            {% endif %}
-                                            {% endfor %}
-                                        </select>
+                                    <label for="ordaining_bishop_search" class="form-label">Ordaining Bishop</label>
+                                    <div class="input-group position-relative">
+                                        <input type="text" class="form-control bishop-search-input" id="ordaining_bishop_search" placeholder="Type to search bishops..." autocomplete="off" value="{% if clergy.ordaining_bishop %}{{ clergy.ordaining_bishop.display_name if clergy.ordaining_bishop.display_name is defined else clergy.ordaining_bishop.name }}{% endif %}">
+                                        <input type="hidden" id="ordaining_bishop_id" name="ordaining_bishop_id" value="{{ clergy.ordaining_bishop_id or '' }}">
+                                        <div class="autocomplete-dropdown" id="ordainingBishopDropdown" style="position:absolute;top:100%;left:0;width:100%;z-index:20;display:none;"></div>
                                         {% if user.can_comment() %}
                                         <button type="button" class="btn btn-outline-secondary comment-btn" data-field="ordaining_bishop_id" data-field-label="Ordaining Bishop">
                                             <i class="fas fa-comment"></i>
@@ -152,18 +145,11 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="consecrator_id" class="form-label">Principal Consecrator</label>
-                                    <div class="input-group">
-                                        <select class="form-select" id="consecrator_id" name="consecrator_id">
-                                            <option value="">Select Bishop</option>
-                                            {% for bishop in all_clergy %}
-                                            {% if bishop.rank and 'bishop' in bishop.rank.lower() %}
-                                            <option value="{{ bishop.id }}" {% if clergy.consecrator_id == bishop.id %}selected{% endif %}>
-                                                {{ bishop.name }}
-                                            </option>
-                                            {% endif %}
-                                            {% endfor %}
-                                        </select>
+                                    <label for="consecrator_search" class="form-label">Principal Consecrator</label>
+                                    <div class="input-group position-relative">
+                                        <input type="text" class="form-control bishop-search-input" id="consecrator_search" placeholder="Type to search bishops..." autocomplete="off" value="{% if clergy.consecrator %}{{ clergy.consecrator.display_name if clergy.consecrator.display_name is defined else clergy.consecrator.name }}{% endif %}">
+                                        <input type="hidden" id="consecrator_id" name="consecrator_id" value="{{ clergy.consecrator_id or '' }}">
+                                        <div class="autocomplete-dropdown" id="consecratorDropdown" style="position:absolute;top:100%;left:0;width:100%;z-index:20;display:none;"></div>
                                         {% if user.can_comment() %}
                                         <button type="button" class="btn btn-outline-secondary comment-btn" data-field="consecrator_id" data-field-label="Principal Consecrator">
                                             <i class="fas fa-comment"></i>
@@ -480,8 +466,38 @@
 }
 </style>
 
+{% block extra_scripts %}
+<script src="/static/js/fuzzySearch.js"></script>
+{% endblock %}
 <script>
+window.allBishops = [
+    {% for bishop in all_bishops_suggested %}
+    {
+        id: {{ bishop.id }},
+        name: `{{ bishop.name }}`
+    },
+    {% endfor %}
+];
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Use the new attachAutocomplete utility for both bishop fields
+    window.attachAutocomplete(
+        document.getElementById('ordaining_bishop_search'),
+        document.getElementById('ordaining_bishop_id'),
+        document.getElementById('ordainingBishopDropdown'),
+        window.allBishops,
+        b => b.name,
+        b => b.id
+    );
+    window.attachAutocomplete(
+        document.getElementById('consecrator_search'),
+        document.getElementById('consecrator_id'),
+        document.getElementById('consecratorDropdown'),
+        window.allBishops,
+        b => b.name,
+        b => b.id
+    );
+
     const addCommentBtn = document.getElementById('add-comment-btn');
     const commentForm = document.getElementById('comment-form');
     const newCommentForm = document.getElementById('new-comment-form');
@@ -605,11 +621,12 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Clergy record updated successfully!');
+                    // Show notification instead of alert
+                    showNotification('Clergy record updated successfully!', 'success');
                     // Optionally reload the page to show updated data
                     location.reload();
                 } else {
-                    alert('Error: ' + data.message);
+                    showNotification('Error: ' + data.message, 'danger');
                 }
             })
             .catch(error => {
@@ -951,5 +968,30 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Add a notification function if not present
+function showNotification(message, type) {
+    // type: 'success', 'danger', etc.
+    let container = document.getElementById('notification-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notification-container';
+        container.style.position = 'fixed';
+        container.style.top = '20px';
+        container.style.right = '20px';
+        container.style.zIndex = 9999;
+        document.body.appendChild(container);
+    }
+    const notif = document.createElement('div');
+    notif.className = `alert alert-${type}`;
+    notif.textContent = message;
+    notif.style.minWidth = '220px';
+    notif.style.marginBottom = '10px';
+    notif.style.boxShadow = '0 2px 8px rgba(44,62,80,0.10)';
+    container.appendChild(notif);
+    setTimeout(() => {
+        notif.remove();
+    }, 3000);
+}
 </script>
 {% endblock %} 

@@ -7,12 +7,12 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="btn-group">
             {% if session.user_id and user.can_comment() %}
-            <a href="{{ url_for('routes.clergy_comments', clergy_id=clergy.id) }}" class="btn btn-outline-info">
+            <a href="{{ url_for('clergy.clergy_comments', clergy_id=clergy.id) }}" class="btn btn-outline-info">
                 <i class="fas fa-comments me-2"></i>Comments
             </a>
             {% endif %}
             {% if user.can_edit_clergy() %}
-            <a href="{{ url_for('routes.edit_clergy', clergy_id=clergy.id) }}" class="btn btn-outline-primary">
+            <a href="{{ url_for('clergy.edit_clergy', clergy_id=clergy.id) }}" class="btn btn-outline-primary">
                 <i class="fas fa-edit me-2"></i>Edit
             </a>
             {% endif %}

@@ -5,12 +5,12 @@
 {% block full_content %}
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <a href="{{ url_for('routes.clergy_list') }}" class="btn btn-link">
+        <a href="{{ url_for('clergy.clergy_list') }}" class="btn btn-link">
             <i class="fas fa-arrow-left me-2"></i>Back to List
         </a>
         <div class="btn-group">
             {% if user.can_edit_clergy() %}
-            <a href="{{ url_for('routes.edit_clergy', clergy_id=clergy.id) }}" class="btn btn-outline-primary">
+            <a href="{{ url_for('clergy.edit_clergy', clergy_id=clergy.id) }}" class="btn btn-outline-primary">
                 <i class="fas fa-edit me-2"></i>Edit Record
             </a>
             {% endif %}
@@ -174,7 +174,7 @@
                     <h3 class="h5 mb-0">Comments & Feedback</h3>
                     <div class="btn-group">
                         {% if user.can_resolve_comments() %}
-                        <a href="{{ url_for('routes.view_resolved_comments', clergy_id=clergy.id) }}" class="btn btn-sm btn-outline-secondary">
+                        <a href="{{ url_for('clergy.view_resolved_comments', clergy_id=clergy.id) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="fas fa-check-circle me-2"></i>View Resolved
                         </a>
                         {% endif %}
@@ -445,7 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('field_name', commentFieldName.value);
             formData.append('is_public', document.getElementById('isPublic').checked ? '1' : '0');
             
-            fetch('{{ url_for("routes.add_clergy_comment", clergy_id=clergy.id) }}', {
+            fetch('{{ url_for("clergy.add_clergy_comment", clergy_id=clergy.id) }}', {
                 method: 'POST',
                 body: formData
             })

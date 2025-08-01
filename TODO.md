@@ -135,3 +135,10 @@
 4. Link to relevant issues or pull requests
 5. Use the priority legend to mark importance
 6. Review and update this list weekly 
+
+- [ ] Update all queries that fetch clergy to exclude soft-deleted records (is_deleted=False or deleted_at is None)
+- [ ] Create a testing script for the migration to verify on the remote testing server before pushing to production 
+- [ ] Integrate Flask-Migrate into development workflow:
+    - [ ] Add 'flask db upgrade' to start_dev.sh after database sync and before starting the server
+    - [ ] Optionally add automated tests after migration
+    - [ ] Continue to generate migration scripts manually with 'flask db migrate' when models change 

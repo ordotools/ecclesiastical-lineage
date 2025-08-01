@@ -1,9 +1,15 @@
 from flask import Flask
 from models import db
-from routes import routes
+from init_routes import routes
+from routes.auth import auth_bp
+from routes.clergy import clergy_bp
 from migrations import run_database_migration
 import os
 from dotenv import load_dotenv
+from utils import getContrastColor, getBorderStyle, from_json
+from routes.settings import settings_bp
+from routes.metadata import metadata_bp
+from flask_migrate import Migrate
 
 load_dotenv()
 
@@ -19,9 +25,16 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
-app.register_blueprint(routes)
+migrate = Migrate(app, db)
 
-from routes import getContrastColor, getBorderStyle, from_json
+# Now you can use the 'flask db' CLI commands to manage migrations
+
+app.register_blueprint(routes)
+app.register_blueprint(auth_bp)
+app.register_blueprint(clergy_bp)
+app.register_blueprint(settings_bp)
+app.register_blueprint(metadata_bp)
+
 app.jinja_env.globals['getContrastColor'] = getContrastColor
 app.jinja_env.globals['getBorderStyle'] = getBorderStyle
 app.jinja_env.filters['from_json'] = from_json

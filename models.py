@@ -99,6 +99,8 @@ class Clergy(db.Model):
     notes = db.Column(db.Text)
     ordaining_bishop = db.relationship('Clergy', foreign_keys=[ordaining_bishop_id], remote_side=[id])
     consecrator = db.relationship('Clergy', foreign_keys=[consecrator_id], remote_side=[id])
+    is_deleted = db.Column(db.Boolean, default=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
     def set_co_consecrators(self, co_consecrator_ids):
         if co_consecrator_ids:

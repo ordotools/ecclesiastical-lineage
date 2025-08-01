@@ -109,3 +109,28 @@ def run_database_migration(app):
             db.session.commit()
             print(f"✅ Updated {len(existing_users)} users with Super Admin role")
         print("✅ Database migration completed successfully!") 
+
+# Migration script to add is_deleted and deleted_at columns to clergy table
+from models import db
+from sqlalchemy import Column, Boolean, DateTime
+
+def upgrade():
+    # Add is_deleted and deleted_at columns
+    with db.engine.connect() as conn:
+        conn.execute('ALTER TABLE clergy ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE')
+        conn.execute('ALTER TABLE clergy ADD COLUMN deleted_at TIMESTAMP NULL')
+
+def downgrade():
+    # Remove is_deleted and deleted_at columns
+    with db.engine.connect() as conn:
+        conn.execute('ALTER TABLE clergy DROP COLUMN IF EXISTS is_deleted')
+        conn.execute('ALTER TABLE clergy DROP COLUMN IF EXISTS deleted_at')
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == 'downgrade':
+        downgrade()
+        print('Downgrade complete.')
+    else:
+        upgrade()
+        print('Upgrade complete.') 

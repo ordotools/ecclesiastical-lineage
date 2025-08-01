@@ -148,6 +148,11 @@ with app.app_context():
     print('✅ Local database connection test successful')
 "
 
+# Run database migrations
+echo "🗄️  Running database migrations (flask db upgrade)..."
+flask db upgrade
+echo "✅ Database migrations applied"
+
 echo ""
 echo "🎉 Development environment setup complete!"
 echo ""

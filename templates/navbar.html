@@ -3,16 +3,16 @@
     <a class="navbar-brand py-0" href="/" style="font-size:1.1rem;">Ecclesiastical Lineage</a>
     <div class="d-flex align-items-center ms-auto">
       {% if session.get('is_admin') %}
-        <a class="nav-link px-2" href="{{ url_for('routes.settings') }}" title="Settings">
+        <a class="nav-link px-2" href="{{ url_for('settings.settings') }}" title="Settings">
           <i class="fas fa-cog fa-lg"></i>
         </a>
       {% endif %}
       {% if session.get('user_id') %}
-        <a class="nav-link px-2" href="#" title="Logout" hx-get="{{ url_for('routes.logout') }}" hx-target="body" hx-push-url="true">
+        <a class="nav-link px-2" href="#" title="Logout" hx-get="{{ url_for('auth.logout') }}" hx-target="body" hx-push-url="true">
           <i class="fas fa-sign-out-alt fa-lg"></i>
         </a>
       {% else %}
-        <a class="nav-link px-2" href="{{ url_for('routes.login') }}" title="Login">
+        <a class="nav-link px-2" href="{{ url_for('auth.login') }}" title="Login">
           <i class="fas fa-sign-in-alt fa-lg"></i>
         </a>
       {% endif %}

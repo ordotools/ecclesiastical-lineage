@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: ./deploy_with_migration.sh
+    startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.18
@@ -14,8 +14,6 @@ services:
         fromDatabase:
           name: ecclesiastical-lineage-db
           property: connectionString
-      
-        value: true
 
 databases:
   - name: ecclesiastical-lineage-db

@@ -1,8 +1,9 @@
 from flask import Flask
 from models import db
-from init_routes import routes
+# from init_routes import routes  # Temporarily disabled due to route conflicts
 from routes.auth import auth_bp
 from routes.clergy import clergy_bp
+from routes.main import main_bp
 from migrations import run_database_migration
 import os
 from dotenv import load_dotenv
@@ -27,11 +28,10 @@ db.init_app(app)
 
 migrate = Migrate(app, db)
 
-# Now you can use the 'flask db' CLI commands to manage migrations
-
-app.register_blueprint(routes)
+# app.register_blueprint(routes)  # Temporarily disabled due to route conflicts
 app.register_blueprint(auth_bp)
 app.register_blueprint(clergy_bp)
+app.register_blueprint(main_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(metadata_bp)
 
@@ -42,4 +42,4 @@ app.jinja_env.filters['from_json'] = from_json
 if __name__ == '__main__':
     with app.app_context():
         run_database_migration(app)
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5001)

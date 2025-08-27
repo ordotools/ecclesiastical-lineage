@@ -2,6 +2,10 @@
 
 {% block title %}Edit {{ clergy.name }} - Comments & Details{% endblock %}
 
+{% block extra_styles %}
+<link rel="stylesheet" href="/static/css/clergyForm.css">
+{% endblock %}
+
 {% block full_content %}
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -15,206 +19,12 @@
     <div class="row">
         <!-- Left Column: Edit Form -->
         <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="h4 mb-0">Edit {{ clergy.name }}</h2>
-                </div>
-                <div class="card-body">
-                    <form id="editClergyForm" method="POST">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="name" class="form-label">Name *</label>
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" id="name" name="name" value="{{ clergy.name }}" required>
-                                        {% if user.can_comment() %}
-                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="name" data-field-label="Name" 
-                                                title="Add comment about this field">
-                                            <i class="fas fa-comment"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="rank" class="form-label">Rank *</label>
-                                    <div class="input-group">
-                                        <select class="form-select" id="rank" name="rank" required>
-                                            <option value="">Select Rank</option>
-                                            {% for rank in ranks %}
-                                            <option value="{{ rank.name }}" {% if clergy.rank == rank.name %}selected{% endif %}>
-                                                {{ rank.name }}
-                                            </option>
-                                            {% endfor %}
-                                        </select>
-                                        {% if user.can_comment() %}
-                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="rank" data-field-label="Rank" 
-                                                title="Add comment about this field">
-                                            <i class="fas fa-comment"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="organization" class="form-label">Organization</label>
-                                    <div class="input-group">
-                                        <select class="form-select" id="organization" name="organization">
-                                            <option value="">Select Organization</option>
-                                            {% for org in organizations %}
-                                            <option value="{{ org.name }}" {% if clergy.organization == org.name %}selected{% endif %}>
-                                                {{ org.name }}
-                                            </option>
-                                            {% endfor %}
-                                        </select>
-                                        {% if user.can_comment() %}
-                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="organization" data-field-label="Organization">
-                                            <i class="fas fa-comment"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="date_of_birth" class="form-label">Date of Birth</label>
-                                    <div class="input-group">
-                                        <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
-                                               value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if clergy.date_of_birth else '' }}">
-                                        {% if user.can_comment() %}
-                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="date_of_birth" data-field-label="Date of Birth">
-                                            <i class="fas fa-comment"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="date_of_ordination" class="form-label">Date of Ordination</label>
-                                    <div class="input-group">
-                                        <input type="date" class="form-control" id="date_of_ordination" name="date_of_ordination" 
-                                               value="{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '' }}">
-                                        {% if user.can_comment() %}
-                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="date_of_ordination" data-field-label="Date of Ordination">
-                                            <i class="fas fa-comment"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="ordaining_bishop_search" class="form-label">Ordaining Bishop</label>
-                                    <div class="input-group position-relative">
-                                        <input type="text" class="form-control bishop-search-input" id="ordaining_bishop_search" placeholder="Type to search bishops..." autocomplete="off" value="{% if clergy.ordaining_bishop %}{{ clergy.ordaining_bishop.display_name if clergy.ordaining_bishop.display_name is defined else clergy.ordaining_bishop.name }}{% endif %}">
-                                        <input type="hidden" id="ordaining_bishop_id" name="ordaining_bishop_id" value="{{ clergy.ordaining_bishop_id or '' }}">
-                                        <div class="autocomplete-dropdown" id="ordainingBishopDropdown" style="position:absolute;top:100%;left:0;width:100%;z-index:20;display:none;"></div>
-                                        {% if user.can_comment() %}
-                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="ordaining_bishop_id" data-field-label="Ordaining Bishop">
-                                            <i class="fas fa-comment"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="date_of_consecration" class="form-label">Date of Consecration</label>
-                                    <div class="input-group">
-                                        <input type="date" class="form-control" id="date_of_consecration" name="date_of_consecration" 
-                                               value="{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else '' }}">
-                                        {% if user.can_comment() %}
-                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="date_of_consecration" data-field-label="Date of Consecration">
-                                            <i class="fas fa-comment"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="consecrator_search" class="form-label">Principal Consecrator</label>
-                                    <div class="input-group position-relative">
-                                        <input type="text" class="form-control bishop-search-input" id="consecrator_search" placeholder="Type to search bishops..." autocomplete="off" value="{% if clergy.consecrator %}{{ clergy.consecrator.display_name if clergy.consecrator.display_name is defined else clergy.consecrator.name }}{% endif %}">
-                                        <input type="hidden" id="consecrator_id" name="consecrator_id" value="{{ clergy.consecrator_id or '' }}">
-                                        <div class="autocomplete-dropdown" id="consecratorDropdown" style="position:absolute;top:100%;left:0;width:100%;z-index:20;display:none;"></div>
-                                        {% if user.can_comment() %}
-                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="consecrator_id" data-field-label="Principal Consecrator">
-                                            <i class="fas fa-comment"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="date_of_death" class="form-label">Date of Death</label>
-                                    <div class="input-group">
-                                        <input type="date" class="form-control" id="date_of_death" name="date_of_death" 
-                                               value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if clergy.date_of_death else '' }}">
-                                        {% if user.can_comment() %}
-                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="date_of_death" data-field-label="Date of Death">
-                                            <i class="fas fa-comment"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="co_consecrators" class="form-label">Co-Consecrators (comma-separated IDs)</label>
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" id="co_consecrators" name="co_consecrators" 
-                                               value="{{ clergy.get_co_consecrators()|join(',') if clergy.get_co_consecrators() else '' }}"
-                                               placeholder="e.g., 1,2,3">
-                                        {% if user.can_comment() %}
-                                        <button type="button" class="btn btn-outline-secondary comment-btn" data-field="co_consecrators" data-field-label="Co-Consecrators">
-                                            <i class="fas fa-comment"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="notes" class="form-label">Notes</label>
-                            <div class="input-group">
-                                <textarea class="form-control" id="notes" name="notes" rows="3">{{ clergy.notes or '' }}</textarea>
-                                {% if user.can_comment() %}
-                                <button type="button" class="btn btn-outline-secondary comment-btn" data-field="notes" data-field-label="Notes">
-                                    <i class="fas fa-comment"></i>
-                                </button>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-2"></i>Save Changes
-                            </button>
-                            <a href="{{ url_for('clergy.view_clergy', clergy_id=clergy.id) }}" class="btn btn-secondary">
-                                Cancel
-                            </a>
-                        </div>
-                    </form>
-                </div>
-            </div>
+            {% from '_clergy_form.html' import clergy_form %}
+            {{ clergy_form({
+                'ranks': ranks,
+                'organizations': organizations,
+                'cancel_url': url_for('clergy.view_clergy', clergy_id=clergy.id)
+            }, clergy=clergy, edit_mode=True, user=user) }}
         </div>
 
         <!-- Right Column: Comments -->
@@ -470,14 +280,7 @@
 <script src="/static/js/fuzzySearch.js"></script>
 {% endblock %}
 <script>
-window.allBishops = [
-    {% for bishop in all_bishops_suggested %}
-    {
-        id: {{ bishop.id }},
-        name: `{{ bishop.name }}`
-    },
-    {% endfor %}
-];
+window.allBishops = {{ all_bishops_suggested | tojson | safe }};
 
 document.addEventListener('DOMContentLoaded', function() {
     // Use the new attachAutocomplete utility for both bishop fields
@@ -505,7 +308,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const commentField = document.getElementById('comment-field');
     const commentFieldName = document.getElementById('comment-field-name');
     const commentContent = document.getElementById('comment-content');
-    const editForm = document.getElementById('editClergyForm');
+    const editForm = document.getElementById('clergyForm');
     const connectionLines = document.getElementById('connection-lines');
 
     // Handle add comment button
@@ -648,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An error occurred while saving the record: ' + error.message);
+                showNotification('An error occurred while saving the record: ' + error.message, 'danger');
             });
         });
     }

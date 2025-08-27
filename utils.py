@@ -11,15 +11,15 @@ def require_permission(permission):
         def decorated_function(*args, **kwargs):
             if 'user_id' not in session:
                 flash('Please log in to access this feature.', 'error')
-                return redirect(url_for('routes.login'))
+                return redirect(url_for('auth.login'))
             user = User.query.get(session['user_id'])
             if not user or not user.is_active:
                 session.clear()
                 flash('User not found or inactive. Please log in again.', 'error')
-                return redirect(url_for('routes.login'))
+                return redirect(url_for('auth.login'))
             if not user.has_permission(permission):
                 flash('You do not have permission to access this feature.', 'error')
-                return redirect(url_for('routes.dashboard'))
+                return redirect(url_for('auth.dashboard'))
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -92,7 +92,7 @@ def from_json(value):
 
 def generate_breadcrumbs(current_page, **kwargs):
     breadcrumbs = [
-        {'text': 'Dashboard', 'url': url_for('routes.dashboard')}
+        {'text': 'Dashboard', 'url': url_for('auth.dashboard')}
     ]
     if current_page == 'dashboard':
         breadcrumbs = [{'text': 'Dashboard', 'url': ''}]

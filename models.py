@@ -97,6 +97,8 @@ class Clergy(db.Model):
     co_consecrators = db.Column(db.Text)
     date_of_death = db.Column(db.Date)
     notes = db.Column(db.Text)
+    image_url = db.Column(db.Text)  # Store base64 image data or file path
+    image_data = db.Column(db.Text)  # Store JSON with multiple image sizes
     ordaining_bishop = db.relationship('Clergy', foreign_keys=[ordaining_bishop_id], remote_side=[id])
     consecrator = db.relationship('Clergy', foreign_keys=[consecrator_id], remote_side=[id])
     is_deleted = db.Column(db.Boolean, default=False)
@@ -121,6 +123,26 @@ class Clergy(db.Model):
             return False
         if self.date_of_death and date > self.date_of_death:
             return False
+        return True
+
+    def was_bishop_on(self, date):
+        """Return True if this clergy was a bishop on the given date (or if date unknown, assume yes if currently bishop)."""
+        if not date:
+            return self.rank and 'bishop' in self.rank.lower()
+        
+        # If they're not currently a bishop, they weren't a bishop on that date
+        if not self.rank or 'bishop' not in self.rank.lower():
+            return False
+        
+        # Check if they were alive on that date
+        if not self.was_alive_on(date):
+            return False
+        
+        # Check if they were already a bishop on that date
+        # If they have a consecration date, they must have been consecrated before or on that date
+        if self.date_of_consecration and date < self.date_of_consecration:
+            return False
+        
         return True
 
     def __repr__(self):

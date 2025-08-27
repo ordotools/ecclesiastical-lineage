@@ -10,7 +10,7 @@ settings_bp = Blueprint('settings', __name__)
 def settings():
     if 'user_id' not in session or not session.get('is_admin'):
         flash('Admin access required.', 'error')
-        return redirect(url_for('routes.login'))
+        return redirect(url_for('auth.login'))
     user = User.query.get(session['user_id'])
     
     # Filter roles based on user permissions
@@ -36,7 +36,7 @@ def settings():
 def generate_admin_invite():
     if 'user_id' not in session or not session.get('is_admin'):
         flash('Admin access required.', 'error')
-        return redirect(url_for('routes.login'))
+        return redirect(url_for('auth.login'))
     
     user = User.query.get(session['user_id'])
     
@@ -130,12 +130,12 @@ def generate_admin_invite():
 def change_password():
     if 'user_id' not in session:
         flash('You must be logged in to change your password.', 'error')
-        return redirect(url_for('routes.login'))
+        return redirect(url_for('auth.login'))
     
     user = User.query.get(session['user_id'])
     if not user:
         flash('User not found.', 'error')
-        return redirect(url_for('routes.login'))
+        return redirect(url_for('auth.login'))
     
     current_password = request.form.get('current_password')
     new_password = request.form.get('new_password')
@@ -177,7 +177,7 @@ def change_password():
 def metadata():
     if 'user_id' not in session or not session.get('is_admin'):
         flash('Admin access required.', 'error')
-        return redirect(url_for('routes.login'))
+        return redirect(url_for('auth.login'))
     user = User.query.get(session['user_id'])
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
@@ -223,7 +223,7 @@ def add_rank():
 def user_management():
     if 'user_id' not in session or not session.get('is_admin'):
         flash('Admin access required.', 'error')
-        return redirect(url_for('routes.login'))
+        return redirect(url_for('auth.login'))
     user = User.query.get(session['user_id'])
     breadcrumbs = generate_breadcrumbs('user_management')
     return render_template('user_management.html', user=user, breadcrumbs=breadcrumbs)
@@ -232,7 +232,7 @@ def user_management():
 def comments_management():
     if 'user_id' not in session or not session.get('is_admin'):
         flash('Admin access required.', 'error')
-        return redirect(url_for('routes.login'))
+        return redirect(url_for('auth.login'))
     user = User.query.get(session['user_id'])
     comments = ClergyComment.query.order_by(ClergyComment.created_at.desc()).all()
     breadcrumbs = generate_breadcrumbs('comments_management')
@@ -242,7 +242,7 @@ def comments_management():
 def audit_logs():
     if 'user_id' not in session or not session.get('is_admin'):
         flash('Admin access required.', 'error')
-        return redirect(url_for('routes.login'))
+        return redirect(url_for('auth.login'))
     
     user = User.query.get(session['user_id'])
     page = request.args.get('page', 1, type=int)

@@ -130,9 +130,9 @@
         });
     }
 
-    // Ordaining Bishop logic
-    const ordInput = document.getElementById('ordaining_bishop_input');
-    const ordDropdown = document.getElementById('ordaining_bishop_dropdown');
+    // Ordaining Bishop logic - handle both old and new field names
+    const ordInput = document.getElementById('ordaining_bishop_search') || document.getElementById('ordaining_bishop_input');
+    const ordDropdown = document.getElementById('ordainingBishopDropdown') || document.getElementById('ordaining_bishop_dropdown');
     const ordHidden = document.getElementById('ordaining_bishop_id');
     if (ordInput && ordDropdown && ordHidden) {
         window.attachAutocomplete(
@@ -144,9 +144,9 @@
             c => c.id
         );
     }
-    // Consecrator logic
-    const consInput = document.getElementById('consecrator_input');
-    const consDropdown = document.getElementById('consecrator_dropdown');
+    // Consecrator logic - handle both old and new field names
+    const consInput = document.getElementById('consecrator_search') || document.getElementById('consecrator_input');
+    const consDropdown = document.getElementById('consecratorDropdown') || document.getElementById('consecrator_dropdown');
     const consHidden = document.getElementById('consecrator_id');
     if (consInput && consDropdown && consHidden) {
         window.attachAutocomplete(

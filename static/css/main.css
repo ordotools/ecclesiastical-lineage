@@ -1473,6 +1473,27 @@ h6 {
     }
 } 
 
+/* ===== IMAGE UPLOAD STYLES ===== */
+/* Moved to clergyForm.css to avoid conflicts */
+
+/* Cropping modal styles */
+.crop-container {
+    max-height: 500px;
+    overflow: hidden;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+}
+
+.crop-controls {
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.cropper-container {
+    max-height: 500px;
+}
+
 /* Autocomplete dropdown styles */
 .autocomplete-dropdown {
   position: absolute;

@@ -53,7 +53,7 @@ def clergy_comments(clergy_id):
     breadcrumbs = generate_breadcrumbs('clergy_comments', clergy.name)
     return render_template('clergy_comments.html', clergy=clergy, breadcrumbs=breadcrumbs)
 
-@clergy_bp.route('/clergy/<int:clergy_id>/comments/add', methods=['POST'])
+@clergy_bp.route('/clergy/<int:clergy_id>/add-comment', methods=['POST'])
 def add_clergy_comment(clergy_id):
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Not authenticated'}), 401
@@ -127,3 +127,9 @@ def delete_clergy(clergy_id):
             details={'message': result['message']}
         )
     return jsonify(result) 
+
+
+
+@clergy_bp.route('/clergy/filtered-bishops')
+def get_filtered_bishops():
+    return clergy_service.get_filtered_bishops_handler() 

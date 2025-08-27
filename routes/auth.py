@@ -6,6 +6,32 @@ from datetime import datetime
 
 auth_bp = Blueprint('auth', __name__)
 
+@auth_bp.route('/')
+def index():
+    # Check if user is logged in
+    if 'user_id' in session:
+        # User is logged in, redirect to dashboard
+        return redirect(url_for('auth.dashboard'))
+    else:
+        # User is not logged in, redirect to lineage visualization
+        return redirect(url_for('main.lineage_visualization'))
+
+@auth_bp.route('/dashboard')
+def dashboard():
+    if 'user_id' not in session:
+        flash('Please log in to access the dashboard.', 'error')
+        return redirect(url_for('auth.login'))
+    
+    from models import User
+    user = User.query.get(session['user_id'])
+    if not user:
+        session.clear()
+        flash('User not found. Please log in again.', 'error')
+        return redirect(url_for('auth.login'))
+    
+    breadcrumbs = generate_breadcrumbs('dashboard')
+    return render_template('dashboard.html', user=user, breadcrumbs=breadcrumbs)
+
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 @audit_log(
     action='create',

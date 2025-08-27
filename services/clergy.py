@@ -33,6 +33,66 @@ def create_clergy_from_form(form):
     if co_consecrators:
         co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
         clergy.set_co_consecrators(co_consecrator_ids)
+    
+    # Handle image upload for new clergy
+    # New comprehensive image system: 64x64 for lineage, 320x320 for detail views
+    image_data_json = form.get('image_data_json')
+    if image_data_json:
+        try:
+            import json
+            image_data = json.loads(image_data_json)
+            
+            # Store the lineage image (48x48) as the main image_url for lineage visualization
+            clergy.image_url = image_data.get('lineage', '')
+            
+            # Store the comprehensive image data as a JSON field for future use
+            clergy.image_data = image_data_json
+            
+            # Log the image data received
+            lineage_image = image_data.get('lineage', '')
+            detail_image = image_data.get('detail', '')
+            cropped_image = image_data.get('cropped', '')
+            original_image = image_data.get('original', '')
+            
+            print(f"Comprehensive image data received for new clergy:")
+            print(f"  - Lineage (48x48): {len(lineage_image or '')} chars")
+            print(f"  - Detail (320x320): {len(detail_image or '')} chars")
+            print(f"  - Cropped: {len(cropped_image or '')} chars")
+            print(f"  - Original: {len(original_image or '')} chars")
+            
+            # Store metadata if available
+            if 'metadata' in image_data:
+                metadata = image_data['metadata']
+                print(f"  - Original file size: {metadata.get('originalSize', 0)} bytes")
+                print(f"  - Quality setting: {metadata.get('quality', 'unknown')}")
+                print(f"  - Cropped quality: {metadata.get('croppedQuality', 'unknown')}")
+                print(f"  - Crop dimensions: {metadata.get('cropDimensions', {})}")
+                
+        except json.JSONDecodeError as e:
+            print(f"Error parsing image data JSON: {e}")
+            # Fallback to processed_image_data if available
+            processed_image_data = form.get('processed_image_data')
+            if processed_image_data:
+                clergy.image_url = processed_image_data
+                print(f"Processed image data received for new clergy: {len(processed_image_data)} characters")
+    elif form.get('processed_image_data'):
+        processed_image_data = form.get('processed_image_data')
+        clergy.image_url = processed_image_data
+        print(f"Processed image data received for new clergy: {len(processed_image_data)} characters")
+    
+    # Also handle file uploads for new clergy (fallback)
+    if 'clergy_image' in form and hasattr(form['clergy_image'], 'filename') and form['clergy_image'].filename:
+        file = form['clergy_image']
+        if file and file.filename:
+            # Store the actual file content as base64
+            import base64
+            file_content = file.read()
+            file.seek(0)  # Reset file pointer
+            base64_data = base64.b64encode(file_content).decode('utf-8')
+            mime_type = file.content_type or 'image/jpeg'
+            clergy.image_url = f"data:{mime_type};base64,{base64_data}"
+            print(f"File converted to base64 for new clergy: {len(base64_data)} characters")
+    
     db.session.add(clergy)
     db.session.commit()
     return clergy
@@ -140,12 +200,32 @@ def add_clergy_handler():
         }
         for clergy_member in all_clergy
     ]
+    
+    # For add form, provide all bishops initially (filtering will be done client-side based on dates)
+    all_bishops = Clergy.query.filter(
+        Clergy.rank.ilike('%bishop%')
+    ).order_by(Clergy.name).all()
+    
+    # Convert to list of dictionaries with temporal data for client-side filtering
+    all_bishops_suggested = [
+        {
+            'id': bishop.id,
+            'name': bishop.name,
+            'rank': bishop.rank,
+            'date_of_birth': bishop.date_of_birth.isoformat() if bishop.date_of_birth else None,
+            'date_of_death': bishop.date_of_death.isoformat() if bishop.date_of_death else None,
+            'date_of_consecration': bishop.date_of_consecration.isoformat() if bishop.date_of_consecration else None
+        }
+        for bishop in all_bishops
+    ]
+    
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
     breadcrumbs = generate_breadcrumbs('add_clergy')
     return None, render_template('add_clergy.html', 
                          all_clergy=all_clergy, 
                          all_clergy_data=all_clergy_data,
+                         all_bishops_suggested=all_bishops_suggested,
                          ranks=ranks,
                          organizations=organizations,
                          breadcrumbs=breadcrumbs) 
@@ -203,6 +283,70 @@ def edit_clergy_handler(clergy_id):
                 co_consecrators = request.form.get('co_consecrators')
                 date_of_death = request.form.get('date_of_death')
                 clergy.notes = request.form.get('notes')
+                
+                # Handle image upload or removal
+                image_removed = request.form.get('image_removed') == 'true'
+                if image_removed:
+                    # Clear image data when image is removed
+                    clergy.image_url = None
+                    clergy.image_data = None
+                    print(f"Image removed for clergy {clergy.name}")
+                else:
+                    image_data_json = request.form.get('image_data_json')
+                    if image_data_json:
+                        try:
+                            import json
+                            image_data = json.loads(image_data_json)
+                            
+                            # Store the lineage image (64x64) as the main image_url for lineage visualization
+                            clergy.image_url = image_data.get('lineage', '')
+                            
+                            # Store the comprehensive image data as a JSON field for future use
+                            clergy.image_data = image_data_json
+                            
+                            # Log the image data received
+                            lineage_image = image_data.get('lineage', '')
+                            detail_image = image_data.get('detail', '')
+                            cropped_image = image_data.get('cropped', '')
+                            original_image = image_data.get('original', '')
+                            
+                            print(f"Comprehensive image data received for clergy {clergy.name}:")
+                            print(f"  - Lineage (48x48): {len(lineage_image or '')} chars")
+                            print(f"  - Detail (320x320): {len(detail_image or '')} chars")
+                            print(f"  - Cropped: {len(cropped_image or '')} chars")
+                            print(f"  - Original: {len(original_image or '')} chars")
+                            
+                            # Store metadata if available
+                            if 'metadata' in image_data:
+                                metadata = image_data['metadata']
+                                print(f"  - Original file size: {metadata.get('originalSize', 0)} bytes")
+                                print(f"  - Quality setting: {metadata.get('quality', 'unknown')}")
+                                print(f"  - Cropped quality: {metadata.get('croppedQuality', 'unknown')}")
+                                print(f"  - Crop dimensions: {metadata.get('cropDimensions', {})}")
+                                
+                        except json.JSONDecodeError as e:
+                            print(f"Error parsing image data JSON: {e}")
+                            # Fallback to processed_image_data if available
+                            processed_image_data = request.form.get('processed_image_data')
+                            if processed_image_data:
+                                clergy.image_url = processed_image_data
+                                print(f"Processed image data received for clergy {clergy.name}: {len(processed_image_data or '')} characters")
+                    elif request.form.get('processed_image_data'):
+                        processed_image_data = request.form.get('processed_image_data')
+                        clergy.image_url = processed_image_data
+                        print(f"Processed image data received for clergy {clergy.name}: {len(processed_image_data or '')} characters")
+                    elif 'clergy_image' in request.files and request.files['clergy_image'].filename:
+                        # Fallback to file upload if no processed data
+                        file = request.files['clergy_image']
+                        if file and file.filename:
+                            # Store the actual file content as base64
+                            import base64
+                            file_content = file.read()
+                            file.seek(0)  # Reset file pointer for potential future reads
+                            base64_data = base64.b64encode(file_content).decode('utf-8')
+                            mime_type = file.content_type or 'image/jpeg'
+                            clergy.image_url = f"data:{mime_type};base64,{base64_data}"
+                            print(f"File converted to base64 for clergy {clergy.name}: {len(base64_data)} characters")
                 if date_of_birth:
                     clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
                 else:
@@ -363,15 +507,63 @@ def edit_clergy_handler(clergy_id):
         }
         for clergy_member in all_clergy
     ]
+    
+    # Get bishops for the pre-filtered dropdowns with temporal logic
+    # A bishop can only ordain/consecrate if they were:
+    # 1. Alive on the ordination/consecration date
+    # 2. Already a bishop on that date (consecrated before or on that date)
+    all_bishops = Clergy.query.filter(
+        Clergy.rank.ilike('%bishop%')
+    ).order_by(Clergy.name).all()
+    
+    # Filter bishops based on temporal logic
+    def is_valid_bishop_for_dates(bishop, ordination_date, consecration_date):
+        """Check if a bishop was valid for the given ordination and consecration dates."""
+        
+        # For ordaining bishop: must be alive and be a bishop on ordination date
+        if ordination_date:
+            if not bishop.was_bishop_on(ordination_date):
+                return False
+        
+        # For consecrator: must be alive and be a bishop on consecration date
+        if consecration_date:
+            if not bishop.was_bishop_on(consecration_date):
+                return False
+        
+        # If no dates specified, include all bishops
+        return True
+    
+    # Filter bishops based on the clergy's dates
+    ordination_date = clergy.date_of_ordination
+    consecration_date = clergy.date_of_consecration
+    
+    all_bishops_suggested = [
+        bishop for bishop in all_bishops
+        if is_valid_bishop_for_dates(bishop, ordination_date, consecration_date)
+    ]
+    
+    # Convert to list of dictionaries for JSON serialization
+    all_bishops_suggested = [
+        {
+            'id': bishop.id,
+            'name': bishop.name
+        }
+        for bishop in all_bishops_suggested
+    ]
+    
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
     breadcrumbs = generate_breadcrumbs('edit_clergy', clergy=clergy)
-    return render_template('edit_clergy_with_comments.html', 
-                         clergy=clergy, 
+
+
+
+    return render_template('edit_clergy_with_comments.html',
+                         clergy=clergy,
                          user=user,
                          comments=comments,
-                         all_clergy=all_clergy, 
+                         all_clergy=all_clergy,
                          all_clergy_data=all_clergy_data,
+                         all_bishops_suggested=all_bishops_suggested,
                          ranks=ranks,
                          organizations=organizations,
                          org_abbreviation_map=org_abbreviation_map,
@@ -457,3 +649,71 @@ def soft_delete_clergy_handler(clergy_id, user=None):
     clergy.deleted_at = datetime.utcnow()
     db.session.commit()
     return {'success': True, 'message': 'Clergy record soft-deleted successfully!'} 
+
+def get_filtered_bishops_handler():
+    """Get bishops filtered by temporal logic for AJAX requests."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    # Get dates from request parameters
+    ordination_date_str = request.args.get('ordination_date')
+    consecration_date_str = request.args.get('consecration_date')
+    
+    # Convert string dates to date objects
+    ordination_date = None
+    consecration_date = None
+    
+    if ordination_date_str:
+        try:
+            ordination_date = datetime.strptime(ordination_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid ordination date format'}), 400
+    
+    if consecration_date_str:
+        try:
+            consecration_date = datetime.strptime(consecration_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid consecration date format'}), 400
+    
+    # Get all bishops
+    all_bishops = Clergy.query.filter(
+        Clergy.rank.ilike('%bishop%')
+    ).order_by(Clergy.name).all()
+    
+    # Filter bishops based on temporal logic
+    def is_valid_bishop_for_dates(bishop, ord_date, cons_date):
+        """Check if a bishop was valid for the given ordination and consecration dates."""
+        
+        # For ordaining bishop: must be alive and be a bishop on ordination date
+        if ord_date:
+            if not bishop.was_bishop_on(ord_date):
+                return False
+        
+        # For consecrator: must be alive and be a bishop on consecration date
+        if cons_date:
+            if not bishop.was_bishop_on(cons_date):
+                return False
+        
+        # If no dates specified, include all bishops
+        return True
+    
+    # Filter bishops
+    filtered_bishops = [
+        bishop for bishop in all_bishops
+        if is_valid_bishop_for_dates(bishop, ordination_date, consecration_date)
+    ]
+    
+    # Convert to list of dictionaries for JSON serialization
+    bishops_data = [
+        {
+            'id': bishop.id,
+            'name': bishop.name,
+            'rank': bishop.rank,
+            'date_of_birth': bishop.date_of_birth.isoformat() if bishop.date_of_birth else None,
+            'date_of_death': bishop.date_of_death.isoformat() if bishop.date_of_death else None,
+            'date_of_consecration': bishop.date_of_consecration.isoformat() if bishop.date_of_consecration else None
+        }
+        for bishop in filtered_bishops
+    ]
+    
+    return jsonify({'bishops': bishops_data}) 

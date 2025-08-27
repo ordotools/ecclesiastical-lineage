@@ -47,7 +47,7 @@ def signup_handler():
         super_admin_role = Role.query.filter_by(name='Super Admin').first()
         if not super_admin_role:
             # Initialize roles if they don't exist
-            from routes import initialize_roles_and_permissions
+            from migrations import initialize_roles_and_permissions
             initialize_roles_and_permissions()
             super_admin_role = Role.query.filter_by(name='Super Admin').first()
 
@@ -87,8 +87,8 @@ def login_handler():
             db.session.commit()
             flash(f'Welcome back, {username}!', 'success')
             if request.headers.get('HX-Request'):
-                return user, render_template('login_spinner.html', redirect_url=url_for('routes.dashboard'))
-            return user, redirect(url_for('routes.dashboard'))
+                return user, render_template('login_spinner.html', redirect_url=url_for('auth.dashboard'))
+            return user, redirect(url_for('auth.dashboard'))
         else:
             flash('Invalid username or password.', 'error')
             if request.headers.get('HX-Request'):
@@ -106,5 +106,5 @@ def logout_handler():
     session.clear()
     flash('You have been logged out.', 'info')
     if request.headers.get('HX-Request'):
-        return user, render_template('login_spinner.html', redirect_url=url_for('routes.lineage_visualization'))
-    return user, redirect(url_for('routes.lineage_visualization')) 
+        return user, render_template('login_spinner.html', redirect_url=url_for('clergy.lineage_visualization'))
+    return user, redirect(url_for('clergy.lineage_visualization')) 

@@ -19,6 +19,11 @@
   - [ ] Implement zoom and pan controls
   - [ ] Add export functionality (PNG/PDF)
   - [ ] Color-code different types of relationships
+  - [ ] **Image Management System**
+    - [ ] Add image cropping modal with Cropper.js
+    - [ ] Implement multiple image sizes (small for nodes, large for detail pages)
+    - [ ] Add image compression and optimization
+    - [ ] Create detail page for clergy with full-size images
 
 - [ ] **Data Management Improvements**
   - [ ] Data validation and error handling

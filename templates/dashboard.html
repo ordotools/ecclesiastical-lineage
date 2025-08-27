@@ -66,7 +66,7 @@
                             </div>
                         </div>
                         <p class="text-muted">Track and visualize apostolic succession and ecclesiastical lineage.</p>
-                        <a href="{{ url_for('routes.lineage_visualization') }}" class="btn btn-success">
+                        <a href="{{ url_for('main.lineage_visualization') }}" class="btn btn-success">
                             <i class="fas fa-chart-line me-2"></i>View Lineage
                         </a>
                     </div>
@@ -172,22 +172,6 @@
 
 {% block extra_styles %}{% endblock %}
 
-{% block extra_scripts %}
-<script>
-    // Handle logout redirect
-    document.body.addEventListener('htmx:afterRequest', function(evt) {
-        if (evt.detail.xhr.status === 200) {
-            const response = evt.detail.xhr.responseText;
-            if (response.includes('logout')) {
-                const redirectDiv = evt.detail.target.querySelector('#redirect');
-                if (redirectDiv) {
-                    const url = redirectDiv.getAttribute('data-url');
-                    setTimeout(function() {
-                        window.location.href = url;
-                    }, 1000);
-                }
-            }
-        }
-    });
-</script>
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %} 

@@ -148,14 +148,7 @@ fi
 
 # Test the local database connection
 echo "🔍 Testing local database connection..."
-python3 -c "
-import os
-os.environ['DATABASE_URL'] = '$LOCAL_DATABASE_URL'
-from app import app, db
-with app.app_context():
-    db.engine.connect()
-    print('✅ Local database connection test successful')
-"
+python3 -c "import os; os.environ['DATABASE_URL'] = '$LOCAL_DATABASE_URL'; from app import app, db; app.app_context().push(); db.engine.connect(); print('✅ Local database connection test successful')"
 
 # Run database migrations
 echo "🗄️  Running database migrations (flask db upgrade)..."

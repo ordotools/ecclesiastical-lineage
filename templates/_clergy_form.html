@@ -1,0 +1,287 @@
+{% macro clergy_form(fields, clergy=None, edit_mode=False, user=None) %}
+<!-- Include clergy form specific styles -->
+<link href="{{ url_for('static', filename='css/clergyForm.css') }}" rel="stylesheet">
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="h4 mb-0">{% if edit_mode %}Edit {{ clergy.name }}{% else %}Add New Clergy{% endif %}</h2>
+    </div>
+    <div class="card-body">
+        <form id="clergyForm" method="POST" action="{{ fields.form_action or '' }}" enctype="multipart/form-data">
+            <div class="row">
+                <!-- Image upload section -->
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Photo</label>
+                        <div class="image-upload-container">
+                            <div class="image-preview" id="imagePreview">
+                                {% if edit_mode and clergy and clergy.image_data %}
+                                    {% set image_data = clergy.image_data | from_json %}
+                                    {% if image_data and image_data.detail %}
+                                        <img src="{{ image_data.detail }}" alt="{{ clergy.name }}" class="preview-image" id="previewImage"
+                                             data-full-image="{{ clergy.image_data|safe }}">
+                                    {% elif clergy.image_url %}
+                                        <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" class="preview-image" id="previewImage"
+                                             data-full-image="{{ clergy.image_data|safe }}">
+                                    {% endif %}
+                                {% elif edit_mode and clergy and clergy.image_url %}
+                                    <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" class="preview-image" id="previewImage">
+                                {% else %}
+                                    <div class="placeholder-silhouette">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                {% endif %}
+                                <!-- Hover overlay with image tools -->
+                                <div class="image-tools-overlay">
+                                    <input type="file" class="form-control" id="clergyImage" name="clergy_image" accept="image/*" style="display: none;">
+                                    <button type="button" class="btn btn-icon btn-upload" id="uploadBtn" title="Upload Image">
+                                        <i class="fas fa-upload"></i>
+                                    </button>
+                                    {% if edit_mode and clergy and clergy.image_url %}
+                                    <button type="button" class="btn btn-icon btn-crop" id="cropExistingBtn" title="Edit Image">
+                                        <i class="fas fa-crop"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-icon btn-remove" id="removeImageBtn" title="Remove Image">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Form fields section -->
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Name *</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="name" name="name" value="{{ clergy.name if edit_mode and clergy else '' }}" required>
+                            {% if user and user.can_comment() %}
+                            <button type="button" class="btn btn-outline-secondary comment-btn" data-field="name" data-field-label="Name" 
+                                    title="Add comment about this field">
+                                <i class="fas fa-comment"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="rank" class="form-label">Rank *</label>
+                        <div class="input-group">
+                            <select class="form-select" id="rank" name="rank" required>
+                                <option value="">Select Rank</option>
+                                {% for rank in fields.ranks %}
+                                <option value="{{ rank.name }}" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>
+                                    {{ rank.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if user and user.can_comment() %}
+                            <button type="button" class="btn btn-outline-secondary comment-btn" data-field="rank" data-field-label="Rank" 
+                                    title="Add comment about this field">
+                                <i class="fas fa-comment"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="organization" class="form-label">Organization</label>
+                        <div class="input-group">
+                            <select class="form-select" id="organization" name="organization">
+                                <option value="">Select Organization</option>
+                                {% for org in fields.organizations %}
+                                <option value="{{ org.name }}" {% if edit_mode and clergy and clergy.organization == org.name %}selected{% endif %}>
+                                    {{ org.name }}{% if org.abbreviation %} ({{ org.abbreviation }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if not user or not user.can_comment() %}
+                            <button class="btn btn-outline-primary" type="button" onclick="openAddOrganizationModal()" title="Add new organization">
+                                <i class="fas fa-plus me-1"></i>New
+                            </button>
+                            {% else %}
+                            <button type="button" class="btn btn-outline-secondary comment-btn" data-field="organization" data-field-label="Organization">
+                                <i class="fas fa-comment"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="date_of_birth" class="form-label">Date of Birth</label>
+                        <div class="input-group">
+                            <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
+                                   value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}">
+                            {% if user and user.can_comment() %}
+                            <button type="button" class="btn btn-outline-secondary comment-btn" data-field="date_of_birth" data-field-label="Date of Birth">
+                                <i class="fas fa-comment"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="date_of_ordination" class="form-label">Date of Ordination</label>
+                        <div class="input-group">
+                            <input type="date" class="form-control" id="date_of_ordination" name="date_of_ordination" 
+                                   value="{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_ordination else '' }}">
+                            {% if user and user.can_comment() %}
+                            <button type="button" class="btn btn-outline-secondary comment-btn" data-field="date_of_ordination" data-field-label="Date of Ordination">
+                                <i class="fas fa-comment"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="ordaining_bishop_search" class="form-label">Ordaining Bishop</label>
+                        <div class="input-group position-relative">
+                            <input type="text" class="form-control bishop-search-input" id="ordaining_bishop_search" name="ordaining_bishop_input" 
+                                   placeholder="Type to search bishops..." autocomplete="off" 
+                                   value="{% if edit_mode and clergy and clergy.ordaining_bishop %}{{ clergy.ordaining_bishop.display_name if clergy.ordaining_bishop.display_name is defined else clergy.ordaining_bishop.name }}{% endif %}">
+                            <input type="hidden" id="ordaining_bishop_id" name="ordaining_bishop_id" value="{{ clergy.ordaining_bishop_id if edit_mode and clergy else '' }}">
+                            <div class="autocomplete-dropdown" id="ordainingBishopDropdown" style="position:absolute;top:100%;left:0;width:100%;z-index:20;display:none;"></div>
+                            {% if user and user.can_comment() %}
+                            <button type="button" class="btn btn-outline-secondary comment-btn" data-field="ordaining_bishop_id" data-field-label="Ordaining Bishop">
+                                <i class="fas fa-comment"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="date_of_consecration" class="form-label">Date of Consecration</label>
+                        <div class="input-group">
+                            <input type="date" class="form-control" id="date_of_consecration" name="date_of_consecration" 
+                                   value="{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_consecration else '' }}">
+                            {% if user and user.can_comment() %}
+                            <button type="button" class="btn btn-outline-secondary comment-btn" data-field="date_of_consecration" data-field-label="Date of Consecration">
+                                <i class="fas fa-comment"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="consecrator_search" class="form-label">Principal Consecrator</label>
+                        <div class="input-group position-relative">
+                            <input type="text" class="form-control bishop-search-input" id="consecrator_search" name="consecrator_input" 
+                                   placeholder="Type to search bishops..." autocomplete="off" 
+                                   value="{% if edit_mode and clergy and clergy.consecrator %}{{ clergy.consecrator.display_name if clergy.consecrator.display_name is defined else clergy.consecrator.name }}{% endif %}">
+                            <input type="hidden" id="consecrator_id" name="consecrator_id" value="{{ clergy.consecrator_id if edit_mode and clergy else '' }}">
+                            <div class="autocomplete-dropdown" id="consecratorDropdown" style="position:absolute;top:100%;left:0;width:100%;z-index:20;display:none;"></div>
+                            {% if user and user.can_comment() %}
+                            <button type="button" class="btn btn-outline-secondary comment-btn" data-field="consecrator_id" data-field-label="Principal Consecrator">
+                                <i class="fas fa-comment"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="date_of_death" class="form-label">Date of Death</label>
+                        <div class="input-group">
+                            <input type="date" class="form-control" id="date_of_death" name="date_of_death" 
+                                   value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}">
+                            {% if user and user.can_comment() %}
+                            <button type="button" class="btn btn-outline-secondary comment-btn" data-field="date_of_death" data-field-label="Date of Death">
+                                <i class="fas fa-comment"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="co_consecrators" class="form-label">Co-Consecrators (comma-separated IDs)</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="co_consecrators" name="co_consecrators" 
+                                   value="{{ clergy.get_co_consecrators()|join(',') if edit_mode and clergy and clergy.get_co_consecrators() else '' }}"
+                                   placeholder="e.g., 1,2,3">
+                            {% if user and user.can_comment() %}
+                            <button type="button" class="btn btn-outline-secondary comment-btn" data-field="co_consecrators" data-field-label="Co-Consecrators">
+                                <i class="fas fa-comment"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="notes" class="form-label">Notes</label>
+                <div class="input-group">
+                    <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Additional notes about this clergy member...">{{ clergy.notes if edit_mode and clergy else '' }}</textarea>
+                    {% if user and user.can_comment() %}
+                    <button type="button" class="btn btn-outline-secondary comment-btn" data-field="notes" data-field-label="Notes">
+                        <i class="fas fa-comment"></i>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-2"></i>{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}
+                </button>
+                <a href="{{ fields.cancel_url or url_for('clergy.clergy_list') }}" class="btn btn-secondary">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Organization Modal (only for add mode) -->
+{% if not edit_mode %}
+<div class="modal fade" id="addOrganizationModal" tabindex="-1" aria-labelledby="addOrganizationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addOrganizationModalLabel">Add New Organization</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addOrganizationForm">
+                    <div class="mb-3">
+                        <label for="new-organization-name" class="form-label">Organization Name *</label>
+                        <input type="text" class="form-control" id="new-organization-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new-organization-abbreviation" class="form-label">Abbreviation</label>
+                        <input type="text" class="form-control" id="new-organization-abbreviation" placeholder="Optional short code">
+                    </div>
+                    <div class="mb-3">
+                        <label for="new-organization-description" class="form-label">Description</label>
+                        <textarea class="form-control" id="new-organization-description" rows="3" placeholder="Optional description"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="addOrganization()">Add Organization</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Include the dedicated image editor modal -->
+{% include '_image_editor_modal.html' %}
+{% endmacro %}

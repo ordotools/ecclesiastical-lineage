@@ -123,11 +123,20 @@ fi
 
 echo "✅ Local environment configured"
 
-# Activate virtual environment if it exists
+# Activate virtual environment if it exists, or create one
 if [ -d "env" ]; then
-  echo "🐍 Activating virtual environment..."
+  echo "🐍 Activating existing virtual environment..."
   source env/bin/activate
   echo "✅ Virtual environment activated"
+  
+  # Check if dependencies are installed
+  if ! python3 -c "import flask" 2>/dev/null; then
+    echo "📦 Installing dependencies in existing virtual environment..."
+    pip install -r requirements.txt
+    echo "✅ Dependencies installed"
+  else
+    echo "✅ Dependencies already installed"
+  fi
 else
   echo "⚠️  Virtual environment not found. Creating one..."
   python3 -m venv env
@@ -147,6 +156,11 @@ with app.app_context():
     db.engine.connect()
     print('✅ Local database connection test successful')
 "
+
+# Run database migrations
+echo "🗄️  Running database migrations (flask db upgrade)..."
+flask db upgrade
+echo "✅ Database migrations applied"
 
 echo ""
 echo "🎉 Development environment setup complete!"

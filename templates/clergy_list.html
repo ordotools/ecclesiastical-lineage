@@ -8,11 +8,11 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h2 mb-0">Clergy Records</h1>
         <div class="d-flex gap-2">
-            <a href="{{ url_for('routes.lineage_visualization') }}" class="btn btn-success">
+            <a href="{{ url_for('main.lineage_visualization') }}" class="btn btn-success">
                 <i class="fas fa-chart-line me-2"></i>View Lineage
             </a>
             {% if user and user.can_manage_metadata() %}
-            <a href="{{ url_for('routes.metadata') }}" class="btn btn-info">
+            <a href="{{ url_for('settings.metadata') }}" class="btn btn-info">
                 <i class="fas fa-cogs me-2"></i>Metadata
             </a>
             {% endif %}
@@ -54,7 +54,7 @@
                         <small class="form-text text-muted">Hold Ctrl (Cmd on Mac) to select multiple.</small>
                     </div>
                     <div class="d-flex justify-content-end mt-2">
-                        <a href="{{ url_for('routes.clergy_list') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+                        <a href="{{ url_for('clergy.clergy_list') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
                     </div>
                 </form>
             </div>
@@ -85,7 +85,7 @@
                 <table class="table mb-0 sticky-table sticky-table-body">
                     <tbody id="clergyTableBody">
                         {% for clergy in clergy_list %}
-                        <tr class="clergy-row" data-clergy-id="{{ clergy.id }}" {% if user and user.can_edit_clergy() %}style="cursor: pointer;"{% endif %}>
+                        <tr class="clergy-row" data-clergy-id="{{ clergy.id }}" data-can-edit="{{ 'true' if user and user.can_edit_clergy() else 'false' }}" {% if user and user.can_edit_clergy() %}style="cursor: pointer;"{% endif %}>
                             <td class="name-col">
                                 <strong>{{ clergy.display_name }}</strong>
                                 {% if not clergy.ordaining_bishop or (clergy.rank and clergy.rank.lower() == 'bishop' and not clergy.consecrator) %}
@@ -119,7 +119,7 @@
                     <h4 class="mt-3">No Clergy Records Found</h4>
                     <p class="mb-4">Start by adding your first clergy record.</p>
                     {% if user and user.can_edit_clergy() %}
-                    <a href="{{ url_for('routes.add_clergy') }}" class="btn btn-primary">
+                    <a href="{{ url_for('clergy.add_clergy') }}" class="btn btn-primary">
                         <i class="fas fa-plus me-2"></i>Add First Clergy Record
                     </a>
                     {% endif %}
@@ -152,122 +152,8 @@
 {% block extra_scripts %}
 <script>
 window.allClergyData = {{ all_clergy_json | safe }};
+window.canComment = {{ 'true' if user and user.can_comment() else 'false' }};
 </script>
 <script src="/static/js/fuzzySearch.js"></script>
-<script>
-function attachClergyRowClickHandlers() {
-    document.querySelectorAll('.clergy-row').forEach(row => {
-        row.removeEventListener('click', clergyRowClickHandler);
-        // Add click handler if user can edit clergy OR comment
-        const canEdit = document.getElementById('addClergyBtn') !== null;
-        const canComment = {{ 'true' if user and user.can_comment() else 'false' }};
-        if (canEdit || canComment) {
-            row.addEventListener('click', clergyRowClickHandler);
-        }
-    });
-}
-
-function clergyRowClickHandler() {
-    const clergyId = this.dataset.clergyId;
-    // Navigate to the integrated view instead of opening a modal
-    window.location.href = `/clergy/${clergyId}`;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Search functionality
-    const searchInput = document.getElementById('clergySearchInput');
-    const clearSearchBtn = document.getElementById('clearSearchBtn');
-    const tableRows = document.querySelectorAll('.clergy-row');
-    
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.trim();
-            
-            // Show/hide clear button
-            if (searchTerm.length > 0) {
-                clearSearchBtn.style.display = 'block';
-            } else {
-                clearSearchBtn.style.display = 'none';
-            }
-            
-            // Normalize search term (remove accents, lowercase)
-            const normalizedSearchTerm = searchTerm
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-                .toLowerCase();
-            
-            // Filter table rows
-            tableRows.forEach(row => {
-                const nameCell = row.querySelector('.name-col');
-                if (nameCell) {
-                    const nameText = nameCell.textContent;
-                    // Normalize name text the same way
-                    const normalizedName = nameText
-                        .normalize('NFD')
-                        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-                        .toLowerCase();
-                    
-                    if (normalizedName.includes(normalizedSearchTerm)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                }
-            });
-        });
-        
-        // Clear search functionality
-        if (clearSearchBtn) {
-            clearSearchBtn.addEventListener('click', function() {
-                searchInput.value = '';
-                searchInput.dispatchEvent(new Event('input'));
-            });
-        }
-    }
-
-    // Modal AJAX logic
-    const modalContainer = document.getElementById('clergyModalContainer');
-    const addClergyBtn = document.getElementById('addClergyBtn');
-    if (addClergyBtn) {
-        addClergyBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            fetch('/clergy/modal/add')
-                .then(response => response.text())
-                .then(html => {
-                    modalContainer.innerHTML = '';
-                    modalContainer.innerHTML = html;
-                    // Evaluate any inline <script> tags in the loaded HTML
-                    modalContainer.querySelectorAll('script').forEach(script => {
-                        const newScript = document.createElement('script');
-                        if (script.src) {
-                            newScript.src = script.src;
-                        } else {
-                            newScript.textContent = script.textContent;
-                        }
-                        document.body.appendChild(newScript);
-                    });
-                    const modalEl = document.getElementById('clergyModal');
-                    if (modalEl) {
-                        const modal = new bootstrap.Modal(modalEl);
-                        modal.show();
-                    } else {
-                        alert('Failed to load modal!');
-                    }
-                });
-        });
-    }
-    // Call on initial load
-    attachClergyRowClickHandlers();
-});
-document.addEventListener('clergyTableShouldUpdate', function() {
-    console.log('clergyTableShouldUpdate event received');
-    fetch('/clergy/filter_partial')
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById('clergyTableBody').innerHTML = html;
-            console.log('clergyTableBody updated');
-            attachClergyRowClickHandlers(); // <-- re-attach here!
-        });
-});
-</script>
+<script src="{{ url_for('static', filename='js/clergyList.js') }}"></script>
 {% endblock %} 

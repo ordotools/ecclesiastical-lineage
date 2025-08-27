@@ -1,0 +1,191 @@
+from functools import wraps
+import re
+import json
+from flask import request, redirect, url_for, flash, session
+from models import db, AuditLog, User
+
+
+def require_permission(permission):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                flash('Please log in to access this feature.', 'error')
+                return redirect(url_for('auth.login'))
+            user = User.query.get(session['user_id'])
+            if not user or not user.is_active:
+                session.clear()
+                flash('User not found or inactive. Please log in again.', 'error')
+                return redirect(url_for('auth.login'))
+            if not user.has_permission(permission):
+                flash('You do not have permission to access this feature.', 'error')
+                return redirect(url_for('auth.dashboard'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+def audit_log(action, entity_type, get_entity_id=None, get_entity_name=None, get_details=None):
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            result = f(*args, **kwargs)
+            clergy = result[0] if isinstance(result, tuple) else None
+            try:
+                if clergy is not None:
+                    entity_id = get_entity_id(clergy) if get_entity_id else None
+                    entity_name = get_entity_name(clergy) if get_entity_name else None
+                    details = get_details(clergy) if get_details else None
+                    log_audit_event(
+                        action=action,
+                        entity_type=entity_type,
+                        entity_id=entity_id,
+                        entity_name=entity_name,
+                        details=details
+                    )
+            except Exception as e:
+                print(f"Audit log decorator error: {e}")
+            if isinstance(result, tuple):
+                if len(result) == 3:
+                    return result[1], result[2]
+                return result[1]
+            return result
+        return wrapped
+    return decorator
+
+def getContrastColor(hexColor):
+    if not hexColor or not hexColor.startswith('#'):
+        return 'black'
+    hex = hexColor.replace('#', '')
+    if len(hex) != 6:
+        return 'black'
+    try:
+        r = int(hex[0:2], 16)
+        g = int(hex[2:4], 16)
+        b = int(hex[4:6], 16)
+        luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        return 'white' if luminance <= 0.5 else 'black'
+    except (ValueError, IndexError):
+        return 'black'
+
+def getBorderStyle(hexColor):
+    if not hexColor or not hexColor.startswith('#'):
+        return ''
+    hex = hexColor.replace('#', '')
+    if len(hex) != 6:
+        return ''
+    try:
+        r = int(hex[0:2], 16)
+        g = int(hex[2:4], 16)
+        b = int(hex[4:6], 16)
+        luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        if luminance > 0.8:
+            return '; border: 1px solid #ccc'
+        return ''
+    except (ValueError, IndexError):
+        return ''
+
+def from_json(value):
+    try:
+        return json.loads(value)
+    except (ValueError, TypeError):
+        return value
+
+def generate_breadcrumbs(current_page, **kwargs):
+    breadcrumbs = [
+        {'text': 'Dashboard', 'url': url_for('auth.dashboard')}
+    ]
+    if current_page == 'dashboard':
+        breadcrumbs = [{'text': 'Dashboard', 'url': ''}]
+    elif current_page == 'clergy_list':
+        breadcrumbs.append({'text': 'Clergy Records', 'url': ''})
+    elif current_page == 'add_clergy':
+        breadcrumbs.extend([
+            {'text': 'Clergy Records', 'url': url_for('clergy.clergy_list')},
+            {'text': 'Add Clergy', 'url': ''}
+        ])
+    elif current_page == 'view_clergy':
+        clergy = kwargs.get('clergy')
+        breadcrumbs.extend([
+            {'text': 'Clergy Records', 'url': url_for('clergy.clergy_list')},
+            {'text': clergy.name if clergy else 'View Clergy', 'url': ''}
+        ])
+    elif current_page == 'edit_clergy':
+        clergy = kwargs.get('clergy')
+        edit_url = url_for('clergy.view_clergy', clergy_id=clergy.id) if clergy else ''
+        breadcrumbs.extend([
+            {'text': 'Clergy Records', 'url': url_for('clergy.clergy_list')},
+            {'text': clergy.name if clergy else 'Edit Clergy', 'url': edit_url},
+            {'text': 'Edit', 'url': ''}
+        ])
+    elif current_page == 'clergy_comments':
+        clergy = kwargs.get('clergy')
+        clergy_url = url_for('clergy.view_clergy', clergy_id=clergy.id) if clergy else ''
+        breadcrumbs.extend([
+            {'text': 'Clergy Records', 'url': url_for('clergy.clergy_list')},
+            {'text': clergy.name if clergy else 'Clergy', 'url': clergy_url},
+            {'text': 'Comments', 'url': ''}
+        ])
+    elif current_page == 'resolved_comments':
+        clergy = kwargs.get('clergy')
+        clergy_url = url_for('clergy.view_clergy', clergy_id=clergy.id) if clergy else ''
+        breadcrumbs.extend([
+            {'text': 'Clergy Records', 'url': url_for('clergy.clergy_list')},
+            {'text': clergy.name if clergy else 'Clergy', 'url': clergy_url},
+            {'text': 'Resolved Comments', 'url': ''}
+        ])
+    elif current_page == 'metadata':
+        breadcrumbs.append({'text': 'Metadata Management', 'url': ''})
+    elif current_page == 'user_management':
+        breadcrumbs.append({'text': 'User Management', 'url': ''})
+    elif current_page == 'comments_management':
+        breadcrumbs.append({'text': 'Comments Management', 'url': ''})
+    elif current_page == 'audit_logs':
+        breadcrumbs.append({'text': 'Audit Logs', 'url': ''})
+    elif current_page == 'lineage_visualization':
+        return None
+    elif current_page == 'settings':
+        breadcrumbs.append({'text': 'Settings', 'url': ''})
+    elif current_page == 'login':
+        breadcrumbs = [{'text': 'Login', 'url': ''}]
+    elif current_page == 'signup':
+        breadcrumbs = [{'text': 'Sign Up', 'url': ''}]
+    elif current_page == 'admin_invite':
+        breadcrumbs = [{'text': 'Admin Invitation', 'url': ''}]
+    return breadcrumbs
+
+def log_audit_event(action, entity_type, entity_id=None, entity_name=None, details=None, user_id=None):
+    try:
+        if user_id is None and 'user_id' in session:
+            user_id = session['user_id']
+        ip_address = request.remote_addr if request else None
+        user_agent = request.headers.get('User-Agent') if request else None
+        if isinstance(details, dict):
+            details = json.dumps(details)
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.session.add(audit_log)
+        db.session.commit()
+    except Exception as e:
+        print(f"Warning: Failed to log audit event: {e}")
+        db.session.rollback()
+
+def validate_password(password):
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter"
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter"
+    if not re.search(r'\d', password):
+        return False, "Password must contain at least one number"
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        return False, "Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)"
+    return True, "Password meets all requirements"

@@ -1,8 +1,12 @@
 {% for clergy in clergy_list %}
-<tr class="clergy-row" data-clergy-id="{{ clergy.id }}" {% if user and (user.can_edit_clergy() or user.can_comment()) %}style="cursor: pointer;"{% endif %}>
+<tr class="clergy-row {% if clergy.is_deleted %}deleted-record{% endif %}" data-clergy-id="{{ clergy.id }}" {% if user and (user.can_edit_clergy() or user.can_comment()) %}style="cursor: pointer;"{% endif %}>
     <td class="name-col">
         <strong>{{ clergy.display_name }}</strong>
-        {% if not clergy.ordaining_bishop or (clergy.rank and clergy.rank.lower() == 'bishop' and not clergy.consecrator) %}
+        {% if clergy.is_deleted %}
+            <span title="This record has been marked as deleted" style="color: #e74c3c; margin-left: 0.5em;">
+                <i class="fas fa-trash"></i>
+            </span>
+        {% elif not clergy.ordaining_bishop or (clergy.rank and clergy.rank.lower() == 'bishop' and not clergy.consecrator) %}
             <span title="Incomplete record. Please edit and complete this entry." style="color: #e67e22; margin-left: 0.5em;">
                 <i class="fas fa-exclamation-triangle"></i>
             </span>

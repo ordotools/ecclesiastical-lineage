@@ -7,7 +7,13 @@
         <h2 class="h4 mb-0">{% if edit_mode %}Edit {{ clergy.name }}{% else %}Add New Clergy{% endif %}</h2>
     </div>
     <div class="card-body">
-        <form id="clergyForm" method="POST" action="{{ fields.form_action or '' }}" enctype="multipart/form-data">
+        <form id="clergyForm" method="POST" action="{{ fields.form_action or '' }}" enctype="multipart/form-data" 
+              hx-post="{{ fields.form_action or '' }}" 
+              hx-target="body" 
+              hx-swap="outerHTML"
+              hx-trigger="submit"
+              hx-push-url="true"
+              hx-on::after-request="if(event.detail.successful) { window.location.href = '{{ url_for('clergy.clergy_list') }}'; }">
             <div class="row">
                 <!-- Image upload section -->
                 <div class="col-md-6">
@@ -235,6 +241,37 @@
                     {% endif %}
                 </div>
             </div>
+
+            {% if edit_mode and clergy and user and user.can_edit_clergy() %}
+            <div class="mb-3">
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Danger Zone</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="mark_deleted" name="mark_deleted" value="1" 
+                                   {% if clergy.is_deleted %}checked{% endif %}>
+                            <label class="form-check-label" for="mark_deleted">
+                                Mark this record as deleted
+                            </label>
+                        </div>
+                        <small class="form-text text-muted">
+                            This will hide the record from normal views but keep it in the database for audit purposes. 
+                            You can uncheck this to restore the record.
+                        </small>
+                        {% if clergy.is_deleted %}
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Record was marked as deleted on: {{ clergy.deleted_at.strftime('%Y-%m-%d %H:%M:%S') if clergy.deleted_at else 'Unknown date' }}
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">

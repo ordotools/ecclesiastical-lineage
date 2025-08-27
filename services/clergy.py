@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, flash, session, jsonify
+from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response
 from models import db, Clergy, Rank, Organization, User, ClergyComment
 from utils import generate_breadcrumbs, log_audit_event
 from datetime import datetime
@@ -105,7 +105,7 @@ def clergy_list_handler():
     exclude_coconsecrators = request.args.get('exclude_coconsecrators') == '1'
     exclude_organizations = request.args.getlist('exclude_organizations')
     search = request.args.get('search', '').strip()
-    query = Clergy.query
+    query = Clergy.query.filter(Clergy.is_deleted != True)  # Exclude deleted records by default
     if exclude_priests:
         query = query.filter(Clergy.rank != 'Priest')
     if exclude_coconsecrators:
@@ -168,6 +168,17 @@ def add_clergy_handler():
     if request.method == 'POST':
         try:
             clergy = create_clergy_from_form(request.form)
+            
+            # Check if this is an HTMX request
+            is_htmx = request.headers.get('HX-Request') == 'true'
+            
+            if is_htmx:
+                # For HTMX requests, return a response that will trigger redirect
+                response = make_response('<script>window.location.href = "' + url_for('clergy.clergy_list') + '";</script>')
+                response.headers['HX-Trigger'] = 'redirect'
+                return clergy, response
+            
+            # Handle regular AJAX requests
             is_ajax = (
                 request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
                 request.headers.get('Content-Type', '').startswith('multipart/form-data') or
@@ -175,10 +186,19 @@ def add_clergy_handler():
             )
             if is_ajax:
                 return clergy, jsonify({'success': True, 'message': 'Clergy record added successfully!'})
+            
             flash('Clergy record added successfully!', 'success')
             return clergy, redirect(url_for('clergy.clergy_list'))
         except Exception as e:
             db.session.rollback()
+            
+            # Check if this is an HTMX request
+            is_htmx = request.headers.get('HX-Request') == 'true'
+            if is_htmx:
+                response = make_response(f'<div class="alert alert-danger">Error: {str(e)}</div>')
+                return None, response, 400
+            
+            # Handle regular AJAX requests
             is_ajax = (
                 request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
                 request.headers.get('Content-Type', '').startswith('multipart/form-data') or
@@ -394,6 +414,16 @@ def edit_clergy_handler(clergy_id):
                     clergy.set_co_consecrators(co_consecrator_ids)
                 else:
                     clergy.set_co_consecrators([])
+                
+                # Handle soft delete
+                mark_deleted = request.form.get('mark_deleted') == '1'
+                if mark_deleted and not clergy.is_deleted:
+                    clergy.is_deleted = True
+                    clergy.deleted_at = datetime.utcnow()
+                elif not mark_deleted and clergy.is_deleted:
+                    clergy.is_deleted = False
+                    clergy.deleted_at = None
+                
                 db.session.commit()
                 log_audit_event(
                     action='update',
@@ -409,10 +439,22 @@ def edit_clergy_handler(clergy_id):
                         'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
                         'ordaining_bishop_id': clergy.ordaining_bishop_id,
                         'consecrator_id': clergy.consecrator_id,
-                        'co_consecrators': clergy.get_co_consecrators()
+                        'co_consecrators': clergy.get_co_consecrators(),
+                        'is_deleted': clergy.is_deleted,
+                        'deleted_at': clergy.deleted_at.isoformat() if clergy.deleted_at else None
                     }
                 )
-                return jsonify({'success': True, 'message': 'Clergy record updated successfully!'})
+                # Check if this is an HTMX request
+                is_htmx = request.headers.get('HX-Request') == 'true'
+                
+                if is_htmx:
+                    # For HTMX requests, return a response that will trigger redirect
+                    response = make_response('<script>window.location.href = "' + url_for('clergy.clergy_list') + '";</script>')
+                    response.headers['HX-Trigger'] = 'redirect'
+                    return response
+                else:
+                    # For regular AJAX requests, return JSON
+                    return jsonify({'success': True, 'message': 'Clergy record updated successfully!'})
             except Exception as e:
                 db.session.rollback()
                 return jsonify({'success': False, 'message': str(e)}), 400
@@ -477,6 +519,16 @@ def edit_clergy_handler(clergy_id):
             clergy.set_co_consecrators(co_consecrator_ids)
         else:
             clergy.set_co_consecrators([])
+        
+        # Handle soft delete
+        mark_deleted = request.form.get('mark_deleted') == '1'
+        if mark_deleted and not clergy.is_deleted:
+            clergy.is_deleted = True
+            clergy.deleted_at = datetime.utcnow()
+        elif not mark_deleted and clergy.is_deleted:
+            clergy.is_deleted = False
+            clergy.deleted_at = None
+        
         db.session.commit()
         log_audit_event(
             action='update',
@@ -492,7 +544,9 @@ def edit_clergy_handler(clergy_id):
                 'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
                 'ordaining_bishop_id': clergy.ordaining_bishop_id,
                 'consecrator_id': clergy.consecrator_id,
-                'co_consecrators': clergy.get_co_consecrators()
+                'co_consecrators': clergy.get_co_consecrators(),
+                'is_deleted': clergy.is_deleted,
+                'deleted_at': clergy.deleted_at.isoformat() if clergy.deleted_at else None
             }
         )
         flash('Clergy record updated successfully!', 'success')
@@ -579,7 +633,7 @@ def clergy_filter_partial_handler():
     exclude_coconsecrators = request.args.get('exclude_coconsecrators') == '1'
     exclude_organizations = request.args.getlist('exclude_organizations')
     search = request.args.get('search', '').strip()
-    query = Clergy.query
+    query = Clergy.query.filter(Clergy.is_deleted != True)  # Exclude deleted records by default
     if exclude_priests:
         query = query.filter(Clergy.rank != 'Priest')
     if exclude_coconsecrators:

@@ -144,13 +144,66 @@ def resolve_comment(comment_id):
 @main_bp.route('/clergy/modal/add')
 @require_permission('add_clergy')
 def clergy_modal_add():
-    return render_template('_clergy_modal.html', clergy=None, action='add')
+    from models import Rank, Organization, Clergy, User
+    
+    # Get the current user
+    user = User.query.get(session.get('user_id'))
+    
+    # Get the same data that add_clergy_handler provides
+    all_clergy = Clergy.query.all()
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': getattr(clergy_member, 'display_name', clergy_member.name),
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    
+    return render_template('_clergy_modal.html', 
+                         clergy=None, 
+                         action='add',
+                         all_clergy_data=all_clergy_data,
+                         ranks=ranks,
+                         organizations=organizations,
+                         user=user)
+
+
 
 @main_bp.route('/clergy/modal/<int:clergy_id>/edit')
 @require_permission('edit_clergy')
 def clergy_modal_edit(clergy_id):
+    from models import Rank, Organization, Clergy, User
+    
     clergy = Clergy.query.get_or_404(clergy_id)
-    return render_template('_clergy_modal.html', clergy=clergy, action='edit')
+    user = User.query.get(session.get('user_id'))
+    
+    # Get the same data that edit_clergy_handler provides
+    all_clergy = Clergy.query.all()
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': getattr(clergy_member, 'display_name', clergy_member.name),
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    
+    return render_template('_clergy_modal.html', 
+                         clergy=clergy, 
+                         action='edit',
+                         all_clergy_data=all_clergy_data,
+                         ranks=ranks,
+                         organizations=organizations,
+                         user=user)
 
 @main_bp.route('/clergy/modal/<int:clergy_id>/comment')
 def clergy_modal_comment(clergy_id):

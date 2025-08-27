@@ -74,33 +74,46 @@ document.addEventListener('DOMContentLoaded', function() {
     // Modal AJAX logic
     const modalContainer = document.getElementById('clergyModalContainer');
     const addClergyBtn = document.getElementById('addClergyBtn');
+    const addFirstClergyBtn = document.getElementById('addFirstClergyBtn');
+    
+    function loadClergyModal() {
+        fetch('/clergy/modal/add')
+            .then(response => response.text())
+            .then(html => {
+                modalContainer.innerHTML = '';
+                modalContainer.innerHTML = html;
+                // Evaluate any inline <script> tags in the loaded HTML
+                modalContainer.querySelectorAll('script').forEach(script => {
+                    const newScript = document.createElement('script');
+                    if (script.src) {
+                        newScript.src = script.src;
+                    } else {
+                        newScript.textContent = script.textContent;
+                    }
+                    document.body.appendChild(newScript);
+                });
+                const modalEl = document.getElementById('clergyModal');
+                if (modalEl) {
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                }
+            })
+            .catch(error => {
+                console.error('Error loading modal:', error);
+            });
+    }
+    
     if (addClergyBtn) {
         addClergyBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            fetch('/clergy/modal/add')
-                .then(response => response.text())
-                .then(html => {
-                    modalContainer.innerHTML = '';
-                    modalContainer.innerHTML = html;
-                    // Evaluate any inline <script> tags in the loaded HTML
-                    modalContainer.querySelectorAll('script').forEach(script => {
-                        const newScript = document.createElement('script');
-                        if (script.src) {
-                            newScript.src = script.src;
-                        } else {
-                            newScript.textContent = script.textContent;
-                        }
-                        document.body.appendChild(newScript);
-                    });
-                    const modalEl = document.getElementById('clergyModal');
-                    if (modalEl) {
-                        const modal = new bootstrap.Modal(modalEl);
-                        modal.show();
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading modal:', error);
-                });
+            loadClergyModal();
+        });
+    }
+    
+    if (addFirstClergyBtn) {
+        addFirstClergyBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            loadClergyModal();
         });
     }
 

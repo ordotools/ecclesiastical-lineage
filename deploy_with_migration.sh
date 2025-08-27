@@ -62,13 +62,107 @@ else
     exit 1
 fi
 
-# Step 5: Run database migration (this adds new columns and tables)
-print_status "🗄️  Running database migration..."
-if python3 migrate_to_rbac.py; then
+# Step 5: Run database migration using Flask-Migrate
+print_status "🗄️  Running database migration with Flask-Migrate..."
+if python3 -c "
+import os
+import sys
+from dotenv import load_dotenv
+load_dotenv()
+
+# Add current directory to path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from app import app, db
+from models import Role, Permission, User
+from sqlalchemy import inspect
+
+with app.app_context():
+    # Create all tables first
+    db.create_all()
+    print('✅ All tables created')
+    
+    # Initialize roles and permissions
+    from migrations import initialize_roles_and_permissions
+    initialize_roles_and_permissions()
+    print('✅ Roles and permissions initialized')
+    
+    # Check if required columns exist in clergy table
+    inspector = inspect(db.engine)
+    clergy_columns = [col['name'] for col in inspector.get_columns('clergy')]
+    required_clergy_columns = ['image_url', 'image_data', 'is_deleted', 'deleted_at']
+    
+    missing_clergy_columns = [col for col in required_clergy_columns if col not in clergy_columns]
+    
+    if missing_clergy_columns:
+        print(f'⚠️  Missing clergy columns: {missing_clergy_columns}')
+        print('🔧 Adding missing columns...')
+        
+        for col in missing_clergy_columns:
+            try:
+                with db.engine.connect() as conn:
+                    if col == 'image_url':
+                        conn.execute(db.text('ALTER TABLE clergy ADD COLUMN image_url TEXT'))
+                    elif col == 'image_data':
+                        conn.execute(db.text('ALTER TABLE clergy ADD COLUMN image_data TEXT'))
+                    elif col == 'is_deleted':
+                        conn.execute(db.text('ALTER TABLE clergy ADD COLUMN is_deleted BOOLEAN DEFAULT false'))
+                    elif col == 'deleted_at':
+                        conn.execute(db.text('ALTER TABLE clergy ADD COLUMN deleted_at TIMESTAMP'))
+                    conn.commit()
+                print(f'✅ Added column: {col}')
+            except Exception as e:
+                print(f'⚠️  Column {col} might already exist: {e}')
+    else:
+        print('✅ All required clergy columns exist')
+    
+    # Check if user table has required columns
+    user_columns = [col['name'] for col in inspector.get_columns('user')]
+    required_user_columns = ['email', 'full_name', 'is_active', 'created_at', 'last_login', 'role_id']
+    
+    missing_user_columns = [col for col in required_user_columns if col not in user_columns]
+    
+    if missing_user_columns:
+        print(f'⚠️  Missing user columns: {missing_user_columns}')
+        print('🔧 Adding missing columns...')
+        
+        for col in missing_user_columns:
+            try:
+                with db.engine.connect() as conn:
+                    if col == 'email':
+                        conn.execute(db.text('ALTER TABLE \"user\" ADD COLUMN email VARCHAR(120)'))
+                    elif col == 'full_name':
+                        conn.execute(db.text('ALTER TABLE \"user\" ADD COLUMN full_name VARCHAR(200)'))
+                    elif col == 'is_active':
+                        conn.execute(db.text('ALTER TABLE \"user\" ADD COLUMN is_active BOOLEAN DEFAULT true'))
+                    elif col == 'created_at':
+                        conn.execute(db.text('ALTER TABLE \"user\" ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+                    elif col == 'last_login':
+                        conn.execute(db.text('ALTER TABLE \"user\" ADD COLUMN last_login TIMESTAMP'))
+                    elif col == 'role_id':
+                        conn.execute(db.text('ALTER TABLE \"user\" ADD COLUMN role_id INTEGER'))
+                    conn.commit()
+                print(f'✅ Added column: {col}')
+            except Exception as e:
+                print(f'⚠️  Column {col} might already exist: {e}')
+    else:
+        print('✅ All required user columns exist')
+    
+    # Check if required tables exist
+    tables = inspector.get_table_names()
+    required_tables = ['role', 'permission', 'role_permissions', 'clergy_comment']
+    
+    missing_tables = [table for table in required_tables if table not in tables]
+    
+    if missing_tables:
+        print(f'❌ Missing tables: {missing_tables}')
+        sys.exit(1)
+    else:
+        print('✅ All required tables exist')
+"; then
     print_success "✅ Database migration completed successfully!"
 else
-    print_error "❌ Database migration failed! This is required for the application to work."
-    print_error "   The application requires RBAC columns that are added by the migration."
+    print_error "❌ Database migration failed!"
     exit 1
 fi
 
@@ -89,17 +183,29 @@ from sqlalchemy import inspect
 with app.app_context():
     inspector = inspect(db.engine)
     
-    # Check if user table has required columns
-    columns = [col['name'] for col in inspector.get_columns('user')]
-    required_columns = ['email', 'full_name', 'is_active', 'created_at', 'last_login', 'role_id']
+    # Check if clergy table has required columns
+    clergy_columns = [col['name'] for col in inspector.get_columns('clergy')]
+    required_clergy_columns = ['image_url', 'image_data', 'is_deleted', 'deleted_at']
     
-    missing_columns = [col for col in required_columns if col not in columns]
+    missing_clergy_columns = [col for col in required_clergy_columns if col not in clergy_columns]
     
-    if missing_columns:
-        print(f'❌ Missing columns: {missing_columns}')
+    if missing_clergy_columns:
+        print(f'❌ Missing clergy columns: {missing_clergy_columns}')
         sys.exit(1)
     else:
-        print('✅ All required columns exist')
+        print('✅ All required clergy columns exist')
+    
+    # Check if user table has required columns
+    user_columns = [col['name'] for col in inspector.get_columns('user')]
+    required_user_columns = ['email', 'full_name', 'is_active', 'created_at', 'last_login', 'role_id']
+    
+    missing_user_columns = [col for col in required_user_columns if col not in user_columns]
+    
+    if missing_user_columns:
+        print(f'❌ Missing user columns: {missing_user_columns}')
+        sys.exit(1)
+    else:
+        print('✅ All required user columns exist')
     
     # Check if required tables exist
     tables = inspector.get_table_names()

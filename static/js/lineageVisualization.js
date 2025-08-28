@@ -191,50 +191,58 @@ function loadClergyRelationships(clergyId) {
 function displayClergyRelationships(data) {
   // Display ordained by information
   const ordainedByInfo = document.getElementById('ordained-by-info');
-  if (data.ordaining_bishop) {
-    ordainedByInfo.innerHTML = `<a href="#" class="clergy-link" data-clergy-id="${data.ordaining_bishop.id}">${data.ordaining_bishop.name}</a>`;
-  } else {
-    ordainedByInfo.innerHTML = `<a href="#" class="add-clergy-link" data-context-type="ordination" data-context-clergy-id="${getCurrentClergyId()}">?</a>`;
+  if (ordainedByInfo) {
+    if (data.ordaining_bishop) {
+      ordainedByInfo.innerHTML = `<a href="#" class="clergy-link" data-clergy-id="${data.ordaining_bishop.id}">${data.ordaining_bishop.name}</a>`;
+    } else {
+      ordainedByInfo.innerHTML = `<a href="#" class="add-clergy-link" data-context-type="ordination" data-context-clergy-id="${getCurrentClergyId()}">?</a>`;
+    }
   }
   
   // Display consecrated by information (only for bishops)
   const consecratedBySection = document.getElementById('consecrated-by-section');
   const consecratedByInfo = document.getElementById('consecrated-by-info');
-  if (data.consecrator) {
-    consecratedByInfo.innerHTML = `<a href="#" class="clergy-link" data-clergy-id="${data.consecrator.id}">${data.consecrator.name}</a>`;
-    consecratedBySection.style.display = 'block';
-  } else {
-    consecratedByInfo.innerHTML = `<a href="#" class="add-clergy-link" data-context-type="consecration" data-context-clergy-id="${getCurrentClergyId()}">?</a>`;
-    consecratedBySection.style.display = 'block';
+  if (consecratedByInfo && consecratedBySection) {
+    if (data.consecrator) {
+      consecratedByInfo.innerHTML = `<a href="#" class="clergy-link" data-clergy-id="${data.consecrator.id}">${data.consecrator.name}</a>`;
+      consecratedBySection.style.display = 'block';
+    } else {
+      consecratedByInfo.innerHTML = `<a href="#" class="add-clergy-link" data-context-type="consecration" data-context-clergy-id="${getCurrentClergyId()}">?</a>`;
+      consecratedBySection.style.display = 'block';
+    }
   }
   
   // Display ordained clergy list
   const ordainedClergyList = document.getElementById('ordained-clergy-list');
-  if (data.ordained_clergy && data.ordained_clergy.length > 0) {
-    let html = '';
-    data.ordained_clergy.forEach(clergy => {
-      html += `<div class="clergy-item mb-1"><a href="#" class="clergy-link" data-clergy-id="${clergy.id}">${clergy.name}</a> (${clergy.rank})</div>`;
-    });
-    html += `<div class="mt-2"><a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="ordained" data-context-clergy-id="${getCurrentClergyId()}">+</a></div>`;
-    ordainedClergyList.innerHTML = html;
-  } else {
-    ordainedClergyList.innerHTML = `<a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="ordained" data-context-clergy-id="${getCurrentClergyId()}">+</a>`;
+  if (ordainedClergyList) {
+    if (data.ordained_clergy && data.ordained_clergy.length > 0) {
+      let html = '';
+      data.ordained_clergy.forEach(clergy => {
+        html += `<div class="clergy-item mb-1"><a href="#" class="clergy-link" data-clergy-id="${clergy.id}">${clergy.name}</a> (${clergy.rank})</div>`;
+      });
+      html += `<div class="mt-2"><a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="ordained" data-context-clergy-id="${getCurrentClergyId()}">+</a></div>`;
+      ordainedClergyList.innerHTML = html;
+    } else {
+      ordainedClergyList.innerHTML = `<a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="ordained" data-context-clergy-id="${getCurrentClergyId()}">+</a>`;
+    }
   }
   
   // Display consecrated clergy list (only for bishops)
   const consecratedClergySection = document.getElementById('consecrated-clergy-section');
   const consecratedClergyList = document.getElementById('consecrated-clergy-list');
-  if (data.consecrated_clergy && data.consecrated_clergy.length > 0) {
-    let html = '';
-    data.consecrated_clergy.forEach(clergy => {
-      html += `<div class="clergy-item mb-1"><a href="#" class="clergy-link" data-clergy-id="${clergy.id}">${clergy.name}</a> (${clergy.rank})</div>`;
-    });
-    html += `<div class="mt-2"><a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="consecrated" data-context-clergy-id="${getCurrentClergyId()}">+</a></div>`;
-    consecratedClergyList.innerHTML = html;
-    consecratedClergySection.style.display = 'block';
-  } else {
-    consecratedClergyList.innerHTML = `<a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="consecrated" data-context-clergy-id="${getCurrentClergyId()}">+</a>`;
-    consecratedClergySection.style.display = 'block';
+  if (consecratedClergyList && consecratedClergySection) {
+    if (data.consecrated_clergy && data.consecrated_clergy.length > 0) {
+      let html = '';
+      data.consecrated_clergy.forEach(clergy => {
+        html += `<div class="clergy-item mb-1"><a href="#" class="clergy-link" data-clergy-id="${clergy.id}">${clergy.name}</a> (${clergy.rank})</div>`;
+      });
+      html += `<div class="mt-2"><a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="consecrated" data-context-clergy-id="${getCurrentClergyId()}">+</a></div>`;
+      consecratedClergyList.innerHTML = html;
+      consecratedClergySection.style.display = 'block';
+    } else {
+      consecratedClergyList.innerHTML = `<a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="consecrated" data-context-clergy-id="${getCurrentClergyId()}">+</a>`;
+      consecratedClergySection.style.display = 'block';
+    }
   }
   
   // Add event listeners for clergy links and add clergy links

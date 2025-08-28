@@ -122,39 +122,23 @@
     <!-- Right Side Aside - Clergy Information Panel -->
     <div id="clergy-aside" class="clergy-aside">
         <div class="aside-header">
-            <h5 class="fw-bold mb-0 text-dark">Clergy Information</h5>
+            <h5 class="fw-bold mb-0 text-dark">Information</h5>
             <button id="close-aside" class="close-aside-btn" aria-label="Close information panel">
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <div class="aside-content">
-            <div class="clergy-image-container">
-                <img id="clergy-aside-image" src="" alt="Clergy portrait" class="clergy-aside-image">
-            </div>
-            <h4 id="clergy-aside-name" class="fw-bold text-dark mb-2 text-center"></h4>
-            <p id="clergy-aside-rank" class="text-primary fw-semibold text-center mb-2"></p>
-            <p id="clergy-aside-org" class="text-muted fst-italic text-center mb-3"></p>
-            
-            <div class="dates-section mb-3">
-                <div class="row">
-                    <div class="col-6">
-                        <div class="date-item text-center">
-                            <div id="clergy-aside-ordination" class="date-value"></div>
-                            <div class="date-label">Ordination</div>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="date-item text-center">
-                            <div id="clergy-aside-consecration" class="date-value"></div>
-                            <div class="date-label">Consecration</div>
-                        </div>
-                    </div>
+        <!-- HTMX-powered clergy information panel -->
+        <div id="clergy-info-panel" 
+             hx-get="/clergy/info-panel" 
+             hx-trigger="load"
+             hx-target="this"
+             hx-swap="innerHTML">
+            <!-- Loading placeholder -->
+            <div class="text-center p-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
                 </div>
-            </div>
-            
-            <div class="info-section mt-3">
-                <h6 class="fw-bold text-dark mb-2">Information</h6>
-                <div id="clergy-aside-bio" class="bio-content"></div>
+                <p class="mt-2 text-muted">Click on a clergy member to view information</p>
             </div>
         </div>
     </div>
@@ -189,6 +173,22 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
     {% endif %}
+
+    <!-- Clergy Form Modal -->
+    <div class="modal fade" id="clergyFormModal" tabindex="-1" aria-labelledby="clergyFormModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" style="max-width: 90%; margin: 20px auto;">
+            <div class="modal-content" style="border: none; box-shadow: none; background: transparent;">
+                <div class="modal-header" style="padding: 0; border: none; background: transparent;">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="position: absolute; top: 15px; right: 15px; z-index: 1050; background: transparent; border: none; font-size: 24px; color: #666; cursor: pointer; padding: 0; width: auto; height: auto; line-height: 1;">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="clergyFormModalBody" style="padding: 0;">
+                    <!-- HTMX will load content here -->
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 

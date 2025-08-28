@@ -112,6 +112,9 @@ function handleNodeClick(event, d) {
   // Prevent click if node is filtered
   if (d.filtered) return;
   
+  // Store current clergy ID for relationship loading
+  window.currentClergyId = d.id;
+  
   // Show aside panel
   if (clergyAside) {
     // Populate aside with clergy data
@@ -121,15 +124,15 @@ function handleNodeClick(event, d) {
     document.getElementById('clergy-aside-ordination').textContent = d.ordination_date || 'Not specified';
     document.getElementById('clergy-aside-consecration').textContent = d.consecration_date || 'Not specified';
     
-    // Populate bio if available
-    const bioElement = document.getElementById('clergy-aside-bio');
-    if (d.bio && d.bio.trim()) {
-      bioElement.textContent = d.bio;
-      bioElement.style.display = 'block';
-    } else {
-      bioElement.textContent = 'No biography available.';
-      bioElement.style.display = 'block';
-    }
+    // Populate bio if available (commented out for now)
+    // const bioElement = document.getElementById('clergy-aside-bio');
+    // if (d.bio && d.bio.trim()) {
+    //   bioElement.textContent = d.bio;
+    //   bioElement.style.display = 'block';
+    // } else {
+    //   bioElement.textContent = 'No biography available.';
+    //   bioElement.style.display = 'block';
+    // }
     
     // Set image with loading system - start with low-res blurred placeholder
     const asideImage = document.getElementById('clergy-aside-image');
@@ -163,7 +166,224 @@ function handleNodeClick(event, d) {
     
     // Expand aside
     clergyAside.classList.add('expanded');
+    
+    // Load clergy relationships
+    loadClergyRelationships(d.id);
   }
+}
+
+// Function to load clergy relationships
+function loadClergyRelationships(clergyId) {
+  fetch(`/clergy/relationships/${clergyId}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        displayClergyRelationships(data);
+      } else {
+        console.error('Failed to load clergy relationships:', data.message);
+      }
+    })
+    .catch(error => {
+      console.error('Error loading clergy relationships:', error);
+    });
+}
+
+// Function to display clergy relationships
+function displayClergyRelationships(data) {
+  // Display ordained by information
+  const ordainedByInfo = document.getElementById('ordained-by-info');
+  if (data.ordaining_bishop) {
+    ordainedByInfo.innerHTML = `<a href="#" class="clergy-link" data-clergy-id="${data.ordaining_bishop.id}">${data.ordaining_bishop.name}</a>`;
+  } else {
+    ordainedByInfo.innerHTML = `<a href="#" class="add-clergy-link" data-context-type="ordination" data-context-clergy-id="${getCurrentClergyId()}">?</a>`;
+  }
+  
+  // Display consecrated by information (only for bishops)
+  const consecratedBySection = document.getElementById('consecrated-by-section');
+  const consecratedByInfo = document.getElementById('consecrated-by-info');
+  if (data.consecrator) {
+    consecratedByInfo.innerHTML = `<a href="#" class="clergy-link" data-clergy-id="${data.consecrator.id}">${data.consecrator.name}</a>`;
+    consecratedBySection.style.display = 'block';
+  } else {
+    consecratedByInfo.innerHTML = `<a href="#" class="add-clergy-link" data-context-type="consecration" data-context-clergy-id="${getCurrentClergyId()}">?</a>`;
+    consecratedBySection.style.display = 'block';
+  }
+  
+  // Display ordained clergy list
+  const ordainedClergyList = document.getElementById('ordained-clergy-list');
+  if (data.ordained_clergy && data.ordained_clergy.length > 0) {
+    let html = '';
+    data.ordained_clergy.forEach(clergy => {
+      html += `<div class="clergy-item mb-1"><a href="#" class="clergy-link" data-clergy-id="${clergy.id}">${clergy.name}</a> (${clergy.rank})</div>`;
+    });
+    html += `<div class="mt-2"><a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="ordained" data-context-clergy-id="${getCurrentClergyId()}">+</a></div>`;
+    ordainedClergyList.innerHTML = html;
+  } else {
+    ordainedClergyList.innerHTML = `<a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="ordained" data-context-clergy-id="${getCurrentClergyId()}">+</a>`;
+  }
+  
+  // Display consecrated clergy list (only for bishops)
+  const consecratedClergySection = document.getElementById('consecrated-clergy-section');
+  const consecratedClergyList = document.getElementById('consecrated-clergy-list');
+  if (data.consecrated_clergy && data.consecrated_clergy.length > 0) {
+    let html = '';
+    data.consecrated_clergy.forEach(clergy => {
+      html += `<div class="clergy-item mb-1"><a href="#" class="clergy-link" data-clergy-id="${clergy.id}">${clergy.name}</a> (${clergy.rank})</div>`;
+    });
+    html += `<div class="mt-2"><a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="consecrated" data-context-clergy-id="${getCurrentClergyId()}">+</a></div>`;
+    consecratedClergyList.innerHTML = html;
+    consecratedClergySection.style.display = 'block';
+  } else {
+    consecratedClergyList.innerHTML = `<a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="consecrated" data-context-clergy-id="${getCurrentClergyId()}">+</a>`;
+    consecratedClergySection.style.display = 'block';
+  }
+  
+  // Add event listeners for clergy links and add clergy links
+  addClergyLinkEventListeners();
+}
+
+// Function to get current clergy ID from the aside
+function getCurrentClergyId() {
+  return window.currentClergyId;
+}
+
+// Function to add event listeners for clergy links and add clergy links
+function addClergyLinkEventListeners() {
+  // Add event listeners for clergy links (to show their information)
+  document.querySelectorAll('.clergy-link').forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const clergyId = this.getAttribute('data-clergy-id');
+      // Find the clergy node and click it to show its information
+      const clergyNode = window.currentNodes.find(node => node.id == clergyId);
+      if (clergyNode) {
+        handleNodeClick(e, clergyNode);
+      }
+    });
+  });
+  
+  // Add event listeners for add clergy links
+  document.querySelectorAll('.add-clergy-link').forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const contextType = this.getAttribute('data-context-type');
+      const contextClergyId = this.getAttribute('data-context-clergy-id');
+      openAddClergyModal(contextType, contextClergyId);
+    });
+  });
+}
+
+// Function to open the add clergy modal
+function openAddClergyModal(contextType, contextClergyId) {
+  // Check if user is logged in and has permission
+  // We'll check this on the server side instead of client side
+  // The server will return an error if user doesn't have permission
+  
+  const modal = document.getElementById('clergyFormModal');
+  const modalBody = document.getElementById('clergyFormModalBody');
+  
+  // Load the clergy form
+  console.log(`Opening modal with context: type=${contextType}, clergy_id=${contextClergyId}`);
+  fetch(`/clergy/add_from_lineage?context_type=${contextType}&context_clergy_id=${contextClergyId}`)
+    .then(response => response.text())
+    .then(html => {
+      modalBody.innerHTML = html;
+      
+      // Show the modal
+      const bootstrapModal = new bootstrap.Modal(modal);
+      bootstrapModal.show();
+      
+      // Override the form submission for modal context
+      const form = modalBody.querySelector('#clergyForm');
+      if (form) {
+        // Debug: Check form fields
+        console.log('Form loaded, checking fields:');
+        const ordainingBishopId = form.querySelector('#ordaining_bishop_id');
+        const consecratorId = form.querySelector('#consecrator_id');
+        const organization = form.querySelector('#organization');
+        console.log('ordaining_bishop_id:', ordainingBishopId ? ordainingBishopId.value : 'not found');
+        console.log('consecrator_id:', consecratorId ? consecratorId.value : 'not found');
+        console.log('organization:', organization ? organization.value : 'not found');
+        
+        // Remove any remaining HTMX attributes
+        form.removeAttribute('hx-post');
+        form.removeAttribute('hx-target');
+        form.removeAttribute('hx-swap');
+        form.removeAttribute('hx-trigger');
+        form.removeAttribute('hx-push-url');
+        form.removeAttribute('hx-on::after-request');
+        
+        // Add custom submit handler
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          
+          console.log('Form submitted, sending data to:', form.action);
+          const formData = new FormData(form);
+          
+          // Clean up form data - remove empty fields and "None" values
+          const cleanedFormData = new FormData();
+          for (let [key, value] of formData.entries()) {
+            if (value && value !== 'None' && value !== '') {
+              cleanedFormData.append(key, value);
+            }
+          }
+          
+          // Log cleaned form data for debugging
+          for (let [key, value] of cleanedFormData.entries()) {
+            console.log(`Cleaned form field: ${key} = ${value}`);
+          }
+          
+          fetch(form.action, {
+            method: 'POST',
+            body: cleanedFormData
+          })
+          .then(response => {
+            console.log('Response status:', response.status);
+            return response.json();
+          })
+          .then(data => {
+            console.log('Form submission response:', data);
+            if (data.success) {
+              console.log('Clergy added successfully, refreshing page...');
+              console.log('New clergy ID:', data.clergy_id);
+              
+              // Close the modal
+              bootstrapModal.hide();
+              
+              // Refresh the visualization to show the new clergy
+              // Force a complete page reload to get fresh data
+              console.log('Reloading page...');
+              window.location.reload(true);
+            } else {
+              alert('Error: ' + (data.message || 'Failed to add clergy member'));
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            alert('Error submitting form. Please try again.');
+          });
+        });
+        
+        // Handle cancel button to close modal
+        const cancelBtn = form.querySelector('a[href="#"]');
+        if (cancelBtn) {
+          cancelBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            bootstrapModal.hide();
+          });
+        }
+      }
+    })
+    .catch(error => {
+      console.error('Error loading clergy form:', error);
+      modalBody.innerHTML = '<div class="alert alert-danger">Error loading form. Please try again.</div>';
+    });
+}
+
+// Function to refresh the visualization after adding clergy
+function refreshVisualization() {
+  // Reload the page to get updated data
+  window.location.reload();
 }
 
 // Wire up filter controls and sync mobile/desktop
@@ -247,6 +467,13 @@ const BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue(
 
 // Initialize the visualization
 function initializeVisualization() {
+    console.log('initializeVisualization called');
+    console.log('Window data check:', {
+        linksData: window.linksData,
+        nodesData: window.nodesData,
+        linksLength: window.linksData ? window.linksData.length : 'undefined',
+        nodesLength: window.nodesData ? window.nodesData.length : 'undefined'
+    });
     console.time('Visualization initialization');
     
     // The force simulation mutates links and nodes, so create a copy
@@ -622,4 +849,23 @@ function initializeVisualization() {
 } // Close initializeVisualization function
 
 // Start the visualization
+console.log('Starting visualization initialization...');
+console.log('Available data:', { 
+    links: window.linksData ? window.linksData.length : 'undefined',
+    nodes: window.nodesData ? window.nodesData.length : 'undefined'
+});
 initializeVisualization();
+
+// HTMX event handling for clergy info panel
+document.addEventListener('htmx:after-swap', function(event) {
+    // Check if the clergy info panel was loaded
+    if (event.target.id === 'clergy-info-panel') {
+        // If we have a current clergy ID, load the relationships
+        if (window.currentClergyId) {
+            // Small delay to ensure DOM is ready
+            setTimeout(() => {
+                loadClergyRelationships(window.currentClergyId);
+            }, 100);
+        }
+    }
+});

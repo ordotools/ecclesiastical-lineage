@@ -65,7 +65,6 @@ const sideMenu = document.getElementById('side-menu');
 
 // Wire up aside functionality
 const clergyAside = document.getElementById('clergy-aside');
-const closeAsideBtn = document.getElementById('close-aside');
 
 if (sideMenuToggle && sideMenu) {
   sideMenuToggle.addEventListener('click', () => {
@@ -93,10 +92,13 @@ if (sideMenuToggle && sideMenu) {
   });
 }
 
-// Wire up aside close button
-if (closeAsideBtn && clergyAside) {
-  closeAsideBtn.addEventListener('click', () => {
-    clergyAside.classList.remove('expanded');
+// Wire up aside close button using event delegation
+if (clergyAside) {
+  // Use event delegation for the close button since it's loaded via HTMX
+  clergyAside.addEventListener('click', (event) => {
+    if (event.target.closest('#close-aside')) {
+      clergyAside.classList.remove('expanded');
+    }
   });
   
   // Close aside when clicking outside
@@ -118,9 +120,6 @@ function handleNodeClick(event, d) {
   // Show aside panel
   if (clergyAside) {
     // Populate aside with clergy data
-    document.getElementById('clergy-aside-name').textContent = d.name || 'Unknown';
-    document.getElementById('clergy-aside-rank').textContent = d.rank || 'Not specified';
-    document.getElementById('clergy-aside-org').textContent = d.organization || 'Not specified';
     document.getElementById('clergy-aside-ordination').textContent = d.ordination_date || 'Not specified';
     document.getElementById('clergy-aside-consecration').textContent = d.consecration_date || 'Not specified';
     

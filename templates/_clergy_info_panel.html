@@ -2,54 +2,48 @@
 <div class="aside-content">
     <div class="clergy-image-container">
         <img id="clergy-aside-image" src="" alt="Clergy portrait" class="clergy-aside-image">
+        <button id="close-aside" class="close-aside-btn-overlay" aria-label="Close information panel">
+            <i class="fas fa-times"></i>
+        </button>
     </div>
-    <h5 id="clergy-aside-name" class="fw-bold text-dark mb-2 text-center"></h5>
-    <p id="clergy-aside-rank" class="text-primary fw-semibold text-center mb-2"></p>
-    <p id="clergy-aside-org" class="text-muted fst-italic text-center mb-3"></p>
-    
-    <div class="dates-section mb-1" style="font-size: 11pt; line-height: 1.1; margin-bottom: 0.5rem;">
+
+    <div class="dates-section mb-1" style="font-size: 10pt; line-height: 1.1; margin-bottom: 0.25rem;">
         <div class="d-flex justify-content-center align-items-center gap-2">
             <div class="date-item text-center p-0" style="min-width: 0;">
-                <div id="clergy-aside-ordination" class="date-value" style="font-size: 11pt; font-weight: 300;"></div>
-                <div class="date-label" style="font-size: 9pt; color: #888;">Ordination</div>
+                <div id="clergy-aside-ordination" class="date-value" style="font-size: 10pt; font-weight: 300;"></div>
+                <div class="date-label" style="font-size: 8pt; color: #888;">Ordination</div>
             </div>
-            <span style="font-size: 10pt; color: #bbb;">|</span>
+            <span style="font-size: 9pt; color: #bbb;">|</span>
             <div class="date-item text-center p-0" style="min-width: 0;">
-                <div id="clergy-aside-consecration" class="date-value" style="font-size: 11pt; font-weight: 300;"></div>
-                <div class="date-label" style="font-size: 9pt; color: #888;">Consecration</div>
+                <div id="clergy-aside-consecration" class="date-value" style="font-size: 10pt; font-weight: 300;"></div>
+                <div class="date-label" style="font-size: 8pt; color: #888;">Consecration</div>
             </div>
         </div>
     </div>
     
     <div class="info-section mt-1">
-        <!-- TODO: add bio later -->
-        <!-- <h6 class="fw-bold text-dark mb-2">Information</h6>
-        <div id="clergy-aside-bio" class="bio-content"></div> -->
-        
         <!-- Relationship Information -->
         <div class="relationships-section mt-1">
-            <!-- <h6 class="fw-bold text-dark mb-2">Lineage</h6> -->
-            
             <!-- Ordained by -->
-            <div class="relationship-item mb-2">
+            <div class="relationship-item mb-1">
                 <strong>Ordained by:</strong>
                 <span id="ordained-by-info"></span>
             </div>
             
             <!-- Consecrated by (only for bishops) -->
-            <div class="relationship-item mb-2" id="consecrated-by-section" style="display: none;">
+            <div class="relationship-item mb-1" id="consecrated-by-section" style="display: none;">
                 <strong>Consecrated by:</strong>
                 <span id="consecrated-by-info"></span>
             </div>
             
             <!-- Ordained clergy -->
-            <div class="relationship-item mb-2">
+            <div class="relationship-item mb-1">
                 <strong>Ordained:</strong>
                 <div id="ordained-clergy-list"></div>
             </div>
             
             <!-- Consecrated clergy (only for bishops) -->
-            <div class="relationship-item mb-2" id="consecrated-clergy-section" style="display: none;">
+            <div class="relationship-item mb-1" id="consecrated-clergy-section" style="display: none;">
                 <strong>Consecrated:</strong>
                 <div id="consecrated-clergy-list"></div>
             </div>

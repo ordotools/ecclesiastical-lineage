@@ -8,12 +8,21 @@ const IMAGE_SIZE = 48; // Reduced from 64 to 48×48 for better image quality
 const LABEL_DY =  35; // Reduced from 50 for smaller nodes
 const ARROWHEAD_LENGTH = 16; // Reduced from 18 for smaller nodes
 
-// Show/hide floating menu button and hide fixed legend/controls on mobile
+// Show/hide floating menu button and hide side menu on mobile
 function handleMobileMenuDisplay() {
   const isMobile = window.innerWidth <= 768;
   document.getElementById('mobile-menu-btn').style.display = isMobile ? 'block' : 'none';
-  document.querySelector('.legend-visualization').style.display = isMobile ? 'none' : '';
-  document.querySelector('.visualization-controls').style.display = isMobile ? 'none' : '';
+  
+  // Hide side menu on mobile
+  const sideMenu = document.getElementById('side-menu');
+  if (sideMenu) {
+    sideMenu.style.display = isMobile ? 'none' : 'flex';
+  }
+  
+  // Hide aside on mobile
+  if (clergyAside) {
+    clergyAside.style.display = isMobile ? 'none' : 'block';
+  }
 }
 window.addEventListener('resize', handleMobileMenuDisplay);
 document.addEventListener('DOMContentLoaded', handleMobileMenuDisplay);
@@ -47,6 +56,184 @@ if (centerGraphMobile) {
   centerGraphMobile.addEventListener('click', function() {
     document.getElementById('center-graph').click();
     menuModal.style.display = 'none';
+  });
+}
+
+// Wire up side menu toggle
+const sideMenuToggle = document.getElementById('side-menu-toggle');
+const sideMenu = document.getElementById('side-menu');
+
+// Wire up aside functionality
+const clergyAside = document.getElementById('clergy-aside');
+const closeAsideBtn = document.getElementById('close-aside');
+
+if (sideMenuToggle && sideMenu) {
+  sideMenuToggle.addEventListener('click', () => {
+    sideMenu.classList.toggle('expanded');
+    
+    // Update toggle button icon
+    const icon = sideMenuToggle.querySelector('i');
+    if (sideMenu.classList.contains('expanded')) {
+      icon.className = 'fas fa-times';
+      sideMenuToggle.setAttribute('aria-label', 'Close side menu');
+    } else {
+      icon.className = 'fas fa-bars';
+      sideMenuToggle.setAttribute('aria-label', 'Open side menu');
+    }
+  });
+  
+  // Close side menu when clicking outside
+  document.addEventListener('click', (event) => {
+    if (!sideMenu.contains(event.target)) {
+      sideMenu.classList.remove('expanded');
+      const icon = sideMenuToggle.querySelector('i');
+      icon.className = 'fas fa-bars';
+      sideMenuToggle.setAttribute('aria-label', 'Open side menu');
+    }
+  });
+}
+
+// Wire up aside close button
+if (closeAsideBtn && clergyAside) {
+  closeAsideBtn.addEventListener('click', () => {
+    clergyAside.classList.remove('expanded');
+  });
+  
+  // Close aside when clicking outside
+  document.addEventListener('click', (event) => {
+    if (!clergyAside.contains(event.target) && !event.target.closest('.node')) {
+      clergyAside.classList.remove('expanded');
+    }
+  });
+}
+
+// Node click handler function
+function handleNodeClick(event, d) {
+  // Prevent click if node is filtered
+  if (d.filtered) return;
+  
+  // Show aside panel
+  if (clergyAside) {
+    // Populate aside with clergy data
+    document.getElementById('clergy-aside-name').textContent = d.name || 'Unknown';
+    document.getElementById('clergy-aside-rank').textContent = d.rank || 'Not specified';
+    document.getElementById('clergy-aside-org').textContent = d.organization || 'Not specified';
+    document.getElementById('clergy-aside-ordination').textContent = d.ordination_date || 'Not specified';
+    document.getElementById('clergy-aside-consecration').textContent = d.consecration_date || 'Not specified';
+    
+    // Populate bio if available
+    const bioElement = document.getElementById('clergy-aside-bio');
+    if (d.bio && d.bio.trim()) {
+      bioElement.textContent = d.bio;
+      bioElement.style.display = 'block';
+    } else {
+      bioElement.textContent = 'No biography available.';
+      bioElement.style.display = 'block';
+    }
+    
+    // Set image with loading system - start with low-res blurred placeholder
+    const asideImage = document.getElementById('clergy-aside-image');
+    
+    // Always show the low-res image first as a blurred placeholder
+    if (d.image_url) {
+      asideImage.src = d.image_url;
+      asideImage.style.display = 'block';
+      asideImage.style.filter = 'blur(2px)'; // Add blur for loading effect
+    } else {
+      asideImage.style.display = 'none';
+    }
+    
+    // Load high-resolution image if available
+    if (d.high_res_image_url) {
+      const highResImage = new Image();
+      highResImage.onload = function() {
+        // Replace with high-res image and remove blur
+        asideImage.src = d.high_res_image_url;
+        asideImage.style.filter = 'none';
+      };
+      highResImage.onerror = function() {
+        // If high-res fails, keep the low-res image but remove blur
+        asideImage.style.filter = 'none';
+      };
+      highResImage.src = d.high_res_image_url;
+    } else {
+      // No high-res image available, remove blur from low-res
+      asideImage.style.filter = 'none';
+    }
+    
+    // Expand aside
+    clergyAside.classList.add('expanded');
+  }
+}
+
+// Wire up filter controls and sync mobile/desktop
+const hidePriestsCheckbox = document.getElementById('hide-priests');
+const hidePriestsMobileCheckbox = document.getElementById('hide-priests-mobile');
+
+function syncPriestFilters() {
+  if (hidePriestsCheckbox && hidePriestsMobileCheckbox) {
+    hidePriestsMobileCheckbox.checked = hidePriestsCheckbox.checked;
+  }
+}
+
+function applyPriestFilter() {
+  const shouldHidePriests = hidePriestsCheckbox ? hidePriestsCheckbox.checked : true;
+  
+  // Filter nodes and links to hide/show priests
+  if (window.currentNodes && window.currentLinks) {
+    // Update node visibility
+    window.currentNodes.forEach(node => {
+      const isPriest = node.rank && node.rank.toLowerCase() === 'priest';
+      if (isPriest) {
+        node.filtered = shouldHidePriests; // Hide priests if requested
+      } else {
+        node.filtered = false; // Show non-priest clergy
+      }
+    });
+    
+    // Update link visibility - hide links connected to priests
+    window.currentLinks.forEach(link => {
+      const sourceIsPriest = link.source.rank && link.source.rank.toLowerCase() === 'priest';
+      const targetIsPriest = link.target.rank && link.target.rank.toLowerCase() === 'priest';
+      const isBlackLink = link.color === BLACK_COLOR; // Ordination links
+      
+      // Hide black links (ordinations) when hiding priests
+      if (shouldHidePriests && isBlackLink && (sourceIsPriest || targetIsPriest)) {
+        link.filtered = true;
+      } else {
+        link.filtered = false;
+      }
+    });
+    
+    // Update force simulation to exclude filtered nodes/links from physics
+    if (window.currentSimulation) {
+      // Update link force to exclude filtered links
+      window.currentSimulation.force('link', d3.forceLink(window.currentLinks.filter(l => !l.filtered)).id(d => d.id).distance(LINK_DISTANCE));
+      
+      // Update charge force to exclude filtered nodes
+      window.currentSimulation.force('charge', d3.forceManyBody().strength(d => d.filtered ? 0 : CHARGE_STRENGTH));
+      
+      // Update collision force to exclude filtered nodes
+      window.currentSimulation.force('collision', d3.forceCollide().radius(d => d.filtered ? 0 : COLLISION_RADIUS));
+      
+      // Restart simulation to apply changes
+      window.currentSimulation.alpha(1).restart();
+    }
+  }
+}
+
+// Sync checkboxes when either changes
+if (hidePriestsCheckbox) {
+  hidePriestsCheckbox.addEventListener('change', function() {
+    syncPriestFilters();
+    applyPriestFilter();
+  });
+}
+
+if (hidePriestsMobileCheckbox) {
+  hidePriestsMobileCheckbox.addEventListener('change', function() {
+    syncPriestFilters();
+    applyPriestFilter();
   });
 }
 
@@ -180,6 +367,16 @@ function initializeVisualization() {
     if (bishopNodes.length > 0) {
         simulation.force('bishop-repulsion', d3.forceManyBody().strength(-800));
     }
+    
+    // Override force functions to exclude filtered nodes from physics
+    const originalLinkForce = simulation.force('link');
+    simulation.force('link', d3.forceLink(validLinks.filter(l => !l.filtered)).id(d => d.id).distance(LINK_DISTANCE));
+    
+    const originalChargeForce = simulation.force('charge');
+    simulation.force('charge', d3.forceManyBody().strength(d => d.filtered ? 0 : CHARGE_STRENGTH));
+    
+    const originalCollisionForce = simulation.force('collision');
+    simulation.force('collision', d3.forceCollide().radius(d => d.filtered ? 0 : COLLISION_RADIUS));
 
     // Create links first (so they render behind nodes)
     const link = container.append('g')
@@ -189,6 +386,8 @@ function initializeVisualization() {
         .attr('stroke', d => d.color)
         .attr('stroke-width', 2)
         .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
+        .style('opacity', d => d.filtered ? 0 : 1) // Hide filtered links
+        .style('pointer-events', d => d.filtered ? 'none' : 'all') // Disable pointer events for filtered links
         .attr('marker-end', d => {
             // Ensure we have a valid color and map it to the correct marker
             if (d.color === BLACK_COLOR) {
@@ -201,11 +400,30 @@ function initializeVisualization() {
             }
         });
 
+    // Store references globally for filtering
+    window.currentNodes = nodes;
+    window.currentLinks = validLinks;
+    window.currentSimulation = simulation;
+    
+    // Initialize filtered state for all nodes and links
+    nodes.forEach(node => {
+        const isPriest = node.rank && node.rank.toLowerCase() === 'priest';
+        node.filtered = isPriest; // Start with priests hidden
+    });
+    
+    validLinks.forEach(link => {
+        const sourceIsPriest = link.source.rank && link.source.rank.toLowerCase() === 'priest';
+        const targetIsPriest = link.target.rank && link.target.rank.toLowerCase() === 'priest';
+        const isBlackLink = link.color === BLACK_COLOR;
+        link.filtered = isBlackLink && (sourceIsPriest || targetIsPriest); // Hide black links to priests
+    });
+
     // Create nodes after links (so they render on top)
     const node = container.append('g')
         .selectAll('g')
         .data(nodes)
         .enter().append('g')
+        .style('pointer-events', d => d.filtered ? 'none' : 'all') // Disable pointer events for filtered nodes
         .call(d3.drag()
             .on('start', dragstarted)
             .on('drag', dragged)
@@ -271,10 +489,14 @@ function initializeVisualization() {
             .attr('x1', d => d.source.x + (d.parallelOffset || 0))
             .attr('y1', d => d.source.y)
             .attr('x2', d => d.target.x + (d.parallelOffset || 0))
-            .attr('y2', d => d.target.y);
+            .attr('y2', d => d.target.y)
+            .style('opacity', d => d.filtered ? 0 : 1) // Update link opacity on tick
+            .style('pointer-events', d => d.filtered ? 'none' : 'all'); // Disable pointer events for filtered links
 
         node
-            .attr('transform', d => `translate(${d.x},${d.y})`);
+            .attr('transform', d => `translate(${d.x},${d.y})`)
+            .style('opacity', d => d.filtered ? 0 : 1) // Hide filtered nodes completely
+            .style('pointer-events', d => d.filtered ? 'none' : 'all'); // Update pointer events on tick
     });
 
     // Stop simulation after it converges to improve performance
@@ -297,22 +519,62 @@ function initializeVisualization() {
 
     console.timeEnd('Visualization initialization');
 
+    // Track drag state for click detection
+    let isDragging = false;
+    let dragStartPos = { x: 0, y: 0 };
+    let dragThreshold = 100; // pixels - increased for much better click detection
+    let dragStartTime = 0;
+    let maxClickDuration = 300; // milliseconds
+
     // Drag functions
     function dragstarted(event, d) {
+        // Prevent dragging of filtered nodes
+        if (d.filtered) return;
+        
+        isDragging = false;
+        dragStartPos = { x: event.x, y: event.y };
+        dragStartTime = Date.now();
+        
         if (!event.active) simulation.alphaTarget(0.3).restart();
         d.fx = d.x;
         d.fy = d.y;
     }
 
     function dragged(event, d) {
+        // Prevent dragging of filtered nodes
+        if (d.filtered) return;
+        
+        // Check if we've moved enough to consider this a drag
+        const dx = event.x - dragStartPos.x;
+        const dy = event.y - dragStartPos.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > dragThreshold) {
+            isDragging = true;
+        }
+        
         d.fx = event.x;
         d.fy = event.y;
     }
 
     function dragended(event, d) {
+        // Prevent dragging of filtered nodes
+        if (d.filtered) return;
+        
         if (!event.active) simulation.alphaTarget(0);
         d.fx = null;
         d.fy = null;
+        
+        // Check if this was a quick click (not a drag)
+        const dragDuration = Date.now() - dragStartTime;
+        const wasQuickClick = dragDuration < maxClickDuration && !isDragging;
+        
+        if (wasQuickClick) {
+            // Use a small delay to ensure drag state is fully cleared
+            setTimeout(() => {
+                handleNodeClick(event, d);
+            }, 50);
+        }
     }
 
     // Control button handlers
@@ -339,6 +601,23 @@ function initializeVisualization() {
 
     // Initialize mobile display
     handleMobileMenuDisplay();
+    
+    // Initialize side menu state
+    if (sideMenu) {
+      sideMenu.style.display = window.innerWidth <= 768 ? 'none' : 'flex';
+      // Start with menu collapsed
+      sideMenu.classList.remove('expanded');
+    }
+    
+    // Initialize aside state
+    if (clergyAside) {
+      clergyAside.style.display = window.innerWidth <= 768 ? 'none' : 'block';
+      // Start with aside collapsed
+      clergyAside.classList.remove('expanded');
+    }
+    
+    // Apply initial priest filter
+    applyPriestFilter();
 
 } // Close initializeVisualization function
 

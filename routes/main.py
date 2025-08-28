@@ -19,8 +19,8 @@ def index():
 def lineage_visualization():
     try:
         # Allow both logged-in and non-logged-in users to view lineage visualization
-        # Get all clergy for the visualization
-        all_clergy = Clergy.query.all()
+        # Get only active (non-deleted) clergy for the visualization
+        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
         
         # Get all organizations and ranks for color lookup
         organizations = {org.name: org.color for org in Organization.query.all()}
@@ -42,6 +42,15 @@ def lineage_visualization():
             # Use actual image if available, otherwise use placeholder
             image_url = clergy.image_url if clergy.image_url else placeholder_data_url
             
+            # Get high-resolution image URL from image_data if available
+            high_res_image_url = None
+            if clergy.image_data:
+                try:
+                    image_data = json.loads(clergy.image_data)
+                    high_res_image_url = image_data.get('detail') or image_data.get('original')
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+            
             nodes.append({
                 'id': clergy.id,
                 'name': clergy.name,
@@ -49,7 +58,11 @@ def lineage_visualization():
                 'organization': clergy.organization,
                 'org_color': org_color,
                 'rank_color': rank_color,
-                'image_url': image_url
+                'image_url': image_url,
+                'high_res_image_url': high_res_image_url,
+                'ordination_date': clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else 'Not specified',
+                'consecration_date': clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else 'Not specified',
+                'bio': clergy.notes
             })
         
         # Create links for ordinations (black arrows)
@@ -150,7 +163,7 @@ def clergy_modal_add():
     user = User.query.get(session.get('user_id'))
     
     # Get the same data that add_clergy_handler provides
-    all_clergy = Clergy.query.all()
+    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
     all_clergy_data = [
         {
             'id': clergy_member.id,
@@ -183,7 +196,7 @@ def clergy_modal_edit(clergy_id):
     user = User.query.get(session.get('user_id'))
     
     # Get the same data that edit_clergy_handler provides
-    all_clergy = Clergy.query.all()
+    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
     all_clergy_data = [
         {
             'id': clergy_member.id,

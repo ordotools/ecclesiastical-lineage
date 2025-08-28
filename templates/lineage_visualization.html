@@ -33,10 +33,7 @@
                 <div style="width: 20px; height: 2px; background: var(--lineage-green); margin-right: 8px;"></div>
                 <small class="text-dark">Consecration</small>
             </div>
-            <div class="d-flex align-items-center mb-2">
-                <div style="width: 20px; height: 2px; background: var(--lineage-green); border-top: 2px dotted var(--lineage-green); margin-right: 8px;"></div>
-                <small class="text-dark">Co-consecration</small>
-            </div>
+
           </div>
           <!-- Controls -->
           <div class="visualization-controls-mobile mt-3">
@@ -47,35 +44,119 @@
                 <i class="fas fa-crosshairs me-1"></i>Center Graph
             </button>
           </div>
+          <!-- Filters -->
+          <div class="visualization-filters-mobile mt-3">
+            <h6 class="fw-bold mb-2 text-dark">Filters</h6>
+            <div class="filter-item">
+              <label class="switch-label" for="hide-priests-mobile">
+                <small class="text-dark">Hide Priests</small>
+              </label>
+              <label class="switch">
+                <input type="checkbox" id="hide-priests-mobile" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Legend -->
-    <div class="legend-visualization">
-        <h6 class="fw-bold mb-2 text-dark">Lineage Types</h6>
-        <div class="d-flex align-items-center mb-2">
-            <div style="width: 20px; height: 2px; background: var(--lineage-black); margin-right: 8px;"></div>
-            <small class="text-dark">Ordination</small>
+    <!-- Side Menu -->
+    <div id="side-menu" class="side-menu">
+        <!-- Legend -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Lineage Types</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 20px; height: 2px; background: var(--lineage-black); margin-right: 8px;"></div>
+                    <small class="text-dark">Ordination</small>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 20px; height: 2px; background: var(--lineage-green); margin-right: 8px;"></div>
+                    <small class="text-dark">Consecration</small>
+                </div>
+            </div>
         </div>
-        <div class="d-flex align-items-center mb-2">
-            <div style="width: 20px; height: 2px; background: var(--lineage-green); margin-right: 8px;"></div>
-            <small class="text-dark">Consecration</small>
+
+        <!-- Controls -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Controls</h6>
+            </div>
+            <div class="card-body">
+                <button id="reset-zoom" class="btn btn-sm btn-outline-secondary mb-2 w-100">
+                    <i class="fas fa-search-plus me-1"></i>Reset Zoom
+                </button>
+                <button id="center-graph" class="btn btn-sm btn-outline-secondary w-100">
+                    <i class="fas fa-crosshairs me-1"></i>Center Graph
+                </button>
+            </div>
         </div>
-        <div class="d-flex align-items-center mb-2">
-            <div style="width: 20px; height: 2px; background: var(--lineage-green); border-top: 2px dotted var(--lineage-green); margin-right: 8px;"></div>
-            <small class="text-dark">Co-consecration</small>
+
+        <!-- Filters -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Filters</h6>
+            </div>
+            <div class="card-body">
+                <div class="filter-item">
+                    <label class="switch-label" for="hide-priests">
+                        <small class="text-dark">Hide Priests</small>
+                    </label>
+                    <label class="switch">
+                        <input type="checkbox" id="hide-priests" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
         </div>
+        
+        <!-- Toggle Button - Positioned on the right side -->
+        <button id="side-menu-toggle" class="side-menu-toggle-btn" aria-label="Toggle side menu">
+            <i class="fas fa-bars"></i>
+        </button>
     </div>
 
-    <!-- Controls -->
-    <div class="visualization-controls">
-        <button id="reset-zoom" class="btn btn-sm btn-outline-secondary mb-2 w-100">
-            <i class="fas fa-search-plus me-1"></i>Reset Zoom
-        </button>
-        <button id="center-graph" class="btn btn-sm btn-outline-secondary w-100">
-            <i class="fas fa-crosshairs me-1"></i>Center Graph
-        </button>
+    <!-- Right Side Aside - Clergy Information Panel -->
+    <div id="clergy-aside" class="clergy-aside">
+        <div class="aside-header">
+            <h5 class="fw-bold mb-0 text-dark">Clergy Information</h5>
+            <button id="close-aside" class="close-aside-btn" aria-label="Close information panel">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="aside-content">
+            <div class="clergy-image-container">
+                <img id="clergy-aside-image" src="" alt="Clergy portrait" class="clergy-aside-image">
+            </div>
+            <h4 id="clergy-aside-name" class="fw-bold text-dark mb-2 text-center"></h4>
+            <p id="clergy-aside-rank" class="text-primary fw-semibold text-center mb-2"></p>
+            <p id="clergy-aside-org" class="text-muted fst-italic text-center mb-3"></p>
+            
+            <div class="dates-section mb-3">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="date-item text-center">
+                            <div id="clergy-aside-ordination" class="date-value"></div>
+                            <div class="date-label">Ordination</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="date-item text-center">
+                            <div id="clergy-aside-consecration" class="date-value"></div>
+                            <div class="date-label">Consecration</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-section mt-3">
+                <h6 class="fw-bold text-dark mb-2">Information</h6>
+                <div id="clergy-aside-bio" class="bio-content"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Admin Navigation Button -->

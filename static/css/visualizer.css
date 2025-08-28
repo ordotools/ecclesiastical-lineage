@@ -13,39 +13,184 @@
   position: relative;
 }
 
-.legend-visualization {
+/* Side Menu Container with Toggle Button */
+.side-menu {
   position: fixed !important;
-  top: 76px !important; /* Push below navbar */
+  top: 76px !important;
   left: 12px !important;
   z-index: 1050;
-  min-width: 200px;
-  background: linear-gradient(135deg, 
-    rgba(252, 250, 245, 0.8) 0%, 
-    rgba(248, 246, 240, 0.7) 100%);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(189, 195, 199, 0.3);
-  border-radius: 8px;
-  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.3s ease;
+  /* Start with only toggle button visible on the right */
+  transform: translateX(-330px);
+  opacity: 1;
+  pointer-events: all;
 }
 
-.visualization-controls {
-  position: fixed !important;
-  top: 76px !important; /* Push below navbar */
-  right: 12px !important;
-  z-index: 1050;
+.side-menu.expanded {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Side Menu Toggle Button - Positioned on the right side */
+.side-menu-toggle-btn {
+  position: absolute !important;
+  right: -60px !important;
+  top: 0;
   background: linear-gradient(135deg, 
-    rgba(252, 250, 245, 0.8) 0%, 
-    rgba(248, 246, 240, 0.7) 100%);
+    rgba(252, 250, 245, 0.9) 0%, 
+    rgba(248, 246, 240, 0.8) 100%);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(189, 195, 199, 0.3);
   border-radius: 8px;
-  padding: 12px;
+  padding: 12px 16px;
+  color: #2c3e50;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  z-index: 1060;
+}
+
+.side-menu-toggle-btn:hover {
+  background: linear-gradient(135deg, 
+    rgba(252, 250, 245, 1) 0%, 
+    rgba(248, 246, 240, 0.9) 100%);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+
+/* Side Menu Cards */
+.side-menu-card {
+  background: linear-gradient(135deg, 
+    rgba(252, 250, 245, 0.9) 0%, 
+    rgba(248, 246, 240, 0.8) 100%);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(189, 195, 199, 0.3);
+  border-radius: 8px;
+  min-width: 220px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+.side-menu-card:hover {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+
+.side-menu-card .card-header {
+  background: linear-gradient(135deg, 
+    rgba(44, 62, 80, 0.1) 0%, 
+    rgba(52, 73, 94, 0.05) 100%);
+  border-bottom: 1px solid rgba(189, 195, 199, 0.2);
+  padding: 12px 16px 8px 16px;
+  border-radius: 8px 8px 0 0;
+}
+
+.side-menu-card .card-body {
+  padding: 16px;
+}
+
+/* Ensure consistent button styling in side menu */
+.side-menu-card .btn {
+  font-size: 0.875rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.side-menu-card .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* Ensure consistent filter styling in side menu */
+.side-menu-card .filter-item {
+  margin-bottom: 0;
+}
+
+.side-menu-card .switch-label {
+  font-size: 0.875rem;
+}
+
+/* Animated Switch Styles */
+.filter-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.switch-label {
+  margin-bottom: 0;
+  cursor: pointer;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.3s ease;
+  border-radius: 24px;
+}
+
+.switch:hover .slider {
+  background-color: #b3b3b3;
+}
+
+.switch:hover input:checked + .slider {
+  background-color: #229954;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s ease;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+input:checked + .slider {
+  background-color: var(--lineage-green, #27ae60);
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px var(--lineage-green, #27ae60);
 }
 
 .admin-nav-container {
   position: fixed !important;
   bottom: 12px !important;
-  right: 12px !important;
+  left: 12px !important;
   z-index: 1050;
 }
 
@@ -223,6 +368,34 @@
   margin-bottom: 10px;
 }
 
+.visualization-filters-mobile {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.visualization-filters-mobile .filter-item {
+  margin-bottom: 12px;
+}
+
+.visualization-filters-mobile .switch {
+  width: 48px;
+  height: 26px;
+}
+
+.visualization-filters-mobile .slider:before {
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+}
+
+.visualization-filters-mobile input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
 /* Shared styles for co-consecrator dropdown */
 .co-consecrators-container {
     position: relative;
@@ -254,8 +427,7 @@
   .graph-container-full {
     height: calc(100vh - 56px);
   }
-  .legend-visualization,
-  .visualization-controls {
+  .side-menu {
     top: 56px !important;
   }
   .floating-menu-btn {
@@ -264,10 +436,170 @@
   .mobile-menu-modal {
     display: flex;
   }
-  .legend-visualization, .visualization-controls {
+  .side-menu {
     display: none !important;
   }
 } 
+
+/* Right Side Aside - Clergy Information Panel */
+.clergy-aside {
+  position: fixed !important;
+  top: 76px !important;
+  right: 12px !important;
+  z-index: 1050;
+  background: linear-gradient(135deg, 
+    rgba(252, 250, 245, 0.9) 0%, 
+    rgba(248, 246, 240, 0.8) 100%);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(189, 195, 199, 0.3);
+  border-radius: 8px;
+  width: 320px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.clergy-aside.expanded {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: all;
+}
+
+.clergy-aside .aside-header {
+  background: linear-gradient(135deg, 
+    rgba(44, 62, 80, 0.1) 0%, 
+    rgba(52, 73, 94, 0.05) 100%);
+  border-bottom: 1px solid rgba(189, 195, 199, 0.2);
+  padding: 16px 20px 12px 20px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.close-aside-btn {
+  background: none;
+  border: none;
+  color: #2c3e50;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.close-aside-btn:hover {
+  background: rgba(44, 62, 80, 0.1);
+  color: #34495e;
+}
+
+.clergy-aside .aside-content {
+  padding: 0 20px 20px 20px;
+}
+
+/* Enhanced name styling */
+#clergy-aside-name {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+/* Enhanced organization styling */
+#clergy-aside-org {
+  font-size: 1rem;
+  color: #7f8c8d;
+  margin-bottom: 20px;
+}
+
+.clergy-image-container {
+  text-align: center;
+  margin-bottom: 0;
+  width: 100%;
+  height: 320px;
+  overflow: hidden;
+  border-radius: 8px 8px 0 0;
+}
+
+.clergy-aside-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: none;
+  box-shadow: none;
+}
+
+/* Dates Section */
+.dates-section {
+  border-top: 1px solid rgba(189, 195, 199, 0.1);
+  border-bottom: 1px solid rgba(189, 195, 199, 0.1);
+  padding: 16px 0;
+}
+
+.date-item {
+  padding: 8px;
+}
+
+.date-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 4px;
+}
+
+.date-label {
+  font-size: 0.8rem;
+  color: #7f8c8d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.clergy-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(189, 195, 199, 0.1);
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.875rem;
+}
+
+.detail-value {
+  color: #34495e;
+  font-size: 0.875rem;
+  text-align: right;
+  max-width: 150px;
+  word-wrap: break-word;
+}
+
+/* Info Section */
+.info-section {
+  border-top: 1px solid rgba(189, 195, 199, 0.1);
+  padding-top: 16px;
+}
+
+.bio-content {
+  color: #34495e;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  max-height: 200px;
+  overflow-y: auto;
+}
 
 @media (min-width: 769px) {
   .floating-menu-btn, .mobile-menu-modal {

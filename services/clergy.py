@@ -131,7 +131,7 @@ def clergy_list_handler():
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
     org_color_map = {org.name: org.color for org in organizations}
     ranks = Rank.query.order_by(Rank.name).all()
-    all_clergy = Clergy.query.all()
+    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
     all_clergy_data = [
         {
             'id': clergy_member.id,
@@ -210,7 +210,7 @@ def add_clergy_handler():
             return None, render_template('add_clergy.html')
     # ... (rest of GET logic unchanged, but return as (None, response)) ...
     # You may need to pass the same context as in clergy_list_handler for GET
-    all_clergy = Clergy.query.all()
+    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
     all_clergy_data = [
         {
             'id': clergy_member.id,
@@ -221,9 +221,10 @@ def add_clergy_handler():
         for clergy_member in all_clergy
     ]
     
-    # For add form, provide all bishops initially (filtering will be done client-side based on dates)
+    # For add form, provide all active (non-deleted) bishops initially (filtering will be done client-side based on dates)
     all_bishops = Clergy.query.filter(
-        Clergy.rank.ilike('%bishop%')
+        Clergy.rank.ilike('%bishop%'),
+        Clergy.is_deleted != True
     ).order_by(Clergy.name).all()
     
     # Convert to list of dictionaries with temporal data for client-side filtering
@@ -551,7 +552,7 @@ def edit_clergy_handler(clergy_id):
         )
         flash('Clergy record updated successfully!', 'success')
         return redirect(url_for('clergy.clergy_list'))
-    all_clergy = Clergy.query.all()
+    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
     all_clergy_data = [
         {
             'id': clergy_member.id,
@@ -567,7 +568,8 @@ def edit_clergy_handler(clergy_id):
     # 1. Alive on the ordination/consecration date
     # 2. Already a bishop on that date (consecrated before or on that date)
     all_bishops = Clergy.query.filter(
-        Clergy.rank.ilike('%bishop%')
+        Clergy.rank.ilike('%bishop%'),
+        Clergy.is_deleted != True
     ).order_by(Clergy.name).all()
     
     # Filter bishops based on temporal logic
@@ -637,7 +639,7 @@ def clergy_filter_partial_handler():
     if exclude_priests:
         query = query.filter(Clergy.rank != 'Priest')
     if exclude_coconsecrators:
-        all_clergy = Clergy.query.all()
+        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
         coconsecrator_ids = set()
         for c in all_clergy:
             coconsecrator_ids.update(c.get_co_consecrators())
@@ -685,7 +687,8 @@ def soft_delete_clergy_handler(clergy_id, user=None):
     clergy = Clergy.query.get_or_404(clergy_id)
     # Clean up ordaining_bishop_id and consecrator_id references
     referencing_clergy = Clergy.query.filter(
-        (Clergy.ordaining_bishop_id == clergy_id) | (Clergy.consecrator_id == clergy_id)
+        (Clergy.ordaining_bishop_id == clergy_id) | (Clergy.consecrator_id == clergy_id),
+        Clergy.is_deleted != True
     ).all()
     for c in referencing_clergy:
         if c.ordaining_bishop_id == clergy_id:
@@ -693,7 +696,7 @@ def soft_delete_clergy_handler(clergy_id, user=None):
         if c.consecrator_id == clergy_id:
             c.consecrator_id = None
     # Clean up co-consecrator references
-    all_clergy = Clergy.query.all()
+    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
     for c in all_clergy:
         co_consecrators = c.get_co_consecrators()
         if clergy_id in co_consecrators:
@@ -729,9 +732,10 @@ def get_filtered_bishops_handler():
         except ValueError:
             return jsonify({'error': 'Invalid consecration date format'}), 400
     
-    # Get all bishops
+    # Get all active (non-deleted) bishops
     all_bishops = Clergy.query.filter(
-        Clergy.rank.ilike('%bishop%')
+        Clergy.rank.ilike('%bishop%'),
+        Clergy.is_deleted != True
     ).order_by(Clergy.name).all()
     
     # Filter bishops based on temporal logic

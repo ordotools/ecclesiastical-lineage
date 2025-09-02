@@ -4,6 +4,11 @@
 **Goal:** Track and visualize ecclesiastical lineages and consecration relationships between clergy members.
 
 ## 📋 Current Sprint / Active Tasks
+- [ ] Fix the dynamic forms so that someone who is a "bishop" has consecrator and consecration date.
+- [ ] Add an edit button to the clergy on the lineage view.
+- [ ] Clergy form on lineage has to have the filtereing for ordaining and consecrating bishops.
+- [ ] We need to get some sort of a progress bar when saving records.
+- [ ] Add a drag and drop feature to the photo upload input on the form.
 - [ ] Get rid of the alert when we save an edit to the clergy
 - [ ] ⚡ Remove all of the Javascript from the HTML files and have them stand alone
 - [x] 🔥 Change the d3 graph so that all the nodes stay together and the bishops repulse other bishops more strongly

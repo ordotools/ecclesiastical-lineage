@@ -166,6 +166,17 @@ function handleNodeClick(event, d) {
     // Expand aside
     clergyAside.classList.add('expanded');
     
+    // Show edit button if user can edit
+    const editBtn = document.getElementById('edit-clergy-btn');
+    if (editBtn && window.userCanEditClergy === true) {
+      editBtn.style.display = 'flex';
+      editBtn.onclick = function() {
+        openEditClergyModal(d.id);
+      };
+    } else if (editBtn) {
+      editBtn.style.display = 'none';
+    }
+    
     // Load clergy relationships
     loadClergyRelationships(d.id);
   }
@@ -189,13 +200,24 @@ function loadClergyRelationships(clergyId) {
 
 // Function to display clergy relationships
 function displayClergyRelationships(data) {
+  // Check if user can edit clergy
+  const canEdit = window.userCanEditClergy === true;
+  
   // Display ordained by information
   const ordainedByInfo = document.getElementById('ordained-by-info');
   if (ordainedByInfo) {
     if (data.ordaining_bishop) {
-      ordainedByInfo.innerHTML = `<a href="#" class="clergy-link" data-clergy-id="${data.ordaining_bishop.id}">${data.ordaining_bishop.name}</a>`;
+      if (canEdit) {
+        ordainedByInfo.innerHTML = `<a href="#" class="clergy-link" data-clergy-id="${data.ordaining_bishop.id}">${data.ordaining_bishop.name}</a>`;
+      } else {
+        ordainedByInfo.innerHTML = `<span>${data.ordaining_bishop.name}</span>`;
+      }
     } else {
-      ordainedByInfo.innerHTML = `<a href="#" class="add-clergy-link" data-context-type="ordination" data-context-clergy-id="${getCurrentClergyId()}">?</a>`;
+      if (canEdit) {
+        ordainedByInfo.innerHTML = `<a href="#" class="add-clergy-link" data-context-type="ordination" data-context-clergy-id="${getCurrentClergyId()}">?</a>`;
+      } else {
+        ordainedByInfo.innerHTML = `<span>Not specified</span>`;
+      }
     }
   }
   
@@ -204,10 +226,18 @@ function displayClergyRelationships(data) {
   const consecratedByInfo = document.getElementById('consecrated-by-info');
   if (consecratedByInfo && consecratedBySection) {
     if (data.consecrator) {
-      consecratedByInfo.innerHTML = `<a href="#" class="clergy-link" data-clergy-id="${data.consecrator.id}">${data.consecrator.name}</a>`;
+      if (canEdit) {
+        consecratedByInfo.innerHTML = `<a href="#" class="clergy-link" data-clergy-id="${data.consecrator.id}">${data.consecrator.name}</a>`;
+      } else {
+        consecratedByInfo.innerHTML = `<span>${data.consecrator.name}</span>`;
+      }
       consecratedBySection.style.display = 'block';
     } else {
-      consecratedByInfo.innerHTML = `<a href="#" class="add-clergy-link" data-context-type="consecration" data-context-clergy-id="${getCurrentClergyId()}">?</a>`;
+      if (canEdit) {
+        consecratedByInfo.innerHTML = `<a href="#" class="add-clergy-link" data-context-type="consecration" data-context-clergy-id="${getCurrentClergyId()}">?</a>`;
+      } else {
+        consecratedByInfo.innerHTML = `<span>Not specified</span>`;
+      }
       consecratedBySection.style.display = 'block';
     }
   }
@@ -218,12 +248,22 @@ function displayClergyRelationships(data) {
     if (data.ordained_clergy && data.ordained_clergy.length > 0) {
       let html = '';
       data.ordained_clergy.forEach(clergy => {
-        html += `<div class="clergy-item mb-1"><a href="#" class="clergy-link" data-clergy-id="${clergy.id}">${clergy.name}</a> (${clergy.rank})</div>`;
+        if (canEdit) {
+          html += `<div class="clergy-item mb-1"><a href="#" class="clergy-link" data-clergy-id="${clergy.id}">${clergy.name}</a> (${clergy.rank})</div>`;
+        } else {
+          html += `<div class="clergy-item mb-1"><span>${clergy.name}</span> (${clergy.rank})</div>`;
+        }
       });
-      html += `<div class="mt-2"><a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="ordained" data-context-clergy-id="${getCurrentClergyId()}">+</a></div>`;
+      if (canEdit) {
+        html += `<div class="mt-2"><a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="ordained" data-context-clergy-id="${getCurrentClergyId()}">+</a></div>`;
+      }
       ordainedClergyList.innerHTML = html;
     } else {
-      ordainedClergyList.innerHTML = `<a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="ordained" data-context-clergy-id="${getCurrentClergyId()}">+</a>`;
+      if (canEdit) {
+        ordainedClergyList.innerHTML = `<a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="ordained" data-context-clergy-id="${getCurrentClergyId()}">+</a>`;
+      } else {
+        ordainedClergyList.innerHTML = `<span>None</span>`;
+      }
     }
   }
   
@@ -234,19 +274,251 @@ function displayClergyRelationships(data) {
     if (data.consecrated_clergy && data.consecrated_clergy.length > 0) {
       let html = '';
       data.consecrated_clergy.forEach(clergy => {
-        html += `<div class="clergy-item mb-1"><a href="#" class="clergy-link" data-clergy-id="${clergy.id}">${clergy.name}</a> (${clergy.rank})</div>`;
+        if (canEdit) {
+          html += `<div class="clergy-item mb-1"><a href="#" class="clergy-link" data-clergy-id="${clergy.id}">${clergy.name}</a> (${clergy.rank})</div>`;
+        } else {
+          html += `<div class="clergy-item mb-1"><span>${clergy.name}</span> (${clergy.rank})</div>`;
+        }
       });
-      html += `<div class="mt-2"><a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="consecrated" data-context-clergy-id="${getCurrentClergyId()}">+</a></div>`;
+      if (canEdit) {
+        html += `<div class="mt-2"><a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="consecrated" data-context-clergy-id="${getCurrentClergyId()}">+</a></div>`;
+      }
       consecratedClergyList.innerHTML = html;
       consecratedClergySection.style.display = 'block';
     } else {
-      consecratedClergyList.innerHTML = `<a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="consecrated" data-context-clergy-id="${getCurrentClergyId()}">+</a>`;
+      if (canEdit) {
+        consecratedClergyList.innerHTML = `<a href="#" class="add-clergy-link btn btn-sm btn-outline-primary" data-context-type="consecrated" data-context-clergy-id="${getCurrentClergyId()}">+</a>`;
+      } else {
+        consecratedClergyList.innerHTML = `<span>None</span>`;
+      }
       consecratedClergySection.style.display = 'block';
     }
   }
   
   // Add event listeners for clergy links and add clergy links
   addClergyLinkEventListeners();
+  
+  // Show edit button if user can edit and we have a clergy ID
+  const editBtn = document.getElementById('edit-clergy-btn');
+  if (editBtn && canEdit && getCurrentClergyId()) {
+    editBtn.style.display = 'flex';
+    editBtn.onclick = function() {
+      const clergyId = getCurrentClergyId();
+      if (clergyId) {
+        openEditClergyModal(clergyId);
+      }
+    };
+  } else if (editBtn) {
+    editBtn.style.display = 'none';
+  }
+}
+
+// Function to open the edit clergy modal
+function openEditClergyModal(clergyId) {
+  const modal = document.getElementById('clergyFormModal');
+  const modalBody = document.getElementById('clergyFormModalBody');
+  
+  // Load the edit clergy form
+  console.log(`Opening edit modal for clergy ID: ${clergyId}`);
+  fetch(`/clergy/edit_from_lineage/${clergyId}`)
+    .then(response => response.text())
+    .then(html => {
+      modalBody.innerHTML = html;
+      
+      // Show the modal
+      const bootstrapModal = new bootstrap.Modal(modal);
+      bootstrapModal.show();
+      
+      // Load necessary JavaScript for the form
+      loadEditFormScripts();
+      
+      // Override the form submission for modal context
+      const form = modalBody.querySelector('#clergyForm');
+      if (form) {
+        console.log('Edit form loaded, setting up handlers');
+        
+        // Remove any existing HTMX attributes
+        form.removeAttribute('hx-post');
+        form.removeAttribute('hx-target');
+        form.removeAttribute('hx-swap');
+        form.removeAttribute('hx-on::after-request');
+        
+        // Add custom submit handler
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          
+          console.log('Edit form submitted, sending data to:', form.action);
+          const formData = new FormData(form);
+          
+          // Clean up form data - remove empty fields and "None" values
+          const cleanedFormData = new FormData();
+          for (let [key, value] of formData.entries()) {
+            if (value && value !== 'None' && value !== '') {
+              cleanedFormData.append(key, value);
+            }
+          }
+          
+          // Log cleaned form data for debugging
+          for (let [key, value] of cleanedFormData.entries()) {
+            console.log(`Cleaned form field: ${key} = ${value}`);
+          }
+          
+          fetch(form.action, {
+            method: 'POST',
+            body: cleanedFormData
+          })
+          .then(response => {
+            console.log('Response status:', response.status);
+            return response.json();
+          })
+          .then(data => {
+            console.log('Form submission response:', data);
+            if (data.success) {
+              console.log('Clergy updated successfully, refreshing page...');
+              
+              // Close the modal
+              bootstrapModal.hide();
+              
+              // Refresh the visualization to show the updated clergy
+              console.log('Reloading page...');
+              window.location.reload(true);
+            } else {
+              alert('Error: ' + (data.message || 'Failed to update clergy member'));
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            alert('Error submitting form. Please try again.');
+          });
+        });
+        
+        // Handle cancel button to close modal
+        const cancelBtn = form.querySelector('a[href="#"]');
+        if (cancelBtn) {
+          cancelBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            bootstrapModal.hide();
+          });
+        }
+      }
+    })
+    .catch(error => {
+      console.error('Error loading edit form:', error);
+      alert('Error loading edit form. Please try again.');
+    });
+}
+
+// Function to load necessary scripts for edit form functionality
+function loadEditFormScripts() {
+  // Load fuzzySearch.js if not already loaded
+  if (!window.attachAutocomplete) {
+    const script1 = document.createElement('script');
+    script1.src = '/static/js/fuzzySearch.js';
+    script1.onload = function() {
+      console.log('fuzzySearch.js loaded for modal');
+      // Initialize bishop autocomplete after script loads
+      initModalBishopAutocomplete();
+    };
+    document.head.appendChild(script1);
+  } else {
+    // Script already loaded, initialize directly
+    initModalBishopAutocomplete();
+  }
+  
+  // Load editClergy.js if not already loaded
+  if (!window.initEditClergy) {
+    const script2 = document.createElement('script');
+    script2.src = '/static/js/editClergy.js';
+    script2.onload = function() {
+      console.log('editClergy.js loaded for modal');
+      // Initialize edit clergy functionality
+      initModalEditClergy();
+    };
+    document.head.appendChild(script2);
+  } else {
+    // Script already loaded, initialize directly
+    initModalEditClergy();
+  }
+}
+
+// Initialize bishop autocomplete for modal
+function initModalBishopAutocomplete() {
+  // Get all bishops data from the form (it should be available in the modal)
+  const allBishopsScript = document.querySelector('script[data-bishops]');
+  let bishopsData = [];
+  
+  if (allBishopsScript) {
+    try {
+      bishopsData = JSON.parse(allBishopsScript.textContent);
+    } catch (e) {
+      console.error('Error parsing bishops data:', e);
+    }
+  }
+  
+  // Initialize autocomplete for both bishop fields
+  if (window.attachAutocomplete) {
+    const ordainingBishopSearch = document.getElementById('ordaining_bishop_search');
+    const ordainingBishopId = document.getElementById('ordaining_bishop_id');
+    const ordainingBishopDropdown = document.getElementById('ordainingBishopDropdown');
+    
+    if (ordainingBishopSearch && ordainingBishopId && ordainingBishopDropdown) {
+      window.attachAutocomplete(
+        ordainingBishopSearch,
+        ordainingBishopId,
+        ordainingBishopDropdown,
+        bishopsData,
+        b => b.name,
+        b => b.id
+      );
+    }
+    
+    const consecratorSearch = document.getElementById('consecrator_search');
+    const consecratorId = document.getElementById('consecrator_id');
+    const consecratorDropdown = document.getElementById('consecratorDropdown');
+    
+    if (consecratorSearch && consecratorId && consecratorDropdown) {
+      window.attachAutocomplete(
+        consecratorSearch,
+        consecratorId,
+        consecratorDropdown,
+        bishopsData,
+        b => b.name,
+        b => b.id
+      );
+    }
+  }
+}
+
+// Initialize edit clergy functionality for modal
+function initModalEditClergy() {
+  // Get bishops data
+  const allBishopsScript = document.querySelector('script[data-bishops]');
+  let bishopsData = [];
+  
+  if (allBishopsScript) {
+    try {
+      bishopsData = JSON.parse(allBishopsScript.textContent);
+    } catch (e) {
+      console.error('Error parsing bishops data:', e);
+    }
+  }
+  
+  // Initialize the edit clergy functionality
+  if (window.initEditClergy) {
+    window.initEditClergy(bishopsData);
+  }
+  
+  // Initialize rank-based field visibility
+  const rankSelect = document.getElementById('rank');
+  if (rankSelect && window.toggleConsecrationFields) {
+    // Set initial visibility
+    window.toggleConsecrationFields(rankSelect.value);
+    
+    // Add change event listener
+    rankSelect.addEventListener('change', function() {
+      window.toggleConsecrationFields(this.value);
+    });
+  }
 }
 
 // Function to get current clergy ID from the aside

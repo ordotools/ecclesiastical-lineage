@@ -218,6 +218,58 @@ def clergy_modal_edit(clergy_id):
                          organizations=organizations,
                          user=user)
 
+@main_bp.route('/clergy/edit_from_lineage/<int:clergy_id>')
+@require_permission('edit_clergy')
+def edit_clergy_from_lineage(clergy_id):
+    """Edit clergy from lineage visualization with modal context"""
+    from models import Rank, Organization, Clergy, User
+    
+    clergy = Clergy.query.get_or_404(clergy_id)
+    user = User.query.get(session.get('user_id'))
+    
+    # Get the same data that edit_clergy_handler provides
+    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': getattr(clergy_member, 'display_name', clergy_member.name),
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    
+    # Get bishops data for autocomplete
+    all_bishops = Clergy.query.filter(
+        Clergy.is_deleted != True,
+        Clergy.rank.in_(['Bishop', 'Archbishop', 'Cardinal', 'Patriarch', 'Pope'])
+    ).all()
+    
+    all_bishops_suggested = [
+        {
+            'id': bishop.id,
+            'name': getattr(bishop, 'display_name', bishop.name),
+            'rank': bishop.rank,
+            'organization': bishop.organization
+        }
+        for bishop in all_bishops
+    ]
+    
+    return render_template('_clergy_form_modal.html', 
+                         fields={
+                             'form_action': url_for('clergy.edit_clergy', clergy_id=clergy_id),
+                             'ranks': ranks,
+                             'organizations': organizations,
+                             'cancel_url': '#'  # Will be handled by JavaScript to close modal
+                         },
+                         clergy=clergy, 
+                         edit_mode=True, 
+                         user=user,
+                         all_bishops_suggested=all_bishops_suggested)
+
 @main_bp.route('/clergy/modal/<int:clergy_id>/comment')
 def clergy_modal_comment(clergy_id):
     clergy = Clergy.query.get_or_404(clergy_id)
@@ -305,7 +357,13 @@ def clergy_relationships(clergy_id):
 @main_bp.route('/clergy/info-panel')
 def clergy_info_panel():
     """Serve the clergy info panel template"""
-    return render_template('_clergy_info_panel.html')
+    # Get current user if logged in
+    user = None
+    if 'user_id' in session:
+        from models import User
+        user = User.query.get(session['user_id'])
+    
+    return render_template('_clergy_info_panel.html', user=user)
 
 @main_bp.route('/clergy/add_from_lineage', methods=['GET', 'POST'])
 @audit_log(

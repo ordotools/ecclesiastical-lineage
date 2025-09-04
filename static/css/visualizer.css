@@ -503,6 +503,36 @@ input:focus + .slider {
   text-shadow: 0 2px 6px rgba(0,0,0,1);
 }
 
+.edit-clergy-btn-overlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(0, 123, 255, 0.8);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  color: white;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 6px 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  z-index: 10;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  font-weight: bold;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-clergy-btn-overlay:hover {
+  background: rgba(0, 123, 255, 1);
+  border-color: white;
+  color: #f8f9fa;
+  transform: scale(1.1);
+  text-shadow: 0 2px 6px rgba(0,0,0,1);
+}
+
 .clergy-aside .aside-content {
   padding: 0 0 16px 0;
 }

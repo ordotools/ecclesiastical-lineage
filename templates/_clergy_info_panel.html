@@ -5,6 +5,12 @@
         <button id="close-aside" class="close-aside-btn-overlay" aria-label="Close information panel">
             <i class="fas fa-times"></i>
         </button>
+        <!-- Edit button for editors -->
+        {% if user and user.can_edit_clergy() %}
+        <button id="edit-clergy-btn" class="edit-clergy-btn-overlay" aria-label="Edit clergy" style="display: none;">
+            <i class="fas fa-edit"></i>
+        </button>
+        {% endif %}
     </div>
 
     <div class="dates-section mb-1" style="font-size: 10pt; line-height: 1.1; margin-bottom: 0.25rem;">
@@ -50,3 +56,8 @@
         </div>
     </div>
 </div>
+
+<script>
+// Pass user editor status to JavaScript
+window.userCanEditClergy = {{ 'true' if user and user.can_edit_clergy() else 'false' }};
+</script>

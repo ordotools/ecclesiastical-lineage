@@ -1,5 +1,6 @@
 {% macro clergy_form(fields, clergy=None, edit_mode=False, user=None, redirect_url=None, use_htmx=True, context_type=None, context_clergy_id=None) %}
 <!-- Include clergy form specific styles -->
+
 <link href="{{ url_for('static', filename='css/clergyForm.css') }}" rel="stylesheet">
 
 <div class="card">
@@ -86,7 +87,7 @@
                         <label for="rank" class="form-label">Rank *</label>
                         <div class="input-group">
                             <select class="form-select" id="rank" name="rank" required 
-                                    hx-on="change: toggleConsecrationFields(this.value)">
+                                    onchange="toggleConsecrationFields(this.value)">
                                 <option value="">Select Rank</option>
                                 {% for rank in fields.ranks %}
                                 <option value="{{ rank.name }}" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>
@@ -289,7 +290,7 @@
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save me-2"></i>{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}
                 </button>
-                <a href="{{ fields.cancel_url or url_for('clergy.clergy_list') }}" class="btn btn-secondary">
+                <a href="{{ fields.cancel_url or url_for('clergy.clergy_list') }}" class="btn btn-secondary" id="cancel-btn">
                     Cancel
                 </a>
             </div>
@@ -334,35 +335,5 @@
 <!-- Include the dedicated image editor modal -->
 {% include '_image_editor_modal.html' %}
 
-<script>
-// Function to toggle consecration fields based on rank selection
-function toggleConsecrationFields(rankValue) {
-    const consecrationFields = document.getElementById('consecrationFields');
-    const coConsecratorsField = document.getElementById('coConsecratorsField');
-    
-    if (rankValue === 'bishop') {
-        consecrationFields.style.display = 'block';
-        coConsecratorsField.style.display = 'block';
-    } else {
-        consecrationFields.style.display = 'none';
-        coConsecratorsField.style.display = 'none';
-        
-        // Clear the values when hiding fields
-        document.getElementById('date_of_consecration').value = '';
-        document.getElementById('consecrator_search').value = '';
-        document.getElementById('consecrator_id').value = '';
-        document.getElementById('co_consecrators').value = '';
-    }
-}
 
-
-
-// Initialize field visibility on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const rankSelect = document.getElementById('rank');
-    if (rankSelect && rankSelect.value) {
-        toggleConsecrationFields(rankSelect.value);
-    }
-});
-</script>
 {% endmacro %}

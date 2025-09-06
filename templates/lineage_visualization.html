@@ -57,6 +57,20 @@
               </label>
             </div>
           </div>
+          
+          <!-- Views -->
+          <div class="visualization-views-mobile mt-3">
+            <h6 class="fw-bold mb-2 text-dark">Views</h6>
+            <div class="filter-item">
+              <label class="switch-label" for="timeline-view-mobile">
+                <small class="text-dark">Timeline View</small>
+              </label>
+              <label class="switch">
+                <input type="checkbox" id="timeline-view-mobile">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -107,6 +121,24 @@
                     </label>
                     <label class="switch">
                         <input type="checkbox" id="hide-priests" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Views -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Views</h6>
+            </div>
+            <div class="card-body">
+                <div class="filter-item">
+                    <label class="switch-label" for="timeline-view">
+                        <small class="text-dark">Timeline View</small>
+                    </label>
+                    <label class="switch">
+                        <input type="checkbox" id="timeline-view">
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -197,5 +229,5 @@
 window.linksData = {{ links | safe }};
 window.nodesData = {{ nodes | safe }};
 </script>
-<script src="{{ url_for('static', filename='js/lineageVisualization.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/lineageVisualization.js') }}"></script>
 {% endblock %} 

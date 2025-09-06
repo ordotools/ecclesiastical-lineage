@@ -421,25 +421,82 @@ function openEditClergyModal(clergyId) {
         form.addEventListener('submit', function(e) {
           e.preventDefault();
           
+          // Show loading spinner
+          showLoadingSpinner(form, 'Updating clergy...');
+          
           console.log('Edit form submitted, sending data to:', form.action);
-          const formData = new FormData(form);
+          console.log('Form element:', form);
+          console.log('Form ID:', form.id);
+          console.log('Form method:', form.method);
+          console.log('Form action:', form.action);
           
-          // Clean up form data - remove empty fields and "None" values
-          const cleanedFormData = new FormData();
-          for (let [key, value] of formData.entries()) {
-            if (value && value !== 'None' && value !== '') {
-              cleanedFormData.append(key, value);
+          // Debug: Check all form inputs
+          const allInputs = form.querySelectorAll('input, select, textarea');
+          console.log('=== ALL FORM INPUTS ===');
+          allInputs.forEach((input, index) => {
+            console.log(`Input ${index}:`, {
+              tagName: input.tagName,
+              type: input.type,
+              name: input.name,
+              id: input.id,
+              value: input.value
+            });
+          });
+          
+          // Manually build form data since FormData constructor seems to have issues
+          const formData = new FormData();
+          const requiredFields = ['name', 'rank', 'organization']; // Fields that must be preserved even if empty
+          
+          // Get all form inputs and manually add them to FormData
+          const formInputs = form.querySelectorAll('input, select, textarea');
+          console.log('=== MANUALLY BUILDING FORM DATA ===');
+          
+          formInputs.forEach((input) => {
+            const name = input.name;
+            const value = input.value;
+            const type = input.type;
+            
+            // Skip inputs without names
+            if (!name) return;
+            
+            // Handle different input types
+            if (type === 'checkbox') {
+              if (input.checked) {
+                formData.append(name, value);
+                console.log(`Added checkbox: ${name} = "${value}"`);
+              }
+            } else if (type === 'file') {
+              // Handle file inputs
+              if (input.files && input.files.length > 0) {
+                formData.append(name, input.files[0]);
+                console.log(`Added file: ${name} = "${input.files[0].name}"`);
+              }
+            } else {
+              // Handle text, select, textarea, etc.
+              if (requiredFields.includes(name)) {
+                // Always preserve required fields, even if empty
+                formData.append(name, value || '');
+                console.log(`Added required field: ${name} = "${value || ''}"`);
+              } else if (value && value !== 'None' && value !== '') {
+                // For other fields, only include if they have a value and are not "None"
+                formData.append(name, value);
+                console.log(`Added optional field: ${name} = "${value}"`);
+              }
             }
-          }
+          });
           
-          // Log cleaned form data for debugging
-          for (let [key, value] of cleanedFormData.entries()) {
-            console.log(`Cleaned form field: ${key} = ${value}`);
+          // Debug: Log final form data
+          console.log('=== FINAL FORM DATA ===');
+          for (let [key, value] of formData.entries()) {
+            console.log(`Final form field: ${key} = "${value}"`);
           }
           
           fetch(form.action, {
             method: 'POST',
-            body: cleanedFormData
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
           })
           .then(response => {
             console.log('Response status:', response.status);
@@ -450,6 +507,9 @@ function openEditClergyModal(clergyId) {
             if (data.success) {
               console.log('Clergy updated successfully, refreshing page...');
               
+              // Show success notification
+              showNotification('Clergy member updated successfully!', 'success');
+              
               // Close the modal
               bootstrapModal.hide();
               
@@ -457,12 +517,16 @@ function openEditClergyModal(clergyId) {
               console.log('Reloading page...');
               window.location.reload(true);
             } else {
-              alert('Error: ' + (data.message || 'Failed to update clergy member'));
+              // Hide loading spinner on error
+              hideLoadingSpinner(form);
+              showNotification('Error: ' + (data.message || 'Failed to update clergy member'), 'error');
             }
           })
           .catch(error => {
             console.error('Error:', error);
-            alert('Error submitting form. Please try again.');
+            // Hide loading spinner on error
+            hideLoadingSpinner(form);
+            showNotification('Error submitting form. Please try again.', 'error');
           });
         });
         
@@ -478,7 +542,7 @@ function openEditClergyModal(clergyId) {
     })
     .catch(error => {
       console.error('Error loading edit form:', error);
-      alert('Error loading edit form. Please try again.');
+      showNotification('Error loading edit form. Please try again.', 'error');
     });
 }
 
@@ -868,13 +932,23 @@ function openAddClergyModal(contextType, contextClergyId) {
         form.addEventListener('submit', function(e) {
           e.preventDefault();
           
+          // Show loading spinner
+          showLoadingSpinner(form, 'Adding clergy...');
+          
           console.log('Form submitted, sending data to:', form.action);
           const formData = new FormData(form);
           
-          // Clean up form data - remove empty fields and "None" values
+          // Clean up form data - remove empty fields and "None" values, but preserve required fields
           const cleanedFormData = new FormData();
+          const requiredFields = ['name', 'rank', 'organization']; // Fields that must be preserved even if empty
+          
           for (let [key, value] of formData.entries()) {
-            if (value && value !== 'None' && value !== '') {
+            // Always preserve required fields, even if empty
+            if (requiredFields.includes(key)) {
+              cleanedFormData.append(key, value || '');
+            }
+            // For other fields, only include if they have a value and are not "None"
+            else if (value && value !== 'None' && value !== '') {
               cleanedFormData.append(key, value);
             }
           }
@@ -886,6 +960,9 @@ function openAddClergyModal(contextType, contextClergyId) {
           
           fetch(form.action, {
             method: 'POST',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            },
             body: cleanedFormData
           })
           .then(response => {
@@ -898,6 +975,9 @@ function openAddClergyModal(contextType, contextClergyId) {
               console.log('Clergy added successfully, refreshing page...');
               console.log('New clergy ID:', data.clergy_id);
               
+              // Show success notification
+              showNotification('Clergy member added successfully!', 'success');
+              
               // Close the modal
               bootstrapModal.hide();
               
@@ -906,12 +986,16 @@ function openAddClergyModal(contextType, contextClergyId) {
               console.log('Reloading page...');
               window.location.reload(true);
             } else {
-              alert('Error: ' + (data.message || 'Failed to add clergy member'));
+              // Hide loading spinner on error
+              hideLoadingSpinner(form);
+              showNotification('Error: ' + (data.message || 'Failed to add clergy member'), 'error');
             }
           })
           .catch(error => {
             console.error('Error:', error);
-            alert('Error submitting form. Please try again.');
+            // Hide loading spinner on error
+            hideLoadingSpinner(form);
+            showNotification('Error submitting form. Please try again.', 'error');
           });
         });
         
@@ -1015,6 +1099,99 @@ const height = window.innerHeight - 76;
 // Define color constants for consistency
 const GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim() || '#27ae60';
 const BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-black').trim() || '#000000';
+
+// Notification system to replace alerts
+function showNotification(message, type = 'info') {
+  // Create notification container if it doesn't exist
+  let notificationContainer = document.getElementById('notification-container');
+  if (!notificationContainer) {
+    notificationContainer = document.createElement('div');
+    notificationContainer.id = 'notification-container';
+    notificationContainer.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      max-width: 400px;
+    `;
+    document.body.appendChild(notificationContainer);
+  }
+  
+  // Create notification element
+  const notification = document.createElement('div');
+  const alertClass = type === 'error' ? 'alert-danger' : type === 'success' ? 'alert-success' : 'alert-info';
+  notification.className = `alert ${alertClass} alert-dismissible fade show`;
+  notification.style.cssText = `
+    margin-bottom: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: none;
+    border-radius: 8px;
+  `;
+  
+  notification.innerHTML = `
+    <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  `;
+  
+  // Add to container
+  notificationContainer.appendChild(notification);
+  
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.remove();
+    }
+  }, 5000);
+}
+
+// Loading spinner system for form submissions
+function showLoadingSpinner(form, message = 'Saving...') {
+  // Find the submit button
+  const submitBtn = form.querySelector('button[type="submit"]') || form.querySelector('input[type="submit"]');
+  if (!submitBtn) return;
+  
+  // Store original button content and state
+  const originalContent = submitBtn.innerHTML;
+  const originalDisabled = submitBtn.disabled;
+  
+  // Create loading state
+  submitBtn.innerHTML = `
+    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+    ${message}
+  `;
+  submitBtn.disabled = true;
+  
+  // Store references for cleanup
+  submitBtn._originalContent = originalContent;
+  submitBtn._originalDisabled = originalDisabled;
+  submitBtn._isLoading = true;
+  
+  // Disable all form inputs during submission
+  const formInputs = form.querySelectorAll('input, select, textarea, button');
+  formInputs.forEach(input => {
+    if (input !== submitBtn) {
+      input.disabled = true;
+    }
+  });
+}
+
+function hideLoadingSpinner(form) {
+  // Find the submit button
+  const submitBtn = form.querySelector('button[type="submit"]') || form.querySelector('input[type="submit"]');
+  if (!submitBtn || !submitBtn._isLoading) return;
+  
+  // Restore original button content and state
+  submitBtn.innerHTML = submitBtn._originalContent;
+  submitBtn.disabled = submitBtn._originalDisabled;
+  submitBtn._isLoading = false;
+  
+  // Re-enable all form inputs
+  const formInputs = form.querySelectorAll('input, select, textarea, button');
+  formInputs.forEach(input => {
+    input.disabled = false;
+  });
+}
 
 // Initialize the visualization
 function initializeVisualization() {

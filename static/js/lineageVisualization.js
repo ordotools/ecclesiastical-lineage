@@ -443,25 +443,50 @@ function loadEditFormScripts() {
 
 // Initialize bishop autocomplete for modal
 function initModalBishopAutocomplete() {
+  console.log('=== initModalBishopAutocomplete START ===');
+  
   // Get all bishops data from the form (it should be available in the modal)
   const allBishopsScript = document.querySelector('script[data-bishops]');
   let bishopsData = [];
   
+  console.log('initModalBishopAutocomplete called');
+  console.log('allBishopsScript found:', !!allBishopsScript);
+  
   if (allBishopsScript) {
+    console.log('Script content length:', allBishopsScript.textContent.length);
+    console.log('Script content preview:', allBishopsScript.textContent.substring(0, 200) + '...');
     try {
       bishopsData = JSON.parse(allBishopsScript.textContent);
+      console.log('Bishops data loaded:', bishopsData.length, 'bishops');
+      if (bishopsData.length > 0) {
+        console.log('First bishop example:', bishopsData[0]);
+      }
     } catch (e) {
       console.error('Error parsing bishops data:', e);
+      console.error('Raw script content:', allBishopsScript.textContent);
     }
+  } else {
+    console.warn('No bishops script found in modal');
+    console.log('Available script tags:', document.querySelectorAll('script').length);
+    console.log('Script tags with data-bishops:', document.querySelectorAll('script[data-bishops]').length);
   }
   
   // Initialize autocomplete for both bishop fields
   if (window.attachAutocomplete) {
+    console.log('attachAutocomplete function available');
+    console.log('fuzzySearch function available:', !!window.fuzzySearch);
     const ordainingBishopSearch = document.getElementById('ordaining_bishop_search');
     const ordainingBishopId = document.getElementById('ordaining_bishop_id');
     const ordainingBishopDropdown = document.getElementById('ordainingBishopDropdown');
     
+    console.log('Ordaining bishop elements found:', {
+      search: !!ordainingBishopSearch,
+      id: !!ordainingBishopId,
+      dropdown: !!ordainingBishopDropdown
+    });
+    
     if (ordainingBishopSearch && ordainingBishopId && ordainingBishopDropdown) {
+      console.log('Initializing ordaining bishop autocomplete');
       window.attachAutocomplete(
         ordainingBishopSearch,
         ordainingBishopId,
@@ -476,7 +501,14 @@ function initModalBishopAutocomplete() {
     const consecratorId = document.getElementById('consecrator_id');
     const consecratorDropdown = document.getElementById('consecratorDropdown');
     
+    console.log('Consecrator elements found:', {
+      search: !!consecratorSearch,
+      id: !!consecratorId,
+      dropdown: !!consecratorDropdown
+    });
+    
     if (consecratorSearch && consecratorId && consecratorDropdown) {
+      console.log('Initializing consecrator autocomplete');
       window.attachAutocomplete(
         consecratorSearch,
         consecratorId,
@@ -486,7 +518,11 @@ function initModalBishopAutocomplete() {
         b => b.id
       );
     }
+  } else {
+    console.warn('attachAutocomplete function not available');
   }
+  
+  console.log('=== initModalBishopAutocomplete END ===');
 }
 
 // Initialize edit clergy functionality for modal
@@ -566,11 +602,33 @@ function openAddClergyModal(contextType, contextClergyId) {
   fetch(`/clergy/add_from_lineage?context_type=${contextType}&context_clergy_id=${contextClergyId}`)
     .then(response => response.text())
     .then(html => {
+      console.log('Form HTML loaded, length:', html.length);
       modalBody.innerHTML = html;
       
       // Show the modal
       const bootstrapModal = new bootstrap.Modal(modal);
       bootstrapModal.show();
+      
+      // Wait a moment for the modal to be fully rendered
+      setTimeout(() => {
+        console.log('Starting form initialization after modal render');
+        console.log('Available functions check:', {
+          attachAutocomplete: !!window.attachAutocomplete,
+          fuzzySearch: !!window.fuzzySearch
+        });
+        
+        // Initialize bishop autocomplete for the loaded form
+        console.log('Calling initModalBishopAutocomplete...');
+        initModalBishopAutocomplete();
+        
+        // Initialize form field visibility based on current rank selection
+        const rankSelect = modalBody.querySelector('#rank');
+        console.log('Rank select found:', !!rankSelect);
+        if (rankSelect && window.toggleConsecrationFields) {
+          console.log('Calling toggleConsecrationFields with value:', rankSelect.value);
+          window.toggleConsecrationFields(rankSelect.value);
+        }
+      }, 100);
       
       // Override the form submission for modal context
       const form = modalBody.querySelector('#clergyForm');

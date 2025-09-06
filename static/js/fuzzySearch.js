@@ -103,8 +103,18 @@ function fuzzySearch(list, query, keyFn) {
  * @param {function} idFn - Function to get ID from item.
  */
 function attachAutocomplete(input, hidden, dropdown, dataList, labelFn, idFn) {
+    console.log('attachAutocomplete called with:', {
+        input: !!input,
+        hidden: !!hidden,
+        dropdown: !!dropdown,
+        dataListLength: dataList ? dataList.length : 0,
+        labelFn: typeof labelFn,
+        idFn: typeof idFn
+    });
+    
     input.setAttribute('autocomplete', 'off');
     input.addEventListener('input', function() {
+        console.log('Input event fired, value:', this.value);
         const val = this.value.trim();
         dropdown.innerHTML = '';
         if (!val) {
@@ -113,6 +123,7 @@ function attachAutocomplete(input, hidden, dropdown, dataList, labelFn, idFn) {
             return;
         }
         const results = window.fuzzySearch(dataList, val, labelFn);
+        console.log('Fuzzy search results:', results.length, 'matches for:', val);
         if (results.length === 0) {
             dropdown.style.display = 'none';
             hidden.value = '';

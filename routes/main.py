@@ -539,6 +539,22 @@ def add_clergy_from_lineage():
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
     
+    # Get bishops data for autocomplete
+    all_bishops = Clergy.query.filter(
+        Clergy.is_deleted != True,
+        Clergy.rank.in_(['Bishop', 'Archbishop', 'Cardinal', 'Patriarch', 'Pope'])
+    ).all()
+    
+    all_bishops_suggested = [
+        {
+            'id': bishop.id,
+            'name': getattr(bishop, 'display_name', bishop.name),
+            'rank': bishop.rank,
+            'organization': bishop.organization
+        }
+        for bishop in all_bishops
+    ]
+    
     # Pre-populate context if provided
     context_clergy = None
     if context_clergy_id:
@@ -575,7 +591,8 @@ def add_clergy_from_lineage():
                          edit_mode=False, 
                          user=user,
                          context_type=context_type,
-                         context_clergy_id=context_clergy_id)
+                         context_clergy_id=context_clergy_id,
+                         all_bishops_suggested=all_bishops_suggested)
 
 # Utility routes
 @main_bp.route('/favicon.ico')

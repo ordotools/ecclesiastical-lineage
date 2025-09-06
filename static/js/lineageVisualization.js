@@ -177,71 +177,82 @@ function handleNodeClick(event, d) {
   
   // Show aside panel
   if (clergyAside) {
-    // Populate aside with clergy data
-    document.getElementById('clergy-aside-ordination').textContent = d.ordination_date || 'Not specified';
-    document.getElementById('clergy-aside-consecration').textContent = d.consecration_date || 'Not specified';
+    // Check if panel is already expanded
+    const isAlreadyExpanded = clergyAside.classList.contains('expanded');
     
-    // Populate bio if available (commented out for now)
-    // const bioElement = document.getElementById('clergy-aside-bio');
-    // if (d.bio && d.bio.trim()) {
-    //   bioElement.textContent = d.bio;
-    //   bioElement.style.display = 'block';
-    // } else {
-    //   bioElement.textContent = 'No biography available.';
-    //   bioElement.style.display = 'block';
-    // }
-    
-    // Set image with loading system - start with low-res blurred placeholder
-    const asideImage = document.getElementById('clergy-aside-image');
-    
-    // Always show the low-res image first as a blurred placeholder
-    if (d.image_url) {
-      asideImage.src = d.image_url;
-      asideImage.style.display = 'block';
-      asideImage.style.filter = 'blur(2px)'; // Add blur for loading effect
-    } else {
-      asideImage.style.display = 'none';
+    // Only add expanded class if panel is not already open
+    if (!isAlreadyExpanded) {
+      clergyAside.classList.add('expanded');
     }
     
-    // Load high-resolution image if available
-    if (d.high_res_image_url) {
-      const highResImage = new Image();
-      highResImage.onload = function() {
-        // Replace with high-res image and remove blur
-        asideImage.src = d.high_res_image_url;
-        asideImage.style.filter = 'none';
-      };
-      highResImage.onerror = function() {
-        // If high-res fails, keep the low-res image but remove blur
-        asideImage.style.filter = 'none';
-      };
-      highResImage.src = d.high_res_image_url;
-    } else {
-      // No high-res image available, remove blur from low-res
-      asideImage.style.filter = 'none';
-    }
-    
-    // Expand aside
-    clergyAside.classList.add('expanded');
+    // Always update content (this won't trigger transitions if panel is already open)
+    updateClergyPanelContent(d);
     
     // Center the selected node in the viewport with a small delay to ensure aside is expanded
     setTimeout(() => {
       centerNodeInViewport(d);
     }, 100);
     
-    // Show edit button if user can edit
-    const editBtn = document.getElementById('edit-clergy-btn');
-    if (editBtn && window.userCanEditClergy === true) {
-      editBtn.style.display = 'flex';
-      editBtn.onclick = function() {
-        openEditClergyModal(d.id);
-      };
-    } else if (editBtn) {
-      editBtn.style.display = 'none';
-    }
-    
     // Load clergy relationships
     loadClergyRelationships(d.id);
+  }
+}
+
+// Function to update clergy panel content without triggering transitions
+function updateClergyPanelContent(d) {
+  // Populate aside with clergy data
+  document.getElementById('clergy-aside-ordination').textContent = d.ordination_date || 'Not specified';
+  document.getElementById('clergy-aside-consecration').textContent = d.consecration_date || 'Not specified';
+  
+  // Populate bio if available (commented out for now)
+  // const bioElement = document.getElementById('clergy-aside-bio');
+  // if (d.bio && d.bio.trim()) {
+  //   bioElement.textContent = d.bio;
+  //   bioElement.style.display = 'block';
+  // } else {
+  //   bioElement.textContent = 'No biography available.';
+  //   bioElement.style.display = 'block';
+  // }
+  
+  // Set image with loading system - start with low-res blurred placeholder
+  const asideImage = document.getElementById('clergy-aside-image');
+  
+  // Always show the low-res image first as a blurred placeholder
+  if (d.image_url) {
+    asideImage.src = d.image_url;
+    asideImage.style.display = 'block';
+    asideImage.style.filter = 'blur(2px)'; // Add blur for loading effect
+  } else {
+    asideImage.style.display = 'none';
+  }
+  
+  // Load high-resolution image if available
+  if (d.high_res_image_url) {
+    const highResImage = new Image();
+    highResImage.onload = function() {
+      // Replace with high-res image and remove blur
+      asideImage.src = d.high_res_image_url;
+      asideImage.style.filter = 'none';
+    };
+    highResImage.onerror = function() {
+      // If high-res fails, keep the low-res image but remove blur
+      asideImage.style.filter = 'none';
+    };
+    highResImage.src = d.high_res_image_url;
+  } else {
+    // No high-res image available, remove blur from low-res
+    asideImage.style.filter = 'none';
+  }
+  
+  // Show edit button if user can edit
+  const editBtn = document.getElementById('edit-clergy-btn');
+  if (editBtn && window.userCanEditClergy === true) {
+    editBtn.style.display = 'flex';
+    editBtn.onclick = function() {
+      openEditClergyModal(d.id);
+    };
+  } else if (editBtn) {
+    editBtn.style.display = 'none';
   }
 }
 

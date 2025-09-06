@@ -109,6 +109,64 @@ if (clergyAside) {
   });
 }
 
+// Function to center a node in the viewport when the aside panel is displayed
+function centerNodeInViewport(node) {
+  // Get the SVG and zoom behavior
+  const svg = d3.select('#graph-container svg');
+  const zoom = window.currentZoom;
+  
+  if (!svg.empty() && zoom) {
+    // Get current viewport dimensions
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight - 76; // Account for navbar height
+    
+    // Get aside panel dimensions and position
+    const asidePanel = document.getElementById('clergy-aside');
+    const asideRect = asidePanel.getBoundingClientRect();
+    
+    // Check if aside panel is visible and expanded
+    const isAsideVisible = asidePanel && asidePanel.classList.contains('expanded') && asideRect.width > 0;
+    
+    let targetX, targetY;
+    
+    if (isAsideVisible) {
+      // Calculate the available space for the graph (left of the aside panel)
+      const availableWidth = asideRect.left - 12; // 12px margin from left edge
+      const availableHeight = viewportHeight;
+      
+      // Calculate the center point of the available space
+      targetX = availableWidth / 2;
+      targetY = availableHeight / 2;
+    } else {
+      // If aside panel is not visible, center in the full viewport
+      targetX = viewportWidth / 2;
+      targetY = viewportHeight / 2;
+    }
+    
+    // Get the node's current position
+    const nodeX = node.x;
+    const nodeY = node.y;
+    
+    // Calculate the transform needed to center the node
+    const currentTransform = d3.zoomTransform(svg.node());
+    const scale = currentTransform.k;
+    
+    // Calculate the translation needed to center the node
+    const translateX = targetX - (nodeX * scale);
+    const translateY = targetY - (nodeY * scale);
+    
+    // Create the new transform
+    const newTransform = d3.zoomIdentity
+      .translate(translateX, translateY)
+      .scale(scale);
+    
+    // Apply the transform with smooth animation using the stored zoom behavior
+    svg.transition()
+      .duration(750)
+      .call(zoom.transform, newTransform);
+  }
+}
+
 // Node click handler function
 function handleNodeClick(event, d) {
   // Prevent click if node is filtered
@@ -165,6 +223,11 @@ function handleNodeClick(event, d) {
     
     // Expand aside
     clergyAside.classList.add('expanded');
+    
+    // Center the selected node in the viewport with a small delay to ensure aside is expanded
+    setTimeout(() => {
+      centerNodeInViewport(d);
+    }, 100);
     
     // Show edit button if user can edit
     const editBtn = document.getElementById('edit-clergy-btn');
@@ -1038,6 +1101,9 @@ function initializeVisualization() {
             container.attr('transform', event.transform);
         });
     svg.call(zoom);
+    
+    // Store zoom behavior globally for use in centering function
+    window.currentZoom = zoom;
 
     // Create container group for zoom
     const container = svg.append('g');

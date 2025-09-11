@@ -10,7 +10,10 @@ import {
   GREEN_COLOR, 
   BLACK_COLOR, 
   width, 
-  height 
+  height,
+  ZOOM_LEVEL_LARGE,
+  ZOOM_LEVEL_MEDIUM,
+  ZOOM_LEVEL_SMALL
 } from './constants.js';
 import { handleNodeClick } from './modals.js';
 import { applyPriestFilter, updateTimelinePositions } from './filters.js';
@@ -201,6 +204,7 @@ export function initializeVisualization() {
     link.filtered = isBlackLink && (sourceIsPriest || targetIsPriest); // Hide black links to priests
   });
 
+
   // Create nodes after links (so they render on top)
   const node = container.append('g')
     .selectAll('g')
@@ -268,6 +272,20 @@ export function initializeVisualization() {
 
   // Update positions on simulation tick
   simulation.on('tick', () => {
+    // Apply Y-axis constraints for timeline view
+    if (window.isTimelineViewEnabled) {
+      const timelineTop = 80; // Space below top timeline
+      const timelineBottom = height - 80; // Space above bottom timeline
+      
+      nodes.forEach(d => {
+        if (!d.filtered) {
+          // Constrain Y position within timeline boundaries
+          if (d.y < timelineTop) d.y = timelineTop;
+          if (d.y > timelineBottom) d.y = timelineBottom;
+        }
+      });
+    }
+
     link
       .attr('x1', d => d.source.x + (d.parallelOffset || 0))
       .attr('y1', d => d.source.y)
@@ -386,4 +404,47 @@ export function initializeVisualization() {
 
   // Apply initial priest filter
   applyPriestFilter();
+}
+
+// View zoom management functions
+export function setViewZoom(zoomLevel) {
+  const svg = d3.select('#graph-container svg');
+  const zoom = window.currentZoom;
+  
+  if (!svg.empty() && zoom) {
+    // Get current transform to preserve translation
+    const currentTransform = d3.zoomTransform(svg.node());
+    
+    // Create new transform with the specified zoom level
+    const newTransform = d3.zoomIdentity
+      .translate(currentTransform.x, currentTransform.y)
+      .scale(zoomLevel);
+    
+    // Apply the transform with smooth animation
+    svg.transition()
+      .duration(750)
+      .call(zoom.transform, newTransform);
+  }
+}
+
+export function setLargeViewDistance() {
+  setViewZoom(ZOOM_LEVEL_LARGE);
+}
+
+export function setMediumViewDistance() {
+  setViewZoom(ZOOM_LEVEL_MEDIUM);
+}
+
+export function setSmallViewDistance() {
+  setViewZoom(ZOOM_LEVEL_SMALL);
+}
+
+// Function to set view distance when clergy info panel is shown
+export function setClergyInfoViewDistance() {
+  setLargeViewDistance();
+}
+
+// Function to reset to default view distance
+export function resetToDefaultViewDistance() {
+  setMediumViewDistance();
 }

@@ -80,6 +80,9 @@ export function applyTimelineView() {
   const shouldEnableTimeline = timelineViewCheckbox ? timelineViewCheckbox.checked : false;
   isTimelineViewEnabled = shouldEnableTimeline;
   
+  // Set global state for timeline view
+  window.isTimelineViewEnabled = isTimelineViewEnabled;
+  
   if (!window.currentSimulation || !window.currentNodes) return;
   
   if (shouldEnableTimeline) {
@@ -101,29 +104,34 @@ export function applyTimelineView() {
     // Show timeline elements
     showTimelineElements();
     
-    // Auto-zoom out to show the full timeline when first enabled
-    setTimeout(() => {
-      if (window.currentZoom) {
-        const svg = d3.select('#graph-container svg');
-        // Calculate scale to fit the entire timeline in viewport
-        const timelineScale = width / timelineData.timelineWidth;
-        const centerX = timelineData.timelineWidth / 2;
-        
-        const transform = d3.zoomIdentity
-          .translate(width / 2 - centerX * timelineScale, 0)
-          .scale(timelineScale);
-        
-        svg.transition()
-          .duration(1000)
-          .call(window.currentZoom.transform, transform);
-      }
-    }, 100);
+    // Disable zoom and enable trackpad scrolling
+    if (window.currentZoom) {
+      const svg = d3.select('#graph-container svg');
+      // Disable zoom behavior
+      svg.on('.zoom', null);
+      
+      // Set to medium zoom level (scale = 1.0)
+      const transform = d3.zoomIdentity.scale(1.0);
+      svg.call(window.currentZoom.transform, transform);
+    }
+    
+    // Add horizontal scroll functionality
+    addTimelineScrollHandlers();
   } else {
     // Remove timeline positioning force
     window.currentSimulation.force('timeline', null);
     
     // Hide timeline elements
     hideTimelineElements();
+    
+    // Remove scroll handlers
+    removeTimelineScrollHandlers();
+    
+    // Re-enable zoom behavior
+    if (window.currentZoom) {
+      const svg = d3.select('#graph-container svg');
+      svg.call(window.currentZoom);
+    }
   }
   
   // Restart simulation to apply changes
@@ -177,6 +185,25 @@ export function showTimelineElements() {
     .attr('stroke-width', 2)
     .attr('opacity', 0.7);
   
+  // Add scroll instruction text
+  timelineTextsTop.append('text')
+    .attr('x', 20)
+    .attr('y', 20)
+    .attr('text-anchor', 'start')
+    .attr('font-size', '12px')
+    .attr('fill', BLACK_COLOR)
+    .attr('opacity', 0.6)
+    .text('← Scroll horizontally or use arrow keys to navigate timeline →');
+  
+  timelineTextsBottom.append('text')
+    .attr('x', 20)
+    .attr('y', height - 20)
+    .attr('text-anchor', 'start')
+    .attr('font-size', '12px')
+    .attr('fill', BLACK_COLOR)
+    .attr('opacity', 0.6)
+    .text('← Scroll horizontally or use arrow keys to navigate timeline →');
+
   // Add timeline markers - create key milestone years manually to ensure full coverage
   const keyYears = [];
   
@@ -393,6 +420,59 @@ export function applyPriestFilter() {
       // Restart simulation to apply changes
       window.currentSimulation.alpha(1).restart();
     }
+  }
+}
+
+// Trackpad scroll handlers for timeline view
+let timelineScrollHandler = null;
+
+function addTimelineScrollHandlers() {
+  if (timelineScrollHandler) return; // Already added
+  
+  timelineScrollHandler = function(event) {
+    if (!isTimelineViewEnabled || !timelineData) return;
+    
+    // Handle only horizontal scrolling
+    const deltaX = event.deltaX;
+    
+    // Only handle horizontal scrolling, ignore vertical
+    if (Math.abs(deltaX) < Math.abs(event.deltaY)) return;
+    
+    // Prevent default to disable page scrolling
+    event.preventDefault();
+    
+    const svg = d3.select('#graph-container svg');
+    const currentTransform = d3.zoomTransform(svg.node());
+    
+    // Calculate scroll speed (adjust multiplier for sensitivity)
+    const scrollSpeed = 2.25; // Increased for more responsive scrolling
+    const deltaScrollX = deltaX * scrollSpeed;
+    
+    // Update transform with horizontal scroll only
+    const newTransform = d3.zoomIdentity
+      .translate(currentTransform.x - deltaScrollX, currentTransform.y)
+      .scale(1.0); // Keep scale fixed at 1.0
+    
+    // Apply the transform
+    svg.transition()
+      .duration(50)
+      .call(window.currentZoom.transform, newTransform);
+  };
+  
+  // Add event listener
+  const graphContainer = document.getElementById('graph-container');
+  if (graphContainer) {
+    graphContainer.addEventListener('wheel', timelineScrollHandler, { passive: false });
+  }
+}
+
+function removeTimelineScrollHandlers() {
+  if (timelineScrollHandler) {
+    const graphContainer = document.getElementById('graph-container');
+    if (graphContainer) {
+      graphContainer.removeEventListener('wheel', timelineScrollHandler);
+    }
+    timelineScrollHandler = null;
   }
 }
 

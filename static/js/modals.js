@@ -1,5 +1,6 @@
 // Modal module for clergy forms and editing
 import { showNotification, showLoadingSpinner, hideLoadingSpinner, getCurrentClergyId } from './utils.js';
+import { setClergyInfoViewDistance } from './core.js';
 
 // Node click handler function
 export function handleNodeClick(event, d) {
@@ -22,6 +23,9 @@ export function handleNodeClick(event, d) {
     
     // Always update content (this won't trigger transitions if panel is already open)
     updateClergyPanelContent(d);
+    
+    // Set large view distance for clergy info panel view
+    setClergyInfoViewDistance();
     
     // Center the selected node in the viewport with a small delay to ensure aside is expanded
     setTimeout(() => {

@@ -1,5 +1,6 @@
 // UI module for mobile menu, side menu, and controls
 import { width, height } from './constants.js';
+import { resetToDefaultViewDistance } from './core.js';
 
 // Show/hide floating menu button and hide side menu on mobile
 export function handleMobileMenuDisplay() {
@@ -99,6 +100,8 @@ export function initializeAside() {
     clergyAside.addEventListener('click', (event) => {
       if (event.target.closest('#close-aside')) {
         clergyAside.classList.remove('expanded');
+        // Reset to default view distance when closing clergy info panel
+        resetToDefaultViewDistance();
       }
     });
     
@@ -106,6 +109,8 @@ export function initializeAside() {
     document.addEventListener('click', (event) => {
       if (!clergyAside.contains(event.target) && !event.target.closest('.node')) {
         clergyAside.classList.remove('expanded');
+        // Reset to default view distance when closing clergy info panel
+        resetToDefaultViewDistance();
       }
     });
   }

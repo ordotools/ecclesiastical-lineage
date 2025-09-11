@@ -15,3 +15,8 @@ export const BLACK_COLOR = getComputedStyle(document.documentElement).getPropert
 // Viewport dimensions
 export const width = window.innerWidth;
 export const height = window.innerHeight - 76;
+
+// View zoom levels - these are zoom scale factors, not distances
+export const ZOOM_LEVEL_LARGE = 0.5; // Zoomed out - shows more of the graph
+export const ZOOM_LEVEL_MEDIUM = 1.0; // Default zoom level
+export const ZOOM_LEVEL_SMALL = 1.5; // Zoomed in - closer view

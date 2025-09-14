@@ -8,14 +8,18 @@ function toggleConsecrationFields(rankValue) {
     console.log('toggleConsecrationFields called with:', rankValue);
     
     // Wait for DOM to be ready if elements aren't found
-    const consecrationFields = document.getElementById('consecrationFields');
+    const consecrationDateField = document.getElementById('consecrationDateField');
+    const consecratorField = document.getElementById('consecratorField');
     const coConsecratorsField = document.getElementById('coConsecratorsField');
+    const deathDateField = document.getElementById('deathDateField');
     
-    console.log('consecrationFields found:', !!consecrationFields);
+    console.log('consecrationDateField found:', !!consecrationDateField);
+    console.log('consecratorField found:', !!consecratorField);
     console.log('coConsecratorsField found:', !!coConsecratorsField);
+    console.log('deathDateField found:', !!deathDateField);
     
     // If elements aren't found, try again after a short delay
-    if (!consecrationFields || !coConsecratorsField) {
+    if (!consecrationDateField || !consecratorField) {
         console.log('Elements not found, retrying in 100ms');
         setTimeout(() => toggleConsecrationFields(rankValue), 100);
         return;
@@ -23,23 +27,27 @@ function toggleConsecrationFields(rankValue) {
     
     if (rankValue && rankValue.toLowerCase() === 'bishop') {
         console.log('Setting consecration fields to visible');
-        consecrationFields.style.display = 'block';
-        coConsecratorsField.style.display = 'block';
+        consecrationDateField.style.display = 'flex';
+        consecratorField.style.display = 'flex';
+        if (coConsecratorsField) coConsecratorsField.style.display = 'flex';
     } else {
         console.log('Setting consecration fields to hidden');
-        consecrationFields.style.display = 'none';
-        coConsecratorsField.style.display = 'none';
+        consecrationDateField.style.display = 'none';
+        consecratorField.style.display = 'none';
+        if (coConsecratorsField) coConsecratorsField.style.display = 'none';
         
         // Clear the values when hiding fields
         const dateOfConsecration = document.getElementById('date_of_consecration');
         const consecratorSearch = document.getElementById('consecrator_search');
         const consecratorId = document.getElementById('consecrator_id');
         const coConsecrators = document.getElementById('co_consecrators');
+        const dateOfDeathBishop = document.getElementById('date_of_death_bishop');
         
         if (dateOfConsecration) dateOfConsecration.value = '';
         if (consecratorSearch) consecratorSearch.value = '';
         if (consecratorId) consecratorId.value = '';
         if (coConsecrators) coConsecrators.value = '';
+        if (dateOfDeathBishop) dateOfDeathBishop.value = '';
     }
 }
 

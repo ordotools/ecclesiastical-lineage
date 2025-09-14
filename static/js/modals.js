@@ -1,6 +1,7 @@
 // Modal module for clergy forms and editing
 import { showNotification, showLoadingSpinner, hideLoadingSpinner, getCurrentClergyId } from './utils.js';
 import { setClergyInfoViewDistance } from './core.js';
+import { setModalState, getModalState } from './ui.js';
 
 // Node click handler function
 export function handleNodeClick(event, d) {
@@ -316,6 +317,15 @@ function openEditClergyModal(clergyId) {
       const bootstrapModal = new bootstrap.Modal(modal);
       bootstrapModal.show();
       
+      // Set modal state to open
+      setModalState(true);
+      
+      // Add event listener for modal close events (X button, Escape key, etc.)
+      modal.addEventListener('hidden.bs.modal', function() {
+        console.log('Modal hidden event triggered');
+        setModalState(false);
+      });
+      
       // Load necessary JavaScript for the form
       loadEditFormScripts();
       
@@ -426,9 +436,12 @@ function openEditClergyModal(clergyId) {
               // Close the modal
               bootstrapModal.hide();
               
-              // Refresh the visualization to show the updated clergy
-              console.log('Reloading page...');
-              window.location.reload(true);
+              // Set modal state to closed
+              setModalState(false);
+              
+              // Refresh the visualization data without reloading the page
+              console.log('Refreshing visualization data...');
+              refreshVisualizationData();
             } else {
               // Hide loading spinner on error
               hideLoadingSpinner(form);
@@ -448,7 +461,16 @@ function openEditClergyModal(clergyId) {
         if (cancelBtn) {
           cancelBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            bootstrapModal.hide();
+            e.stopPropagation(); // Prevent event bubbling
+            console.log('Cancel button clicked - setting modal state to false');
+            // Set modal state to closed BEFORE hiding the modal
+            setModalState(false);
+            console.log('Modal state after setting to false:', getModalState());
+            // Small delay to ensure state change takes effect
+            setTimeout(() => {
+              console.log('About to hide modal, modal state:', getModalState());
+              bootstrapModal.hide();
+            }, 10);
           });
         }
       }
@@ -479,6 +501,15 @@ function openAddClergyModal(contextType, contextClergyId) {
       // Show the modal
       const bootstrapModal = new bootstrap.Modal(modal);
       bootstrapModal.show();
+      
+      // Set modal state to open
+      setModalState(true);
+      
+      // Add event listener for modal close events (X button, Escape key, etc.)
+      modal.addEventListener('hidden.bs.modal', function() {
+        console.log('Modal hidden event triggered (add modal)');
+        setModalState(false);
+      });
       
       // Wait a moment for the modal to be fully rendered
       setTimeout(() => {
@@ -675,10 +706,12 @@ function openAddClergyModal(contextType, contextClergyId) {
               // Close the modal
               bootstrapModal.hide();
               
-              // Refresh the visualization to show the new clergy
-              // Force a complete page reload to get fresh data
-              console.log('Reloading page...');
-              window.location.reload(true);
+              // Set modal state to closed
+              setModalState(false);
+              
+              // Refresh the visualization data without reloading the page
+              console.log('Refreshing visualization data...');
+              refreshVisualizationData();
             } else {
               // Hide loading spinner on error
               hideLoadingSpinner(form);
@@ -698,7 +731,16 @@ function openAddClergyModal(contextType, contextClergyId) {
         if (cancelBtn) {
           cancelBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            bootstrapModal.hide();
+            e.stopPropagation(); // Prevent event bubbling
+            console.log('Cancel button clicked (add modal) - setting modal state to false');
+            // Set modal state to closed BEFORE hiding the modal
+            setModalState(false);
+            console.log('Modal state after setting to false:', getModalState());
+            // Small delay to ensure state change takes effect
+            setTimeout(() => {
+              console.log('About to hide modal, modal state:', getModalState());
+              bootstrapModal.hide();
+            }, 10);
           });
         }
       }
@@ -951,6 +993,57 @@ function initModalEditClergy() {
       console.log('Edit modal - No image editor modal found in form');
     }
   }
+}
+
+// Function to refresh visualization data without page reload
+function refreshVisualizationData() {
+  console.log('Refreshing visualization data...');
+  
+  // Fetch updated data from the server
+  fetch('/clergy/lineage-data')
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        console.log('Data refreshed successfully');
+        
+        // Update the global data
+        window.linksData = data.links;
+        window.nodesData = data.nodes;
+        
+        // Reinitialize the visualization with new data
+        if (window.initializeVisualization) {
+          // Clear the existing visualization
+          const graphContainer = document.getElementById('graph-container');
+          if (graphContainer) {
+            graphContainer.innerHTML = '';
+          }
+          
+          // Reinitialize with new data
+          window.initializeVisualization();
+        }
+        
+        // If we have a current clergy ID, keep the panel open and refresh its content
+        if (window.currentClergyId) {
+          // Find the updated clergy node
+          const updatedNode = data.nodes.find(node => node.id == window.currentClergyId);
+          if (updatedNode) {
+            // Update the panel content with new data
+            updateClergyPanelContent(updatedNode);
+            // Reload relationships
+            loadClergyRelationships(window.currentClergyId);
+          }
+        }
+      } else {
+        console.error('Failed to refresh data:', data.message);
+        // Fallback to page reload if data refresh fails
+        window.location.reload(true);
+      }
+    })
+    .catch(error => {
+      console.error('Error refreshing data:', error);
+      // Fallback to page reload if data refresh fails
+      window.location.reload(true);
+    });
 }
 
 // HTMX event handling for clergy info panel

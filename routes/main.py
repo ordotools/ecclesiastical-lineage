@@ -117,6 +117,110 @@ def lineage_visualization():
                              links=json.dumps([]),
                              error_message="Unable to load lineage data. Please try again later.")
 
+@main_bp.route('/clergy/lineage-data')
+def get_lineage_data():
+    """API endpoint to get lineage data as JSON for AJAX requests"""
+    try:
+        # Allow both logged-in and non-logged-in users to view lineage data
+        # Get only active (non-deleted) clergy for the visualization
+        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+        
+        # Get all organizations and ranks for color lookup
+        organizations = {org.name: org.color for org in Organization.query.all()}
+        ranks = {rank.name: rank.color for rank in Rank.query.all()}
+
+        # SVG placeholder (simple person icon, base64-encoded)
+        placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="24" r="14" fill="#bdc3c7"/><ellipse cx="32" cy="50" rx="20" ry="12" fill="#bdc3c7"/></svg>'''
+        placeholder_data_url = 'data:image/svg+xml;base64,' + base64.b64encode(placeholder_svg.encode('utf-8')).decode('utf-8')
+
+        # Prepare data for D3.js
+        nodes = []
+        links = []
+        
+        # Create nodes for each clergy, including both colors and image
+        for clergy in all_clergy:
+            org_color = organizations.get(clergy.organization) or '#2c3e50'
+            rank_color = ranks.get(clergy.rank) or '#888888'
+            
+            # Use actual image if available, otherwise use placeholder
+            image_url = clergy.image_url if clergy.image_url else placeholder_data_url
+            
+            # Get high-resolution image URL from image_data if available
+            high_res_image_url = None
+            if clergy.image_data:
+                try:
+                    image_data = json.loads(clergy.image_data)
+                    high_res_image_url = image_data.get('detail') or image_data.get('original')
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+            
+            nodes.append({
+                'id': clergy.id,
+                'name': clergy.name,
+                'rank': clergy.rank,
+                'organization': clergy.organization,
+                'org_color': org_color,
+                'rank_color': rank_color,
+                'image_url': image_url,
+                'high_res_image_url': high_res_image_url,
+                'ordination_date': clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else 'Not specified',
+                'consecration_date': clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else 'Not specified',
+                'bio': clergy.notes
+            })
+        
+        # Create links for ordinations (black arrows)
+        for clergy in all_clergy:
+            if clergy.ordaining_bishop_id:
+                links.append({
+                    'source': clergy.ordaining_bishop_id,
+                    'target': clergy.id,
+                    'type': 'ordination',
+                    'date': clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else 'Date unknown',
+                    'color': '#000000'
+                })
+        
+        # Create links for consecrations (green arrows)
+        for clergy in all_clergy:
+            if clergy.consecrator_id:
+                links.append({
+                    'source': clergy.consecrator_id,
+                    'target': clergy.id,
+                    'type': 'consecration',
+                    'date': clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else 'Date unknown',
+                    'color': '#27ae60'
+                })
+        
+        # Create links for co-consecrations (dotted green arrows)
+        for clergy in all_clergy:
+            if clergy.co_consecrators:
+                try:
+                    co_consecrator_ids = clergy.get_co_consecrators()
+                    for co_consecrator_id in co_consecrator_ids:
+                        links.append({
+                            'source': co_consecrator_id,
+                            'target': clergy.id,
+                            'type': 'co-consecration',
+                            'date': clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else 'Date unknown',
+                            'color': '#27ae60',
+                            'dashed': True
+                        })
+                except (json.JSONDecodeError, AttributeError) as e:
+                    # Skip invalid co-consecrator data
+                    current_app.logger.warning(f"Invalid co-consecrator data for clergy {clergy.id}: {e}")
+                    continue
+        
+        return jsonify({
+            'success': True,
+            'nodes': nodes,
+            'links': links
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error in get_lineage_data: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Unable to load lineage data. Please try again later.'
+        }), 500
+
 # User management routes
 @main_bp.route('/users')
 @require_permission('manage_users')

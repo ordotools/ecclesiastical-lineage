@@ -2,6 +2,70 @@
 import { width, height } from './constants.js';
 import { resetToDefaultViewDistance } from './core.js';
 
+// Modal state tracking
+let isModalOpen = false;
+
+// Function to check if any modal is currently open
+function isAnyModalOpen() {
+  // Check for Bootstrap modals
+  const bootstrapModals = document.querySelectorAll('.modal.show');
+  if (bootstrapModals.length > 0) {
+    return true;
+  }
+  
+  // Check for custom modals
+  const customModals = document.querySelectorAll('.mobile-menu-modal[style*="block"]');
+  if (customModals.length > 0) {
+    return true;
+  }
+  
+  return false;
+}
+
+// Function to update modal state
+function updateModalState() {
+  isModalOpen = isAnyModalOpen();
+  console.log('Modal state updated:', isModalOpen);
+}
+
+// Export function to manually update modal state (for use by other modules)
+export function setModalState(open) {
+  console.log('setModalState called with:', open, 'previous state:', isModalOpen);
+  isModalOpen = open;
+  console.log('Modal state is now:', isModalOpen);
+}
+
+// Export function to check modal state
+export function getModalState() {
+  return isModalOpen;
+}
+
+// Listen for modal events to track state
+document.addEventListener('DOMContentLoaded', function() {
+  // Listen for Bootstrap modal events
+  document.addEventListener('show.bs.modal', function() {
+    isModalOpen = true;
+  });
+  
+  document.addEventListener('hide.bs.modal', function() {
+    // Small delay to ensure modal is fully closed
+    setTimeout(updateModalState, 100);
+  });
+  
+  // Listen for custom modal events (mobile menu)
+  const mobileMenuModal = document.getElementById('mobile-menu-modal');
+  if (mobileMenuModal) {
+    const observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+          updateModalState();
+        }
+      });
+    });
+    observer.observe(mobileMenuModal, { attributes: true, attributeFilter: ['style'] });
+  }
+});
+
 // Show/hide floating menu button and hide side menu on mobile
 export function handleMobileMenuDisplay() {
   const isMobile = window.innerWidth <= 768;
@@ -99,18 +163,57 @@ export function initializeAside() {
     // Use event delegation for the close button since it's loaded via HTMX
     clergyAside.addEventListener('click', (event) => {
       if (event.target.closest('#close-aside')) {
-        clergyAside.classList.remove('expanded');
-        // Reset to default view distance when closing clergy info panel
-        resetToDefaultViewDistance();
+        console.log('Close button clicked, modal open:', isModalOpen);
+        // Only close if no modal is open
+        if (!isModalOpen) {
+          clergyAside.classList.remove('expanded');
+          // Reset to default view distance when closing clergy info panel
+          resetToDefaultViewDistance();
+        } else {
+          console.log('Panel close prevented - modal is open');
+        }
       }
     });
     
-    // Close aside when clicking outside
+    // Close aside when clicking outside (but not when modal is open)
     document.addEventListener('click', (event) => {
-      if (!clergyAside.contains(event.target) && !event.target.closest('.node')) {
+      console.log('Click detected, modal open:', isModalOpen, 'target:', event.target);
+      
+      // Check if click is inside a modal
+      const isInsideModal = event.target.closest('.modal') || event.target.closest('[data-bs-toggle="modal"]');
+      
+      if (!isModalOpen && !clergyAside.contains(event.target) && !event.target.closest('.node') && !isInsideModal) {
+        console.log('Outside click - closing panel');
         clergyAside.classList.remove('expanded');
         // Reset to default view distance when closing clergy info panel
         resetToDefaultViewDistance();
+      } else if (isModalOpen) {
+        console.log('Outside click ignored - modal is open');
+      } else if (isInsideModal) {
+        console.log('Click ignored - inside modal');
+      } else {
+        console.log('Click ignored - inside panel or on node');
+      }
+    });
+    
+    // Add keyboard event handler to prevent closing on keypress when modal is open
+    document.addEventListener('keydown', (event) => {
+      // Only handle escape key
+      if (event.key === 'Escape') {
+        console.log('Escape key pressed, modal open:', isModalOpen);
+        // If a modal is open, don't close the aside panel
+        if (isModalOpen) {
+          console.log('Escape key ignored - modal is open');
+          event.stopPropagation();
+          return;
+        }
+        
+        // If no modal is open and aside is expanded, close it
+        if (clergyAside.classList.contains('expanded')) {
+          console.log('Escape key - closing panel');
+          clergyAside.classList.remove('expanded');
+          resetToDefaultViewDistance();
+        }
       }
     });
   }

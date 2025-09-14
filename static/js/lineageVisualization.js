@@ -27,6 +27,9 @@ function initializeAll() {
   
   // Initialize the main visualization
   initializeVisualization();
+  
+  // Make initializeVisualization available globally for refresh
+  window.initializeVisualization = initializeVisualization;
 }
 
 // Start initialization when DOM is ready

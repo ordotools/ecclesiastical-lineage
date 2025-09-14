@@ -11,6 +11,7 @@
   width: 100%;
   height: calc(100vh - 76px);
   position: relative;
+  overflow: hidden; /* Prevent scrollbars while allowing zoom/pan */
 }
 
 /* Side Menu Container with Toggle Button */
@@ -649,4 +650,37 @@ input:focus + .slider {
   .floating-menu-btn, .mobile-menu-modal {
     display: none !important;
   }
+}
+
+/* Timeline styling */
+.timeline {
+  pointer-events: none;
+}
+
+.timeline line {
+  pointer-events: none;
+}
+
+.timeline text {
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  user-select: none;
+  font-weight: 500;
+}
+
+/* Fixed timeline styling */
+.timeline-fixed {
+  pointer-events: none;
+  transform-origin: 0 0;
+}
+
+.timeline-fixed line {
+  pointer-events: none;
+}
+
+.timeline-fixed text {
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  user-select: none;
+  font-weight: 500;
 } 

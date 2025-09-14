@@ -329,6 +329,14 @@ function initFormHandlers() {
     // Cancel button should work with default behavior (no event handler needed)
     
     if (editForm) {
+        // Only attach handler if form is NOT in a modal context
+        const isInModal = editForm.closest('.modal') !== null;
+        if (isInModal) {
+            console.log('Edit form is in modal context, skipping editClergy.js handler');
+            return;
+        }
+        
+        console.log('Edit form is not in modal context, attaching editClergy.js handler');
         editForm.addEventListener('submit', function(e) {
             console.log('Form submit event fired');
             e.preventDefault();

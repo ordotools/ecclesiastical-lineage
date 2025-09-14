@@ -162,6 +162,15 @@
     // AJAX form submission for clergy modal
     const form = document.getElementById('clergyForm');
     if (form) {
+        // Only attach handler if form is NOT in a modal context
+        // Check if form is inside a modal by looking for modal parent
+        const isInModal = form.closest('.modal') !== null;
+        if (isInModal) {
+            console.log('Form is in modal context, skipping modalClergy.js handler');
+            return;
+        }
+        
+        console.log('Form is not in modal context, attaching modalClergy.js handler');
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(form);

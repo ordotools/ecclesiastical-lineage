@@ -411,6 +411,26 @@ def add_clergy_from_lineage():
             # Debug: Log all form data to see what's missing
             current_app.logger.info(f"All form data: {dict(request.form)}")
             
+            # Debug: Log request content type and raw data
+            current_app.logger.info(f"Content type: {request.content_type}")
+            current_app.logger.info(f"Request method: {request.method}")
+            current_app.logger.info(f"Request headers: {dict(request.headers)}")
+            
+            # Debug: Check if we're getting JSON data instead of form data
+            if request.is_json:
+                current_app.logger.info(f"JSON data: {request.get_json()}")
+            else:
+                current_app.logger.info("Not JSON data")
+            
+            # Validate required fields
+            if not name or not name.strip():
+                current_app.logger.error("Name is required but not provided")
+                return jsonify({'success': False, 'message': 'Name is required'}), 400
+            
+            if not rank or not rank.strip():
+                current_app.logger.error("Rank is required but not provided")
+                return jsonify({'success': False, 'message': 'Rank is required'}), 400
+            
             # Debug: Log context variables
             current_app.logger.info(f"Context from URL args: context_type={request.args.get('context_type')}, context_clergy_id={request.args.get('context_clergy_id')}")
             

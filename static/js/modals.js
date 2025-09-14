@@ -570,30 +570,86 @@ function openAddClergyModal(contextType, contextClergyId) {
         form.addEventListener('submit', function(e) {
           e.preventDefault();
           
+          // Validate required fields before submission
+          const nameInput = form.querySelector('input[name="name"]');
+          const rankSelect = form.querySelector('select[name="rank"]');
+          
+          console.log('=== VALIDATION CHECK ===');
+          console.log('Name input found:', !!nameInput);
+          console.log('Name input value:', nameInput ? nameInput.value : 'NOT FOUND');
+          console.log('Rank select found:', !!rankSelect);
+          console.log('Rank select value:', rankSelect ? rankSelect.value : 'NOT FOUND');
+          
+          if (!nameInput || !nameInput.value.trim()) {
+            console.log('Validation failed: Name is required');
+            showNotification('Name is required', 'error');
+            return;
+          }
+          
+          if (!rankSelect || !rankSelect.value) {
+            console.log('Validation failed: Rank is required');
+            showNotification('Rank is required', 'error');
+            return;
+          }
+          
+          console.log('Validation passed, proceeding with form submission');
+          
           // Show loading spinner
           showLoadingSpinner(form, 'Adding clergy...');
           
           console.log('Form submitted, sending data to:', form.action);
           const formData = new FormData(form);
           
+          // Debug: Log all raw form data before cleaning
+          console.log('=== RAW FORM DATA ===');
+          for (let [key, value] of formData.entries()) {
+            console.log(`Raw form field: ${key} = "${value}"`);
+          }
+          
+          // Debug: Check specific form elements
+          const orgSelect = form.querySelector('select[name="organization"]');
+          console.log('=== FORM ELEMENT VALUES ===');
+          console.log('Name input value:', nameInput ? nameInput.value : 'NOT FOUND');
+          console.log('Rank select value:', rankSelect ? rankSelect.value : 'NOT FOUND');
+          console.log('Organization select value:', orgSelect ? orgSelect.value : 'NOT FOUND');
+          
+          // Debug: Check all form elements
+          const allInputs = form.querySelectorAll('input, select, textarea');
+          console.log('=== ALL FORM ELEMENTS ===');
+          allInputs.forEach((input, index) => {
+            console.log(`Element ${index}: name="${input.name}", value="${input.value}", type="${input.type}"`);
+          });
+          
           // Clean up form data - remove empty fields and "None" values, but preserve required fields
           const cleanedFormData = new FormData();
           const requiredFields = ['name', 'rank', 'organization']; // Fields that must be preserved even if empty
           
-          for (let [key, value] of formData.entries()) {
-            // Always preserve required fields, even if empty
-            if (requiredFields.includes(key)) {
-              cleanedFormData.append(key, value || '');
-            }
-            // For other fields, only include if they have a value and are not "None"
-            else if (value && value !== 'None' && value !== '') {
-              cleanedFormData.append(key, value);
+          // If FormData constructor didn't capture the values properly, manually collect them
+          if (formData.entries().next().done) {
+            console.log('FormData is empty, manually collecting form values...');
+            const allInputs = form.querySelectorAll('input, select, textarea');
+            allInputs.forEach(input => {
+              if (input.name && input.name !== '') {
+                cleanedFormData.append(input.name, input.value || '');
+              }
+            });
+          } else {
+            for (let [key, value] of formData.entries()) {
+              // Always preserve required fields, even if empty
+              if (requiredFields.includes(key)) {
+                cleanedFormData.append(key, value || '');
+              }
+              // For other fields, only include if they have a value and are not "None"
+              else if (value && value !== 'None' && value !== '') {
+                cleanedFormData.append(key, value);
+              }
             }
           }
           
           // Log cleaned form data for debugging
+          console.log('=== CLEANED FORM DATA ===');
           for (let [key, value] of cleanedFormData.entries()) {
-            console.log(`Cleaned form field: ${key} = ${value}`);
+            console.log(`Cleaned form field: ${key} = "${value}"`);
           }
           
           fetch(form.action, {

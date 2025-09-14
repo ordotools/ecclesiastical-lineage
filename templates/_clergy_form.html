@@ -194,7 +194,7 @@
                 </div>
                 <div class="col-md-6">
                     <div class="mb-3">
-                        <label for="consecrator_search" class="form-label">Principal Consecrator</label>
+                        <label for="consecrator_search" class="form-label">Consecrator</label>
                         <div class="input-group position-relative">
                             <input type="text" class="form-control bishop-search-input" id="consecrator_search" name="consecrator_input" 
                                    placeholder="Type to search bishops..." autocomplete="off" 
@@ -202,7 +202,7 @@
                             <input type="hidden" id="consecrator_id" name="consecrator_id" value="{{ clergy.consecrator_id if clergy else '' }}">
                             <div class="autocomplete-dropdown" id="consecratorDropdown" style="position:absolute;top:100%;left:0;width:100%;z-index:20;display:none;"></div>
                             {% if user and user.can_comment() %}
-                            <button type="button" class="btn btn-outline-secondary comment-btn" data-field="consecrator_id" data-field-label="Principal Consecrator">
+                            <button type="button" class="btn btn-outline-secondary comment-btn" data-field="consecrator_id" data-field-label="Consecrator">
                                 <i class="fas fa-comment"></i>
                             </button>
                             {% endif %}

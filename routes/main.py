@@ -507,21 +507,23 @@ def add_clergy_from_lineage():
                     elif context_type == 'consecration':
                         current_app.logger.info(f"Verification: clergy {updated_clergy.id} now has consecrator_id = {updated_clergy.consecrator_id}")
             
-            return jsonify({
+            # Return tuple for audit decorator: (clergy_object, response, status_code)
+            return (new_clergy, jsonify({
                 'success': True,
                 'message': 'Clergy record added successfully!',
                 'clergy_id': new_clergy.id,
                 'context_type': context_type,
                 'context_clergy_id': context_clergy_id
-            })
+            }), 200)
             
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error adding clergy: {e}")
-            return jsonify({
+            # Return tuple for audit decorator: (None, response, status_code)
+            return (None, jsonify({
                 'success': False,
                 'message': f'Error adding clergy: {str(e)}'
-            }), 500
+            }), 500)
     
     # GET request - show the form
     # Get the same data that add_clergy_handler provides

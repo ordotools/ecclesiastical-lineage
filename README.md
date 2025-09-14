@@ -9,6 +9,7 @@ A Flask web application for tracking and visualizing ecclesiastical lineages and
 - Lineage visualization with D3.js
 - Metadata management for ranks and organizations
 - Admin user management with invite system
+- Comprehensive testing system for all forms
 
 ## Local Development
 
@@ -115,6 +116,36 @@ For local development, the application uses a local PostgreSQL database:
 - **Database Name**: `ecclesiastical_lineage_dev`
 - **Connection**: `postgresql://localhost:5432/ecclesiastical_lineage_dev`
 - **Sync from Remote**: Use `./sync_dev_db.sh` to copy production data locally
+
+## Testing
+
+The project includes a comprehensive testing system for all clergy forms:
+
+### Quick Start
+
+```bash
+# Run all tests
+./run_tests.sh
+
+# Run tests with custom settings
+./run_tests.sh --url http://localhost:8000 --username admin --password admin
+
+# Run tests using Python
+python test.py
+```
+
+### Test Coverage
+
+- ✅ All clergy forms (add, edit, modal, lineage)
+- ✅ Form action validation
+- ✅ Form submission testing
+- ✅ Error handling verification
+
+### Documentation
+
+- `TESTING.md` - Testing overview
+- `tests/README.md` - Quick reference
+- `tests/TESTING_README.md` - Complete documentation
 
 
 ## Testing with Real Users

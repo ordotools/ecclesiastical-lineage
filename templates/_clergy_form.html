@@ -3,14 +3,21 @@
 
 <link href="{{ url_for('static', filename='css/clergyForm.css') }}" rel="stylesheet">
 
+{# Auto-generate form action if not provided #}
+{% set form_action = fields.form_action if fields.form_action else (
+    url_for('clergy.edit_clergy', clergy_id=clergy.id) if edit_mode and clergy else
+    url_for('main.add_clergy_from_lineage') if context_type else
+    url_for('clergy.add_clergy')
+) %}
+
 <div class="card">
     <div class="card-header">
         <h2 class="h4 mb-0">{% if edit_mode %}Edit {{ clergy.name }}{% else %}Add New Clergy{% endif %}</h2>
     </div>
     <div class="card-body">
-        <form id="clergyForm" method="POST" action="{{ fields.form_action or '' }}" enctype="multipart/form-data" 
+        <form id="clergyForm" method="POST" action="{{ form_action }}" enctype="multipart/form-data" 
               {% if use_htmx %}
-              hx-post="{{ fields.form_action or '' }}" 
+              hx-post="{{ form_action }}" 
               hx-target="body" 
               hx-swap="outerHTML"
               hx-trigger="submit"

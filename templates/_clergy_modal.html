@@ -10,8 +10,7 @@
                 {{ clergy_form({
                     'ranks': ranks,
                     'organizations': organizations,
-                    'cancel_url': '#',
-                    'form_action': '/clergy/add' if action == 'add' else ('/clergy/' + clergy.id|string + '/edit' if action == 'edit' and clergy else '')
+                    'cancel_url': '#'
                 }, clergy=clergy, edit_mode=(action == 'edit'), user=user) }}
             </div>
         </div>

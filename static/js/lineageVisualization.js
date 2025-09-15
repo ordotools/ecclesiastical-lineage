@@ -6,6 +6,7 @@ import { initializeUI } from './ui.js';
 import { initializeFilters } from './filters.js';
 import { initializeHTMXHandlers } from './modals.js';
 import { initializeVisualization } from './core.js';
+import { initializeSearch, buildSearchIndex, handleURLSearch } from './search.js';
 
 // Start the visualization
 console.log('Starting visualization initialization...');
@@ -15,7 +16,7 @@ console.log('Available data:', {
 });
 
 // Initialize all components
-function initializeAll() {
+async function initializeAll() {
   // Initialize UI components first
   initializeUI();
   
@@ -25,8 +26,19 @@ function initializeAll() {
   // Initialize HTMX handlers
   initializeHTMXHandlers();
   
+  // Initialize search functionality
+  initializeSearch();
+  
   // Initialize the main visualization
-  initializeVisualization();
+  await initializeVisualization();
+  
+  // Build search index when nodes are available
+  if (window.currentNodes) {
+    buildSearchIndex(window.currentNodes);
+  }
+  
+  // Handle URL search parameters
+  handleURLSearch();
   
   // Make initializeVisualization available globally for refresh
   window.initializeVisualization = initializeVisualization;

@@ -35,6 +35,18 @@
             </div>
 
           </div>
+          <!-- Search -->
+          <div class="visualization-search-mobile mt-3">
+            <h6 class="fw-bold mb-2 text-dark">Search</h6>
+            <div class="input-group">
+              <input type="text" id="clergy-search-mobile" class="form-control form-control-sm" placeholder="Search clergy...">
+              <button id="clear-search-mobile" class="btn btn-sm btn-outline-secondary" type="button">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div id="search-results-mobile" class="search-results mt-2" style="display: none;"></div>
+          </div>
+          
           <!-- Controls -->
           <div class="visualization-controls-mobile mt-3">
             <button id="reset-zoom-mobile" class="btn btn-sm btn-outline-secondary mb-2 w-100">
@@ -70,6 +82,15 @@
                 <span class="slider"></span>
               </label>
             </div>
+            <div class="filter-item">
+              <label class="switch-label" for="backbone-only-mobile">
+                <small class="text-dark">Backbone Only</small>
+              </label>
+              <label class="switch">
+                <input type="checkbox" id="backbone-only-mobile" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -91,6 +112,22 @@
                     <div style="width: 20px; height: 2px; background: var(--lineage-green); margin-right: 8px;"></div>
                     <small class="text-dark">Consecration</small>
                 </div>
+            </div>
+        </div>
+
+        <!-- Search -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Search</h6>
+            </div>
+            <div class="card-body">
+                <div class="input-group mb-2">
+                    <input type="text" id="clergy-search" class="form-control form-control-sm" placeholder="Search clergy...">
+                    <button id="clear-search" class="btn btn-sm btn-outline-secondary" type="button">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="search-results" class="search-results" style="display: none;"></div>
             </div>
         </div>
 
@@ -139,6 +176,15 @@
                     </label>
                     <label class="switch">
                         <input type="checkbox" id="timeline-view">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="filter-item">
+                    <label class="switch-label" for="backbone-only">
+                        <small class="text-dark">Backbone Only</small>
+                    </label>
+                    <label class="switch">
+                        <input type="checkbox" id="backbone-only" checked>
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -224,6 +270,7 @@
 
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
+<script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
 <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
 <script>
 window.linksData = {{ links | safe }};

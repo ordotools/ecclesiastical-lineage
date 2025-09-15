@@ -1,4 +1,4 @@
-// Core visualization module with D3 setup and main functions
+// Core visualization module with D3 setup and elkjs layered layout
 import { 
   LINK_DISTANCE, 
   CHARGE_STRENGTH, 
@@ -16,10 +16,154 @@ import {
   ZOOM_LEVEL_SMALL
 } from './constants.js';
 import { handleNodeClick } from './modals.js';
-import { applyPriestFilter, updateTimelinePositions } from './filters.js';
+import { applyPriestFilter, updateTimelinePositions, applyBackboneOnlyFilter } from './filters.js';
+
+// Layout mode: 'layered' (elkjs) or 'force' (original)
+let layoutMode = 'layered';
+let elk = null;
+
+// Function to compute layered layout using elkjs
+async function computeLayeredLayout(nodes, links) {
+  console.log('Computing layered layout with elkjs...');
+  
+  // Initialize ELK if not already done
+  if (!elk && typeof ELK !== 'undefined') {
+    elk = new ELK();
+  }
+  
+  if (!elk) {
+    console.warn('ELK not available, falling back to force layout');
+    layoutMode = 'force';
+    return null;
+  }
+  
+  // Prepare data for elkjs
+  const elkNodes = nodes.map(node => {
+    // Calculate layer based on event date (consecration for bishops, ordination for priests)
+    let layerDate = null;
+    if (node.rank && node.rank.toLowerCase() === 'bishop' && node.consecration_date && node.consecration_date !== 'Not specified') {
+      layerDate = new Date(node.consecration_date);
+    } else if (node.ordination_date && node.ordination_date !== 'Not specified') {
+      layerDate = new Date(node.ordination_date);
+    }
+    
+    // Assign layer ID based on year (group by decade for better spacing)
+    let layerId = 'unknown';
+    if (layerDate && !isNaN(layerDate.getTime())) {
+      const year = layerDate.getFullYear();
+      layerId = `layer_${Math.floor(year / 10) * 10}`; // Group by decade
+    }
+    
+    return {
+      id: node.id.toString(),
+      width: OUTER_RADIUS * 2 + 20, // Node width including padding
+      height: OUTER_RADIUS * 2 + 20, // Node height including padding
+      properties: {
+        'elk.layered.layering.layerId': layerId,
+        originalNode: node
+      }
+    };
+  });
+  
+  const elkEdges = links.map((link, index) => ({
+    id: `edge_${index}`,
+    sources: [link.source.id.toString()],
+    targets: [link.target.id.toString()],
+    properties: {
+      originalLink: link
+    }
+  }));
+  
+  const elkGraph = {
+    id: 'root',
+    properties: {
+      'elk.algorithm': 'layered',
+      'elk.direction': 'RIGHT',
+      'elk.spacing.nodeNode': '80',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '120',
+      'elk.layered.layering.strategy': 'NETWORK_SIMPLEX',
+      'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
+      'elk.edgeRouting': 'ORTHOGONAL',
+      'elk.layered.unnecessaryBendpoints': 'true'
+    },
+    children: elkNodes,
+    edges: elkEdges
+  };
+  
+  try {
+    const layoutedGraph = await elk.layout(elkGraph);
+    console.log('ELK layout computation complete');
+    
+    // Apply computed positions back to nodes
+    layoutedGraph.children.forEach(elkNode => {
+      const originalNode = elkNode.properties.originalNode;
+      originalNode.x = elkNode.x + elkNode.width / 2; // Center the node
+      originalNode.y = elkNode.y + elkNode.height / 2;
+    });
+    
+    // Store edge routing information
+    layoutedGraph.edges.forEach(elkEdge => {
+      const originalLink = elkEdge.properties.originalLink;
+      if (elkEdge.sections && elkEdge.sections.length > 0) {
+        originalLink.routing = elkEdge.sections[0];
+      }
+    });
+    
+    return layoutedGraph;
+  } catch (error) {
+    console.error('ELK layout failed:', error);
+    layoutMode = 'force';
+    return null;
+  }
+}
+
+// Function to render links with orthogonal routing
+function renderOrthogonalLinks(container, links) {
+  const linkGroup = container.append('g').attr('class', 'links');
+  
+  links.forEach((link, index) => {
+    const linkElement = linkGroup.append('g').attr('class', `link link-${index}`);
+    
+    if (link.routing && link.routing.bendPoints) {
+      // Create path with bend points
+      const points = [
+        { x: link.routing.startPoint.x, y: link.routing.startPoint.y },
+        ...link.routing.bendPoints,
+        { x: link.routing.endPoint.x, y: link.routing.endPoint.y }
+      ];
+      
+      const pathData = points.map((point, i) => `${i === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+      
+      linkElement.append('path')
+        .attr('d', pathData)
+        .attr('stroke', link.color)
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', link.dashed ? '5,5' : 'none')
+        .attr('fill', 'none')
+        .attr('marker-end', `url(#arrowhead-${link.color === BLACK_COLOR ? 'black' : 'green'})`)
+        .style('opacity', link.filtered ? 0 : 1)
+        .style('pointer-events', link.filtered ? 'none' : 'all');
+    } else {
+      // Fall back to straight line
+      linkElement.append('line')
+        .attr('x1', link.source.x)
+        .attr('y1', link.source.y)
+        .attr('x2', link.target.x)
+        .attr('y2', link.target.y)
+        .attr('stroke', link.color)
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', link.dashed ? '5,5' : 'none')
+        .attr('marker-end', `url(#arrowhead-${link.color === BLACK_COLOR ? 'black' : 'green'})`)
+        .style('opacity', link.filtered ? 0 : 1)
+        .style('pointer-events', link.filtered ? 'none' : 'all');
+    }
+  });
+  
+  return linkGroup;
+}
 
 // Initialize the visualization
-export function initializeVisualization() {
+export async function initializeVisualization() {
   console.log('initializeVisualization called');
   console.log('Window data check:', {
     linksData: window.linksData,
@@ -29,7 +173,7 @@ export function initializeVisualization() {
   });
   console.time('Visualization initialization');
   
-  // The force simulation mutates links and nodes, so create a copy
+  // The layout algorithm mutates links and nodes, so create a copy
   const linksRaw = window.linksData || [];
   const nodesRaw = window.nodesData || [];
 
@@ -63,11 +207,9 @@ export function initializeVisualization() {
     return true;
   });
 
-  // Function to detect and offset parallel links
+  // Process parallel links (keep for force layout compatibility)
   function processParallelLinks(links) {
-    // Group links by source-target pairs
     const linkGroups = {};
-    
     links.forEach(link => {
       const key = `${link.source.id}-${link.target.id}`;
       if (!linkGroups[key]) {
@@ -76,19 +218,15 @@ export function initializeVisualization() {
       linkGroups[key].push(link);
     });
     
-    // Add offset to parallel links
     Object.values(linkGroups).forEach(group => {
       if (group.length > 1) {
-        // Sort by type to ensure consistent ordering
         group.sort((a, b) => {
           const typeOrder = { 'ordination': 0, 'consecration': 1, 'co-consecration': 2 };
           return (typeOrder[a.type] || 0) - (typeOrder[b.type] || 0);
         });
         
-        // Calculate offset for each link
-        const offset = 8; // Distance between parallel lines
+        const offset = 8;
         const totalOffset = (group.length - 1) * offset / 2;
-        
         group.forEach((link, index) => {
           link.parallelOffset = (index * offset) - totalOffset;
         });
@@ -96,100 +234,9 @@ export function initializeVisualization() {
     });
   }
 
-  // Process parallel links
-  processParallelLinks(validLinks);
-
-  // Create SVG container
-  const svg = d3.select('#graph-container')
-    .append('svg')
-    .attr('width', width)
-    .attr('height', height)
-    .attr('viewBox', [0, 0, width, height])
-    .style('background', 'transparent') // Transparent background to show page background
-    .style('overflow', 'visible'); // Allow content to extend beyond viewport
-
-  // Add zoom behavior
-  const zoom = d3.zoom()
-    .scaleExtent([0.01, 4]) // Allow more zoom out to see the larger timeline
-    .on('zoom', function(event) {
-      container.attr('transform', event.transform);
-      // Update timeline positions during zoom/pan
-      updateTimelinePositions(event.transform);
-    });
-  svg.call(zoom);
-  
-  // Store zoom behavior globally for use in centering function
-  window.currentZoom = zoom;
-
-  // Create container group for zoom
-  const container = svg.append('g');
-
-  // Add arrow markers
-  container.append('defs').selectAll('marker')
-    .data(['arrowhead-black', 'arrowhead-green'])
-    .enter().append('marker')
-    .attr('id', d => d)
-    .attr('viewBox', '0 -5 10 10')
-    .attr('refX', OUTER_RADIUS * 0.95) // Position arrows slightly farther from nodes (85% of radius)
-    .attr('refY', 0)
-    .attr('markerWidth', 8) // Increased for larger nodes
-    .attr('markerHeight', 8) // Increased for larger nodes
-    .attr('orient', 'auto')
-    .append('path')
-    .attr('d', 'M0,-5L10,0L0,5')
-    .attr('fill', d => d === 'arrowhead-black' ? BLACK_COLOR : GREEN_COLOR);
-
-  // Create force simulation - OPTIMIZED for faster convergence
-  const simulation = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(validLinks).id(d => d.id).distance(LINK_DISTANCE))
-    .force('charge', d3.forceManyBody().strength(CHARGE_STRENGTH))
-    .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collision', d3.forceCollide().radius(COLLISION_RADIUS))
-    .alphaDecay(0.1) // Faster decay for quicker convergence
-    .velocityDecay(0.4); // More damping for stability
-
-  // Add repulsion between bishops
-  const bishopNodes = nodes.filter(n => n.rank && n.rank.toLowerCase() === 'bishop');
-  if (bishopNodes.length > 0) {
-    simulation.force('bishop-repulsion', d3.forceManyBody().strength(-800));
-  }
-  
-  // Override force functions to exclude filtered nodes from physics
-  const originalLinkForce = simulation.force('link');
-  simulation.force('link', d3.forceLink(validLinks.filter(l => !l.filtered)).id(d => d.id).distance(LINK_DISTANCE));
-  
-  const originalChargeForce = simulation.force('charge');
-  simulation.force('charge', d3.forceManyBody().strength(d => d.filtered ? 0 : CHARGE_STRENGTH));
-  
-  const originalCollisionForce = simulation.force('collision');
-  simulation.force('collision', d3.forceCollide().radius(d => d.filtered ? 0 : COLLISION_RADIUS));
-
-  // Create links first (so they render behind nodes)
-  const link = container.append('g')
-    .selectAll('line')
-    .data(validLinks)
-    .enter().append('line')
-    .attr('stroke', d => d.color)
-    .attr('stroke-width', 2)
-    .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
-    .style('opacity', d => d.filtered ? 0 : 1) // Hide filtered links
-    .style('pointer-events', d => d.filtered ? 'none' : 'all') // Disable pointer events for filtered links
-    .attr('marker-end', d => {
-      // Ensure we have a valid color and map it to the correct marker
-      if (d.color === BLACK_COLOR) {
-        return 'url(#arrowhead-black)';
-      } else if (d.color === GREEN_COLOR) {
-        return 'url(#arrowhead-green)';
-      } else {
-        // Default to green if color is undefined or doesn't match
-        return 'url(#arrowhead-green)';
-      }
-    });
-
   // Store references globally for filtering
   window.currentNodes = nodes;
   window.currentLinks = validLinks;
-  window.currentSimulation = simulation;
   
   // Initialize filtered state for all nodes and links
   nodes.forEach(node => {
@@ -201,8 +248,138 @@ export function initializeVisualization() {
     const sourceIsPriest = link.source.rank && link.source.rank.toLowerCase() === 'priest';
     const targetIsPriest = link.target.rank && link.target.rank.toLowerCase() === 'priest';
     const isBlackLink = link.color === BLACK_COLOR;
-    link.filtered = isBlackLink && (sourceIsPriest || targetIsPriest); // Hide black links to priests
+    link.filtered = isBlackLink && (sourceIsPriest || targetIsPriest);
   });
+
+  // Try layered layout first, fall back to force layout
+  let layoutResult = null;
+  if (layoutMode === 'layered') {
+    try {
+      layoutResult = await computeLayeredLayout(nodes, validLinks);
+    } catch (error) {
+      console.error('Layered layout failed, falling back to force layout:', error);
+      layoutMode = 'force';
+    }
+  }
+
+  // Process parallel links only for force layout
+  if (layoutMode === 'force') {
+    processParallelLinks(validLinks);
+  }
+
+  // Create SVG container
+  const svg = d3.select('#graph-container')
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .attr('viewBox', [0, 0, width, height])
+    .style('background', 'transparent')
+    .style('overflow', 'visible');
+
+  // Calculate appropriate viewBox for layered layout
+  if (layoutMode === 'layered' && layoutResult) {
+    // Get bounds of the layered layout
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    nodes.forEach(node => {
+      minX = Math.min(minX, node.x - OUTER_RADIUS);
+      maxX = Math.max(maxX, node.x + OUTER_RADIUS);
+      minY = Math.min(minY, node.y - OUTER_RADIUS);
+      maxY = Math.max(maxY, node.y + OUTER_RADIUS);
+    });
+    
+    const padding = 100;
+    const layoutWidth = maxX - minX + 2 * padding;
+    const layoutHeight = maxY - minY + 2 * padding;
+    const layoutCenterX = (minX + maxX) / 2;
+    const layoutCenterY = (minY + maxY) / 2;
+    
+    // Update SVG to fit the layout
+    svg.attr('viewBox', [minX - padding, minY - padding, layoutWidth, layoutHeight]);
+    
+    console.log('Layered layout bounds:', { minX, maxX, minY, maxY, layoutWidth, layoutHeight });
+  }
+
+  // Add zoom behavior
+  const zoom = d3.zoom()
+    .scaleExtent([0.01, 4])
+    .on('zoom', function(event) {
+      container.attr('transform', event.transform);
+      updateTimelinePositions(event.transform);
+    });
+  svg.call(zoom);
+  
+  window.currentZoom = zoom;
+
+  // Create container group for zoom
+  const container = svg.append('g');
+
+  // Add arrow markers
+  container.append('defs').selectAll('marker')
+    .data(['arrowhead-black', 'arrowhead-green'])
+    .enter().append('marker')
+    .attr('id', d => d)
+    .attr('viewBox', '0 -5 10 10')
+    .attr('refX', OUTER_RADIUS * 0.95)
+    .attr('refY', 0)
+    .attr('markerWidth', 8)
+    .attr('markerHeight', 8)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M0,-5L10,0L0,5')
+    .attr('fill', d => d === 'arrowhead-black' ? BLACK_COLOR : GREEN_COLOR);
+
+  // Create force simulation only for force layout mode
+  let simulation = null;
+  if (layoutMode === 'force') {
+    simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(validLinks).id(d => d.id).distance(LINK_DISTANCE))
+      .force('charge', d3.forceManyBody().strength(CHARGE_STRENGTH))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collision', d3.forceCollide().radius(COLLISION_RADIUS))
+      .alphaDecay(0.1)
+      .velocityDecay(0.4);
+
+    // Add repulsion between bishops
+    const bishopNodes = nodes.filter(n => n.rank && n.rank.toLowerCase() === 'bishop');
+    if (bishopNodes.length > 0) {
+      simulation.force('bishop-repulsion', d3.forceManyBody().strength(-800));
+    }
+    
+    // Override force functions to exclude filtered nodes from physics
+    simulation.force('link', d3.forceLink(validLinks.filter(l => !l.filtered)).id(d => d.id).distance(LINK_DISTANCE));
+    simulation.force('charge', d3.forceManyBody().strength(d => d.filtered ? 0 : CHARGE_STRENGTH));
+    simulation.force('collision', d3.forceCollide().radius(d => d.filtered ? 0 : COLLISION_RADIUS));
+  }
+
+  // Store simulation globally for compatibility
+  window.currentSimulation = simulation;
+
+  // Render links based on layout mode
+  let link;
+  if (layoutMode === 'layered') {
+    // Use orthogonal routing for layered layout
+    link = renderOrthogonalLinks(container, validLinks);
+  } else {
+    // Use straight lines for force layout
+    link = container.append('g')
+      .selectAll('line')
+      .data(validLinks)
+      .enter().append('line')
+      .attr('stroke', d => d.color)
+      .attr('stroke-width', 2)
+      .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
+      .style('opacity', d => d.filtered ? 0 : 1)
+      .style('pointer-events', d => d.filtered ? 'none' : 'all')
+      .attr('marker-end', d => {
+        if (d.color === BLACK_COLOR) {
+          return 'url(#arrowhead-black)';
+        } else if (d.color === GREEN_COLOR) {
+          return 'url(#arrowhead-green)';
+        } else {
+          return 'url(#arrowhead-green)';
+        }
+      });
+  }
 
 
   // Create nodes after links (so they render on top)
@@ -210,11 +387,11 @@ export function initializeVisualization() {
     .selectAll('g')
     .data(nodes)
     .enter().append('g')
-    .style('pointer-events', d => d.filtered ? 'none' : 'all') // Disable pointer events for filtered nodes
-    .call(d3.drag()
+    .style('pointer-events', d => d.filtered ? 'none' : 'all')
+    .call(layoutMode === 'force' ? d3.drag()
       .on('start', dragstarted)
       .on('drag', dragged)
-      .on('end', dragended));
+      .on('end', dragended) : () => {});
 
   // Add node circles
   node.append('circle')
@@ -237,10 +414,9 @@ export function initializeVisualization() {
     .attr('y', -IMAGE_SIZE/2)
     .attr('width', IMAGE_SIZE)
     .attr('height', IMAGE_SIZE)
-    .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`) // Dynamic clipping for larger images
-    .style('opacity', d => d.image_url ? 1 : 0) // Hide if no image
+    .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`)
+    .style('opacity', d => d.image_url ? 1 : 0)
     .on('error', function() {
-      // Hide image if it fails to load
       d3.select(this).style('opacity', 0);
     });
 
@@ -251,8 +427,8 @@ export function initializeVisualization() {
     .style('font-size', '12px')
     .style('fill', '#666')
     .style('pointer-events', 'none')
-    .style('opacity', d => d.image_url ? 0 : 1) // Show only when no image
-    .text('👤'); // Person icon as fallback
+    .style('opacity', d => d.image_url ? 0 : 1)
+    .text('👤');
 
   // Add labels
   node.append('text')
@@ -261,91 +437,110 @@ export function initializeVisualization() {
     .style('font-size', '12px')
     .style('font-weight', 'bold')
     .style('pointer-events', 'none')
-    .style('fill', '#ffffff') // White text for dark background
-    .style('filter', 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))') // Subtle drop shadow
-    .style('text-shadow', '0 0 3px rgba(0,0,0,0.9)') // Additional glow effect
+    .style('fill', '#ffffff')
+    .style('filter', 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))')
+    .style('text-shadow', '0 0 3px rgba(0,0,0,0.9)')
     .text(d => d.name);
 
   // Add tooltips
   node.append('title')
     .text(d => `${d.name}\nRank: ${d.rank}\nOrganization: ${d.organization}`);
 
-  // Update positions on simulation tick
-  simulation.on('tick', () => {
-    // Apply Y-axis constraints for timeline view
-    if (window.isTimelineViewEnabled) {
-      const timelineTop = 80; // Space below top timeline
-      const timelineBottom = height - 80; // Space above bottom timeline
+  // Position nodes immediately for layered layout
+  if (layoutMode === 'layered') {
+    node.attr('transform', d => `translate(${d.x},${d.y})`)
+      .style('opacity', d => d.filtered ? 0 : 1)
+      .style('pointer-events', d => d.filtered ? 'none' : 'all');
       
-      nodes.forEach(d => {
-        if (!d.filtered) {
-          // Constrain Y position within timeline boundaries
-          if (d.y < timelineTop) d.y = timelineTop;
-          if (d.y > timelineBottom) d.y = timelineBottom;
-        }
-      });
-    }
+    // Add click handlers for layered layout (no drag)
+    node.on('click', function(event, d) {
+      if (!d.filtered) {
+        handleNodeClick(event, d);
+      }
+    });
+  }
 
-    link
-      .attr('x1', d => d.source.x + (d.parallelOffset || 0))
-      .attr('y1', d => d.source.y)
-      .attr('x2', d => d.target.x + (d.parallelOffset || 0))
-      .attr('y2', d => d.target.y)
-      .style('opacity', d => d.filtered ? 0 : 1) // Update link opacity on tick
-      .style('pointer-events', d => d.filtered ? 'none' : 'all'); // Disable pointer events for filtered links
+  // Update positions on simulation tick (force layout only)
+  if (simulation) {
+    simulation.on('tick', () => {
+      // Apply Y-axis constraints for timeline view
+      if (window.isTimelineViewEnabled) {
+        const timelineTop = 80;
+        const timelineBottom = height - 80;
+        
+        nodes.forEach(d => {
+          if (!d.filtered) {
+            if (d.y < timelineTop) d.y = timelineTop;
+            if (d.y > timelineBottom) d.y = timelineBottom;
+          }
+        });
+      }
 
-    node
-      .attr('transform', d => `translate(${d.x},${d.y})`)
-      .style('opacity', d => d.filtered ? 0 : 1) // Hide filtered nodes completely
-      .style('pointer-events', d => d.filtered ? 'none' : 'all'); // Update pointer events on tick
-  });
+      // Update links (force layout uses straight lines)
+      if (layoutMode === 'force' && link.attr) {
+        link
+          .attr('x1', d => d.source.x + (d.parallelOffset || 0))
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x + (d.parallelOffset || 0))
+          .attr('y2', d => d.target.y)
+          .style('opacity', d => d.filtered ? 0 : 1)
+          .style('pointer-events', d => d.filtered ? 'none' : 'all');
+      }
 
-  // Stop simulation after it converges to improve performance
-  simulation.on('end', () => {
-    console.log('Force simulation converged');
-    // Hide loading indicator when simulation is complete
+      // Update nodes
+      node
+        .attr('transform', d => `translate(${d.x},${d.y})`)
+        .style('opacity', d => d.filtered ? 0 : 1)
+        .style('pointer-events', d => d.filtered ? 'none' : 'all');
+    });
+
+    // Stop simulation after it converges
+    simulation.on('end', () => {
+      console.log('Force simulation converged');
+      hideLoadingIndicator();
+    });
+  } else {
+    // For layered layout, hide loading indicator immediately
+    console.log('Layered layout complete');
+    hideLoadingIndicator();
+  }
+
+  function hideLoadingIndicator() {
     const loadingIndicator = document.getElementById('loading-indicator');
     if (loadingIndicator) {
       loadingIndicator.style.display = 'none';
     }
-  });
+  }
 
   // Fallback: hide loading indicator after 10 seconds to prevent infinite loading
   setTimeout(() => {
-    const loadingIndicator = document.getElementById('loading-indicator');
-    if (loadingIndicator) {
-      loadingIndicator.style.display = 'none';
-    }
+    hideLoadingIndicator();
   }, 10000);
 
   console.timeEnd('Visualization initialization');
 
-  // Track drag state for click detection
+  // Drag functions (only for force layout)
   let isDragging = false;
   let dragStartPos = { x: 0, y: 0 };
-  let dragThreshold = 100; // pixels - increased for much better click detection
+  let dragThreshold = 100;
   let dragStartTime = 0;
-  let maxClickDuration = 300; // milliseconds
+  let maxClickDuration = 300;
 
-  // Drag functions
   function dragstarted(event, d) {
-    // Prevent dragging of filtered nodes
-    if (d.filtered) return;
+    if (d.filtered || layoutMode !== 'force') return;
     
     isDragging = false;
     dragStartPos = { x: event.x, y: event.y };
     dragStartTime = Date.now();
     
-    if (!event.active) simulation.alphaTarget(0.3).restart();
+    if (!event.active && simulation) simulation.alphaTarget(0.3).restart();
     d.fx = d.x;
     d.fy = d.y;
   }
 
   function dragged(event, d) {
-    // Prevent dragging of filtered nodes
-    if (d.filtered) return;
+    if (d.filtered || layoutMode !== 'force') return;
     
-    // Check if we've moved enough to consider this a drag
     const dx = event.x - dragStartPos.x;
     const dy = event.y - dragStartPos.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -359,19 +554,16 @@ export function initializeVisualization() {
   }
 
   function dragended(event, d) {
-    // Prevent dragging of filtered nodes
-    if (d.filtered) return;
+    if (d.filtered || layoutMode !== 'force') return;
     
-    if (!event.active) simulation.alphaTarget(0);
+    if (!event.active && simulation) simulation.alphaTarget(0);
     d.fx = null;
     d.fy = null;
     
-    // Check if this was a quick click (not a drag)
     const dragDuration = Date.now() - dragStartTime;
     const wasQuickClick = dragDuration < maxClickDuration && !isDragging;
     
     if (wasQuickClick) {
-      // Use a small delay to ensure drag state is fully cleared
       setTimeout(() => {
         handleNodeClick(event, d);
       }, 50);
@@ -384,13 +576,40 @@ export function initializeVisualization() {
       zoom.transform,
       d3.zoomIdentity
     );
-    // Also reset timeline positions
     updateTimelinePositions(d3.zoomIdentity);
   });
 
   document.getElementById('center-graph').addEventListener('click', () => {
-    simulation.force('center', d3.forceCenter(width / 2, height / 2));
-    simulation.alpha(1).restart();
+    if (layoutMode === 'force' && simulation) {
+      simulation.force('center', d3.forceCenter(width / 2, height / 2));
+      simulation.alpha(1).restart();
+    } else if (layoutMode === 'layered') {
+      // For layered layout, center the view on the graph bounds
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      nodes.forEach(node => {
+        if (!node.filtered) {
+          minX = Math.min(minX, node.x - OUTER_RADIUS);
+          maxX = Math.max(maxX, node.x + OUTER_RADIUS);
+          minY = Math.min(minY, node.y - OUTER_RADIUS);
+          maxY = Math.max(maxY, node.y + OUTER_RADIUS);
+        }
+      });
+      
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const graphWidth = maxX - minX;
+      const graphHeight = maxY - minY;
+      
+      const scale = Math.min(width / graphWidth, height / graphHeight) * 0.8;
+      const translateX = width / 2 - centerX * scale;
+      const translateY = height / 2 - centerY * scale;
+      
+      const transform = d3.zoomIdentity
+        .translate(translateX, translateY)
+        .scale(scale);
+      
+      svg.transition().duration(750).call(zoom.transform, transform);
+    }
   });
 
   // Handle window resize
@@ -398,12 +617,19 @@ export function initializeVisualization() {
     const newWidth = window.innerWidth;
     const newHeight = window.innerHeight - 76;
     svg.attr('width', newWidth).attr('height', newHeight);
-    simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2));
-    simulation.alpha(1).restart();
+    
+    if (layoutMode === 'force' && simulation) {
+      simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2));
+      simulation.alpha(1).restart();
+    }
   });
 
-  // Apply initial priest filter
+  // Apply initial filters
+  applyBackboneOnlyFilter();
   applyPriestFilter();
+
+  // Add layout mode toggle for testing
+  console.log(`Visualization initialized in ${layoutMode} mode`);
 }
 
 // View zoom management functions

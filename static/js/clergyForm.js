@@ -3,6 +3,18 @@
 
 console.log('clergyForm.js loaded');
 
+// Function to check if a rank is a bishop rank
+// This will be updated to use the server-side bishop flag in the future
+function isBishopRank(rankValue) {
+    if (!rankValue) return false;
+    const lowerRank = rankValue.toLowerCase();
+    return lowerRank.includes('bishop') || 
+           lowerRank.includes('pope') || 
+           lowerRank.includes('archbishop') || 
+           lowerRank.includes('cardinal') ||
+           lowerRank.includes('patriarch');
+}
+
 // Function to toggle consecration fields and papal name field based on rank selection
 function toggleConsecrationFields(rankValue) {
     console.log('toggleConsecrationFields called with:', rankValue);
@@ -41,7 +53,7 @@ function toggleConsecrationFields(rankValue) {
     }
     
     // Handle consecration fields visibility
-    if (rankValue && rankValue.toLowerCase() === 'bishop') {
+    if (rankValue && isBishopRank(rankValue)) {
         console.log('Setting consecration fields to visible');
         consecrationDateField.style.display = 'flex';
         consecratorField.style.display = 'flex';

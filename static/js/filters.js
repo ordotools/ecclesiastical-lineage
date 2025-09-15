@@ -2,6 +2,18 @@
 import { BLACK_COLOR, GREEN_COLOR, width, height } from './constants.js';
 import { showNotification } from './utils.js';
 
+// Function to check if a rank is a bishop rank
+// This will be updated to use the server-side bishop flag in the future
+function isBishopRank(rankValue) {
+  if (!rankValue) return false;
+  const lowerRank = rankValue.toLowerCase();
+  return lowerRank.includes('bishop') || 
+         lowerRank.includes('pope') || 
+         lowerRank.includes('archbishop') || 
+         lowerRank.includes('cardinal') ||
+         lowerRank.includes('patriarch');
+}
+
 // Wire up filter controls and sync mobile/desktop
 const hidePriestsCheckbox = document.getElementById('hide-priests');
 const hidePriestsMobileCheckbox = document.getElementById('hide-priests-mobile');
@@ -48,7 +60,7 @@ export function prepareTimelineData(nodes) {
     let dateStr = null;
     
     // Use consecration date for bishops, ordination date for priests
-    if (node.rank && node.rank.toLowerCase() === 'bishop' && node.consecration_date) {
+    if (node.rank && isBishopRank(node.rank) && node.consecration_date) {
       dateStr = node.consecration_date;
     } else if (node.ordination_date) {
       dateStr = node.ordination_date;

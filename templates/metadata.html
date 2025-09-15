@@ -37,6 +37,14 @@
                                     <input type="text" class="form-control" id="new-rank-description" placeholder="Description (optional)">
                                 </div>
                                 <div class="col-auto">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="new-rank-is-bishop" title="Check if this rank can consecrate/ordain">
+                                        <label class="form-check-label" for="new-rank-is-bishop" title="Bishops can consecrate and ordain">
+                                            <i class="fas fa-cross me-1"></i>Bishop
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
                                     <button class="btn btn-primary" type="button" onclick="addRank()" title="Add new rank">
                                         <i class="fas fa-plus me-1"></i>Add Rank
                                     </button>
@@ -54,6 +62,11 @@
                                         <div class="d-flex align-items-center">
                                             <span class="color-dot me-2" style="background-color: {{ rank.color or '#000000' }}; width: 18px; height: 18px; border-radius: 50%; display: inline-block; border: 1px solid #ccc;" title="Color: {{ rank.color or '#000000' }}"></span>
                                             <span class="rank-badge" style="background-color: {{ rank.color or '#000000' }}; color: {{ 'white' if getContrastColor(rank.color or '#000000') == 'white' else 'black' }}; padding: 0.25em 0.5em; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 500; {{ getBorderStyle(rank.color or '#000000') }}">{{ rank.name }}</span>
+                                            {% if rank.is_bishop %}
+                                                <span class="badge bg-success ms-2" title="Can consecrate and ordain">
+                                                    <i class="fas fa-cross me-1"></i>Bishop
+                                                </span>
+                                            {% endif %}
                                             {% if rank.description %}
                                                 <small class="text-muted d-block ms-2">{{ rank.description }}</small>
                                             {% endif %}
@@ -62,7 +75,7 @@
                                             {% if rank.name in clergy_ranks %}
                                                 <small class="text-muted me-2">Used in records</small>
                                             {% endif %}
-                                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editRank({{ rank.id }}, '{{ rank.name }}', '{{ rank.description or '' }}', '{{ rank.color or '#000000' }}')" title="Edit rank">
+                                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editRank({{ rank.id }}, '{{ rank.name }}', '{{ rank.description or '' }}', '{{ rank.color or '#000000' }}', {{ rank.is_bishop|lower }})" title="Edit rank">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             <button class="btn btn-sm btn-outline-danger" onclick="deleteRank({{ rank.id }}, '{{ rank.name }}')" 
@@ -343,6 +356,14 @@
                                 <small class="text-muted">Click the dot to change color</small>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="edit-rank-is-bishop" title="Check if this rank can consecrate/ordain">
+                                <label class="form-check-label" for="edit-rank-is-bishop" title="Bishops can consecrate and ordain">
+                                    <i class="fas fa-cross me-1"></i>Bishop (can consecrate and ordain)
+                                </label>
+                            </div>
+                        </div>
                         <div class="form-text">
                             <i class="fas fa-info-circle me-1"></i>
                             Press Enter to save, Escape to cancel
@@ -499,9 +520,11 @@ function addRank() {
     const nameInput = document.getElementById('new-rank');
     const descInput = document.getElementById('new-rank-description');
     const colorInput = document.getElementById('new-rank-color');
+    const isBishopInput = document.getElementById('new-rank-is-bishop');
     const rankName = nameInput.value.trim();
     const description = descInput.value.trim();
     const color = colorInput.value.trim() || '#000000';
+    const isBishop = isBishopInput.checked;
     
     if (!rankName) {
         showMessage('Please enter a rank name.', 'error');
@@ -516,7 +539,8 @@ function addRank() {
         body: JSON.stringify({
             name: rankName,
             description: description,
-            color: color
+            color: color,
+            is_bishop: isBishop
         })
     })
     .then(response => response.json())
@@ -681,12 +705,13 @@ document.getElementById('new-organization-abbreviation').addEventListener('keypr
 });
 
 // Edit functions
-function editRank(rankId, rankName, rankDescription, rankColor) {
+function editRank(rankId, rankName, rankDescription, rankColor, isBishop) {
     document.getElementById('edit-rank-id').value = rankId;
     document.getElementById('edit-rank-name').value = rankName;
     document.getElementById('edit-rank-description').value = rankDescription;
     document.getElementById('edit-rank-color').value = rankColor || '#000000';
     document.getElementById('edit-rank-color-display').style.backgroundColor = rankColor || '#000000';
+    document.getElementById('edit-rank-is-bishop').checked = isBishop || false;
     
     const modal = new bootstrap.Modal(document.getElementById('editRankModal'));
     modal.show();
@@ -697,6 +722,7 @@ function saveRankEdit() {
     const rankName = document.getElementById('edit-rank-name').value.trim();
     const rankDescription = document.getElementById('edit-rank-description').value.trim();
     const rankColor = document.getElementById('edit-rank-color').value.trim() || '#000000';
+    const isBishop = document.getElementById('edit-rank-is-bishop').checked;
     
     if (!rankName) {
         showMessage('Please enter a rank name.', 'error');
@@ -711,7 +737,8 @@ function saveRankEdit() {
         body: JSON.stringify({
             name: rankName,
             description: rankDescription,
-            color: rankColor
+            color: rankColor,
+            is_bishop: isBishop
         })
     })
     .then(response => response.json())

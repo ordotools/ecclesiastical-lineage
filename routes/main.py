@@ -347,9 +347,9 @@ def edit_clergy_from_lineage(clergy_id):
     organizations = Organization.query.order_by(Organization.name).all()
     
     # Get bishops data for autocomplete
-    all_bishops = Clergy.query.filter(
-        Clergy.is_deleted != True,
-        Clergy.rank.in_(['Bishop', 'Archbishop', 'Cardinal', 'Patriarch', 'Pope'])
+    all_bishops = db.session.query(Clergy).join(Rank, Clergy.rank == Rank.name).filter(
+        Rank.is_bishop == True,
+        Clergy.is_deleted != True
     ).all()
     
     all_bishops_suggested = [
@@ -702,9 +702,9 @@ def add_clergy_from_lineage():
     organizations = Organization.query.order_by(Organization.name).all()
     
     # Get bishops data for autocomplete
-    all_bishops = Clergy.query.filter(
-        Clergy.is_deleted != True,
-        Clergy.rank.in_(['Bishop', 'Archbishop', 'Cardinal', 'Patriarch', 'Pope'])
+    all_bishops = db.session.query(Clergy).join(Rank, Clergy.rank == Rank.name).filter(
+        Rank.is_bishop == True,
+        Clergy.is_deleted != True
     ).all()
     
     all_bishops_suggested = [

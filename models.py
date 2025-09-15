@@ -129,10 +129,18 @@ class Clergy(db.Model):
     def was_bishop_on(self, date):
         """Return True if this clergy was a bishop on the given date (or if date unknown, assume yes if currently bishop)."""
         if not date:
-            return self.rank and 'bishop' in self.rank.lower()
+            # Check if their rank is flagged as a bishop
+            if self.rank:
+                rank_obj = Rank.query.filter_by(name=self.rank).first()
+                return rank_obj and rank_obj.is_bishop
+            return False
         
-        # If they're not currently a bishop, they weren't a bishop on that date
-        if not self.rank or 'bishop' not in self.rank.lower():
+        # Check if their rank is flagged as a bishop
+        if self.rank:
+            rank_obj = Rank.query.filter_by(name=self.rank).first()
+            if not rank_obj or not rank_obj.is_bishop:
+                return False
+        else:
             return False
         
         # Check if they were alive on that date
@@ -154,6 +162,7 @@ class Rank(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     description = db.Column(db.Text)
     color = db.Column(db.String(7), nullable=False, default="#000000")
+    is_bishop = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):

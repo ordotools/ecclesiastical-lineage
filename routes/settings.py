@@ -196,13 +196,14 @@ def add_rank():
     rank_name = data.get('name', '').strip()
     description = data.get('description', '').strip()
     color = data.get('color', '#000000').strip() or '#000000'
+    is_bishop = data.get('is_bishop', False)
     if not rank_name:
         return jsonify({'success': False, 'message': 'Rank name is required'}), 400
     existing_rank = Rank.query.filter_by(name=rank_name).first()
     if existing_rank:
         return jsonify({'success': False, 'message': 'Rank already exists'}), 400
     try:
-        new_rank = Rank(name=rank_name, description=description, color=color)
+        new_rank = Rank(name=rank_name, description=description, color=color, is_bishop=is_bishop)
         db.session.add(new_rank)
         db.session.commit()
         return jsonify({
@@ -212,7 +213,8 @@ def add_rank():
                 'id': new_rank.id,
                 'name': new_rank.name,
                 'description': new_rank.description,
-                'color': new_rank.color
+                'color': new_rank.color,
+                'is_bishop': new_rank.is_bishop
             }
         })
     except Exception as e:

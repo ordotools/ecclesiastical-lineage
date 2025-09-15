@@ -18,6 +18,18 @@ import {
 import { handleNodeClick } from './modals.js';
 import { applyPriestFilter, updateTimelinePositions, applyBackboneOnlyFilter } from './filters.js';
 
+// Function to check if a rank is a bishop rank
+// This will be updated to use the server-side bishop flag in the future
+function isBishopRank(rankValue) {
+  if (!rankValue) return false;
+  const lowerRank = rankValue.toLowerCase();
+  return lowerRank.includes('bishop') || 
+         lowerRank.includes('pope') || 
+         lowerRank.includes('archbishop') || 
+         lowerRank.includes('cardinal') ||
+         lowerRank.includes('patriarch');
+}
+
 // Layout mode: 'layered' (elkjs) or 'force' (original)
 let layoutMode = 'layered';
 let elk = null;
@@ -41,7 +53,7 @@ async function computeLayeredLayout(nodes, links) {
   const elkNodes = nodes.map(node => {
     // Calculate layer based on event date (consecration for bishops, ordination for priests)
     let layerDate = null;
-    if (node.rank && node.rank.toLowerCase() === 'bishop' && node.consecration_date && node.consecration_date !== 'Not specified') {
+    if (node.rank && isBishopRank(node.rank) && node.consecration_date && node.consecration_date !== 'Not specified') {
       layerDate = new Date(node.consecration_date);
     } else if (node.ordination_date && node.ordination_date !== 'Not specified') {
       layerDate = new Date(node.ordination_date);
@@ -337,7 +349,7 @@ export async function initializeVisualization() {
       .velocityDecay(0.2); // Reduced for more movement
 
     // Add repulsion between bishops
-    const bishopNodes = nodes.filter(n => n.rank && n.rank.toLowerCase() === 'bishop');
+    const bishopNodes = nodes.filter(n => n.rank && isBishopRank(n.rank));
     if (bishopNodes.length > 0) {
       simulation.force('bishop-repulsion', d3.forceManyBody().strength(-800));
     }

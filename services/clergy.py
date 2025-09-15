@@ -633,8 +633,9 @@ def edit_clergy_handler(clergy_id):
     # A bishop can only ordain/consecrate if they were:
     # 1. Alive on the ordination/consecration date
     # 2. Already a bishop on that date (consecrated before or on that date)
-    all_bishops = Clergy.query.filter(
-        Clergy.rank.ilike('%bishop%'),
+    # Get all clergy with ranks that are flagged as bishops
+    all_bishops = db.session.query(Clergy).join(Rank, Clergy.rank == Rank.name).filter(
+        Rank.is_bishop == True,
         Clergy.is_deleted != True
     ).order_by(Clergy.name).all()
     
@@ -795,8 +796,8 @@ def get_filtered_bishops_handler():
             return jsonify({'error': 'Invalid consecration date format'}), 400
     
     # Get all active (non-deleted) bishops
-    all_bishops = Clergy.query.filter(
-        Clergy.rank.ilike('%bishop%'),
+    all_bishops = db.session.query(Clergy).join(Rank, Clergy.rank == Rank.name).filter(
+        Rank.is_bishop == True,
         Clergy.is_deleted != True
     ).order_by(Clergy.name).all()
     

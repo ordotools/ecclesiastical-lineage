@@ -10,6 +10,7 @@ def edit_rank_service(rank_id, data, user):
     rank_name = data.get('name', '').strip()
     description = data.get('description', '').strip()
     color = data.get('color', '#000000').strip() or '#000000'
+    is_bishop = data.get('is_bishop', False)
     if not rank_name:
         return {'success': False, 'message': 'Rank name is required'}
     existing_rank = Rank.query.filter_by(name=rank_name).first()
@@ -20,8 +21,9 @@ def edit_rank_service(rank_id, data, user):
         rank.name = rank_name
         rank.description = description
         rank.color = color
+        rank.is_bishop = is_bishop
         db.session.commit()
-        return {'success': True, 'message': f'Rank "{old_name}" updated to "{rank_name}" successfully', 'rank': {'id': rank.id, 'name': rank.name, 'description': rank.description, 'color': rank.color}}
+        return {'success': True, 'message': f'Rank "{old_name}" updated to "{rank_name}" successfully', 'rank': {'id': rank.id, 'name': rank.name, 'description': rank.description, 'color': rank.color, 'is_bishop': rank.is_bishop}}
     except Exception as e:
         db.session.rollback()
         return {'success': False, 'message': 'Error updating rank'}

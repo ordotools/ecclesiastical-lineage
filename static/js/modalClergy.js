@@ -2,6 +2,18 @@
 // All logic for add/edit clergy modal (event listeners, autosuggest, etc.)
 
 (function() {
+    // Function to check if a rank is a bishop rank
+    // This will be updated to use the server-side bishop flag in the future
+    function isBishopRank(rankValue) {
+        if (!rankValue) return false;
+        const lowerRank = rankValue.toLowerCase();
+        return lowerRank.includes('bishop') || 
+               lowerRank.includes('pope') || 
+               lowerRank.includes('archbishop') || 
+               lowerRank.includes('cardinal') ||
+               lowerRank.includes('patriarch');
+    }
+
     // Defensive: Only run if modal is present
     const modal = document.getElementById('clergyModal');
     if (!modal) return;
@@ -139,7 +151,7 @@
             ordInput,
             ordHidden,
             ordDropdown,
-            allClergy.filter(c => c.rank && c.rank.toLowerCase() === 'bishop'),
+            allClergy.filter(c => c.rank && isBishopRank(c.rank)),
             c => c.name,
             c => c.id
         );
@@ -153,7 +165,7 @@
             consInput,
             consHidden,
             consDropdown,
-            allClergy.filter(c => c.rank && c.rank.toLowerCase() === 'bishop'),
+            allClergy.filter(c => c.rank && isBishopRank(c.rank)),
             c => c.name,
             c => c.id
         );

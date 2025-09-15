@@ -35,10 +35,10 @@
                 {% if not clergy.ordaining_bishop %}
                     <span class="badge bg-warning ms-1" title="Missing ordaining bishop">No Ordainer</span>
                 {% endif %}
-                {% if clergy.rank and clergy.rank.lower() == 'bishop' and not clergy.date_of_consecration %}
+                {% if clergy.rank and clergy.rank.lower() in ['bishop', 'pope', 'archbishop', 'cardinal', 'patriarch'] and not clergy.date_of_consecration %}
                     <span class="badge bg-warning ms-1" title="Missing consecration date">No Cons Date</span>
                 {% endif %}
-                {% if clergy.rank and clergy.rank.lower() == 'bishop' and not clergy.consecrator %}
+                {% if clergy.rank and clergy.rank.lower() in ['bishop', 'pope', 'archbishop', 'cardinal', 'patriarch'] and not clergy.consecrator %}
                     <span class="badge bg-warning ms-1" title="Missing consecrator">No Consecrator</span>
                 {% endif %}
                 

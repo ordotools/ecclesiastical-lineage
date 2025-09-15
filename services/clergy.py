@@ -22,13 +22,41 @@ def create_clergy_from_form(form):
         clergy.date_of_consecration = datetime.strptime(date_of_consecration, '%Y-%m-%d').date()
     if date_of_death:
         clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
-    # Optional: handle ordaining_bishop_id, consecrator_id, co_consecrators if present
+    # Handle ordaining bishop with auto-creation logic
     ordaining_bishop_id = form.get('ordaining_bishop_id')
-    if ordaining_bishop_id:
+    ordaining_bishop_input = form.get('ordaining_bishop_input')
+    if ordaining_bishop_id and ordaining_bishop_id != 'None':
         clergy.ordaining_bishop_id = int(ordaining_bishop_id)
+    elif ordaining_bishop_input:
+        # Check if bishop exists by name
+        existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
+        if existing:
+            clergy.ordaining_bishop_id = existing.id
+        else:
+            # Auto-create missing ordaining bishop
+            new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
+            db.session.add(new_bishop)
+            db.session.flush()  # Get the ID without committing
+            clergy.ordaining_bishop_id = new_bishop.id
+    
+    # Handle consecrator with auto-creation logic
     consecrator_id = form.get('consecrator_id')
-    if consecrator_id:
+    consecrator_input = form.get('consecrator_input')
+    if consecrator_id and consecrator_id != 'None':
         clergy.consecrator_id = int(consecrator_id)
+    elif consecrator_input:
+        # Check if bishop exists by name
+        existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
+        if existing:
+            clergy.consecrator_id = existing.id
+        else:
+            # Auto-create missing consecrator
+            new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
+            db.session.add(new_bishop)
+            db.session.flush()  # Get the ID without committing
+            clergy.consecrator_id = new_bishop.id
+    
+    # Handle co-consecrators
     co_consecrators = form.get('co_consecrators')
     if co_consecrators:
         co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]

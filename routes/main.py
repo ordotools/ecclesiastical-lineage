@@ -547,18 +547,54 @@ def add_clergy_from_lineage():
             
             current_app.logger.info(f"Final context: context_type='{context_type}', context_clergy_id={context_clergy_id}")
             
+            # Handle ordaining bishop with auto-creation logic
+            ordaining_bishop_id = request.form.get('ordaining_bishop_id')
+            ordaining_bishop_input = request.form.get('ordaining_bishop_input')
+            final_ordaining_bishop_id = None
+            if ordaining_bishop_id and ordaining_bishop_id != 'None':
+                final_ordaining_bishop_id = int(ordaining_bishop_id)
+            elif ordaining_bishop_input:
+                # Check if bishop exists by name
+                existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
+                if existing:
+                    final_ordaining_bishop_id = existing.id
+                else:
+                    # Auto-create missing ordaining bishop
+                    new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
+                    db.session.add(new_bishop)
+                    db.session.flush()  # Get the ID without committing
+                    final_ordaining_bishop_id = new_bishop.id
+            
+            # Handle consecrator with auto-creation logic
+            consecrator_id = request.form.get('consecrator_id')
+            consecrator_input = request.form.get('consecrator_input')
+            final_consecrator_id = None
+            if consecrator_id and consecrator_id != 'None':
+                final_consecrator_id = int(consecrator_id)
+            elif consecrator_input:
+                # Check if bishop exists by name
+                existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
+                if existing:
+                    final_consecrator_id = existing.id
+                else:
+                    # Auto-create missing consecrator
+                    new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
+                    db.session.add(new_bishop)
+                    db.session.flush()  # Get the ID without committing
+                    final_consecrator_id = new_bishop.id
+
             # Create new clergy member
             new_clergy = Clergy(
                 name=name,
                 rank=rank,
                 organization=organization,
-                date_of_birth=date_of_birth if date_of_birth else None,
-                date_of_ordination=date_of_ordination if date_of_ordination else None,
-                date_of_consecration=date_of_consecration if date_of_consecration else None,
-                date_of_death=date_of_death if date_of_death else None,
+                date_of_birth=datetime.strptime(date_of_birth, '%Y-%m-%d').date() if date_of_birth else None,
+                date_of_ordination=datetime.strptime(date_of_ordination, '%Y-%m-%d').date() if date_of_ordination else None,
+                date_of_consecration=datetime.strptime(date_of_consecration, '%Y-%m-%d').date() if date_of_consecration else None,
+                date_of_death=datetime.strptime(date_of_death, '%Y-%m-%d').date() if date_of_death else None,
                 notes=notes,
-                ordaining_bishop_id=request.form.get('ordaining_bishop_id') if request.form.get('ordaining_bishop_id') and request.form.get('ordaining_bishop_id') != 'None' else None,
-                consecrator_id=request.form.get('consecrator_id') if request.form.get('consecrator_id') and request.form.get('consecrator_id') != 'None' else None
+                ordaining_bishop_id=final_ordaining_bishop_id,
+                consecrator_id=final_consecrator_id
             )
             
             # Add to database

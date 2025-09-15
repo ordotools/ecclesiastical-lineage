@@ -301,6 +301,30 @@ function addClergyLinkEventListeners() {
   });
 }
 
+// Function to clean up modal backdrop and restore page state
+function cleanupModalBackdrop() {
+  // Remove any lingering modal backdrops
+  const backdrops = document.querySelectorAll('.modal-backdrop');
+  backdrops.forEach(backdrop => backdrop.remove());
+  
+  // Remove modal-open class from body
+  document.body.classList.remove('modal-open');
+  
+  // Reset body padding if it was modified
+  document.body.style.paddingRight = '';
+  
+  // Reset body overflow if it was modified
+  document.body.style.overflow = '';
+}
+
+// Global event listener to clean up modal backdrop when modals are closed
+document.addEventListener('hidden.bs.modal', function(event) {
+  // Clean up any lingering backdrop after modal is fully hidden
+  setTimeout(() => {
+    cleanupModalBackdrop();
+  }, 100);
+});
+
 // Function to open the edit clergy modal
 function openEditClergyModal(clergyId) {
   const modal = document.getElementById('clergyFormModal');
@@ -328,6 +352,53 @@ function openEditClergyModal(clergyId) {
       
       // Load necessary JavaScript for the form
       loadEditFormScripts();
+      
+      // Wait a moment for the modal to be fully rendered
+      setTimeout(() => {
+        console.log('Starting edit form initialization after modal render');
+        
+        // Initialize image editor functionality
+        console.log('Initializing image editor functionality for edit form...');
+        console.log('Existing image editor instance:', !!window.imageEditor);
+        console.log('ImageEditor class available:', typeof ImageEditor);
+        
+        // Check for image-related form elements
+        const imageInput = modalBody.querySelector('#clergyImage');
+        const uploadBtn = modalBody.querySelector('#uploadBtn');
+        const cropBtn = modalBody.querySelector('#cropExistingBtn');
+        const removeBtn = modalBody.querySelector('#removeImageBtn');
+        
+        console.log('Image form elements found in edit form:', {
+          imageInput: !!imageInput,
+          uploadBtn: !!uploadBtn,
+          cropBtn: !!cropBtn,
+          removeBtn: !!removeBtn
+        });
+        
+        // Ensure we have an image editor instance
+        if (!window.imageEditor && typeof ImageEditor !== 'undefined') {
+          console.log('Creating new ImageEditor instance for edit modal form');
+          try {
+            window.imageEditor = new ImageEditor();
+            console.log('Image editor created successfully for edit form');
+          } catch (error) {
+            console.error('Error creating image editor for edit form:', error);
+          }
+        }
+        
+        // Attach event listeners to the form elements
+        if (window.imageEditor) {
+          console.log('Attaching image editor event listeners to edit modal form');
+          try {
+            attachImageEditorEventListeners(modalBody, window.imageEditor);
+            console.log('Image editor form listeners attached successfully to edit form');
+          } catch (error) {
+            console.error('Error attaching image editor form listeners to edit form:', error);
+          }
+        } else {
+          console.warn('ImageEditor not available for edit form initialization');
+        }
+      }, 100);
       
       // Override the form submission for modal context
       const form = modalBody.querySelector('#clergyForm');
@@ -439,6 +510,11 @@ function openEditClergyModal(clergyId) {
               // Set modal state to closed
               setModalState(false);
               
+              // Clean up modal backdrop after a short delay
+              setTimeout(() => {
+                cleanupModalBackdrop();
+              }, 300);
+              
               // Refresh the visualization data without reloading the page
               console.log('Refreshing visualization data...');
               refreshVisualizationData();
@@ -531,9 +607,8 @@ function openAddClergyModal(contextType, contextClergyId) {
           window.toggleConsecrationFields(rankSelect.value);
         }
         
-        // Initialize image editor functionality if modal exists
-        const imageEditorModal = modalBody.querySelector('#imageEditorModal');
-        console.log('Image editor modal found:', !!imageEditorModal);
+        // Initialize image editor functionality
+        console.log('Initializing image editor functionality...');
         console.log('Existing image editor instance:', !!window.imageEditor);
         console.log('ImageEditor class available:', typeof ImageEditor);
         
@@ -550,30 +625,28 @@ function openAddClergyModal(contextType, contextClergyId) {
           removeBtn: !!removeBtn
         });
         
-        if (imageEditorModal) {
-          if (window.imageEditor) {
-            console.log('Reattaching form event listeners to existing image editor');
-            try {
-              // Custom event listener attachment for HTMX-loaded form
-              attachImageEditorEventListeners(modalBody, window.imageEditor);
-              console.log('Image editor form listeners reattached successfully');
-            } catch (error) {
-              console.error('Error reattaching image editor form listeners:', error);
-            }
-          } else if (typeof ImageEditor !== 'undefined') {
-            console.log('Creating new ImageEditor instance for modal form');
-            try {
-              window.imageEditor = new ImageEditor();
-              attachImageEditorEventListeners(modalBody, window.imageEditor);
-              console.log('Image editor created and initialized successfully');
-            } catch (error) {
-              console.error('Error creating image editor:', error);
-            }
-          } else {
-            console.warn('ImageEditor class not available');
+        // Ensure we have an image editor instance
+        if (!window.imageEditor && typeof ImageEditor !== 'undefined') {
+          console.log('Creating new ImageEditor instance for modal form');
+          try {
+            window.imageEditor = new ImageEditor();
+            console.log('Image editor created successfully');
+          } catch (error) {
+            console.error('Error creating image editor:', error);
+          }
+        }
+        
+        // Attach event listeners to the form elements
+        if (window.imageEditor) {
+          console.log('Attaching image editor event listeners to modal form');
+          try {
+            attachImageEditorEventListeners(modalBody, window.imageEditor);
+            console.log('Image editor form listeners attached successfully');
+          } catch (error) {
+            console.error('Error attaching image editor form listeners:', error);
           }
         } else {
-          console.log('No image editor modal found in form');
+          console.warn('ImageEditor not available for form initialization');
         }
       }, 100);
       
@@ -708,6 +781,11 @@ function openAddClergyModal(contextType, contextClergyId) {
               
               // Set modal state to closed
               setModalState(false);
+              
+              // Clean up modal backdrop after a short delay
+              setTimeout(() => {
+                cleanupModalBackdrop();
+              }, 300);
               
               // Refresh the visualization data without reloading the page
               console.log('Refreshing visualization data...');

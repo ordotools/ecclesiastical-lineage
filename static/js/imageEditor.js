@@ -376,6 +376,14 @@ class ImageEditor {
             const modal = bootstrap.Modal.getInstance(document.getElementById('imageEditorModal'));
             modal.hide();
             
+            // Clean up any backdrop that might be left behind
+            setTimeout(() => {
+                const backdrops = document.querySelectorAll('.modal-backdrop');
+                backdrops.forEach(backdrop => backdrop.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.paddingRight = '';
+            }, 100);
+            
             this.hideProcessingStatus();
             this.isProcessing = false;
             

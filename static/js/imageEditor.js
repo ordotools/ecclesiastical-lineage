@@ -88,14 +88,25 @@ class ImageEditor {
         // Store imageData for use in onload callback
         this.currentEditorImageData = imageData;
 
-        // Show the modal
-        const modal = new bootstrap.Modal(document.getElementById('imageEditorModal'));
-        modal.show();
-
-        // Wait for modal to be shown, then initialize
-        document.getElementById('imageEditorModal').addEventListener('shown.bs.modal', () => {
+        // Check if modal is already open
+        const existingModal = bootstrap.Modal.getInstance(document.getElementById('imageEditorModal'));
+        if (existingModal) {
+            // Modal is already open, just update the image
+            console.log('Modal already open, updating image');
             this.initializeEditor();
-        }, { once: true });
+            this.reattachModalEventListeners();
+        } else {
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('imageEditorModal'));
+            modal.show();
+
+            // Wait for modal to be shown, then initialize
+            document.getElementById('imageEditorModal').addEventListener('shown.bs.modal', () => {
+                this.initializeEditor();
+                // Reattach event listeners after modal is shown to ensure they work with the new modal instance
+                this.reattachModalEventListeners();
+            }, { once: true });
+        }
     }
     
     /**
@@ -613,6 +624,127 @@ class ImageEditor {
             newRemoveBtn.parentNode.replaceChild(newRemoveBtnClone, newRemoveBtn);
             newRemoveBtnClone.addEventListener('click', () => this.removeFormImage());
         }
+    }
+    
+    /**
+     * Re-attach event listeners to modal elements (for when modal is reopened with new image)
+     */
+    reattachModalEventListeners() {
+        console.log('Reattaching modal event listeners');
+        
+        // Toolbar buttons
+        const zoomInBtn = document.getElementById('zoomInBtn');
+        const zoomOutBtn = document.getElementById('zoomOutBtn');
+        const resetZoomBtn = document.getElementById('resetZoomBtn');
+        const rotateLeftBtn = document.getElementById('rotateLeftBtn');
+        const rotateRightBtn = document.getElementById('rotateRightBtn');
+        const flipHorizontalBtn = document.getElementById('flipHorizontalBtn');
+        const flipVerticalBtn = document.getElementById('flipVerticalBtn');
+        
+        // Footer buttons
+        const resetImageBtn = document.getElementById('resetImageBtn');
+        const previewBtn = document.getElementById('previewBtn');
+        const applyChangesBtn = document.getElementById('applyChangesBtn');
+        
+        // Settings
+        const aspectRatio = document.getElementById('aspectRatio');
+        const outputQuality = document.getElementById('outputQuality');
+        const sizeLineage = document.getElementById('sizeLineage');
+        const sizeDetail = document.getElementById('sizeDetail');
+        const sizeOriginal = document.getElementById('sizeOriginal');
+        
+        // Remove existing listeners and reattach to prevent duplication
+        if (zoomInBtn) {
+            const newBtn = zoomInBtn.cloneNode(true);
+            zoomInBtn.parentNode.replaceChild(newBtn, zoomInBtn);
+            newBtn.addEventListener('click', () => this.zoomIn());
+        }
+        
+        if (zoomOutBtn) {
+            const newBtn = zoomOutBtn.cloneNode(true);
+            zoomOutBtn.parentNode.replaceChild(newBtn, zoomOutBtn);
+            newBtn.addEventListener('click', () => this.zoomOut());
+        }
+        
+        if (resetZoomBtn) {
+            const newBtn = resetZoomBtn.cloneNode(true);
+            resetZoomBtn.parentNode.replaceChild(newBtn, resetZoomBtn);
+            newBtn.addEventListener('click', () => this.resetZoom());
+        }
+        
+        if (rotateLeftBtn) {
+            const newBtn = rotateLeftBtn.cloneNode(true);
+            rotateLeftBtn.parentNode.replaceChild(newBtn, rotateLeftBtn);
+            newBtn.addEventListener('click', () => this.rotateLeft());
+        }
+        
+        if (rotateRightBtn) {
+            const newBtn = rotateRightBtn.cloneNode(true);
+            rotateRightBtn.parentNode.replaceChild(newBtn, rotateRightBtn);
+            newBtn.addEventListener('click', () => this.rotateRight());
+        }
+        
+        if (flipHorizontalBtn) {
+            const newBtn = flipHorizontalBtn.cloneNode(true);
+            flipHorizontalBtn.parentNode.replaceChild(newBtn, flipHorizontalBtn);
+            newBtn.addEventListener('click', () => this.flipHorizontal());
+        }
+        
+        if (flipVerticalBtn) {
+            const newBtn = flipVerticalBtn.cloneNode(true);
+            flipVerticalBtn.parentNode.replaceChild(newBtn, flipVerticalBtn);
+            newBtn.addEventListener('click', () => this.flipVertical());
+        }
+        
+        if (resetImageBtn) {
+            const newBtn = resetImageBtn.cloneNode(true);
+            resetImageBtn.parentNode.replaceChild(newBtn, resetImageBtn);
+            newBtn.addEventListener('click', () => this.resetImage());
+        }
+        
+        if (previewBtn) {
+            const newBtn = previewBtn.cloneNode(true);
+            previewBtn.parentNode.replaceChild(newBtn, previewBtn);
+            newBtn.addEventListener('click', () => this.showPreview());
+        }
+        
+        if (applyChangesBtn) {
+            const newBtn = applyChangesBtn.cloneNode(true);
+            applyChangesBtn.parentNode.replaceChild(newBtn, applyChangesBtn);
+            newBtn.addEventListener('click', () => this.applyChanges());
+        }
+        
+        if (aspectRatio) {
+            const newSelect = aspectRatio.cloneNode(true);
+            aspectRatio.parentNode.replaceChild(newSelect, aspectRatio);
+            newSelect.addEventListener('change', (e) => this.setAspectRatio(e.target.value));
+        }
+        
+        if (outputQuality) {
+            const newRange = outputQuality.cloneNode(true);
+            outputQuality.parentNode.replaceChild(newRange, outputQuality);
+            newRange.addEventListener('input', (e) => this.updateQuality(e.target.value));
+        }
+        
+        if (sizeLineage) {
+            const newCheckbox = sizeLineage.cloneNode(true);
+            sizeLineage.parentNode.replaceChild(newCheckbox, sizeLineage);
+            newCheckbox.addEventListener('change', (e) => this.updateOutputSizes('lineage', e.target.checked));
+        }
+        
+        if (sizeDetail) {
+            const newCheckbox = sizeDetail.cloneNode(true);
+            sizeDetail.parentNode.replaceChild(newCheckbox, sizeDetail);
+            newCheckbox.addEventListener('change', (e) => this.updateOutputSizes('detail', e.target.checked));
+        }
+        
+        if (sizeOriginal) {
+            const newCheckbox = sizeOriginal.cloneNode(true);
+            sizeOriginal.parentNode.replaceChild(newCheckbox, sizeOriginal);
+            newCheckbox.addEventListener('click', (e) => this.updateOutputSizes('original', e.target.checked));
+        }
+        
+        console.log('Modal event listeners reattached successfully');
     }
     
     /**

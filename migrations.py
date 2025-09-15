@@ -119,6 +119,28 @@ def run_database_migration(app):
                     print(f"⚠️  Clergy column {col} might already exist: {e}")
         else:
             print("✅ All required clergy columns exist")
+        
+        # Check and fix rank table columns
+        try:
+            rank_columns = [col['name'] for col in inspector.get_columns('rank')]
+            required_rank_columns = ['is_bishop']
+            missing_rank_columns = [col for col in required_rank_columns if col not in rank_columns]
+            if missing_rank_columns:
+                print(f"❌ Missing rank columns: {missing_rank_columns}")
+                print("🔧 Adding missing rank columns...")
+                for col in missing_rank_columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            if col == 'is_bishop':
+                                conn.execute(db.text("ALTER TABLE rank ADD COLUMN is_bishop BOOLEAN DEFAULT false"))
+                            conn.commit()
+                        print(f"✅ Added rank column: {col}")
+                    except Exception as e:
+                        print(f"⚠️  Rank column {col} might already exist: {e}")
+            else:
+                print("✅ All required rank columns exist")
+        except Exception as e:
+            print(f"⚠️  Could not check rank table (might not exist yet): {e}")
         super_admin_role = Role.query.filter_by(name='Super Admin').first()
         if super_admin_role:
             existing_users = User.query.filter_by(role_id=None).all()

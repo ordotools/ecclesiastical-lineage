@@ -114,13 +114,21 @@ class ImageEditor {
      */
     initializeCropper() {
         const editorImage = document.getElementById('editorImage');
+        console.log('Initializing cropper with image:', !!editorImage);
+        
+        if (!editorImage) {
+            console.error('Editor image element not found');
+            return;
+        }
         
         // Destroy existing cropper
         if (this.cropper) {
+            console.log('Destroying existing cropper');
             this.cropper.destroy();
         }
         
         // Initialize new cropper
+        console.log('Creating new cropper instance');
         this.cropper = new Cropper(editorImage, {
             aspectRatio: 1,
             viewMode: 1,
@@ -139,6 +147,7 @@ class ImageEditor {
             zoomOnWheel: true,
             wheelZoomRatio: 0.1,
             ready: () => {
+                console.log('Cropper ready callback triggered');
                 this.updateCropDimensions();
             },
             crop: () => {
@@ -323,7 +332,14 @@ class ImageEditor {
      * Apply changes and process images
      */
     async applyChanges() {
-        if (!this.cropper || this.isProcessing) return;
+        console.log('Apply changes called');
+        console.log('Cropper instance:', !!this.cropper);
+        console.log('Is processing:', this.isProcessing);
+        
+        if (!this.cropper || this.isProcessing) {
+            console.warn('Cannot apply changes: cropper not available or already processing');
+            return;
+        }
         
         this.isProcessing = true;
         this.showProcessingStatus('Processing image...', 10);
@@ -374,15 +390,27 @@ class ImageEditor {
             
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('imageEditorModal'));
-            modal.hide();
-            
-            // Clean up any backdrop that might be left behind
-            setTimeout(() => {
-                const backdrops = document.querySelectorAll('.modal-backdrop');
-                backdrops.forEach(backdrop => backdrop.remove());
-                document.body.classList.remove('modal-open');
-                document.body.style.paddingRight = '';
-            }, 100);
+            if (modal) {
+                modal.hide();
+                
+                // Clean up any backdrop that might be left behind
+                setTimeout(() => {
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => backdrop.remove());
+                    document.body.classList.remove('modal-open');
+                    document.body.style.paddingRight = '';
+                    
+                    // Ensure the parent modal is still accessible
+                    const parentModal = document.getElementById('clergyFormModal');
+                    if (parentModal) {
+                        // Re-enable the parent modal if it exists
+                        parentModal.style.pointerEvents = 'auto';
+                        parentModal.style.zIndex = '1055';
+                    }
+                }, 100);
+            } else {
+                console.warn('Image editor modal instance not found');
+            }
             
             this.hideProcessingStatus();
             this.isProcessing = false;
@@ -499,20 +527,31 @@ class ImageEditor {
         const newCropBtn = document.getElementById('cropExistingBtn');
         const newRemoveBtn = document.getElementById('removeImageBtn');
         
+        // Remove existing listeners first to prevent duplication
         if (newImageInput) {
+            newImageInput.removeEventListener('change', this.handleFormImageUpload);
             newImageInput.addEventListener('change', (e) => this.handleFormImageUpload(e));
         }
         
         if (newUploadBtn) {
-            newUploadBtn.addEventListener('click', () => document.getElementById('clergyImage').click());
+            // Remove any existing click listeners
+            const newUploadBtnClone = newUploadBtn.cloneNode(true);
+            newUploadBtn.parentNode.replaceChild(newUploadBtnClone, newUploadBtn);
+            newUploadBtnClone.addEventListener('click', () => document.getElementById('clergyImage').click());
         }
         
         if (newCropBtn) {
-            newCropBtn.addEventListener('click', () => this.editExistingImage());
+            // Remove any existing click listeners
+            const newCropBtnClone = newCropBtn.cloneNode(true);
+            newCropBtn.parentNode.replaceChild(newCropBtnClone, newCropBtn);
+            newCropBtnClone.addEventListener('click', () => this.editExistingImage());
         }
         
         if (newRemoveBtn) {
-            newRemoveBtn.addEventListener('click', () => this.removeFormImage());
+            // Remove any existing click listeners
+            const newRemoveBtnClone = newRemoveBtn.cloneNode(true);
+            newRemoveBtn.parentNode.replaceChild(newRemoveBtnClone, newRemoveBtn);
+            newRemoveBtnClone.addEventListener('click', () => this.removeFormImage());
         }
     }
     

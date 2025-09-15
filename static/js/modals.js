@@ -390,7 +390,8 @@ function openEditClergyModal(clergyId) {
         if (window.imageEditor) {
           console.log('Attaching image editor event listeners to edit modal form');
           try {
-            attachImageEditorEventListeners(modalBody, window.imageEditor);
+            // Use the image editor's own method to avoid duplication
+            window.imageEditor.reattachFormEventListeners();
             console.log('Image editor form listeners attached successfully to edit form');
           } catch (error) {
             console.error('Error attaching image editor form listeners to edit form:', error);
@@ -640,7 +641,8 @@ function openAddClergyModal(contextType, contextClergyId) {
         if (window.imageEditor) {
           console.log('Attaching image editor event listeners to modal form');
           try {
-            attachImageEditorEventListeners(modalBody, window.imageEditor);
+            // Use the image editor's own method to avoid duplication
+            window.imageEditor.reattachFormEventListeners();
             console.log('Image editor form listeners attached successfully');
           } catch (error) {
             console.error('Error attaching image editor form listeners:', error);
@@ -879,16 +881,18 @@ function attachImageEditorEventListeners(container, imageEditor) {
   });
   
   if (imageInput) {
-    // Remove any existing listeners first
-    imageInput.removeEventListener('change', imageEditor.handleFormImageUpload);
-    imageInput.addEventListener('change', (e) => imageEditor.handleFormImageUpload(e));
+    // Clone the element to remove all event listeners
+    const newImageInput = imageInput.cloneNode(true);
+    imageInput.parentNode.replaceChild(newImageInput, imageInput);
+    newImageInput.addEventListener('change', (e) => imageEditor.handleFormImageUpload(e));
     console.log('Image input event listener attached');
   }
   
   if (uploadBtn) {
-    // Remove any existing listeners first
-    uploadBtn.removeEventListener('click', () => document.getElementById('clergyImage').click());
-    uploadBtn.addEventListener('click', () => {
+    // Clone the element to remove all event listeners
+    const newUploadBtn = uploadBtn.cloneNode(true);
+    uploadBtn.parentNode.replaceChild(newUploadBtn, uploadBtn);
+    newUploadBtn.addEventListener('click', () => {
       const input = container.querySelector('#clergyImage');
       if (input) input.click();
     });
@@ -896,16 +900,18 @@ function attachImageEditorEventListeners(container, imageEditor) {
   }
   
   if (cropBtn) {
-    // Remove any existing listeners first
-    cropBtn.removeEventListener('click', () => imageEditor.editExistingImage());
-    cropBtn.addEventListener('click', () => imageEditor.editExistingImage());
+    // Clone the element to remove all event listeners
+    const newCropBtn = cropBtn.cloneNode(true);
+    cropBtn.parentNode.replaceChild(newCropBtn, cropBtn);
+    newCropBtn.addEventListener('click', () => imageEditor.editExistingImage());
     console.log('Crop button event listener attached');
   }
   
   if (removeBtn) {
-    // Remove any existing listeners first
-    removeBtn.removeEventListener('click', () => imageEditor.removeFormImage());
-    removeBtn.addEventListener('click', () => imageEditor.removeFormImage());
+    // Clone the element to remove all event listeners
+    const newRemoveBtn = removeBtn.cloneNode(true);
+    removeBtn.parentNode.replaceChild(newRemoveBtn, removeBtn);
+    newRemoveBtn.addEventListener('click', () => imageEditor.removeFormImage());
     console.log('Remove button event listener attached');
   }
 }
@@ -1050,7 +1056,7 @@ function initModalEditClergy() {
       if (window.imageEditor) {
         console.log('Edit modal - Reattaching form event listeners to existing image editor');
         try {
-          attachImageEditorEventListeners(modalBody, window.imageEditor);
+          window.imageEditor.reattachFormEventListeners();
           console.log('Edit modal - Image editor form listeners reattached successfully');
         } catch (error) {
           console.error('Edit modal - Error reattaching image editor form listeners:', error);
@@ -1059,7 +1065,7 @@ function initModalEditClergy() {
         console.log('Edit modal - Creating new ImageEditor instance for modal form');
         try {
           window.imageEditor = new ImageEditor();
-          attachImageEditorEventListeners(modalBody, window.imageEditor);
+          window.imageEditor.reattachFormEventListeners();
           console.log('Edit modal - Image editor created and initialized successfully');
         } catch (error) {
           console.error('Edit modal - Error creating image editor:', error);

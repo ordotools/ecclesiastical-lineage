@@ -238,17 +238,13 @@ export async function initializeVisualization() {
   window.currentNodes = nodes;
   window.currentLinks = validLinks;
   
-  // Initialize filtered state for all nodes and links
+  // Initialize filtered state for all nodes and links (will be overridden by filter system)
   nodes.forEach(node => {
-    const isPriest = node.rank && node.rank.toLowerCase() === 'priest';
-    node.filtered = isPriest; // Start with priests hidden
+    node.filtered = false; // Start with all nodes visible, filters will be applied later
   });
   
   validLinks.forEach(link => {
-    const sourceIsPriest = link.source.rank && link.source.rank.toLowerCase() === 'priest';
-    const targetIsPriest = link.target.rank && link.target.rank.toLowerCase() === 'priest';
-    const isBlackLink = link.color === BLACK_COLOR;
-    link.filtered = isBlackLink && (sourceIsPriest || targetIsPriest);
+    link.filtered = false; // Start with all links visible, filters will be applied later
   });
 
   // Try layered layout first, fall back to force layout

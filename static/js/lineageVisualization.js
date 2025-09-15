@@ -3,7 +3,7 @@
 
 // Import all modules
 import { initializeUI } from './ui.js';
-import { initializeFilters } from './filters.js';
+import { initializeFilters, applyPriestFilter, applyBackboneOnlyFilter } from './filters.js';
 import { initializeHTMXHandlers } from './modals.js';
 import { initializeVisualization } from './core.js';
 import { initializeSearch, buildSearchIndex, handleURLSearch } from './search.js';
@@ -31,6 +31,14 @@ async function initializeAll() {
   
   // Initialize the main visualization
   await initializeVisualization();
+  
+  // Apply initial filters after visualization is set up
+  if (typeof applyPriestFilter === 'function') {
+    applyPriestFilter();
+  }
+  if (typeof applyBackboneOnlyFilter === 'function') {
+    applyBackboneOnlyFilter();
+  }
   
   // Build search index when nodes are available
   if (window.currentNodes) {

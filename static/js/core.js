@@ -332,12 +332,13 @@ export async function initializeVisualization() {
   let simulation = null;
   if (layoutMode === 'force') {
     simulation = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink(validLinks).id(d => d.id).distance(LINK_DISTANCE))
-      .force('charge', d3.forceManyBody().strength(CHARGE_STRENGTH))
-      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('link', d3.forceLink(validLinks).id(d => d.id).distance(80)) // Reduced from LINK_DISTANCE for clustering
+      .force('charge', d3.forceManyBody().strength(-200)) // Reduced repulsion for clustering
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.5)) // Stronger centering force
       .force('collision', d3.forceCollide().radius(COLLISION_RADIUS))
-      .alphaDecay(0.1)
-      .velocityDecay(0.4);
+      .force('radial', d3.forceRadial(150, width / 2, height / 2).strength(0.1)) // Radial clustering force
+      .alphaDecay(0.05) // Reduced for longer simulation
+      .velocityDecay(0.2); // Reduced for more movement
 
     // Add repulsion between bishops
     const bishopNodes = nodes.filter(n => n.rank && n.rank.toLowerCase() === 'bishop');
@@ -346,8 +347,8 @@ export async function initializeVisualization() {
     }
     
     // Override force functions to exclude filtered nodes from physics
-    simulation.force('link', d3.forceLink(validLinks.filter(l => !l.filtered)).id(d => d.id).distance(LINK_DISTANCE));
-    simulation.force('charge', d3.forceManyBody().strength(d => d.filtered ? 0 : CHARGE_STRENGTH));
+    simulation.force('link', d3.forceLink(validLinks.filter(l => !l.filtered)).id(d => d.id).distance(80)); // Use clustering distance
+    simulation.force('charge', d3.forceManyBody().strength(d => d.filtered ? 0 : -200)); // Use clustering charge strength
     simulation.force('collision', d3.forceCollide().radius(d => d.filtered ? 0 : COLLISION_RADIUS));
   }
 

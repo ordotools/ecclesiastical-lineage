@@ -6,9 +6,9 @@ import { showNotification } from './utils.js';
 const hidePriestsCheckbox = document.getElementById('hide-priests');
 const hidePriestsMobileCheckbox = document.getElementById('hide-priests-mobile');
 
-// Wire up timeline view controls and sync mobile/desktop
-const timelineViewCheckbox = document.getElementById('timeline-view');
-const timelineViewMobileCheckbox = document.getElementById('timeline-view-mobile');
+// Wire up timeline view controls and sync mobile/desktop - Temporarily disabled
+// const timelineViewCheckbox = document.getElementById('timeline-view');
+// const timelineViewMobileCheckbox = document.getElementById('timeline-view-mobile');
 
 // Wire up backbone-only controls and sync mobile/desktop
 const backboneOnlyCheckbox = document.getElementById('backbone-only');
@@ -28,9 +28,10 @@ export function syncPriestFilters() {
 }
 
 export function syncTimelineFilters() {
-  if (timelineViewCheckbox && timelineViewMobileCheckbox) {
-    timelineViewMobileCheckbox.checked = timelineViewCheckbox.checked;
-  }
+  // Temporarily disabled
+  // if (timelineViewCheckbox && timelineViewMobileCheckbox) {
+  //   timelineViewMobileCheckbox.checked = timelineViewCheckbox.checked;
+  // }
 }
 
 export function syncBackboneFilters() {
@@ -88,10 +89,13 @@ export function prepareTimelineData(nodes) {
   };
 }
 
-// Function to apply timeline view
+// Function to apply timeline view - Temporarily disabled
 export function applyTimelineView() {
-  const shouldEnableTimeline = timelineViewCheckbox ? timelineViewCheckbox.checked : false;
-  isTimelineViewEnabled = shouldEnableTimeline;
+  // Temporarily disabled - return early
+  return;
+  
+  // const shouldEnableTimeline = timelineViewCheckbox ? timelineViewCheckbox.checked : false;
+  // isTimelineViewEnabled = shouldEnableTimeline;
   
   // Set global state for timeline view
   window.isTimelineViewEnabled = isTimelineViewEnabled;
@@ -540,20 +544,20 @@ export function initializeFilters() {
     });
   }
 
-  // Sync timeline checkboxes when either changes
-  if (timelineViewCheckbox) {
-    timelineViewCheckbox.addEventListener('change', function() {
-      syncTimelineFilters();
-      applyTimelineView();
-    });
-  }
+  // Sync timeline checkboxes when either changes - Temporarily disabled
+  // if (timelineViewCheckbox) {
+  //   timelineViewCheckbox.addEventListener('change', function() {
+  //     syncTimelineFilters();
+  //     applyTimelineView();
+  //   });
+  // }
 
-  if (timelineViewMobileCheckbox) {
-    timelineViewMobileCheckbox.addEventListener('change', function() {
-      syncTimelineFilters();
-      applyTimelineView();
-    });
-  }
+  // if (timelineViewMobileCheckbox) {
+  //   timelineViewMobileCheckbox.addEventListener('change', function() {
+  //     syncTimelineFilters();
+  //     applyTimelineView();
+  //   });
+  // }
 
   // Sync backbone-only checkboxes when either changes
   if (backboneOnlyCheckbox) {

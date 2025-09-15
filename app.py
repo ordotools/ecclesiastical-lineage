@@ -132,9 +132,15 @@ app.jinja_env.globals['getContrastColor'] = getContrastColor
 app.jinja_env.globals['getBorderStyle'] = getBorderStyle
 app.jinja_env.filters['from_json'] = from_json
 
-# Run database migration on startup
+# Run database migration on startup using Flask-Migrate
 with app.app_context():
-    run_database_migration(app)
+    from flask_migrate import upgrade
+    try:
+        upgrade()
+        print("✅ Flask-Migrate upgrade completed")
+    except Exception as e:
+        print(f"⚠️  Flask-Migrate upgrade failed, running fallback migration: {e}")
+        run_database_migration(app)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

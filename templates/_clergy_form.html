@@ -89,6 +89,20 @@
                         {% endif %}
                     </div>
 
+                    <!-- Papal Name Field (only shown for popes) -->
+                    <div class="form-field" id="papalNameField" style="display: none;">
+                        <label for="papal_name" class="form-label">Papal Name</label>
+                        <input type="text" class="form-control" id="papal_name" name="papal_name" 
+                               value="{{ clergy.papal_name if edit_mode and clergy else '' }}" 
+                               placeholder="e.g., Pope Francis, Pope Benedict XVI">
+                        {% if edit_mode and user and user.can_comment() %}
+                        <button type="button" class="btn btn-outline-secondary btn-sm comment-btn" data-field="papal_name" data-field-label="Papal Name" 
+                                title="Add comment about this field">
+                            <i class="fas fa-comment"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+
                     <div class="form-field">
                         <label for="rank" class="form-label">Rank *</label>
                         <select class="form-control" id="rank" name="rank" required 

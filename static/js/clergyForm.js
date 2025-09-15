@@ -3,7 +3,7 @@
 
 console.log('clergyForm.js loaded');
 
-// Function to toggle consecration fields based on rank selection
+// Function to toggle consecration fields and papal name field based on rank selection
 function toggleConsecrationFields(rankValue) {
     console.log('toggleConsecrationFields called with:', rankValue);
     
@@ -12,11 +12,13 @@ function toggleConsecrationFields(rankValue) {
     const consecratorField = document.getElementById('consecratorField');
     const coConsecratorsField = document.getElementById('coConsecratorsField');
     const deathDateField = document.getElementById('deathDateField');
+    const papalNameField = document.getElementById('papalNameField');
     
     console.log('consecrationDateField found:', !!consecrationDateField);
     console.log('consecratorField found:', !!consecratorField);
     console.log('coConsecratorsField found:', !!coConsecratorsField);
     console.log('deathDateField found:', !!deathDateField);
+    console.log('papalNameField found:', !!papalNameField);
     
     // If elements aren't found, try again after a short delay
     if (!consecrationDateField || !consecratorField) {
@@ -25,6 +27,20 @@ function toggleConsecrationFields(rankValue) {
         return;
     }
     
+    // Handle papal name field visibility
+    if (rankValue && rankValue.toLowerCase() === 'pope') {
+        console.log('Setting papal name field to visible');
+        if (papalNameField) papalNameField.style.display = 'flex';
+    } else {
+        console.log('Setting papal name field to hidden');
+        if (papalNameField) papalNameField.style.display = 'none';
+        
+        // Clear papal name when hiding field
+        const papalName = document.getElementById('papal_name');
+        if (papalName) papalName.value = '';
+    }
+    
+    // Handle consecration fields visibility
     if (rankValue && rankValue.toLowerCase() === 'bishop') {
         console.log('Setting consecration fields to visible');
         consecrationDateField.style.display = 'flex';

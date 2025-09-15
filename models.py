@@ -88,6 +88,7 @@ class Clergy(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     rank = db.Column(db.String(100), nullable=False)
+    papal_name = db.Column(db.String(200), nullable=True)  # Papal name for popes
     organization = db.Column(db.String(200))
     date_of_birth = db.Column(db.Date)
     date_of_ordination = db.Column(db.Date)

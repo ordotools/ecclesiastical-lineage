@@ -4,10 +4,33 @@ from utils import generate_breadcrumbs, log_audit_event
 from datetime import datetime
 import json
 
+def set_clergy_display_name(clergy):
+    """Set the display name for a clergy member based on their rank and papal name."""
+    if clergy.rank.lower() == 'pope':
+        # For popes, use papal name if available, otherwise use regular name
+        display_name = clergy.papal_name if clergy.papal_name else clergy.name
+        clergy.display_name = f"His Holiness {display_name}"
+    elif clergy.rank.lower() == 'cardinal':
+        # For cardinals, use "first name Cardinal last name" format
+        name_parts = clergy.name.split()
+        if len(name_parts) >= 2:
+            first_name = name_parts[0]
+            last_name = ' '.join(name_parts[1:])
+            clergy.display_name = f"{first_name} Cardinal {last_name}"
+        else:
+            clergy.display_name = f"His Eminence {clergy.name}"
+    elif clergy.rank.lower() in ['bishop', 'archbishop']:
+        clergy.display_name = f"Most. Rev. {clergy.name}"
+    elif clergy.rank.lower() == 'priest':
+        clergy.display_name = f"Rev. {clergy.name}"
+    else:
+        clergy.display_name = clergy.name
+
 def create_clergy_from_form(form):
     clergy = Clergy()
     clergy.name = form.get('name')
     clergy.rank = form.get('rank')
+    clergy.papal_name = form.get('papal_name')
     clergy.organization = form.get('organization')
     date_of_birth = form.get('date_of_birth')
     date_of_ordination = form.get('date_of_ordination')
@@ -149,12 +172,7 @@ def clergy_list_handler():
         query = query.filter(Clergy.name.ilike(f'%{search}%'))
     clergy_list = query.all()
     for clergy in clergy_list:
-        if clergy.rank.lower() == 'bishop':
-            clergy.display_name = f"Most. Rev. {clergy.name}"
-        elif clergy.rank.lower() == 'priest':
-            clergy.display_name = f"Rev. {clergy.name}"
-        else:
-            clergy.display_name = clergy.name
+        set_clergy_display_name(clergy)
     organizations = Organization.query.order_by(Organization.name).all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
     org_color_map = {org.name: org.color for org in organizations}
@@ -239,6 +257,10 @@ def add_clergy_handler():
     # ... (rest of GET logic unchanged, but return as (None, response)) ...
     # You may need to pass the same context as in clergy_list_handler for GET
     all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+    # Set display names for all clergy
+    for clergy_member in all_clergy:
+        set_clergy_display_name(clergy_member)
+    
     all_clergy_data = [
         {
             'id': clergy_member.id,
@@ -255,11 +277,15 @@ def add_clergy_handler():
         Clergy.is_deleted != True
     ).order_by(Clergy.name).all()
     
+    # Set display names for bishops
+    for bishop in all_bishops:
+        set_clergy_display_name(bishop)
+    
     # Convert to list of dictionaries with temporal data for client-side filtering
     all_bishops_suggested = [
         {
             'id': bishop.id,
-            'name': bishop.name,
+            'name': getattr(bishop, 'display_name', bishop.name),
             'rank': bishop.rank,
             'date_of_birth': bishop.date_of_birth.isoformat() if bishop.date_of_birth else None,
             'date_of_death': bishop.date_of_death.isoformat() if bishop.date_of_death else None,
@@ -285,6 +311,7 @@ def view_clergy_handler(clergy_id):
         return redirect(url_for('auth.login'))
     user = User.query.get(session['user_id'])
     clergy = Clergy.query.get_or_404(clergy_id)
+    set_clergy_display_name(clergy)  # Set display name for the clergy member
     if user.can_edit_clergy():
         return redirect(url_for('clergy.edit_clergy', clergy_id=clergy_id))
     organizations = Organization.query.all()
@@ -306,6 +333,7 @@ def edit_clergy_handler(clergy_id):
         return redirect(url_for('auth.login'))
     user = User.query.get(session['user_id'])
     clergy = Clergy.query.get_or_404(clergy_id)
+    set_clergy_display_name(clergy)  # Set display name for the clergy being edited
     comments = ClergyComment.query.filter_by(clergy_id=clergy_id, is_public=True, is_resolved=False).order_by(ClergyComment.created_at.desc()).all()
     organizations = Organization.query.all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
@@ -321,6 +349,7 @@ def edit_clergy_handler(clergy_id):
             try:
                 clergy.name = request.form.get('name')
                 clergy.rank = request.form.get('rank')
+                clergy.papal_name = request.form.get('papal_name')
                 clergy.organization = request.form.get('organization')
                 date_of_birth = request.form.get('date_of_birth')
                 date_of_ordination = request.form.get('date_of_ordination')
@@ -490,6 +519,7 @@ def edit_clergy_handler(clergy_id):
         # Handle regular form submission (fallback)
         clergy.name = request.form.get('name')
         clergy.rank = request.form.get('rank')
+        clergy.papal_name = request.form.get('papal_name')
         clergy.organization = request.form.get('organization')
         date_of_birth = request.form.get('date_of_birth')
         date_of_ordination = request.form.get('date_of_ordination')
@@ -581,10 +611,14 @@ def edit_clergy_handler(clergy_id):
         flash('Clergy record updated successfully!', 'success')
         return redirect(url_for('clergy.clergy_list'))
     all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+    # Set display names for all clergy
+    for clergy_member in all_clergy:
+        set_clergy_display_name(clergy_member)
+    
     all_clergy_data = [
         {
             'id': clergy_member.id,
-            'name': clergy_member.name,
+            'name': getattr(clergy_member, 'display_name', clergy_member.name),
             'rank': clergy_member.rank,
             'organization': clergy_member.organization
         }
@@ -599,6 +633,10 @@ def edit_clergy_handler(clergy_id):
         Clergy.rank.ilike('%bishop%'),
         Clergy.is_deleted != True
     ).order_by(Clergy.name).all()
+    
+    # Set display names for bishops
+    for bishop in all_bishops:
+        set_clergy_display_name(bishop)
     
     # Filter bishops based on temporal logic
     def is_valid_bishop_for_dates(bishop, ordination_date, consecration_date):
@@ -630,7 +668,7 @@ def edit_clergy_handler(clergy_id):
     all_bishops_suggested = [
         {
             'id': bishop.id,
-            'name': bishop.name
+            'name': getattr(bishop, 'display_name', bishop.name)
         }
         for bishop in all_bishops_suggested
     ]
@@ -679,15 +717,7 @@ def clergy_filter_partial_handler():
         query = query.filter(Clergy.name.ilike(f'%{search}%'))
     clergy_list = query.all()
     for clergy in clergy_list:
-        # include traditional titles for all the clerical ranks
-        if clergy.rank.lower() in ['bishop', 'archbishop']:
-            clergy.display_name = f"Most. Rev. {clergy.name}"
-        elif clergy.rank.lower() == 'priest':
-            clergy.display_name = f"Rev. {clergy.name}"
-        elif clergy.rank.lower() == 'cardinal':
-            clergy.display_name = f"His Eminence {clergy.name}"
-        else:
-            clergy.display_name = clergy.name
+        set_clergy_display_name(clergy)
     organizations = Organization.query.order_by(Organization.name).all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
     org_color_map = {org.name: org.color for org in organizations}

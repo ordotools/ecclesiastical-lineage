@@ -1473,6 +1473,42 @@ h6 {
     }
 } 
 
+/* ===== CLERGY PICTURE STYLES ===== */
+.clergy-picture-container {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.clergy-picture {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    object-fit: cover;
+    border: 1px solid rgba(189, 195, 199, 0.3);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.clergy-picture-placeholder {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    background: #f8f9fa;
+    border: 1px solid rgba(189, 195, 199, 0.3);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.clergy-picture-placeholder svg {
+    width: 24px;
+    height: 24px;
+}
+
 /* ===== IMAGE UPLOAD STYLES ===== */
 /* Moved to clergyForm.css to avoid conflicts */
 

@@ -1,35 +1,71 @@
 {% for clergy in clergy_list %}
 <tr class="clergy-row {% if clergy.is_deleted %}deleted-record{% endif %}" data-clergy-id="{{ clergy.id }}" {% if user and (user.can_edit_clergy() or user.can_comment()) %}style="cursor: pointer;"{% endif %}>
     <td class="name-col">
-        <strong>{{ clergy.display_name }}</strong>
-        {% if clergy.is_deleted %}
-            <span title="This record has been marked as deleted" style="color: #e74c3c; margin-left: 0.5em;">
-                <i class="fas fa-trash"></i>
-            </span>
-        {% elif not clergy.ordaining_bishop or (clergy.rank and clergy.rank.lower() == 'bishop' and not clergy.consecrator) %}
-            <span title="Incomplete record. Please edit and complete this entry." style="color: #e67e22; margin-left: 0.5em;">
-                <i class="fas fa-exclamation-triangle"></i>
-            </span>
-        {% endif %}
-        {% if clergy.organization and org_abbreviation_map.get(clergy.organization) %}
-            {% set org_color = org_color_map.get(clergy.organization, '#27ae60') %}
-            {% set text_color = 'white' if getContrastColor(org_color) == 'white' else 'black' %}
-            {% set border_style = getBorderStyle(org_color) %}
-            <span class="badge ms-2" style="background-color: {{ org_color }}; color: {{ text_color }}; {{ border_style }}; font-size: 0.85em; vertical-align: middle;">{{ org_abbreviation_map.get(clergy.organization) }}</span>
-        {% endif %}
-        {% if user and user.can_comment() %}
-            {% set unresolved_count = 0 %}
-            {% for comment in clergy.comments %}
-                {% if not comment.is_resolved %}
-                    {% set unresolved_count = unresolved_count + 1 %}
+        <div class="d-flex align-items-center">
+            <!-- Clergy Picture -->
+            <div class="clergy-picture-container me-2">
+                {% if clergy.image_url %}
+                    <img src="{{ clergy.image_url }}" alt="{{ clergy.display_name }}" class="clergy-picture" />
+                {% else %}
+                    <div class="clergy-picture-placeholder">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="16" cy="16" r="16" fill="#e9ecef"/>
+                            <circle cx="16" cy="12" r="4" fill="#6c757d"/>
+                            <path d="M8 24c0-4.4 3.6-8 8-8s8 3.6 8 8" fill="#6c757d"/>
+                        </svg>
+                    </div>
                 {% endif %}
-            {% endfor %}
-            {% if unresolved_count > 0 %}
-                <span class="badge bg-warning ms-1" title="Has unresolved comments">
-                    <i class="fas fa-comment"></i> {{ unresolved_count }}
-                </span>
-            {% endif %}
-        {% endif %}
+            </div>
+            
+            <!-- Name and Tags -->
+            <div class="flex-grow-1">
+                <strong>{{ clergy.display_name }}</strong>
+                
+                <!-- Deleted Record Indicator -->
+                {% if clergy.is_deleted %}
+                    <span class="badge bg-danger ms-1" title="This record has been marked as deleted">
+                        <i class="fas fa-trash"></i> Deleted
+                    </span>
+                {% endif %}
+                
+                <!-- Missing Data Tags -->
+                {% if not clergy.date_of_ordination %}
+                    <span class="badge bg-warning ms-1" title="Missing ordination date">No Ord Date</span>
+                {% endif %}
+                {% if not clergy.ordaining_bishop %}
+                    <span class="badge bg-warning ms-1" title="Missing ordaining bishop">No Ordainer</span>
+                {% endif %}
+                {% if clergy.rank and clergy.rank.lower() == 'bishop' and not clergy.date_of_consecration %}
+                    <span class="badge bg-warning ms-1" title="Missing consecration date">No Cons Date</span>
+                {% endif %}
+                {% if clergy.rank and clergy.rank.lower() == 'bishop' and not clergy.consecrator %}
+                    <span class="badge bg-warning ms-1" title="Missing consecrator">No Consecrator</span>
+                {% endif %}
+                
+                <!-- Organization Badge -->
+                {% if clergy.organization and org_abbreviation_map.get(clergy.organization) %}
+                    {% set org_color = org_color_map.get(clergy.organization, '#27ae60') %}
+                    {% set text_color = 'white' if getContrastColor(org_color) == 'white' else 'black' %}
+                    {% set border_style = getBorderStyle(org_color) %}
+                    <span class="badge ms-2" style="background-color: {{ org_color }}; color: {{ text_color }}; {{ border_style }}; font-size: 0.85em; vertical-align: middle;">{{ org_abbreviation_map.get(clergy.organization) }}</span>
+                {% endif %}
+                
+                <!-- Comments Badge -->
+                {% if user and user.can_comment() %}
+                    {% set unresolved_count = 0 %}
+                    {% for comment in clergy.comments %}
+                        {% if not comment.is_resolved %}
+                            {% set unresolved_count = unresolved_count + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if unresolved_count > 0 %}
+                        <span class="badge bg-info ms-1" title="Has unresolved comments">
+                            <i class="fas fa-comment"></i> {{ unresolved_count }}
+                        </span>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
     </td>
     <td class="truncate-cell">{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '-' }}</td>
     <td class="truncate-cell">{% if clergy.ordaining_bishop %}{{ clergy.ordaining_bishop.display_name if clergy.ordaining_bishop.display_name is defined else clergy.ordaining_bishop.name }}{% else %}-{% endif %}</td>

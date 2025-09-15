@@ -683,4 +683,72 @@ input:focus + .slider {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   user-select: none;
   font-weight: 500;
+}
+
+/* Search functionality styles */
+.search-results {
+  max-height: 200px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid rgba(189, 195, 199, 0.3);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.search-result-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(189, 195, 199, 0.2);
+  transition: background-color 0.2s ease;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover,
+.search-result-item.selected {
+  background-color: rgba(39, 174, 96, 0.1);
+}
+
+.search-result-name {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.search-result-details {
+  font-size: 0.85em;
+  color: #7f8c8d;
+  margin-top: 2px;
+}
+
+.search-no-results {
+  padding: 12px;
+  text-align: center;
+  color: #7f8c8d;
+}
+
+/* Highlight search matches */
+.search-result-name mark {
+  background-color: rgba(255, 193, 7, 0.3);
+  color: inherit;
+  padding: 0;
+  border-radius: 2px;
+}
+
+/* Search input group styling */
+.input-group .form-control:focus {
+  border-color: #27ae60;
+  box-shadow: 0 0 0 0.2rem rgba(39, 174, 96, 0.25);
+}
+
+.input-group .btn-outline-secondary {
+  border-left: 0;
+  border-color: #ced4da;
+}
+
+.input-group .btn-outline-secondary:hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: white;
 } 

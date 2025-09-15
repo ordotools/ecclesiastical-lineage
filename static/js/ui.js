@@ -109,6 +109,7 @@ export function initializeMobileControls() {
   const centerGraphMobile = document.getElementById('center-graph-mobile');
   const menuModal = document.getElementById('mobile-menu-modal');
   
+  // Control buttons
   if (resetZoomMobile) {
     resetZoomMobile.addEventListener('click', function() {
       document.getElementById('reset-zoom').click();
@@ -119,6 +120,19 @@ export function initializeMobileControls() {
     centerGraphMobile.addEventListener('click', function() {
       document.getElementById('center-graph').click();
       menuModal.style.display = 'none';
+    });
+  }
+  
+  // Sync search inputs
+  const searchInput = document.getElementById('clergy-search');
+  const searchInputMobile = document.getElementById('clergy-search-mobile');
+  
+  if (searchInput && searchInputMobile) {
+    searchInput.addEventListener('input', function() {
+      searchInputMobile.value = this.value;
+    });
+    searchInputMobile.addEventListener('input', function() {
+      searchInput.value = this.value;
     });
   }
 }

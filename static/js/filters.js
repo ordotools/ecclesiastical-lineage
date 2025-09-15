@@ -10,9 +10,16 @@ const hidePriestsMobileCheckbox = document.getElementById('hide-priests-mobile')
 const timelineViewCheckbox = document.getElementById('timeline-view');
 const timelineViewMobileCheckbox = document.getElementById('timeline-view-mobile');
 
+// Wire up backbone-only controls and sync mobile/desktop
+const backboneOnlyCheckbox = document.getElementById('backbone-only');
+const backboneOnlyMobileCheckbox = document.getElementById('backbone-only-mobile');
+
 // Timeline view state
 let isTimelineViewEnabled = false;
 let timelineData = null;
+
+// Backbone-only view state
+let isBackboneOnlyEnabled = true; // Start with backbone mode enabled
 
 export function syncPriestFilters() {
   if (hidePriestsCheckbox && hidePriestsMobileCheckbox) {
@@ -23,6 +30,12 @@ export function syncPriestFilters() {
 export function syncTimelineFilters() {
   if (timelineViewCheckbox && timelineViewMobileCheckbox) {
     timelineViewMobileCheckbox.checked = timelineViewCheckbox.checked;
+  }
+}
+
+export function syncBackboneFilters() {
+  if (backboneOnlyCheckbox && backboneOnlyMobileCheckbox) {
+    backboneOnlyMobileCheckbox.checked = backboneOnlyCheckbox.checked;
   }
 }
 
@@ -377,50 +390,84 @@ export function updateTimelinePositions(transform) {
   }
 }
 
-export function applyPriestFilter() {
+// Function to apply backbone-only view
+export function applyBackboneOnlyFilter() {
+  const shouldShowBackboneOnly = backboneOnlyCheckbox ? backboneOnlyCheckbox.checked : true;
+  isBackboneOnlyEnabled = shouldShowBackboneOnly;
+  
+  // Set global state for backbone-only view
+  window.isBackboneOnlyEnabled = isBackboneOnlyEnabled;
+  
+  if (!window.currentLinks) return;
+  
+  if (shouldShowBackboneOnly) {
+    // Hide co-consecrator relationships, show only primary ordination and consecration links
+    window.currentLinks.forEach(link => {
+      if (link.type === 'co-consecration') {
+        link.backboneFiltered = true; // Mark as filtered by backbone mode
+      } else {
+        link.backboneFiltered = false; // Show primary relationships
+      }
+    });
+  } else {
+    // Show all relationships
+    window.currentLinks.forEach(link => {
+      link.backboneFiltered = false;
+    });
+  }
+  
+  // Update combined filter state
+  updateCombinedFilters();
+  
+  // Restart simulation if in force mode
+  if (window.currentSimulation) {
+    // Update link force to exclude filtered links
+    const activeLinks = window.currentLinks.filter(l => !l.filtered);
+    window.currentSimulation.force('link', d3.forceLink(activeLinks).id(d => d.id).distance(150));
+    window.currentSimulation.alpha(1).restart();
+  }
+}
+
+// Function to update combined filter state (priest + backbone filters)
+function updateCombinedFilters() {
+  if (!window.currentNodes || !window.currentLinks) return;
+  
   const shouldHidePriests = hidePriestsCheckbox ? hidePriestsCheckbox.checked : true;
   
-  // Filter nodes and links to hide/show priests
-  if (window.currentNodes && window.currentLinks) {
-    // Update node visibility
-    window.currentNodes.forEach(node => {
-      const isPriest = node.rank && node.rank.toLowerCase() === 'priest';
-      if (isPriest) {
-        node.filtered = shouldHidePriests; // Hide priests if requested
-      } else {
-        node.filtered = false; // Show non-priest clergy
-      }
-    });
+  // Update node visibility
+  window.currentNodes.forEach(node => {
+    const isPriest = node.rank && node.rank.toLowerCase() === 'priest';
+    node.filtered = isPriest && shouldHidePriests;
+  });
+  
+  // Update link visibility - combine priest filter and backbone filter
+  window.currentLinks.forEach(link => {
+    const sourceIsPriest = link.source.rank && link.source.rank.toLowerCase() === 'priest';
+    const targetIsPriest = link.target.rank && link.target.rank.toLowerCase() === 'priest';
+    const isBlackLink = link.color === BLACK_COLOR; // Ordination links
     
-    // Update link visibility - hide links connected to priests
-    window.currentLinks.forEach(link => {
-      const sourceIsPriest = link.source.rank && link.source.rank.toLowerCase() === 'priest';
-      const targetIsPriest = link.target.rank && link.target.rank.toLowerCase() === 'priest';
-      const isBlackLink = link.color === BLACK_COLOR; // Ordination links
-      
-      // Hide black links (ordinations) when hiding priests
-      if (shouldHidePriests && isBlackLink && (sourceIsPriest || targetIsPriest)) {
-        link.filtered = true;
-      } else {
-        link.filtered = false;
-      }
-    });
+    // Apply priest filter
+    const priestFiltered = shouldHidePriests && isBlackLink && (sourceIsPriest || targetIsPriest);
     
-    // Update force simulation to exclude filtered nodes/links from physics
-    if (window.currentSimulation) {
-      // Update link force to exclude filtered links
-      window.currentSimulation.force('link', d3.forceLink(window.currentLinks.filter(l => !l.filtered)).id(d => d.id).distance(150));
-      
-      // Update charge force to exclude filtered nodes
-      window.currentSimulation.force('charge', d3.forceManyBody().strength(d => d.filtered ? 0 : -400));
-      
-      // Update collision force to exclude filtered nodes
-      window.currentSimulation.force('collision', d3.forceCollide().radius(d => d.filtered ? 0 : 60));
-      
-      // Restart simulation to apply changes
-      window.currentSimulation.alpha(1).restart();
-    }
+    // Apply backbone filter
+    const backboneFiltered = link.backboneFiltered || false;
+    
+    // Combine filters
+    link.filtered = priestFiltered || backboneFiltered;
+  });
+  
+  // Update force simulation if available
+  if (window.currentSimulation) {
+    const activeLinks = window.currentLinks.filter(l => !l.filtered);
+    window.currentSimulation.force('link', d3.forceLink(activeLinks).id(d => d.id).distance(150));
+    window.currentSimulation.force('charge', d3.forceManyBody().strength(d => d.filtered ? 0 : -400));
+    window.currentSimulation.force('collision', d3.forceCollide().radius(d => d.filtered ? 0 : 60));
+    window.currentSimulation.alpha(1).restart();
   }
+}
+
+export function applyPriestFilter() {
+  updateCombinedFilters();
 }
 
 // Trackpad scroll handlers for timeline view
@@ -505,6 +552,21 @@ export function initializeFilters() {
     timelineViewMobileCheckbox.addEventListener('change', function() {
       syncTimelineFilters();
       applyTimelineView();
+    });
+  }
+
+  // Sync backbone-only checkboxes when either changes
+  if (backboneOnlyCheckbox) {
+    backboneOnlyCheckbox.addEventListener('change', function() {
+      syncBackboneFilters();
+      applyBackboneOnlyFilter();
+    });
+  }
+
+  if (backboneOnlyMobileCheckbox) {
+    backboneOnlyMobileCheckbox.addEventListener('change', function() {
+      syncBackboneFilters();
+      applyBackboneOnlyFilter();
     });
   }
 }

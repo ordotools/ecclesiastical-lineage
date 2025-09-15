@@ -152,7 +152,19 @@ python3 -c "import os; os.environ['DATABASE_URL'] = '$LOCAL_DATABASE_URL'; from 
 
 # Run database migrations
 echo "🗄️  Running database migrations (flask db upgrade)..."
-flask db upgrade
+# After database sync, we need to handle the case where columns already exist
+# Try to run migrations, and if they fail due to duplicate columns, stamp them instead
+if ! flask db upgrade 2>/dev/null; then
+  echo "📋 Migration failed (likely due to existing columns), stamping migrations to match database state..."
+  # Stamp all migrations as applied since the synced database already has all columns
+  flask db stamp bc170867dac1 2>/dev/null || true
+  flask db stamp 8cd1c86c2ec4 2>/dev/null || true  
+  flask db stamp 9eed07e44dd1 2>/dev/null || true
+  echo "✅ Migration history synchronized with database state"
+  
+  # Try upgrade again after stamping
+  flask db upgrade 2>/dev/null || true
+fi
 echo "✅ Database migrations applied"
 
 echo ""

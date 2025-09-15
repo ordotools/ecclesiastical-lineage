@@ -31,12 +31,59 @@ function isBishopRank(rankValue) {
 }
 
 // Layout mode: 'layered' (elkjs) or 'force' (original)
-let layoutMode = 'layered';
+let layoutMode = 'force'; // Default to force layout
 let elk = null;
+let elkEnabled = false; // ELK is disabled by default
+
+// Function to toggle ELK layout
+export function toggleELKLayout() {
+  elkEnabled = !elkEnabled;
+  console.log('ELK layout toggled:', elkEnabled ? 'enabled' : 'disabled');
+  
+  // Update the UI toggles if they exist
+  const toggle = document.getElementById('elk-layout-toggle');
+  const mobileToggle = document.getElementById('elk-layout-toggle-mobile');
+  
+  if (toggle) {
+    toggle.checked = elkEnabled;
+  }
+  if (mobileToggle) {
+    mobileToggle.checked = elkEnabled;
+  }
+  
+  // Reinitialize visualization with new layout
+  if (window.initializeVisualization) {
+    // Clear the existing visualization
+    const graphContainer = document.getElementById('graph-container');
+    if (graphContainer) {
+      graphContainer.innerHTML = '';
+    }
+    
+    // Reinitialize with new layout
+    window.initializeVisualization();
+  }
+  
+  return elkEnabled;
+}
+
+// Make toggleELKLayout available globally
+window.toggleELKLayout = toggleELKLayout;
+
+// Function to get current ELK status
+export function isELKEnabled() {
+  return elkEnabled;
+}
 
 // Function to compute layered layout using elkjs
 async function computeLayeredLayout(nodes, links) {
   console.log('Computing layered layout with elkjs...');
+  
+  // Check if ELK is enabled
+  if (!elkEnabled) {
+    console.log('ELK layout is disabled, using force layout');
+    layoutMode = 'force';
+    return null;
+  }
   
   // Initialize ELK if not already done
   if (!elk && typeof ELK !== 'undefined') {
@@ -57,6 +104,12 @@ async function computeLayeredLayout(nodes, links) {
   
   // Prepare data for elkjs
   const elkNodes = nodes.map(node => {
+    // Validate node has required properties
+    if (!node.id) {
+      console.error('Node missing ID:', node);
+      return null;
+    }
+    
     // Calculate layer based on event date (consecration for bishops, ordination for priests)
     let layerDate = null;
     if (node.rank && isBishopRank(node.rank) && node.consecration_date && node.consecration_date !== 'Not specified') {
@@ -77,44 +130,124 @@ async function computeLayeredLayout(nodes, links) {
       width: OUTER_RADIUS * 2 + 20, // Node width including padding
       height: OUTER_RADIUS * 2 + 20, // Node height including padding
       properties: {
-        'elk.layered.layering.layerId': layerId,
-        originalNode: node
-      }
+        'elk.layered.layering.layerId': layerId
+      },
+      // Store original node data separately to avoid ELK property issues
+      originalNode: node
     };
+  }).filter(node => node !== null); // Remove any null nodes
+  
+  const elkEdges = links.map((link, index) => {
+    // Validate link has required properties
+    if (!link.source || !link.target || !link.source.id || !link.target.id) {
+      console.error('Link missing source or target:', link);
+      return null;
+    }
+    
+    return {
+      id: `edge_${index}`,
+      sources: [link.source.id.toString()],
+      targets: [link.target.id.toString()],
+      // Store original link data separately to avoid ELK property issues
+      originalLink: link
+    };
+  }).filter(edge => edge !== null); // Remove any null edges
+  
+  // Debug: Log the data being passed to ELK
+  console.log('ELK Graph data:', {
+    nodeCount: elkNodes.length,
+    edgeCount: elkEdges.length,
+    sampleNode: elkNodes[0],
+    sampleEdge: elkEdges[0],
+    allNodeIds: elkNodes.map(n => n.id),
+    allEdgeSources: elkEdges.map(e => e.sources),
+    allEdgeTargets: elkEdges.map(e => e.targets)
   });
   
-  const elkEdges = links.map((link, index) => ({
-    id: `edge_${index}`,
-    sources: [link.source.id.toString()],
-    targets: [link.target.id.toString()],
-    properties: {
-      originalLink: link
-    }
-  }));
+  // Debug: Check for ID type mismatches
+  const nodeIdTypes = elkNodes.map(n => ({ id: n.id, type: typeof n.id }));
+  const edgeSourceTypes = elkEdges.flatMap(e => e.sources.map(id => ({ id, type: typeof id })));
+  const edgeTargetTypes = elkEdges.flatMap(e => e.targets.map(id => ({ id, type: typeof id })));
+  
+  console.log('ID type analysis:', {
+    nodeIdTypes: nodeIdTypes.slice(0, 5),
+    edgeSourceTypes: edgeSourceTypes.slice(0, 5),
+    edgeTargetTypes: edgeTargetTypes.slice(0, 5)
+  });
+  
+  // Check for potential issues
+  const nodeIds = new Set(elkNodes.map(n => n.id));
+  const invalidEdges = elkEdges.filter(edge => {
+    const sourceExists = edge.sources.every(id => nodeIds.has(id));
+    const targetExists = edge.targets.every(id => nodeIds.has(id));
+    return !sourceExists || !targetExists;
+  });
+  
+  if (invalidEdges.length > 0) {
+    console.error('Invalid edges found:', invalidEdges);
+    console.error('Available node IDs:', Array.from(nodeIds));
+    console.error('Edge sources:', elkEdges.map(e => e.sources));
+    console.error('Edge targets:', elkEdges.map(e => e.targets));
+  }
+  
+  // Filter out invalid edges before passing to ELK
+  const validEdges = elkEdges.filter(edge => {
+    const sourceExists = edge.sources.every(id => nodeIds.has(id));
+    const targetExists = edge.targets.every(id => nodeIds.has(id));
+    return sourceExists && targetExists;
+  });
+  
+  console.log(`Filtered out ${elkEdges.length - validEdges.length} invalid edges`);
   
   const elkGraph = {
     id: 'root',
     properties: {
       'elk.algorithm': 'layered',
       'elk.direction': 'RIGHT',
-      'elk.spacing.nodeNode': '80',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '120',
-      'elk.layered.layering.strategy': 'NETWORK_SIMPLEX',
-      'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-      'elk.edgeRouting': 'ORTHOGONAL',
-      'elk.layered.unnecessaryBendpoints': 'true'
+      'elk.spacing.nodeNode': 80,
+      'elk.layered.spacing.nodeNodeBetweenLayers': 120
     },
     children: elkNodes,
-    edges: elkEdges
+    edges: validEdges
   };
   
   try {
+    // Test with a minimal graph first if we have issues
+    if (elkNodes.length > 50) {
+      console.log('Large graph detected, testing with simplified version first...');
+      // Create a test graph with only valid edges
+      const testNodeIds = new Set(elkNodes.slice(0, 5).map(n => n.id));
+      const testEdges = validEdges.filter(edge => {
+        const sourceExists = edge.sources.every(id => testNodeIds.has(id));
+        const targetExists = edge.targets.every(id => testNodeIds.has(id));
+        return sourceExists && targetExists;
+      }).slice(0, 3);
+      
+      const testGraph = {
+        id: 'test',
+        properties: {
+          'elk.algorithm': 'layered',
+          'elk.direction': 'RIGHT'
+        },
+        children: elkNodes.slice(0, 5), // Test with first 5 nodes
+        edges: testEdges    // Test with valid edges only
+      };
+      
+      try {
+        await elk.layout(testGraph);
+        console.log('ELK test with small graph succeeded');
+      } catch (testError) {
+        console.error('ELK test with small graph failed:', testError);
+        throw new Error('ELK cannot handle even small graphs: ' + testError.message);
+      }
+    }
+    
     const layoutedGraph = await elk.layout(elkGraph);
     console.log('ELK layout computation complete');
     
     // Apply computed positions back to nodes
     layoutedGraph.children.forEach(elkNode => {
-      const originalNode = elkNode.properties.originalNode;
+      const originalNode = elkNode.originalNode;
       originalNode.x = elkNode.x + elkNode.width / 2; // Center the node
       originalNode.y = elkNode.y + elkNode.height / 2;
       
@@ -135,7 +268,7 @@ async function computeLayeredLayout(nodes, links) {
     
     // Store edge routing information
     layoutedGraph.edges.forEach(elkEdge => {
-      const originalLink = elkEdge.properties.originalLink;
+      const originalLink = elkEdge.originalLink;
       if (elkEdge.sections && elkEdge.sections.length > 0) {
         originalLink.routing = elkEdge.sections[0];
       }
@@ -144,6 +277,16 @@ async function computeLayeredLayout(nodes, links) {
     return layoutedGraph;
   } catch (error) {
     console.error('ELK layout failed:', error);
+    console.error('ELK error details:', {
+      message: error.message,
+      stack: error.stack,
+      graphData: {
+        nodeCount: elkNodes.length,
+        edgeCount: elkEdges.length,
+        hasInvalidEdges: invalidEdges.length > 0
+      }
+    });
+    
     layoutMode = 'force';
     
     // Reset any partially computed coordinates

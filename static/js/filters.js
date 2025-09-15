@@ -26,6 +26,10 @@ const hidePriestsMobileCheckbox = document.getElementById('hide-priests-mobile')
 const backboneOnlyCheckbox = document.getElementById('backbone-only');
 const backboneOnlyMobileCheckbox = document.getElementById('backbone-only-mobile');
 
+// Wire up ELK layout controls and sync mobile/desktop
+const elkLayoutToggle = document.getElementById('elk-layout-toggle');
+const elkLayoutMobileToggle = document.getElementById('elk-layout-toggle-mobile');
+
 // Timeline view state
 let isTimelineViewEnabled = false;
 let timelineData = null;
@@ -49,6 +53,12 @@ export function syncTimelineFilters() {
 export function syncBackboneFilters() {
   if (backboneOnlyCheckbox && backboneOnlyMobileCheckbox) {
     backboneOnlyMobileCheckbox.checked = backboneOnlyCheckbox.checked;
+  }
+}
+
+export function syncELKLayoutFilters() {
+  if (elkLayoutToggle && elkLayoutMobileToggle) {
+    elkLayoutMobileToggle.checked = elkLayoutToggle.checked;
   }
 }
 
@@ -583,6 +593,27 @@ export function initializeFilters() {
     backboneOnlyMobileCheckbox.addEventListener('change', function() {
       syncBackboneFilters();
       applyBackboneOnlyFilter();
+    });
+  }
+
+  // Sync ELK layout checkboxes when either changes
+  if (elkLayoutToggle) {
+    elkLayoutToggle.addEventListener('change', function() {
+      syncELKLayoutFilters();
+      // Import and call the toggle function from core.js
+      if (window.toggleELKLayout) {
+        window.toggleELKLayout();
+      }
+    });
+  }
+
+  if (elkLayoutMobileToggle) {
+    elkLayoutMobileToggle.addEventListener('change', function() {
+      syncELKLayoutFilters();
+      // Import and call the toggle function from core.js
+      if (window.toggleELKLayout) {
+        window.toggleELKLayout();
+      }
     });
   }
 }

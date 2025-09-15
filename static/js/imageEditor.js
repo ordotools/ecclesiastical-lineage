@@ -47,6 +47,15 @@ class ImageEditor {
         document.getElementById('sizeLineage')?.addEventListener('change', (e) => this.updateOutputSizes('lineage', e.target.checked));
         document.getElementById('sizeDetail')?.addEventListener('change', (e) => this.updateOutputSizes('detail', e.target.checked));
         document.getElementById('sizeOriginal')?.addEventListener('click', (e) => this.updateOutputSizes('original', e.target.checked));
+        
+        // Modal close events
+        const imageEditorModal = document.getElementById('imageEditorModal');
+        if (imageEditorModal) {
+            imageEditorModal.addEventListener('hidden.bs.modal', () => {
+                this.cleanup();
+                console.log('Image editor modal closed, cleaned up resources');
+            });
+        }
     }
     
     /**
@@ -63,7 +72,15 @@ class ImageEditor {
      * Open the image editor with an image
      */
     openEditor(imageData, originalFile = null) {
-
+        console.log('Opening image editor with data length:', imageData ? imageData.length : 0);
+        
+        // Clear any existing processed data to prevent conflicts
+        this.clearProcessedData();
+        
+        // Add a unique timestamp to prevent caching issues
+        const timestamp = Date.now();
+        this.sessionId = timestamp;
+        
         this.originalImageData = imageData;
         this.originalImageFile = originalFile;
         this.currentImageData = imageData;
@@ -88,13 +105,33 @@ class ImageEditor {
         const editorImage = document.getElementById('editorImage');
         if (!editorImage) return;
         
+        // Validate and prepare image source
+        let imageSrc = this.currentImageData;
+        
+        // Validate data URL format
+        if (imageSrc && imageSrc.startsWith('data:')) {
+            // Check if it's a valid data URL format
+            if (!imageSrc.includes(';base64,') && !imageSrc.includes(';charset=')) {
+                console.error('Invalid data URL format:', imageSrc.substring(0, 100) + '...');
+                this.showNotification('Invalid image data format. Please try uploading again.', 'error');
+                return;
+            }
+        }
+        
+        // Add cache-busting parameter to prevent browser caching issues (only for non-data URLs)
+        if (imageSrc && !imageSrc.includes('?') && !imageSrc.startsWith('data:')) {
+            imageSrc += `?t=${this.sessionId || Date.now()}`;
+        }
+        
         // Set image source
-        editorImage.src = this.currentImageData;
+        console.log('Setting image source:', imageSrc.substring(0, 100) + '...');
+        editorImage.src = imageSrc;
         
         // Wait for image to load
         editorImage.onload = () => {
             console.log('Editor image loaded with dimensions:', editorImage.naturalWidth, '×', editorImage.naturalHeight);
             console.log('Image source type check:', this.currentEditorImageData.substring(0, 50));
+            console.log('Session ID:', this.sessionId);
 
             // Additional validation
             if (editorImage.naturalWidth <= 48 || editorImage.naturalHeight <= 48) {
@@ -106,6 +143,14 @@ class ImageEditor {
 
             this.updateImageInfo();
             this.initializeCropper();
+        };
+        
+        // Handle image load errors
+        editorImage.onerror = (error) => {
+            console.error('Failed to load image in editor');
+            console.error('Image source that failed:', imageSrc.substring(0, 100) + '...');
+            console.error('Error details:', error);
+            this.showNotification('Failed to load image. Please try again.', 'error');
         };
     }
     
@@ -284,7 +329,9 @@ class ImageEditor {
             this.cropper.reset();
         }
         this.currentImageData = this.originalImageData;
+        this.clearProcessedData();
         this.initializeEditor();
+        this.showNotification('Image reset to original', 'info');
     }
     
     /**
@@ -324,7 +371,7 @@ class ImageEditor {
         } catch (error) {
             console.error('Error generating preview:', error);
             this.hideProcessingStatus();
-            alert('Error generating preview. Please try again.');
+            this.showNotification('Error generating preview. Please try again.', 'error');
         }
     }
     
@@ -335,9 +382,18 @@ class ImageEditor {
         console.log('Apply changes called');
         console.log('Cropper instance:', !!this.cropper);
         console.log('Is processing:', this.isProcessing);
+        console.log('Current session ID:', this.sessionId);
         
         if (!this.cropper || this.isProcessing) {
             console.warn('Cannot apply changes: cropper not available or already processing');
+            this.showNotification('Cannot process image at this time. Please try again.', 'warning');
+            return;
+        }
+        
+        // Validate that we have valid image data
+        if (!this.originalImageData || !this.currentImageData) {
+            console.error('No valid image data available for processing');
+            this.showNotification('No valid image data available. Please try uploading again.', 'error');
             return;
         }
         
@@ -350,6 +406,10 @@ class ImageEditor {
                 imageSmoothingEnabled: true,
                 imageSmoothingQuality: 'high'
             });
+            
+            if (!croppedCanvas) {
+                throw new Error('Failed to create cropped canvas');
+            }
             
             this.showProcessingStatus('Creating output sizes...', 30);
             
@@ -422,7 +482,7 @@ class ImageEditor {
             console.error('Error processing images:', error);
             this.hideProcessingStatus();
             this.isProcessing = false;
-            alert('Error processing images. Please try again.');
+            this.showNotification('Error processing images. Please try again.', 'error');
         }
     }
     
@@ -562,16 +622,22 @@ class ImageEditor {
         const file = event.target.files[0];
         if (!file) return;
         
+        // Clear any existing processed data
+        this.clearProcessedData();
+        
         // Validate file
         if (!file.type.startsWith('image/')) {
-            alert('Please select a valid image file.');
+            this.showNotification('Please select a valid image file.', 'error');
             return;
         }
         
         if (file.size > 10 * 1024 * 1024) {
-            alert('Image file size must be less than 10MB.');
+            this.showNotification('Image file size must be less than 10MB.', 'error');
             return;
         }
+        
+        // Show upload progress
+        this.showNotification('Processing image...', 'info');
         
         // Process and open editor
         this.processAndOpenEditor(file);
@@ -582,15 +648,21 @@ class ImageEditor {
      */
     async processAndOpenEditor(file) {
         try {
+            this.showNotification('Optimizing image for editing...', 'info');
+            
             // Check and adjust quality if needed for 1MB limit
             const processedFile = await this.optimizeImageForStorage(file);
 
+            this.showNotification('Loading image into editor...', 'info');
+            
             // Load original file directly without compression for high-res cropping
             const originalDataUrl = await this.loadOriginalImage(processedFile);
             this.openEditor(originalDataUrl, processedFile);
+            
+            this.showNotification('Image loaded successfully!', 'success');
         } catch (error) {
             console.error('Error processing file:', error);
-            alert('Error processing the selected file. Please try again.');
+            this.showNotification('Error processing the selected file. Please try again.', 'error');
         }
     }
     
@@ -599,59 +671,65 @@ class ImageEditor {
      */
     editExistingImage() {
         const previewImage = document.getElementById('previewImage');
-
-
-        if (previewImage && previewImage.src) {
-            // Priority 1: Use current session processed data (highest quality)
-            const processedData = window.processedImageData;
-
-
-            if (processedData && processedData.original) {
-
-                this.openEditor(processedData.original);
-                return;
-            }
-
-            // Priority 2: Use full resolution data from database (stored in data attribute)
-            const fullImageData = previewImage.getAttribute('data-full-image');
-
-
-            if (fullImageData && fullImageData.length > 10) { // Make sure we have meaningful data
-                try {
-                    // Check if data starts and ends with quotes (indicates JSON string)
-                    // Check if data starts and ends with quotes (indicates JSON string)
-                    const startsWithQuote = fullImageData.startsWith('"');
-                    const endsWithQuote = fullImageData.endsWith('"');
-
-                    // If it's double-encoded, parse it twice
-                    let jsonString = fullImageData;
-                    if (startsWithQuote && endsWithQuote) {
-                        jsonString = JSON.parse(fullImageData);
-                    }
-
-                    const imageData = JSON.parse(jsonString);
-
-                    if (imageData.cropped) {
-                        this.openEditor(imageData.cropped);
-                        return;
-                    } else {
-                        console.warn('No cropped image found in stored data');
-                        // Try using detail as fallback for now
-                        if (imageData.detail) {
-                            this.openEditor(imageData.detail);
-                            return;
-                        }
-                    }
-                } catch (e) {
-                    console.error('Failed to parse full image data:', e);
-                }
-            }
-
-            // Priority 3: Fallback to preview image (48x48 lineage image)
-            this.openEditor(previewImage.src);
-        } else {
-            alert('No existing image found to edit.');
+        
+        if (!previewImage || !previewImage.src) {
+            this.showNotification('No existing image found to edit.', 'warning');
+            return;
         }
+
+        console.log('Edit existing image called');
+        console.log('Preview image src:', previewImage.src.substring(0, 50) + '...');
+        
+        // Clear any existing processed data to prevent conflicts
+        this.clearProcessedData();
+
+        // Priority 1: Use current session processed data (highest quality)
+        const processedData = window.processedImageData;
+        if (processedData && processedData.original) {
+            console.log('Using current session processed data');
+            this.openEditor(processedData.original);
+            return;
+        }
+
+        // Priority 2: Use full resolution data from database (stored in data attribute)
+        const fullImageData = previewImage.getAttribute('data-full-image');
+        if (fullImageData && fullImageData.length > 10) {
+            console.log('Using full image data from database');
+            try {
+                // Check if data starts and ends with quotes (indicates JSON string)
+                const startsWithQuote = fullImageData.startsWith('"');
+                const endsWithQuote = fullImageData.endsWith('"');
+
+                // If it's double-encoded, parse it twice
+                let jsonString = fullImageData;
+                if (startsWithQuote && endsWithQuote) {
+                    jsonString = JSON.parse(fullImageData);
+                }
+
+                const imageData = JSON.parse(jsonString);
+                console.log('Parsed image data keys:', Object.keys(imageData));
+
+                if (imageData.cropped) {
+                    console.log('Using cropped image data');
+                    this.openEditor(imageData.cropped);
+                    return;
+                } else if (imageData.detail) {
+                    console.log('Using detail image data as fallback');
+                    this.openEditor(imageData.detail);
+                    return;
+                } else if (imageData.original) {
+                    console.log('Using original image data as fallback');
+                    this.openEditor(imageData.original);
+                    return;
+                }
+            } catch (e) {
+                console.error('Failed to parse full image data:', e);
+            }
+        }
+
+        // Priority 3: Fallback to preview image (48x48 lineage image)
+        console.log('Using preview image as fallback');
+        this.openEditor(previewImage.src);
     }
     
     /**
@@ -660,6 +738,9 @@ class ImageEditor {
     removeFormImage() {
         const imagePreview = document.getElementById('imagePreview');
         if (!imagePreview) return;
+
+        // Clear processed data first
+        this.clearProcessedData();
 
         // Reset to placeholder
         imagePreview.innerHTML = `
@@ -676,9 +757,6 @@ class ImageEditor {
 
         // Re-attach event listeners
         this.reattachFormEventListeners();
-
-        // Clear processed data
-        window.processedImageData = null;
 
         // Remove any existing image data input and add image_removed flag
         const form = document.getElementById('clergyForm');
@@ -702,6 +780,8 @@ class ImageEditor {
             removedInput.value = 'true';
             form.appendChild(removedInput);
         }
+        
+        this.showNotification('Image removed successfully', 'success');
     }
     
     /**
@@ -836,24 +916,80 @@ class ImageEditor {
     }
     
     /**
+     * Clear processed image data to prevent conflicts
+     */
+    clearProcessedData() {
+        window.processedImageData = null;
+        console.log('Cleared processed image data');
+    }
+    
+    /**
+     * Clean up resources when modal is closed
+     */
+    cleanup() {
+        // Clear processed data
+        this.clearProcessedData();
+        
+        // Destroy cropper instance
+        if (this.cropper) {
+            this.cropper.destroy();
+            this.cropper = null;
+            console.log('Destroyed cropper instance');
+        }
+        
+        // Clear image data
+        this.originalImageData = null;
+        this.originalImageFile = null;
+        this.currentImageData = null;
+        this.currentEditorImageData = null;
+        
+        // Reset processing state
+        this.isProcessing = false;
+        
+        console.log('Image editor cleanup completed');
+    }
+    
+    /**
      * Show notification
      */
     showNotification(message, type = 'info') {
+        // Map error type to Bootstrap alert class
+        const alertClass = type === 'error' ? 'danger' : type;
+        
         const notification = document.createElement('div');
-        notification.className = `alert alert-${type} alert-dismissible fade show`;
+        notification.className = `alert alert-${alertClass} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 1200; max-width: 400px;';
         notification.innerHTML = `
+            <i class="fas fa-${this.getNotificationIcon(type)} me-2"></i>
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
         
-        const container = document.querySelector('.container') || document.body;
-        container.insertBefore(notification, container.firstChild);
+        // Remove any existing notifications
+        const existingNotifications = document.querySelectorAll('.alert.position-fixed[style*="top: 20px"]');
+        existingNotifications.forEach(n => n.remove());
         
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.remove();
             }
         }, 5000);
+    }
+    
+    /**
+     * Get icon for notification type
+     */
+    getNotificationIcon(type) {
+        const icons = {
+            'info': 'info-circle',
+            'success': 'check-circle',
+            'warning': 'exclamation-triangle',
+            'error': 'exclamation-circle'
+        };
+        return icons[type] || 'info-circle';
     }
     
     /**

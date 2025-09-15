@@ -53,7 +53,7 @@ def lineage_visualization():
             
             nodes.append({
                 'id': clergy.id,
-                'name': clergy.name,
+                'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
                 'rank': clergy.rank,
                 'organization': clergy.organization,
                 'org_color': org_color,
@@ -156,7 +156,7 @@ def get_lineage_data():
             
             nodes.append({
                 'id': clergy.id,
-                'name': clergy.name,
+                'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
                 'rank': clergy.rank,
                 'organization': clergy.organization,
                 'org_color': org_color,
@@ -423,16 +423,16 @@ def clergy_relationships(clergy_id):
             'success': True,
             'ordaining_bishop': {
                 'id': ordaining_bishop.id,
-                'name': ordaining_bishop.name
+                'name': ordaining_bishop.papal_name if (ordaining_bishop.rank and ordaining_bishop.rank.lower() == 'pope' and ordaining_bishop.papal_name) else ordaining_bishop.name
             } if ordaining_bishop else None,
             'consecrator': {
                 'id': consecrator.id,
-                'name': consecrator.name
+                'name': consecrator.papal_name if (consecrator.rank and consecrator.rank.lower() == 'pope' and consecrator.papal_name) else consecrator.name
             } if consecrator else None,
             'ordained_clergy': [
                 {
                     'id': c.id,
-                    'name': c.name,
+                    'name': c.papal_name if (c.rank and c.rank.lower() == 'pope' and c.papal_name) else c.name,
                     'rank': c.rank,
                     'organization': c.organization
                 } for c in ordained_clergy
@@ -440,7 +440,7 @@ def clergy_relationships(clergy_id):
             'consecrated_clergy': [
                 {
                     'id': c.id,
-                    'name': c.name,
+                    'name': c.papal_name if (c.rank and c.rank.lower() == 'pope' and c.papal_name) else c.name,
                     'rank': c.rank,
                     'organization': c.organization
                 } for c in consecrated_clergy
@@ -448,7 +448,7 @@ def clergy_relationships(clergy_id):
             'co_consecrated_clergy': [
                 {
                     'id': c.id,
-                    'name': c.name,
+                    'name': c.papal_name if (c.rank and c.rank.lower() == 'pope' and c.papal_name) else c.name,
                     'rank': c.rank,
                     'organization': c.organization
                 } for c in co_consecrated_clergy

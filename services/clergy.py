@@ -178,6 +178,10 @@ def clergy_list_handler():
     org_color_map = {org.name: org.color for org in organizations}
     ranks = Rank.query.order_by(Rank.name).all()
     all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+    # Set display names for all clergy
+    for clergy_member in all_clergy:
+        set_clergy_display_name(clergy_member)
+    
     all_clergy_data = [
         {
             'id': clergy_member.id,

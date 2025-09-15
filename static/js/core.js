@@ -40,7 +40,13 @@ async function computeLayeredLayout(nodes, links) {
   
   // Initialize ELK if not already done
   if (!elk && typeof ELK !== 'undefined') {
-    elk = new ELK();
+    try {
+      elk = new ELK();
+      console.log('ELK initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize ELK:', error);
+      elk = null;
+    }
   }
   
   if (!elk) {
@@ -111,6 +117,20 @@ async function computeLayeredLayout(nodes, links) {
       const originalNode = elkNode.properties.originalNode;
       originalNode.x = elkNode.x + elkNode.width / 2; // Center the node
       originalNode.y = elkNode.y + elkNode.height / 2;
+      
+      // Debug invalid coordinates
+      if (!isFinite(originalNode.x) || !isFinite(originalNode.y)) {
+        console.warn('ELK returned invalid coordinates for node:', {
+          id: originalNode.id,
+          name: originalNode.name,
+          elkX: elkNode.x,
+          elkY: elkNode.y,
+          elkWidth: elkNode.width,
+          elkHeight: elkNode.height,
+          computedX: originalNode.x,
+          computedY: originalNode.y
+        });
+      }
     });
     
     // Store edge routing information
@@ -125,6 +145,13 @@ async function computeLayeredLayout(nodes, links) {
   } catch (error) {
     console.error('ELK layout failed:', error);
     layoutMode = 'force';
+    
+    // Reset any partially computed coordinates
+    nodes.forEach(node => {
+      delete node.x;
+      delete node.y;
+    });
+    
     return null;
   }
 }
@@ -195,6 +222,20 @@ export async function initializeVisualization() {
     document.getElementById('graph-container').innerHTML = '<div class="text-center p-4"><p class="text-muted">Unable to load lineage data. Please refresh the page.</p></div>';
     return;
   }
+  
+  // Additional data validation
+  if (nodesRaw.length === 0) {
+    console.warn('No nodes data available');
+    document.getElementById('graph-container').innerHTML = '<div class="text-center p-4"><p class="text-muted">No clergy data available.</p></div>';
+    return;
+  }
+  
+  console.log('Data validation passed:', {
+    nodesCount: nodesRaw.length,
+    linksCount: linksRaw.length,
+    sampleNode: nodesRaw[0],
+    sampleLink: linksRaw[0]
+  });
 
   const nodes = nodesRaw.map(d => ({...d}));
   const links = linksRaw.map(d => ({...d}));
@@ -264,9 +305,22 @@ export async function initializeVisualization() {
   if (layoutMode === 'layered') {
     try {
       layoutResult = await computeLayeredLayout(nodes, validLinks);
+      
+      // Validate that we got valid coordinates
+      const hasValidCoords = nodes.some(node => 
+        typeof node.x === 'number' && typeof node.y === 'number' && 
+        isFinite(node.x) && isFinite(node.y)
+      );
+      
+      if (!hasValidCoords) {
+        console.warn('Layered layout returned no valid coordinates, falling back to force layout');
+        layoutMode = 'force';
+        layoutResult = null;
+      }
     } catch (error) {
       console.error('Layered layout failed, falling back to force layout:', error);
       layoutMode = 'force';
+      layoutResult = null;
     }
   }
 
@@ -288,23 +342,43 @@ export async function initializeVisualization() {
   if (layoutMode === 'layered' && layoutResult) {
     // Get bounds of the layered layout
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let validNodes = 0;
+    
     nodes.forEach(node => {
-      minX = Math.min(minX, node.x - OUTER_RADIUS);
-      maxX = Math.max(maxX, node.x + OUTER_RADIUS);
-      minY = Math.min(minY, node.y - OUTER_RADIUS);
-      maxY = Math.max(maxY, node.y + OUTER_RADIUS);
+      // Check if node has valid coordinates
+      if (typeof node.x === 'number' && typeof node.y === 'number' && 
+          !isNaN(node.x) && !isNaN(node.y) && 
+          isFinite(node.x) && isFinite(node.y)) {
+        minX = Math.min(minX, node.x - OUTER_RADIUS);
+        maxX = Math.max(maxX, node.x + OUTER_RADIUS);
+        minY = Math.min(minY, node.y - OUTER_RADIUS);
+        maxY = Math.max(maxY, node.y + OUTER_RADIUS);
+        validNodes++;
+      } else {
+        console.warn('Invalid node coordinates:', { id: node.id, x: node.x, y: node.y });
+      }
     });
     
-    const padding = 100;
-    const layoutWidth = maxX - minX + 2 * padding;
-    const layoutHeight = maxY - minY + 2 * padding;
-    const layoutCenterX = (minX + maxX) / 2;
-    const layoutCenterY = (minY + maxY) / 2;
-    
-    // Update SVG to fit the layout
-    svg.attr('viewBox', [minX - padding, minY - padding, layoutWidth, layoutHeight]);
-    
-    console.log('Layered layout bounds:', { minX, maxX, minY, maxY, layoutWidth, layoutHeight });
+    // Fallback if no valid nodes found
+    if (validNodes === 0 || !isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
+      console.warn('No valid node coordinates found, using default viewBox');
+      svg.attr('viewBox', [0, 0, width, height]);
+    } else {
+      const padding = 100;
+      const layoutWidth = maxX - minX + 2 * padding;
+      const layoutHeight = maxY - minY + 2 * padding;
+      
+      // Ensure we have valid dimensions
+      if (layoutWidth > 0 && layoutHeight > 0 && isFinite(layoutWidth) && isFinite(layoutHeight)) {
+        // Update SVG to fit the layout
+        svg.attr('viewBox', [minX - padding, minY - padding, layoutWidth, layoutHeight]);
+      } else {
+        console.warn('Invalid layout dimensions, using default viewBox');
+        svg.attr('viewBox', [0, 0, width, height]);
+      }
+      
+      console.log('Layered layout bounds:', { minX, maxX, minY, maxY, layoutWidth, layoutHeight, validNodes });
+    }
   }
 
   // Add zoom behavior
@@ -595,29 +669,44 @@ export async function initializeVisualization() {
     } else if (layoutMode === 'layered') {
       // For layered layout, center the view on the graph bounds
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      let validNodes = 0;
+      
       nodes.forEach(node => {
-        if (!node.filtered) {
+        if (!node.filtered && typeof node.x === 'number' && typeof node.y === 'number' && 
+            !isNaN(node.x) && !isNaN(node.y) && isFinite(node.x) && isFinite(node.y)) {
           minX = Math.min(minX, node.x - OUTER_RADIUS);
           maxX = Math.max(maxX, node.x + OUTER_RADIUS);
           minY = Math.min(minY, node.y - OUTER_RADIUS);
           maxY = Math.max(maxY, node.y + OUTER_RADIUS);
+          validNodes++;
         }
       });
       
-      const centerX = (minX + maxX) / 2;
-      const centerY = (minY + maxY) / 2;
-      const graphWidth = maxX - minX;
-      const graphHeight = maxY - minY;
-      
-      const scale = Math.min(width / graphWidth, height / graphHeight) * 0.8;
-      const translateX = width / 2 - centerX * scale;
-      const translateY = height / 2 - centerY * scale;
-      
-      const transform = d3.zoomIdentity
-        .translate(translateX, translateY)
-        .scale(scale);
-      
-      svg.transition().duration(750).call(zoom.transform, transform);
+      if (validNodes > 0 && isFinite(minX) && isFinite(maxX) && isFinite(minY) && isFinite(maxY)) {
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const graphWidth = maxX - minX;
+        const graphHeight = maxY - minY;
+        
+        if (graphWidth > 0 && graphHeight > 0) {
+          const scale = Math.min(width / graphWidth, height / graphHeight) * 0.8;
+          const translateX = width / 2 - centerX * scale;
+          const translateY = height / 2 - centerY * scale;
+          
+          const transform = d3.zoomIdentity
+            .translate(translateX, translateY)
+            .scale(scale);
+          
+          svg.transition().duration(750).call(zoom.transform, transform);
+        }
+      } else {
+        console.warn('Cannot center graph: invalid node coordinates');
+        // Fallback to reset zoom
+        svg.transition().duration(750).call(
+          zoom.transform,
+          d3.zoomIdentity
+        );
+      }
     }
   });
 

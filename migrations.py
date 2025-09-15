@@ -73,12 +73,14 @@ def run_database_migration(app):
         initialize_roles_and_permissions()
         print("✅ Roles and permissions initialized")
         inspector = inspect(db.engine)
+        
+        # Check and fix user table columns
         columns = [col['name'] for col in inspector.get_columns('user')]
         required_columns = ['email', 'full_name', 'is_active', 'created_at', 'last_login', 'role_id']
         missing_columns = [col for col in required_columns if col not in columns]
         if missing_columns:
-            print(f"❌ Missing columns: {missing_columns}")
-            print("🔧 Adding missing columns...")
+            print(f"❌ Missing user columns: {missing_columns}")
+            print("🔧 Adding missing user columns...")
             for col in missing_columns:
                 try:
                     with db.engine.connect() as conn:
@@ -95,9 +97,28 @@ def run_database_migration(app):
                         elif col == 'role_id':
                             conn.execute(db.text("ALTER TABLE \"user\" ADD COLUMN role_id INTEGER"))
                         conn.commit()
-                    print(f"✅ Added column: {col}")
+                    print(f"✅ Added user column: {col}")
                 except Exception as e:
-                    print(f"⚠️  Column {col} might already exist: {e}")
+                    print(f"⚠️  User column {col} might already exist: {e}")
+        
+        # Check and fix clergy table columns
+        clergy_columns = [col['name'] for col in inspector.get_columns('clergy')]
+        required_clergy_columns = ['papal_name']
+        missing_clergy_columns = [col for col in required_clergy_columns if col not in clergy_columns]
+        if missing_clergy_columns:
+            print(f"❌ Missing clergy columns: {missing_clergy_columns}")
+            print("🔧 Adding missing clergy columns...")
+            for col in missing_clergy_columns:
+                try:
+                    with db.engine.connect() as conn:
+                        if col == 'papal_name':
+                            conn.execute(db.text("ALTER TABLE clergy ADD COLUMN papal_name VARCHAR(200)"))
+                        conn.commit()
+                    print(f"✅ Added clergy column: {col}")
+                except Exception as e:
+                    print(f"⚠️  Clergy column {col} might already exist: {e}")
+        else:
+            print("✅ All required clergy columns exist")
         super_admin_role = Role.query.filter_by(name='Super Admin').first()
         if super_admin_role:
             existing_users = User.query.filter_by(role_id=None).all()

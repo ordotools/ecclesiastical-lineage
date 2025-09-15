@@ -132,7 +132,9 @@ app.jinja_env.globals['getContrastColor'] = getContrastColor
 app.jinja_env.globals['getBorderStyle'] = getBorderStyle
 app.jinja_env.filters['from_json'] = from_json
 
+# Run database migration on startup
+with app.app_context():
+    run_database_migration(app)
+
 if __name__ == '__main__':
-    with app.app_context():
-        run_database_migration(app)
     app.run(debug=True, port=5001)

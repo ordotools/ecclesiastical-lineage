@@ -25,14 +25,9 @@ class ImageEditor {
      * Initialize all event listeners
      */
     initializeEventListeners() {
-        // Toolbar buttons
-        document.getElementById('zoomInBtn')?.addEventListener('click', () => this.zoomIn());
-        document.getElementById('zoomOutBtn')?.addEventListener('click', () => this.zoomOut());
-        document.getElementById('resetZoomBtn')?.addEventListener('click', () => this.resetZoom());
+        // Toolbar buttons (only rotate)
         document.getElementById('rotateLeftBtn')?.addEventListener('click', () => this.rotateLeft());
         document.getElementById('rotateRightBtn')?.addEventListener('click', () => this.rotateRight());
-        document.getElementById('flipHorizontalBtn')?.addEventListener('click', () => this.flipHorizontal());
-        document.getElementById('flipVerticalBtn')?.addEventListener('click', () => this.flipVertical());
         
         // Footer buttons
         document.getElementById('resetImageBtn')?.addEventListener('click', () => this.resetImage());
@@ -40,7 +35,6 @@ class ImageEditor {
         document.getElementById('applyChangesBtn')?.addEventListener('click', () => this.applyChanges());
         
         // Settings
-        document.getElementById('aspectRatio')?.addEventListener('change', (e) => this.setAspectRatio(e.target.value));
         document.getElementById('outputQuality')?.addEventListener('input', (e) => this.updateQuality(e.target.value));
         
         // Output size checkboxes
@@ -186,10 +180,10 @@ class ImageEditor {
         // Initialize new cropper
         console.log('Creating new cropper instance');
         this.cropper = new Cropper(editorImage, {
-            aspectRatio: 1,
-            viewMode: 1,
-            dragMode: 'move',
-            autoCropArea: 0.8,
+            aspectRatio: 1, // Lock to square
+            viewMode: 2, // Ensure the entire image is visible
+            dragMode: 'crop',
+            autoCropArea: 0.7, // Smaller initial crop area
             restore: false,
             guides: true,
             center: true,
@@ -197,17 +191,27 @@ class ImageEditor {
             cropBoxMovable: true,
             cropBoxResizable: true,
             toggleDragModeOnDblclick: false,
-            background: true,
-            modal: true,
+            background: false, // Remove background overlay
+            modal: false, // Remove modal overlay
             zoomable: true,
             zoomOnWheel: true,
             wheelZoomRatio: 0.1,
+            minCropBoxWidth: 50,
+            minCropBoxHeight: 50,
+            maxCropBoxWidth: 400, // Limit maximum crop box size
+            maxCropBoxHeight: 400,
             ready: () => {
                 console.log('Cropper ready callback triggered');
                 this.updateCropDimensions();
+                // Ensure image fits within viewport
+                this.cropper.reset();
+                // Set constraints to prevent crop box from extending beyond container
+                this.setCropConstraints();
             },
             crop: () => {
                 this.updateCropDimensions();
+                // Apply constraints during cropping to prevent extending beyond boundaries
+                this.enforceCropConstraints();
             }
         });
     }
@@ -251,16 +255,83 @@ class ImageEditor {
     }
     
     /**
-     * Set aspect ratio
+     * Set crop constraints to prevent extending beyond container
      */
-    setAspectRatio(ratio) {
+    setCropConstraints() {
         if (!this.cropper) return;
         
-        if (ratio === 'free') {
-            this.cropper.setAspectRatio(NaN);
-        } else {
-            this.cropper.setAspectRatio(eval(ratio));
+        const containerData = this.cropper.getContainerData();
+        const canvasData = this.cropper.getCanvasData();
+        
+        // Calculate maximum crop box size based on container
+        const maxSize = Math.min(containerData.width * 0.8, containerData.height * 0.8, 400);
+        
+        // Update cropper with new constraints
+        this.cropper.setCropBoxData({
+            width: Math.min(this.cropper.getData().width, maxSize),
+            height: Math.min(this.cropper.getData().height, maxSize),
+            left: Math.max(0, Math.min(this.cropper.getData().left, containerData.width - maxSize)),
+            top: Math.max(0, Math.min(this.cropper.getData().top, containerData.height - maxSize))
+        });
+    }
+    
+    /**
+     * Enforce crop constraints during cropping operations
+     */
+    enforceCropConstraints() {
+        if (!this.cropper) return;
+        
+        const containerData = this.cropper.getContainerData();
+        const cropData = this.cropper.getData();
+        
+        // Calculate maximum allowed size and position
+        const maxSize = Math.min(containerData.width * 0.8, containerData.height * 0.8, 400);
+        const maxLeft = containerData.width - cropData.width;
+        const maxTop = containerData.height - cropData.height;
+        
+        // Check if crop box extends beyond boundaries
+        let needsAdjustment = false;
+        const newCropData = { ...cropData };
+        
+        if (cropData.width > maxSize) {
+            newCropData.width = maxSize;
+            needsAdjustment = true;
         }
+        
+        if (cropData.height > maxSize) {
+            newCropData.height = maxSize;
+            needsAdjustment = true;
+        }
+        
+        if (cropData.left < 0) {
+            newCropData.left = 0;
+            needsAdjustment = true;
+        } else if (cropData.left > maxLeft) {
+            newCropData.left = maxLeft;
+            needsAdjustment = true;
+        }
+        
+        if (cropData.top < 0) {
+            newCropData.top = 0;
+            needsAdjustment = true;
+        } else if (cropData.top > maxTop) {
+            newCropData.top = maxTop;
+            needsAdjustment = true;
+        }
+        
+        // Apply adjustments if needed
+        if (needsAdjustment) {
+            this.cropper.setData(newCropData);
+        }
+    }
+    
+    /**
+     * Set aspect ratio (locked to square)
+     */
+    setAspectRatio(ratio) {
+        // Aspect ratio is locked to 1:1 (square) for this application
+        if (!this.cropper) return;
+        this.cropper.setAspectRatio(1);
     }
     
     /**
@@ -281,26 +352,6 @@ class ImageEditor {
         this.outputSizes[size] = enabled;
     }
     
-    /**
-     * Zoom controls
-     */
-    zoomIn() {
-        if (this.cropper) {
-            this.cropper.zoom(0.1);
-        }
-    }
-    
-    zoomOut() {
-        if (this.cropper) {
-            this.cropper.zoom(-0.1);
-        }
-    }
-    
-    resetZoom() {
-        if (this.cropper) {
-            this.cropper.reset();
-        }
-    }
     
     /**
      * Rotation controls
@@ -317,20 +368,6 @@ class ImageEditor {
         }
     }
     
-    /**
-     * Flip controls
-     */
-    flipHorizontal() {
-        if (this.cropper) {
-            this.cropper.scaleX(-this.cropper.getData().scaleX || -1);
-        }
-    }
-    
-    flipVertical() {
-        if (this.cropper) {
-            this.cropper.scaleY(-this.cropper.getData().scaleY || -1);
-        }
-    }
     
     /**
      * Reset image to original state
@@ -632,14 +669,9 @@ class ImageEditor {
     reattachModalEventListeners() {
         console.log('Reattaching modal event listeners');
         
-        // Toolbar buttons
-        const zoomInBtn = document.getElementById('zoomInBtn');
-        const zoomOutBtn = document.getElementById('zoomOutBtn');
-        const resetZoomBtn = document.getElementById('resetZoomBtn');
+        // Toolbar buttons (only rotate)
         const rotateLeftBtn = document.getElementById('rotateLeftBtn');
         const rotateRightBtn = document.getElementById('rotateRightBtn');
-        const flipHorizontalBtn = document.getElementById('flipHorizontalBtn');
-        const flipVerticalBtn = document.getElementById('flipVerticalBtn');
         
         // Footer buttons
         const resetImageBtn = document.getElementById('resetImageBtn');
@@ -647,31 +679,12 @@ class ImageEditor {
         const applyChangesBtn = document.getElementById('applyChangesBtn');
         
         // Settings
-        const aspectRatio = document.getElementById('aspectRatio');
         const outputQuality = document.getElementById('outputQuality');
         const sizeLineage = document.getElementById('sizeLineage');
         const sizeDetail = document.getElementById('sizeDetail');
         const sizeOriginal = document.getElementById('sizeOriginal');
         
         // Remove existing listeners and reattach to prevent duplication
-        if (zoomInBtn) {
-            const newBtn = zoomInBtn.cloneNode(true);
-            zoomInBtn.parentNode.replaceChild(newBtn, zoomInBtn);
-            newBtn.addEventListener('click', () => this.zoomIn());
-        }
-        
-        if (zoomOutBtn) {
-            const newBtn = zoomOutBtn.cloneNode(true);
-            zoomOutBtn.parentNode.replaceChild(newBtn, zoomOutBtn);
-            newBtn.addEventListener('click', () => this.zoomOut());
-        }
-        
-        if (resetZoomBtn) {
-            const newBtn = resetZoomBtn.cloneNode(true);
-            resetZoomBtn.parentNode.replaceChild(newBtn, resetZoomBtn);
-            newBtn.addEventListener('click', () => this.resetZoom());
-        }
-        
         if (rotateLeftBtn) {
             const newBtn = rotateLeftBtn.cloneNode(true);
             rotateLeftBtn.parentNode.replaceChild(newBtn, rotateLeftBtn);
@@ -682,18 +695,6 @@ class ImageEditor {
             const newBtn = rotateRightBtn.cloneNode(true);
             rotateRightBtn.parentNode.replaceChild(newBtn, rotateRightBtn);
             newBtn.addEventListener('click', () => this.rotateRight());
-        }
-        
-        if (flipHorizontalBtn) {
-            const newBtn = flipHorizontalBtn.cloneNode(true);
-            flipHorizontalBtn.parentNode.replaceChild(newBtn, flipHorizontalBtn);
-            newBtn.addEventListener('click', () => this.flipHorizontal());
-        }
-        
-        if (flipVerticalBtn) {
-            const newBtn = flipVerticalBtn.cloneNode(true);
-            flipVerticalBtn.parentNode.replaceChild(newBtn, flipVerticalBtn);
-            newBtn.addEventListener('click', () => this.flipVertical());
         }
         
         if (resetImageBtn) {
@@ -712,12 +713,6 @@ class ImageEditor {
             const newBtn = applyChangesBtn.cloneNode(true);
             applyChangesBtn.parentNode.replaceChild(newBtn, applyChangesBtn);
             newBtn.addEventListener('click', () => this.applyChanges());
-        }
-        
-        if (aspectRatio) {
-            const newSelect = aspectRatio.cloneNode(true);
-            aspectRatio.parentNode.replaceChild(newSelect, aspectRatio);
-            newSelect.addEventListener('change', (e) => this.setAspectRatio(e.target.value));
         }
         
         if (outputQuality) {

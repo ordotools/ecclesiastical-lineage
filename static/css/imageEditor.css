@@ -1,19 +1,17 @@
 /* ===== IMAGE EDITOR STYLES ===== */
 /* Dedicated CSS for the professional image editor */
 
-/* Full-screen modal */
+/* Large modal (not fullscreen) */
 #imageEditorModal .modal-dialog {
-    max-width: 100vw;
-    max-height: 100vh;
-    margin: 0;
-    width: 100vw;
-    height: 100vh;
+    max-width: 1200px;
+    width: 90vw;
+    margin: 2rem auto;
 }
 
 #imageEditorModal .modal-content {
-    height: 100vh;
-    border-radius: 0;
-    border: none;
+    height: 80vh;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.125);
 }
 
 #imageEditorModal .modal-header {
@@ -73,6 +71,10 @@
     background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
     position: relative;
     overflow: hidden;
+    padding: 1rem;
+    box-sizing: border-box;
+    max-height: calc(80vh - 200px); /* Prevent extending beyond modal */
+    min-height: 300px; /* Ensure minimum usable space */
 }
 
 .editor-image {
@@ -123,7 +125,7 @@
 
 /* Right sidebar */
 .image-editor-sidebar {
-    width: 320px;
+    width: 280px;
     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     border-left: 1px solid rgba(0, 0, 0, 0.125);
     overflow-y: auto;
@@ -131,12 +133,12 @@
 }
 
 .sidebar-content {
-    padding: 1.5rem;
+    padding: 1rem;
 }
 
 .sidebar-section {
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
@@ -358,10 +360,14 @@
 /* Cropper.js customizations */
 .cropper-container {
     background: transparent !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
 }
 
 .cropper-wrap-box {
     background: transparent !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
 }
 
 .cropper-view-box {
@@ -379,27 +385,50 @@
 }
 
 .cropper-bg {
-    background-image: 
-        linear-gradient(45deg, #2a2a2a 25%, transparent 25%),
-        linear-gradient(-45deg, #2a2a2a 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #2a2a2a 75%),
-        linear-gradient(-45deg, transparent 75%, #2a2a2a 75%);
-    background-size: 20px 20px;
-    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    background: transparent !important;
+}
+
+/* Remove cropper modal overlay */
+.cropper-modal {
+    background: transparent !important;
+}
+
+/* Ensure cropper doesn't extend beyond container */
+.cropper-container,
+.cropper-wrap-box,
+.cropper-canvas,
+.cropper-crop-box {
+    max-width: 100% !important;
+    max-height: 100% !important;
 }
 
 /* Responsive design */
 @media (max-width: 1200px) {
+    #imageEditorModal .modal-dialog {
+        width: 95vw;
+        margin: 1rem auto;
+    }
+    
     .image-editor-sidebar {
-        width: 280px;
+        width: 260px;
     }
     
     .sidebar-content {
-        padding: 1rem;
+        padding: 0.75rem;
     }
 }
 
 @media (max-width: 768px) {
+    #imageEditorModal .modal-dialog {
+        width: 98vw;
+        margin: 0.5rem auto;
+        height: 95vh;
+    }
+    
+    #imageEditorModal .modal-content {
+        height: 95vh;
+    }
+    
     .image-editor-container {
         flex-direction: column;
     }

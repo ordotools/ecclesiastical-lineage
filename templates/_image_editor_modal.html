@@ -1,6 +1,6 @@
 <!-- Dedicated Image Editor Modal -->
 <div class="modal fade" id="imageEditorModal" tabindex="-1" aria-labelledby="imageEditorModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-fullscreen">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="imageEditorModalLabel">
@@ -20,32 +20,11 @@
                         <!-- Image Editor Toolbar -->
                         <div class="image-editor-toolbar">
                             <div class="toolbar-group">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="zoomInBtn" title="Zoom In">
-                                    <i class="fas fa-search-plus"></i>
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="zoomOutBtn" title="Zoom Out">
-                                    <i class="fas fa-search-minus"></i>
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="resetZoomBtn" title="Reset Zoom">
-                                    <i class="fas fa-expand-arrows-alt"></i>
-                                </button>
-                            </div>
-                            
-                            <div class="toolbar-group">
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="rotateLeftBtn" title="Rotate Left">
                                     <i class="fas fa-undo"></i>
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="rotateRightBtn" title="Rotate Right">
                                     <i class="fas fa-redo"></i>
-                                </button>
-                            </div>
-                            
-                            <div class="toolbar-group">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="flipHorizontalBtn" title="Flip Horizontal">
-                                    <i class="fas fa-arrows-alt-h"></i>
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="flipVerticalBtn" title="Flip Vertical">
-                                    <i class="fas fa-arrows-alt-v"></i>
                                 </button>
                             </div>
                         </div>
@@ -82,14 +61,10 @@
                                 </h6>
                                 <div class="crop-settings">
                                     <div class="setting-item">
-                                        <label for="aspectRatio" class="form-label">Aspect Ratio</label>
-                                        <select class="form-select form-select-sm" id="aspectRatio">
-                                            <option value="1">Square (1:1)</option>
-                                            <option value="4/3">Landscape (4:3)</option>
-                                            <option value="3/4">Portrait (3:4)</option>
-                                            <option value="16/9">Widescreen (16:9)</option>
-                                            <option value="free">Free Form</option>
-                                        </select>
+                                        <label class="form-label">Aspect Ratio</label>
+                                        <div class="form-control form-control-sm" style="background: #e9ecef; color: #6c757d;">
+                                            Square (1:1) - Locked
+                                        </div>
                                     </div>
                                     
                                     <div class="setting-item">

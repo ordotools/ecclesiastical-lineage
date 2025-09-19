@@ -216,6 +216,30 @@ def get_lineage_data():
             'message': 'Unable to load lineage data. Please try again later.'
         }), 500
 
+@main_bp.route('/admin/force-migrate-lineage')
+def force_migrate_lineage():
+    """Admin endpoint to force migrate lineage data"""
+    try:
+        # Import the force migration function
+        import sys
+        import os
+        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+        from force_migrate_lineage_data import force_migrate_lineage_data
+        
+        # Run the migration
+        force_migrate_lineage_data()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Lineage data migration completed successfully'
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error in force_migrate_lineage: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Migration failed: {str(e)}'
+        }), 500
+
 # User management routes
 @main_bp.route('/users')
 @require_permission('manage_users')

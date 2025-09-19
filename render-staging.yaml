@@ -7,7 +7,7 @@ services:
     startCommand: chmod +x deploy_staging.sh && ./deploy_staging.sh
     envVars:
       - key: PYTHON_VERSION
-        value: 3.12.18
+        value: 3.12.11
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL

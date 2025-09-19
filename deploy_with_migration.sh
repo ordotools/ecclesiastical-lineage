@@ -176,6 +176,14 @@ else
     print_warning "⚠️  Legacy lineage data migration failed or not needed"
 fi
 
+# Step 6.5: Force migrate lineage data if needed
+print_status "🔄 Force migrating lineage data..."
+if python3 force_migrate_lineage_data.py; then
+    print_success "✅ Force lineage data migration completed!"
+else
+    print_warning "⚠️  Force lineage data migration failed"
+fi
+
 # Step 7: Verify migration was successful
 print_status "🔍 Verifying migration..."
 python3 -c "

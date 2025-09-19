@@ -17,6 +17,7 @@ def index():
 # Lineage visualization
 @main_bp.route('/lineage_visualization')
 def lineage_visualization():
+    current_app.logger.info("=== LINEAGE_VISUALIZATION ROUTE CALLED ===")
     try:
         # Check if we have any ordination/consecration data
         ordination_count = Ordination.query.count()
@@ -180,6 +181,7 @@ def lineage_visualization():
             current_app.logger.error(f"Error serializing data to JSON: {e}")
             raise e
             
+        current_app.logger.info(f"=== RENDERING TEMPLATE WITH {len(nodes)} NODES AND {len(links)} LINKS ===")
         return render_template('lineage_visualization.html', 
                              nodes=nodes_json, 
                              links=links_json)

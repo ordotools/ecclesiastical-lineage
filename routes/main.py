@@ -191,7 +191,7 @@ def lineage_visualization():
         return render_template('lineage_visualization.html', 
                              nodes=json.dumps([]), 
                              links=json.dumps([]),
-                             error_message="Unable to load lineage data. Please try again later.")
+                             error_message=f"Unable to load lineage data. Error: {str(e)}")
 
 @main_bp.route('/clergy/lineage-data')
 def get_lineage_data():

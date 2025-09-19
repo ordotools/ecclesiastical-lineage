@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: ecclesiastical-lineage
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: chmod +x deploy_production.sh && ./deploy_production.sh
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.18
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecclesiastical-lineage-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: FLASK_ENV
+        value: production
+
+databases:
+  - name: ecclesiastical-lineage-db
+    plan: free
+    databaseName: ecclesiastical_lineage
+    user: ecclesiastical_lineage_user

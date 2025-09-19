@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
 from services import clergy as clergy_service
 from utils import audit_log, require_permission, log_audit_event
-from models import Clergy, ClergyComment, User, db, Organization, Rank
+from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration
 import json
 import base64
 
@@ -186,7 +186,6 @@ def get_lineage_data():
             current_app.logger.info("No lineage data found, creating synthetic data...")
             
             from datetime import datetime
-            from sqlalchemy import text
             
             # Get all clergy
             all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
@@ -607,14 +606,12 @@ def clergy_relationships(clergy_id):
             consecrator = primary_consecration.consecrator
         
         # Get ordained clergy (clergy ordained by this person) from new ordination table
-        from models import Ordination
         ordained_clergy = db.session.query(Clergy).join(Ordination, Clergy.id == Ordination.clergy_id).filter(
             Ordination.ordaining_bishop_id == clergy_id,
             Clergy.is_deleted == False
         ).all()
         
         # Get consecrated clergy (clergy consecrated by this person) from new consecration table
-        from models import Consecration
         consecrated_clergy = db.session.query(Clergy).join(Consecration, Clergy.id == Consecration.clergy_id).filter(
             Consecration.consecrator_id == clergy_id,
             Clergy.is_deleted == False

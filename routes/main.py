@@ -175,6 +175,7 @@ def lineage_visualization():
         try:
             nodes_json = json.dumps(nodes)
             links_json = json.dumps(links)
+            current_app.logger.info(f"JSON serialization successful: {len(nodes)} nodes, {len(links)} links")
         except (TypeError, ValueError) as e:
             current_app.logger.error(f"Error serializing data to JSON: {e}")
             raise e
@@ -715,8 +716,13 @@ def clergy_info_panel():
 def debug_lineage():
     """Debug endpoint to check lineage data"""
     try:
-        # Get all clergy for the visualization
-        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+        # Get all clergy for the visualization with relationships loaded
+        from sqlalchemy.orm import joinedload
+        all_clergy = Clergy.query.options(
+            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+        ).filter(Clergy.is_deleted != True).all()
         
         # Get all organizations and ranks for color lookup
         organizations = {org.name: org.color for org in Organization.query.all()}

@@ -102,11 +102,14 @@ def lineage_visualization():
                         'dashed': True
                     })
         
+        current_app.logger.info(f"Lineage visualization: {len(nodes)} nodes, {len(links)} links created")
         return render_template('lineage_visualization.html', 
                              nodes=json.dumps(nodes), 
                              links=json.dumps(links))
     except Exception as e:
         current_app.logger.error(f"Error in lineage_visualization: {e}")
+        import traceback
+        current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         # Return a simple error page or redirect
         return render_template('lineage_visualization.html', 
                              nodes=json.dumps([]), 

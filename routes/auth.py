@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from services import auth as auth_service
-from utils import audit_log, generate_breadcrumbs, validate_password
+from utils import audit_log, validate_password
 from models import AdminInvite, User, db
 from datetime import datetime
 
@@ -29,8 +29,7 @@ def dashboard():
         flash('User not found. Please log in again.', 'error')
         return redirect(url_for('auth.login'))
     
-    breadcrumbs = generate_breadcrumbs('dashboard')
-    return render_template('dashboard.html', user=user, breadcrumbs=breadcrumbs)
+    return render_template('dashboard.html', user=user)
 
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 @audit_log(

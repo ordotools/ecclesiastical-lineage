@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, flash, session
 from models import db, User, Role
-from utils import validate_password, generate_breadcrumbs
+from utils import validate_password
 from datetime import datetime
 
 def signup_handler():
@@ -65,14 +65,12 @@ def signup_handler():
             return user, '<div id="redirect" data-url="' + url_for('auth.login') + '">redirect</div><script>setTimeout(function(){window.location.href="' + url_for('auth.login') + '";},1000);</script>'
         return user, redirect(url_for('auth.login'))
 
-    breadcrumbs = generate_breadcrumbs('signup')
-    return None, render_template('signup.html', breadcrumbs=breadcrumbs)
+    return None, render_template('signup.html')
 
 def login_handler():
     from models import User, db
     from datetime import datetime
     from flask import request, session, flash, render_template, redirect, url_for
-    from utils import generate_breadcrumbs
 
     if request.method == 'POST':
         username = request.form['username']
@@ -93,9 +91,8 @@ def login_handler():
             flash('Invalid username or password.', 'error')
             if request.headers.get('HX-Request'):
                 return None, render_template('flash_messages.html')
-            return None, render_template('login.html', breadcrumbs=generate_breadcrumbs('login'))
-    breadcrumbs = generate_breadcrumbs('login')
-    return None, render_template('login.html', breadcrumbs=breadcrumbs)
+            return None, render_template('login.html')
+    return None, render_template('login.html')
 
 def logout_handler():
     from models import User

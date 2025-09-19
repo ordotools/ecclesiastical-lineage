@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
 from services import clergy as clergy_service
-from utils import audit_log, require_permission, generate_breadcrumbs, log_audit_event
+from utils import audit_log, require_permission, log_audit_event
 from models import Clergy, ClergyComment, User, db, Organization, Rank
 import json
 import base64

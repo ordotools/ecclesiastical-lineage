@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response
 from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordination, Consecration
-from utils import generate_breadcrumbs, log_audit_event
+from utils import log_audit_event
 from datetime import datetime
 import json
 
@@ -313,12 +313,10 @@ def clergy_list_handler():
     user = None
     if 'user_id' in session:
         user = User.query.get(session['user_id'])
-    breadcrumbs = generate_breadcrumbs('clergy_list')
     return render_template('clergy_list.html', 
                          clergy_list=clergy_list, 
                          org_abbreviation_map=org_abbreviation_map,
                          org_color_map=org_color_map,
-                         breadcrumbs=breadcrumbs,
                          organizations=organizations,
                          ranks=ranks,
                          all_clergy=all_clergy,
@@ -418,14 +416,12 @@ def add_clergy_handler():
     
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
-    breadcrumbs = generate_breadcrumbs('add_clergy')
     return None, render_template('add_clergy.html', 
                          all_clergy=all_clergy, 
                          all_clergy_data=all_clergy_data,
                          all_bishops_suggested=all_bishops_suggested,
                          ranks=ranks,
-                         organizations=organizations,
-                         breadcrumbs=breadcrumbs) 
+                         organizations=organizations) 
 
 def view_clergy_handler(clergy_id):
     if 'user_id' not in session:
@@ -448,15 +444,13 @@ def view_clergy_handler(clergy_id):
         for co_consecrator in consecration.co_consecrators:
             co_consecrators_map[co_consecrator.id] = co_consecrator
     
-    breadcrumbs = generate_breadcrumbs('view_clergy', clergy=clergy)
     return render_template('clergy_detail_with_comments.html', 
                          clergy=clergy, 
                          user=user,
                          comments=comments,
                          org_abbreviation_map=org_abbreviation_map,
                          org_color_map=org_color_map,
-                         co_consecrators_map=co_consecrators_map,
-                         breadcrumbs=breadcrumbs)
+                         co_consecrators_map=co_consecrators_map)
 
 def edit_clergy_handler(clergy_id):
     if 'user_id' not in session:
@@ -733,10 +727,6 @@ def edit_clergy_handler(clergy_id):
     
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
-    breadcrumbs = generate_breadcrumbs('edit_clergy', clergy=clergy)
-
-
-
     return render_template('edit_clergy_with_comments.html',
                          clergy=clergy,
                          user=user,
@@ -748,8 +738,7 @@ def edit_clergy_handler(clergy_id):
                          organizations=organizations,
                          org_abbreviation_map=org_abbreviation_map,
                          org_color_map=org_color_map,
-                         edit_mode=True,
-                         breadcrumbs=breadcrumbs)
+                         edit_mode=True)
 
 def clergy_filter_partial_handler():
     if 'user_id' not in session:

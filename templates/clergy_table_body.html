@@ -29,18 +29,43 @@
                 {% endif %}
                 
                 <!-- Missing Data Tags -->
-                {% if not clergy.date_of_ordination %}
+                {% if not clergy.ordinations %}
                     <span class="badge bg-warning ms-1" title="Missing ordination date">No Ord Date</span>
                 {% endif %}
-                {% if not clergy.ordaining_bishop %}
+                {% if clergy.ordinations and not clergy.ordinations[0].ordaining_bishop %}
                     <span class="badge bg-warning ms-1" title="Missing ordaining bishop">No Ordainer</span>
                 {% endif %}
-                {% if clergy.rank and clergy.rank.lower() in ['bishop', 'pope', 'archbishop', 'cardinal', 'patriarch'] and not clergy.date_of_consecration %}
+                {% if clergy.rank and clergy.rank.lower() in ['bishop', 'pope', 'archbishop', 'cardinal', 'patriarch'] and not clergy.consecrations %}
                     <span class="badge bg-warning ms-1" title="Missing consecration date">No Cons Date</span>
                 {% endif %}
-                {% if clergy.rank and clergy.rank.lower() in ['bishop', 'pope', 'archbishop', 'cardinal', 'patriarch'] and not clergy.consecrator %}
+                {% if clergy.rank and clergy.rank.lower() in ['bishop', 'pope', 'archbishop', 'cardinal', 'patriarch'] and clergy.consecrations and not clergy.consecrations[0].consecrator %}
                     <span class="badge bg-warning ms-1" title="Missing consecrator">No Consecrator</span>
                 {% endif %}
+                
+                <!-- Special Status Flags -->
+                {% for ordination in clergy.ordinations %}
+                    {% if ordination.is_sub_conditione %}
+                        <span class="badge bg-info ms-1" title="Ordination sub conditione">Sub Cond</span>
+                    {% endif %}
+                    {% if ordination.is_doubtful %}
+                        <span class="badge bg-warning ms-1" title="Doubtful ordination">Doubtful</span>
+                    {% endif %}
+                    {% if ordination.is_invalid %}
+                        <span class="badge bg-danger ms-1" title="Invalid ordination">Invalid</span>
+                    {% endif %}
+                {% endfor %}
+                
+                {% for consecration in clergy.consecrations %}
+                    {% if consecration.is_sub_conditione %}
+                        <span class="badge bg-info ms-1" title="Consecration sub conditione">Sub Cond</span>
+                    {% endif %}
+                    {% if consecration.is_doubtful %}
+                        <span class="badge bg-warning ms-1" title="Doubtful consecration">Doubtful</span>
+                    {% endif %}
+                    {% if consecration.is_invalid %}
+                        <span class="badge bg-danger ms-1" title="Invalid consecration">Invalid</span>
+                    {% endif %}
+                {% endfor %}
                 
                 <!-- Organization Badge -->
                 {% if clergy.organization and org_abbreviation_map.get(clergy.organization) %}

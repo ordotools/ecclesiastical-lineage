@@ -90,68 +90,6 @@ def from_json(value):
     except (ValueError, TypeError):
         return value
 
-def generate_breadcrumbs(current_page, **kwargs):
-    breadcrumbs = [
-        {'text': 'Dashboard', 'url': url_for('auth.dashboard')}
-    ]
-    if current_page == 'dashboard':
-        breadcrumbs = [{'text': 'Dashboard', 'url': ''}]
-    elif current_page == 'clergy_list':
-        breadcrumbs.append({'text': 'Clergy Records', 'url': ''})
-    elif current_page == 'add_clergy':
-        breadcrumbs.extend([
-            {'text': 'Clergy Records', 'url': url_for('clergy.clergy_list')},
-            {'text': 'Add Clergy', 'url': ''}
-        ])
-    elif current_page == 'view_clergy':
-        clergy = kwargs.get('clergy')
-        breadcrumbs.extend([
-            {'text': 'Clergy Records', 'url': url_for('clergy.clergy_list')},
-            {'text': clergy.name if clergy else 'View Clergy', 'url': ''}
-        ])
-    elif current_page == 'edit_clergy':
-        clergy = kwargs.get('clergy')
-        edit_url = url_for('clergy.view_clergy', clergy_id=clergy.id) if clergy else ''
-        breadcrumbs.extend([
-            {'text': 'Clergy Records', 'url': url_for('clergy.clergy_list')},
-            {'text': clergy.name if clergy else 'Edit Clergy', 'url': edit_url},
-            {'text': 'Edit', 'url': ''}
-        ])
-    elif current_page == 'clergy_comments':
-        clergy = kwargs.get('clergy')
-        clergy_url = url_for('clergy.view_clergy', clergy_id=clergy.id) if clergy else ''
-        breadcrumbs.extend([
-            {'text': 'Clergy Records', 'url': url_for('clergy.clergy_list')},
-            {'text': clergy.name if clergy else 'Clergy', 'url': clergy_url},
-            {'text': 'Comments', 'url': ''}
-        ])
-    elif current_page == 'resolved_comments':
-        clergy = kwargs.get('clergy')
-        clergy_url = url_for('clergy.view_clergy', clergy_id=clergy.id) if clergy else ''
-        breadcrumbs.extend([
-            {'text': 'Clergy Records', 'url': url_for('clergy.clergy_list')},
-            {'text': clergy.name if clergy else 'Clergy', 'url': clergy_url},
-            {'text': 'Resolved Comments', 'url': ''}
-        ])
-    elif current_page == 'metadata':
-        breadcrumbs.append({'text': 'Metadata Management', 'url': ''})
-    elif current_page == 'user_management':
-        breadcrumbs.append({'text': 'User Management', 'url': ''})
-    elif current_page == 'comments_management':
-        breadcrumbs.append({'text': 'Comments Management', 'url': ''})
-    elif current_page == 'audit_logs':
-        breadcrumbs.append({'text': 'Audit Logs', 'url': ''})
-    elif current_page == 'lineage_visualization':
-        return None
-    elif current_page == 'settings':
-        breadcrumbs.append({'text': 'Settings', 'url': ''})
-    elif current_page == 'login':
-        breadcrumbs = [{'text': 'Login', 'url': ''}]
-    elif current_page == 'signup':
-        breadcrumbs = [{'text': 'Sign Up', 'url': ''}]
-    elif current_page == 'admin_invite':
-        breadcrumbs = [{'text': 'Admin Invitation', 'url': ''}]
-    return breadcrumbs
 
 def log_audit_event(action, entity_type, entity_id=None, entity_name=None, details=None, user_id=None):
     try:

@@ -1,6 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from models import db, Rank, Organization, User
-from utils import generate_breadcrumbs
 from services.metadata import (
     edit_rank_service, delete_rank_service, add_organization_service,
     edit_organization_service, delete_organization_service

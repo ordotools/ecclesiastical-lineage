@@ -1,4 +1,4 @@
-/* Main CSS for Ecclesiastical Lineage Website */
+/* Main CSS for Episcopal Lineage Website */
 /* Based on UI/UX Standards - Dark Grey, Cream, Paper-like Design */
 
 /* ===== FLUID TYPOGRAPHY SYSTEM (Utopia.fyi) ===== */
@@ -1372,106 +1372,6 @@ h6 {
     }
 } 
 
-/* ===== BREADCRUMB NAVIGATION ===== */
-.breadcrumb-header {
-    background: linear-gradient(135deg, 
-        rgba(252, 250, 245, 0.85) 0%, 
-        rgba(248, 246, 240, 0.80) 100%) !important;
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 
-        0 8px 32px rgba(44, 62, 80, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    position: relative;
-}
-
-.breadcrumb-header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: 
-        linear-gradient(135deg, 
-            rgba(255, 255, 255, 0.1) 0%, 
-            rgba(255, 255, 255, 0.05) 100%);
-    pointer-events: none;
-}
-
-.breadcrumb-container {
-    background: linear-gradient(135deg, 
-        rgba(252, 250, 245, 0.95) 0%, 
-        rgba(248, 246, 240, 0.9) 100%);
-    border-bottom: 1px solid rgba(189, 195, 199, 0.3);
-    padding: var(--space-xs) 0;
-    margin-bottom: var(--space-m);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-}
-
-.breadcrumb {
-    background: transparent;
-    padding: 0;
-    margin: 0;
-    font-size: var(--fluid-0);
-    font-family: 'SF Pro Text', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-    position: relative;
-    z-index: 1;
-}
-
-.breadcrumb-item {
-    display: inline-flex;
-    align-items: center;
-    color: #5d6d7e;
-    font-size: calc(var(--fluid-0) * 0.9);
-    line-height: 36px;
-}
-
-.breadcrumb-item + .breadcrumb-item::before {
-    content: "›";
-    color: #bdc3c7;
-    margin: 0 var(--space-xs);
-    font-weight: 600;
-    line-height: 36px;
-}
-
-.breadcrumb-item a {
-    color: #3498db;
-    text-decoration: none;
-    transition: color 0.2s ease;
-    line-height: 36px;
-    padding: 0 var(--space-2xs);
-    border-radius: 2px;
-}
-
-.breadcrumb-item a:hover {
-    color: #2980b9;
-    text-decoration: none;
-    background: rgba(52, 152, 219, 0.1);
-}
-
-.breadcrumb-item.active {
-    color: #2c3e50;
-    font-weight: 500;
-}
-
-/* Responsive breadcrumb */
-@media (max-width: 768px) {
-    .breadcrumb-container {
-        padding: var(--space-2xs) 0;
-        margin-bottom: var(--space-s);
-    }
-    
-    .breadcrumb {
-        font-size: calc(var(--fluid-0) * 0.875);
-    }
-    
-    .breadcrumb-item + .breadcrumb-item::before {
-        margin: 0 var(--space-2xs);
-    }
-} 
 
 /* ===== CLERGY PICTURE STYLES ===== */
 .clergy-picture-container {
@@ -1556,4 +1456,98 @@ h6 {
 .autocomplete-item:hover, .autocomplete-item.active {
   background: #ffe082;
   color: #2c3e50;
+}
+
+/* ===== MINIMAL HEADER STYLES ===== */
+.minimal-header {
+  background: transparent !important;
+  border-bottom: none;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Re-enable pointer events for buttons */
+.minimal-header .btn {
+  pointer-events: auto;
+}
+
+/* Disable text selection globally */
+* {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Re-enable text selection for input fields and content areas */
+input, textarea, [contenteditable], .content-area, .clergy-row, .table, .card-body {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+}
+
+.minimal-title-btn {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  color: #2c3e50 !important;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border-radius: 20px;
+  padding: 8px 16px;
+}
+
+.minimal-title-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #2c3e50 !important;
+  text-decoration: none;
+}
+
+.minimal-action-btn {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  color: #2c3e50 !important;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border-radius: 20px;
+  padding: 8px 12px;
+}
+
+.minimal-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #2c3e50 !important;
+  text-decoration: none;
+}
+
+/* Mobile responsiveness for minimal header */
+@media (max-width: 768px) {
+  .minimal-header {
+    padding: 12px !important;
+  }
+  
+  .minimal-title-btn {
+    font-size: 0.9rem !important;
+    padding: 6px 12px !important;
+  }
+  
+  .minimal-action-btn {
+    padding: 6px 10px !important;
+  }
+  
+  .minimal-title-btn i {
+    display: none;
+  }
 } 

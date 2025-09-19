@@ -9,7 +9,6 @@ from utils import (
     getContrastColor,
     getBorderStyle,
     from_json,
-    generate_breadcrumbs,
     log_audit_event,
     validate_password,
     audit_log
@@ -55,8 +54,7 @@ def dashboard():
         flash('User not found. Please log in again.', 'error')
         return redirect(url_for('routes.login'))
     
-    breadcrumbs = generate_breadcrumbs('dashboard')
-    return render_template('dashboard.html', user=user, breadcrumbs=breadcrumbs) 
+    return render_template('dashboard.html', user=user) 
 
 @routes.route('/lineage_visualization')
 def lineage_visualization():

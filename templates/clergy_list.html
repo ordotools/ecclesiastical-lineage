@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Clergy Records - Ecclesiastical Lineage{% endblock %}
+{% block title %}Clergy Records - Episcopal Lineage{% endblock %}
 
 {% block full_content %}
     <div class="container mt-4">
@@ -83,7 +83,7 @@
                 <table class="table mb-0 sticky-table sticky-table-body">
                     <tbody id="clergyTableBody">
                         {% for clergy in clergy_list %}
-                        <tr class="clergy-row" data-clergy-id="{{ clergy.id }}" data-can-edit="{{ 'true' if user and user.can_edit_clergy() else 'false' }}" {% if user and user.can_edit_clergy() %}style="cursor: pointer;"{% endif %}>
+                        <tr class="clergy-row{% if clergy.is_deleted %} deleted-record{% endif %}" data-clergy-id="{{ clergy.id }}" data-can-edit="{{ 'true' if user and user.can_edit_clergy() else 'false' }}" {% if user and user.can_edit_clergy() %}style="cursor: pointer;"{% endif %}>
                             <td class="name-col">
                                 <div class="d-flex align-items-center">
                                     <!-- Clergy Picture -->
@@ -106,22 +106,72 @@
                                         <strong>{{ clergy.display_name }}</strong>
                                         
                                         <!-- Missing Data Tags -->
-                                        {% if not clergy.date_of_ordination %}
+                                        {% if not clergy.ordinations %}
                                             <span class="badge bg-warning ms-1" title="Missing ordination date">No Ord Date</span>
                                         {% endif %}
-                                        {% if not clergy.ordaining_bishop %}
+                                        {% if clergy.ordinations and not clergy.ordinations[0].ordaining_bishop %}
                                             <span class="badge bg-warning ms-1" title="Missing ordaining bishop">No Ordainer</span>
                                         {% endif %}
-                                        {% if clergy.rank and clergy.rank.lower() in ['bishop', 'pope', 'archbishop', 'cardinal', 'patriarch'] and not clergy.date_of_consecration %}
+                                        {% if clergy.rank and clergy.rank.lower() in ['bishop', 'pope', 'archbishop', 'cardinal', 'patriarch'] and not clergy.consecrations %}
                                             <span class="badge bg-warning ms-1" title="Missing consecration date">No Cons Date</span>
                                         {% endif %}
-                                        {% if clergy.rank and clergy.rank.lower() in ['bishop', 'pope', 'archbishop', 'cardinal', 'patriarch'] and not clergy.consecrator %}
+                                        {% if clergy.rank and clergy.rank.lower() in ['bishop', 'pope', 'archbishop', 'cardinal', 'patriarch'] and clergy.consecrations and not clergy.consecrations[0].consecrator %}
                                             <span class="badge bg-warning ms-1" title="Missing consecrator">No Consecrator</span>
+                                        {% endif %}
+                                        
+                                        <!-- Special Status Flags -->
+                                        {% for ordination in clergy.ordinations %}
+                                            {% if ordination.is_sub_conditione %}
+                                                <span class="badge bg-info ms-1" title="Ordination sub conditione">Sub Cond</span>
+                                            {% endif %}
+                                            {% if ordination.is_doubtful %}
+                                                <span class="badge bg-warning ms-1" title="Doubtful ordination">Doubtful</span>
+                                            {% endif %}
+                                            {% if ordination.is_invalid %}
+                                                <span class="badge bg-danger ms-1" title="Invalid ordination">Invalid</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% for consecration in clergy.consecrations %}
+                                            {% if consecration.is_sub_conditione %}
+                                                <span class="badge bg-info ms-1" title="Consecration sub conditione">Sub Cond</span>
+                                            {% endif %}
+                                            {% if consecration.is_doubtful %}
+                                                <span class="badge bg-warning ms-1" title="Doubtful consecration">Doubtful</span>
+                                            {% endif %}
+                                            {% if consecration.is_invalid %}
+                                                <span class="badge bg-danger ms-1" title="Invalid consecration">Invalid</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        <!-- Deleted Record Indicator -->
+                                        {% if clergy.is_deleted %}
+                                            <span class="badge bg-danger ms-1" title="This record has been marked as deleted">
+                                                <i class="fas fa-trash"></i> Deleted
+                                            </span>
                                         {% endif %}
                                         
                                         <!-- Organization Badge -->
                                         {% if clergy.organization and org_abbreviation_map.get(clergy.organization) %}
-                                            <span class="badge ms-2" style="background-color: {{ org_color_map.get(clergy.organization, '#27ae60') }}; color: {{ 'white' if getContrastColor(org_color_map.get(clergy.organization, '#27ae60')) == 'white' else 'black' }}; font-size: 0.85em; vertical-align: middle{{ getBorderStyle(org_color_map.get(clergy.organization, '#27ae60')) }}">{{ org_abbreviation_map.get(clergy.organization) }}</span>
+                                            {% set org_color = org_color_map.get(clergy.organization, '#27ae60') %}
+                                            {% set text_color = 'white' if getContrastColor(org_color) == 'white' else 'black' %}
+                                            {% set border_style = getBorderStyle(org_color) %}
+                                            <span class="badge ms-2" style="background-color: {{ org_color }}; color: {{ text_color }}; {{ border_style }}; font-size: 0.85em; vertical-align: middle;">{{ org_abbreviation_map.get(clergy.organization) }}</span>
+                                        {% endif %}
+                                        
+                                        <!-- Comments Badge -->
+                                        {% if user and user.can_comment() %}
+                                            {% set unresolved_count = 0 %}
+                                            {% for comment in clergy.comments %}
+                                                {% if not comment.is_resolved %}
+                                                    {% set unresolved_count = unresolved_count + 1 %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            {% if unresolved_count > 0 %}
+                                                <span class="badge bg-info ms-1" title="Has unresolved comments">
+                                                    <i class="fas fa-comment"></i> {{ unresolved_count }}
+                                                </span>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 </div>

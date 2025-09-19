@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from services import clergy as clergy_service
 from services.clergy import soft_delete_clergy_handler
-from utils import audit_log, require_permission, generate_breadcrumbs, log_audit_event
+from utils import audit_log, require_permission, log_audit_event
 from models import Clergy, ClergyComment, db
 
 clergy_bp = Blueprint('clergy', __name__)
@@ -85,8 +85,7 @@ def search_bishops():
 @clergy_bp.route('/clergy/<int:clergy_id>/comments')
 def clergy_comments(clergy_id):
     clergy = Clergy.query.get_or_404(clergy_id)
-    breadcrumbs = generate_breadcrumbs('clergy_comments', clergy.name)
-    return render_template('clergy_comments.html', clergy=clergy, breadcrumbs=breadcrumbs)
+    return render_template('clergy_comments.html', clergy=clergy)
 
 @clergy_bp.route('/clergy/<int:clergy_id>/add-comment', methods=['POST'])
 def add_clergy_comment(clergy_id):
@@ -138,11 +137,9 @@ def view_resolved_comments(clergy_id):
         status='resolved'
     ).order_by(ClergyComment.timestamp.desc()).all()
     
-    breadcrumbs = generate_breadcrumbs('resolved_comments', clergy.name)
     return render_template('resolved_comments.html', 
                          clergy=clergy, 
-                         comments=resolved_comments,
-                         breadcrumbs=breadcrumbs) 
+                         comments=resolved_comments) 
 
 @clergy_bp.route('/clergy/<int:clergy_id>/delete', methods=['POST'])
 @require_permission('delete_clergy')

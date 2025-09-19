@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from models import db, User, Role, AdminInvite, AuditLog, ClergyComment, Clergy, Rank, Organization
-from utils import generate_breadcrumbs, log_audit_event, validate_password
+from utils import log_audit_event, validate_password
 from datetime import datetime, timedelta
 from uuid import uuid4
 
@@ -29,8 +29,7 @@ def settings():
         else:
             break
     
-    breadcrumbs = generate_breadcrumbs('settings')
-    return render_template('settings.html', user=user, roles=available_roles, breadcrumbs=breadcrumbs)
+    return render_template('settings.html', user=user, roles=available_roles)
 
 @settings_bp.route('/settings/invite', methods=['POST'])
 def generate_admin_invite():
@@ -123,8 +122,7 @@ def generate_admin_invite():
             if r.name != 'Super Admin':
                 available_roles.append(r)
     
-    breadcrumbs = generate_breadcrumbs('settings')
-    return render_template('settings.html', user=user, roles=available_roles, invite_link=invite_link, breadcrumbs=breadcrumbs)
+    return render_template('settings.html', user=user, roles=available_roles, invite_link=invite_link)
 
 @settings_bp.route('/settings/change-password', methods=['POST'])
 def change_password():
@@ -185,8 +183,7 @@ def metadata():
     clergy_organizations = db.session.query(Clergy.organization).distinct().filter(Clergy.organization.isnot(None)).all()
     clergy_rank_list = [rank[0] for rank in clergy_ranks]
     clergy_organization_list = [org[0] for org in clergy_organizations]
-    breadcrumbs = generate_breadcrumbs('metadata')
-    return render_template('metadata.html', user=user, ranks=ranks, organizations=organizations, clergy_ranks=clergy_rank_list, clergy_organizations=clergy_organization_list, breadcrumbs=breadcrumbs) 
+    return render_template('metadata.html', user=user, ranks=ranks, organizations=organizations, clergy_ranks=clergy_rank_list, clergy_organizations=clergy_organization_list) 
 
 @settings_bp.route('/metadata/rank/add', methods=['POST'])
 def add_rank():
@@ -227,8 +224,7 @@ def user_management():
         flash('Admin access required.', 'error')
         return redirect(url_for('auth.login'))
     user = User.query.get(session['user_id'])
-    breadcrumbs = generate_breadcrumbs('user_management')
-    return render_template('user_management.html', user=user, breadcrumbs=breadcrumbs)
+    return render_template('user_management.html', user=user)
 
 @settings_bp.route('/comments_management')
 def comments_management():
@@ -237,8 +233,7 @@ def comments_management():
         return redirect(url_for('auth.login'))
     user = User.query.get(session['user_id'])
     comments = ClergyComment.query.order_by(ClergyComment.created_at.desc()).all()
-    breadcrumbs = generate_breadcrumbs('comments_management')
-    return render_template('comments_management.html', user=user, comments=comments, breadcrumbs=breadcrumbs)
+    return render_template('comments_management.html', user=user, comments=comments)
 
 @settings_bp.route('/audit_logs')
 def audit_logs():
@@ -272,11 +267,9 @@ def audit_logs():
         page=page, per_page=50, error_out=False
     )
     
-    breadcrumbs = generate_breadcrumbs('audit_logs')
     return render_template('audit_logs.html', 
                          audit_logs=audit_logs,
                          user=user,
-                         breadcrumbs=breadcrumbs,
                          action_filter=action_filter,
                          entity_type_filter=entity_type_filter,
                          user_filter=user_filter,

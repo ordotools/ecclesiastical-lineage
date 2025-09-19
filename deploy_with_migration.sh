@@ -168,7 +168,15 @@ else
     exit 1
 fi
 
-# Step 6: Verify migration was successful
+# Step 6: Migrate legacy lineage data
+print_status "🔄 Migrating legacy lineage data..."
+if python3 migrate_legacy_lineage_data.py; then
+    print_success "✅ Legacy lineage data migration completed!"
+else
+    print_warning "⚠️  Legacy lineage data migration failed or not needed"
+fi
+
+# Step 7: Verify migration was successful
 print_status "🔍 Verifying migration..."
 python3 -c "
 import os
@@ -229,7 +237,7 @@ else
     exit 1
 fi
 
-# Step 7: Start the application
+# Step 8: Start the application
 print_status "🌐 Starting application..."
 print_success "✅ Deployment completed successfully!"
 echo ""

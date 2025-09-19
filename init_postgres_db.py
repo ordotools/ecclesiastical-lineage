@@ -61,7 +61,8 @@ def migrate_admin_invite_columns():
         return False
 
 def init_postgres_database():
-    from app import app, db, User, Clergy, Rank, Organization
+    from app import app, db
+    from models import User, Clergy, Rank, Organization
     
     
     with app.app_context():

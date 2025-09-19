@@ -9,7 +9,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 def manual_init_database():
     try:
-        from app import app, db, User, Clergy, Rank, Organization
+        from app import app, db
+        from models import User, Clergy, Rank, Organization
         
         
         print("🔍 Manual Database Initialization")

@@ -89,7 +89,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Add current directory to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 
 from app import app, db
 from models import Role, Permission, User
@@ -211,7 +211,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Add current directory to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.getcwd())
 
 from app import app, db
 from sqlalchemy import inspect

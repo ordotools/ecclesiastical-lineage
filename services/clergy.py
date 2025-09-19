@@ -1,0 +1,877 @@
+from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response
+from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordination, Consecration
+from utils import log_audit_event
+from datetime import datetime
+import json
+
+def set_clergy_display_name(clergy):
+    """Set the display name for a clergy member based on their rank and papal name."""
+    if clergy.rank.lower() == 'pope':
+        # For popes, use papal name if available, otherwise use regular name
+        display_name = clergy.papal_name if clergy.papal_name else clergy.name
+        clergy.display_name = f"His Holiness {display_name}"
+    elif clergy.rank.lower() == 'cardinal':
+        # For cardinals, use "first name Cardinal last name" format
+        name_parts = clergy.name.split()
+        if len(name_parts) >= 2:
+            first_name = name_parts[0]
+            last_name = ' '.join(name_parts[1:])
+            clergy.display_name = f"{first_name} Cardinal {last_name}"
+        else:
+            clergy.display_name = f"His Eminence {clergy.name}"
+    elif clergy.rank.lower() in ['bishop', 'archbishop']:
+        clergy.display_name = f"Most. Rev. {clergy.name}"
+    elif clergy.rank.lower() == 'priest':
+        clergy.display_name = f"Rev. {clergy.name}"
+    else:
+        clergy.display_name = clergy.name
+
+def create_clergy_from_form(form):
+    clergy = Clergy()
+    clergy.name = form.get('name')
+    clergy.rank = form.get('rank')
+    clergy.papal_name = form.get('papal_name')
+    clergy.organization = form.get('organization')
+    date_of_birth = form.get('date_of_birth')
+    date_of_death = form.get('date_of_death')
+    clergy.notes = form.get('notes')
+    if date_of_birth:
+        clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+    if date_of_death:
+        clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
+    
+    # Handle image upload for new clergy
+    # New comprehensive image system: 64x64 for lineage, 320x320 for detail views
+    image_data_json = form.get('image_data_json')
+    if image_data_json:
+        try:
+            import json
+            image_data = json.loads(image_data_json)
+            
+            # Store the lineage image (48x48) as the main image_url for lineage visualization
+            clergy.image_url = image_data.get('lineage', '')
+            
+            # Store the comprehensive image data as a JSON field for future use
+            clergy.image_data = image_data_json
+            
+            # Log the image data received
+            lineage_image = image_data.get('lineage', '')
+            detail_image = image_data.get('detail', '')
+            cropped_image = image_data.get('cropped', '')
+            original_image = image_data.get('original', '')
+            
+            print(f"Comprehensive image data received for new clergy:")
+            print(f"  - Lineage (48x48): {len(lineage_image or '')} chars")
+            print(f"  - Detail (320x320): {len(detail_image or '')} chars")
+            print(f"  - Cropped: {len(cropped_image or '')} chars")
+            print(f"  - Original: {len(original_image or '')} chars")
+            
+            # Store metadata if available
+            if 'metadata' in image_data:
+                metadata = image_data['metadata']
+                print(f"  - Original file size: {metadata.get('originalSize', 0)} bytes")
+                print(f"  - Quality setting: {metadata.get('quality', 'unknown')}")
+                print(f"  - Cropped quality: {metadata.get('croppedQuality', 'unknown')}")
+                print(f"  - Crop dimensions: {metadata.get('cropDimensions', {})}")
+                
+        except json.JSONDecodeError as e:
+            print(f"Error parsing image data JSON: {e}")
+            # Fallback to processed_image_data if available
+            processed_image_data = form.get('processed_image_data')
+            if processed_image_data:
+                clergy.image_url = processed_image_data
+                print(f"Processed image data received for new clergy: {len(processed_image_data)} characters")
+    elif form.get('processed_image_data'):
+        processed_image_data = form.get('processed_image_data')
+        clergy.image_url = processed_image_data
+        print(f"Processed image data received for new clergy: {len(processed_image_data)} characters")
+    
+    # Also handle file uploads for new clergy (fallback)
+    if 'clergy_image' in form and hasattr(form['clergy_image'], 'filename') and form['clergy_image'].filename:
+        file = form['clergy_image']
+        if file and file.filename:
+            # Store the actual file content as base64
+            import base64
+            file_content = file.read()
+            file.seek(0)  # Reset file pointer
+            base64_data = base64.b64encode(file_content).decode('utf-8')
+            mime_type = file.content_type or 'image/jpeg'
+            clergy.image_url = f"data:{mime_type};base64,{base64_data}"
+            print(f"File converted to base64 for new clergy: {len(base64_data)} characters")
+    
+    db.session.add(clergy)
+    db.session.flush()  # Get the ID without committing
+    
+    # Handle new ordination and consecration data
+    create_ordinations_from_form(clergy, form)
+    create_consecrations_from_form(clergy, form)
+    
+    db.session.commit()
+    return clergy
+
+def create_ordinations_from_form(clergy, form):
+    """Create ordination records from form data"""
+    ordinations_data = {}
+    
+    # Parse ordination data from form
+    for key, value in form.items():
+        if key.startswith('ordinations[') and ']' in key:
+            # Extract index and field name from pattern like "ordinations[1][date]"
+            import re
+            match = re.match(r'ordinations\[(\d+)\]\[([^\]]+)\]', key)
+            if match:
+                index_part = match.group(1)
+                field_part = match.group(2)
+                
+                if index_part not in ordinations_data:
+                    ordinations_data[index_part] = {}
+                ordinations_data[index_part][field_part] = value
+    
+    # Create ordination records
+    for index, data in ordinations_data.items():
+        if data.get('date'):  # Only create if date is provided
+            ordination = Ordination()
+            ordination.clergy_id = clergy.id
+            ordination.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+            ordination.is_sub_conditione = data.get('is_sub_conditione') == 'on'
+            ordination.is_doubtful = data.get('is_doubtful') == 'on'
+            ordination.is_invalid = data.get('is_invalid') == 'on'
+            ordination.notes = data.get('notes', '')
+            
+            # Handle ordaining bishop
+            ordaining_bishop_id = data.get('ordaining_bishop_id')
+            ordaining_bishop_input = data.get('ordaining_bishop_input')
+            if ordaining_bishop_id and ordaining_bishop_id != 'None':
+                ordination.ordaining_bishop_id = int(ordaining_bishop_id)
+            elif ordaining_bishop_input:
+                # Check if bishop exists by name
+                existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
+                if existing:
+                    ordination.ordaining_bishop_id = existing.id
+                else:
+                    # Auto-create missing ordaining bishop
+                    new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
+                    db.session.add(new_bishop)
+                    db.session.flush()
+                    ordination.ordaining_bishop_id = new_bishop.id
+            
+            db.session.add(ordination)
+
+def create_consecrations_from_form(clergy, form):
+    """Create consecration records from form data"""
+    consecrations_data = {}
+    
+    # Parse consecration data from form
+    for key, value in form.items():
+        if key.startswith('consecrations[') and ']' in key:
+            # Extract index and field name from pattern like "consecrations[1][date]" or "consecrations[1][co_consecrators][1][id]"
+            import re
+            
+            # Check for co-consecrators pattern first
+            co_match = re.match(r'consecrations\[(\d+)\]\[co_consecrators\]\[(\d+)\]\[([^\]]+)\]', key)
+            if co_match:
+                index_part = co_match.group(1)
+                co_index = co_match.group(2)
+                co_field = co_match.group(3)
+                
+                if index_part not in consecrations_data:
+                    consecrations_data[index_part] = {}
+                if 'co_consecrators' not in consecrations_data[index_part]:
+                    consecrations_data[index_part]['co_consecrators'] = {}
+                if co_index not in consecrations_data[index_part]['co_consecrators']:
+                    consecrations_data[index_part]['co_consecrators'][co_index] = {}
+                consecrations_data[index_part]['co_consecrators'][co_index][co_field] = value
+            else:
+                # Regular consecration field
+                match = re.match(r'consecrations\[(\d+)\]\[([^\]]+)\]', key)
+                if match:
+                    index_part = match.group(1)
+                    field_part = match.group(2)
+                    
+                    if index_part not in consecrations_data:
+                        consecrations_data[index_part] = {}
+                    consecrations_data[index_part][field_part] = value
+    
+    # Create consecration records
+    for index, data in consecrations_data.items():
+        if data.get('date'):  # Only create if date is provided
+            consecration = Consecration()
+            consecration.clergy_id = clergy.id
+            consecration.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+            consecration.is_sub_conditione = data.get('is_sub_conditione') == 'on'
+            consecration.is_doubtful = data.get('is_doubtful') == 'on'
+            consecration.is_invalid = data.get('is_invalid') == 'on'
+            consecration.notes = data.get('notes', '')
+            
+            # Handle consecrator
+            consecrator_id = data.get('consecrator_id')
+            consecrator_input = data.get('consecrator_input')
+            if consecrator_id and consecrator_id != 'None':
+                consecration.consecrator_id = int(consecrator_id)
+            elif consecrator_input:
+                # Check if bishop exists by name
+                existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
+                if existing:
+                    consecration.consecrator_id = existing.id
+                else:
+                    # Auto-create missing consecrator
+                    new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
+                    db.session.add(new_bishop)
+                    db.session.flush()
+                    consecration.consecrator_id = new_bishop.id
+            
+            db.session.add(consecration)
+            db.session.flush()  # Get the ID for co-consecrators
+            
+            # Handle co-consecrators
+            co_consecrators_data = data.get('co_consecrators', {})
+            for co_index, co_data in co_consecrators_data.items():
+                co_consecrator_id = co_data.get('id')
+                co_consecrator_input = co_data.get('input')
+                if co_consecrator_id and co_consecrator_id != 'None':
+                    # Add to many-to-many relationship
+                    co_consecrator = Clergy.query.get(int(co_consecrator_id))
+                    if co_consecrator:
+                        consecration.co_consecrators.append(co_consecrator)
+                elif co_consecrator_input:
+                    # Check if bishop exists by name
+                    existing = Clergy.query.filter_by(name=co_consecrator_input.strip()).first()
+                    if existing:
+                        consecration.co_consecrators.append(existing)
+                    else:
+                        # Auto-create missing co-consecrator
+                        new_bishop = Clergy(name=co_consecrator_input.strip(), rank='Bishop')
+                        db.session.add(new_bishop)
+                        db.session.flush()
+                        consecration.co_consecrators.append(new_bishop)
+
+def update_ordinations_from_form(clergy, form):
+    """Update ordination records from form data (for editing)"""
+    # Clear existing ordinations
+    Ordination.query.filter_by(clergy_id=clergy.id).delete()
+    
+    # Create new ordinations from form data
+    create_ordinations_from_form(clergy, form)
+
+def update_consecrations_from_form(clergy, form):
+    """Update consecration records from form data (for editing)"""
+    # Clear existing consecrations and their co-consecrators
+    existing_consecrations = Consecration.query.filter_by(clergy_id=clergy.id).all()
+    for consecration in existing_consecrations:
+        consecration.co_consecrators.clear()
+        db.session.delete(consecration)
+    
+    # Create new consecrations from form data
+    create_consecrations_from_form(clergy, form)
+
+def clergy_list_handler():
+    if 'user_id' not in session:
+        flash('Please log in to access clergy records.', 'error')
+        return redirect(url_for('auth.login'))
+    exclude_priests = request.args.get('exclude_priests') == '1'
+    exclude_coconsecrators = request.args.get('exclude_coconsecrators') == '1'
+    exclude_organizations = request.args.getlist('exclude_organizations')
+    search = request.args.get('search', '').strip()
+    query = Clergy.query.filter(Clergy.is_deleted != True)  # Exclude deleted records by default
+    if exclude_priests:
+        query = query.filter(Clergy.rank != 'Priest')
+    if exclude_coconsecrators:
+        all_clergy = Clergy.query.all()
+        coconsecrator_ids = set()
+        for c in all_clergy:
+            for consecration in c.consecrations:
+                for co_consecrator in consecration.co_consecrators:
+                    coconsecrator_ids.add(co_consecrator.id)
+        if coconsecrator_ids:
+            query = query.filter(~Clergy.id.in_(coconsecrator_ids))
+    if exclude_organizations:
+        query = query.filter(~Clergy.organization.in_(exclude_organizations))
+    if search:
+        query = query.filter(Clergy.name.ilike(f'%{search}%'))
+    clergy_list = query.all()
+    for clergy in clergy_list:
+        set_clergy_display_name(clergy)
+    organizations = Organization.query.order_by(Organization.name).all()
+    org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
+    org_color_map = {org.name: org.color for org in organizations}
+    ranks = Rank.query.order_by(Rank.name).all()
+    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+    # Set display names for all clergy
+    for clergy_member in all_clergy:
+        set_clergy_display_name(clergy_member)
+    
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': getattr(clergy_member, 'display_name', clergy_member.name),
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    all_clergy_json = json.dumps(all_clergy_data)
+    user = None
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+    return render_template('clergy_list.html', 
+                         clergy_list=clergy_list, 
+                         org_abbreviation_map=org_abbreviation_map,
+                         org_color_map=org_color_map,
+                         organizations=organizations,
+                         ranks=ranks,
+                         all_clergy=all_clergy,
+                         all_clergy_json=all_clergy_json,
+                         exclude_priests=exclude_priests,
+                         exclude_coconsecrators=exclude_coconsecrators,
+                         exclude_organizations=exclude_organizations,
+                         search=search,
+                         user=user)
+
+def add_clergy_handler():
+    if 'user_id' not in session:
+        flash('Please log in to add clergy records.', 'error')
+        return None, redirect(url_for('auth.login'))
+    if request.method == 'POST':
+        try:
+            clergy = create_clergy_from_form(request.form)
+            
+            # Check if this is an HTMX request
+            is_htmx = request.headers.get('HX-Request') == 'true'
+            
+            if is_htmx:
+                # For HTMX requests, return a response that will trigger redirect
+                response = make_response('<script>window.location.href = "' + url_for('clergy.clergy_list') + '";</script>')
+                response.headers['HX-Trigger'] = 'redirect'
+                return clergy, response
+            
+            # Handle regular AJAX requests
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            if is_ajax:
+                return clergy, jsonify({'success': True, 'message': 'Clergy record added successfully!'})
+            
+            flash('Clergy record added successfully!', 'success')
+            return clergy, redirect(url_for('clergy.clergy_list'))
+        except Exception as e:
+            db.session.rollback()
+            
+            # Check if this is an HTMX request
+            is_htmx = request.headers.get('HX-Request') == 'true'
+            if is_htmx:
+                response = make_response(f'<div class="alert alert-danger">Error: {str(e)}</div>')
+                return None, response, 400
+            
+            # Handle regular AJAX requests
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            if is_ajax:
+                return None, jsonify({'success': False, 'message': str(e)}), 400
+            flash('Error adding clergy record.', 'error')
+            return None, render_template('add_clergy.html')
+    # ... (rest of GET logic unchanged, but return as (None, response)) ...
+    # You may need to pass the same context as in clergy_list_handler for GET
+    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+    # Set display names for all clergy
+    for clergy_member in all_clergy:
+        set_clergy_display_name(clergy_member)
+    
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': getattr(clergy_member, 'display_name', clergy_member.name),
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    
+    # For add form, provide all active (non-deleted) bishops initially (filtering will be done client-side based on dates)
+    all_bishops = Clergy.query.filter(
+        Clergy.rank.ilike('%bishop%'),
+        Clergy.is_deleted != True
+    ).order_by(Clergy.name).all()
+    
+    # Set display names for bishops
+    for bishop in all_bishops:
+        set_clergy_display_name(bishop)
+    
+    # Convert to list of dictionaries with temporal data for client-side filtering
+    all_bishops_suggested = [
+        {
+            'id': bishop.id,
+            'name': getattr(bishop, 'display_name', bishop.name),
+            'rank': bishop.rank,
+            'date_of_birth': bishop.date_of_birth.isoformat() if bishop.date_of_birth else None,
+            'date_of_death': bishop.date_of_death.isoformat() if bishop.date_of_death else None,
+            'consecrations_count': len(bishop.consecrations)
+        }
+        for bishop in all_bishops
+    ]
+    
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    return None, render_template('add_clergy.html', 
+                         all_clergy=all_clergy, 
+                         all_clergy_data=all_clergy_data,
+                         all_bishops_suggested=all_bishops_suggested,
+                         ranks=ranks,
+                         organizations=organizations) 
+
+def view_clergy_handler(clergy_id):
+    if 'user_id' not in session:
+        flash('Please log in to view clergy records.', 'error')
+        return redirect(url_for('auth.login'))
+    user = User.query.get(session['user_id'])
+    clergy = Clergy.query.get_or_404(clergy_id)
+    set_clergy_display_name(clergy)  # Set display name for the clergy member
+    if user.can_edit_clergy():
+        return redirect(url_for('clergy.edit_clergy', clergy_id=clergy_id))
+    organizations = Organization.query.all()
+    org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
+    org_color_map = {org.name: org.color for org in organizations}
+    comments = ClergyComment.query.filter_by(clergy_id=clergy_id, is_public=True, is_resolved=False).order_by(ClergyComment.created_at.desc()).all()
+    
+    # Create co-consecrators map for template
+    co_consecrators_map = {}
+    # Get co-consecrators from the new consecration table
+    for consecration in clergy.consecrations:
+        for co_consecrator in consecration.co_consecrators:
+            co_consecrators_map[co_consecrator.id] = co_consecrator
+    
+    return render_template('clergy_detail_with_comments.html', 
+                         clergy=clergy, 
+                         user=user,
+                         comments=comments,
+                         org_abbreviation_map=org_abbreviation_map,
+                         org_color_map=org_color_map,
+                         co_consecrators_map=co_consecrators_map)
+
+def edit_clergy_handler(clergy_id):
+    if 'user_id' not in session:
+        flash('Please log in to edit clergy records.', 'error')
+        return redirect(url_for('auth.login'))
+    user = User.query.get(session['user_id'])
+    clergy = Clergy.query.get_or_404(clergy_id)
+    set_clergy_display_name(clergy)  # Set display name for the clergy being edited
+    
+    # Explicitly load ordinations and consecrations relationships for the template
+    # This ensures the relationships are available when the template renders
+    _ = clergy.ordinations  # Trigger lazy loading
+    _ = clergy.consecrations  # Trigger lazy loading
+    comments = ClergyComment.query.filter_by(clergy_id=clergy_id, is_public=True, is_resolved=False).order_by(ClergyComment.created_at.desc()).all()
+    organizations = Organization.query.all()
+    org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
+    org_color_map = {org.name: org.color for org in organizations}
+    if request.method == 'POST':
+        content_type = request.headers.get('Content-Type', '')
+        is_ajax = (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+            content_type.startswith('multipart/form-data') or
+            content_type == 'application/x-www-form-urlencoded'
+        )
+        if is_ajax:
+            try:
+                clergy.name = request.form.get('name')
+                clergy.rank = request.form.get('rank')
+                clergy.papal_name = request.form.get('papal_name')
+                clergy.organization = request.form.get('organization')
+                date_of_birth = request.form.get('date_of_birth')
+                date_of_death = request.form.get('date_of_death')
+                clergy.notes = request.form.get('notes')
+                
+                # Handle image upload or removal
+                image_removed = request.form.get('image_removed') == 'true'
+                if image_removed:
+                    # Clear image data when image is removed
+                    clergy.image_url = None
+                    clergy.image_data = None
+                    print(f"Image removed for clergy {clergy.name}")
+                else:
+                    image_data_json = request.form.get('image_data_json')
+                    if image_data_json:
+                        try:
+                            import json
+                            image_data = json.loads(image_data_json)
+                            
+                            # Store the lineage image (64x64) as the main image_url for lineage visualization
+                            clergy.image_url = image_data.get('lineage', '')
+                            
+                            # Store the comprehensive image data as a JSON field for future use
+                            clergy.image_data = image_data_json
+                            
+                            # Log the image data received
+                            lineage_image = image_data.get('lineage', '')
+                            detail_image = image_data.get('detail', '')
+                            cropped_image = image_data.get('cropped', '')
+                            original_image = image_data.get('original', '')
+                            
+                            print(f"Comprehensive image data received for clergy {clergy.name}:")
+                            print(f"  - Lineage (48x48): {len(lineage_image or '')} chars")
+                            print(f"  - Detail (320x320): {len(detail_image or '')} chars")
+                            print(f"  - Cropped: {len(cropped_image or '')} chars")
+                            print(f"  - Original: {len(original_image or '')} chars")
+                            
+                            # Store metadata if available
+                            if 'metadata' in image_data:
+                                metadata = image_data['metadata']
+                                print(f"  - Original file size: {metadata.get('originalSize', 0)} bytes")
+                                print(f"  - Quality setting: {metadata.get('quality', 'unknown')}")
+                                print(f"  - Cropped quality: {metadata.get('croppedQuality', 'unknown')}")
+                                print(f"  - Crop dimensions: {metadata.get('cropDimensions', {})}")
+                                
+                        except json.JSONDecodeError as e:
+                            print(f"Error parsing image data JSON: {e}")
+                            # Fallback to processed_image_data if available
+                            processed_image_data = request.form.get('processed_image_data')
+                            if processed_image_data:
+                                clergy.image_url = processed_image_data
+                                print(f"Processed image data received for clergy {clergy.name}: {len(processed_image_data or '')} characters")
+                    elif request.form.get('processed_image_data'):
+                        processed_image_data = request.form.get('processed_image_data')
+                        clergy.image_url = processed_image_data
+                        print(f"Processed image data received for clergy {clergy.name}: {len(processed_image_data or '')} characters")
+                    elif 'clergy_image' in request.files and request.files['clergy_image'].filename:
+                        # Fallback to file upload if no processed data
+                        file = request.files['clergy_image']
+                        if file and file.filename:
+                            # Store the actual file content as base64
+                            import base64
+                            file_content = file.read()
+                            file.seek(0)  # Reset file pointer for potential future reads
+                            base64_data = base64.b64encode(file_content).decode('utf-8')
+                            mime_type = file.content_type or 'image/jpeg'
+                            clergy.image_url = f"data:{mime_type};base64,{base64_data}"
+                            print(f"File converted to base64 for clergy {clergy.name}: {len(base64_data)} characters")
+                if date_of_birth:
+                    clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+                else:
+                    clergy.date_of_birth = None
+                if date_of_death:
+                    clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
+                else:
+                    clergy.date_of_death = None
+                
+                # Handle new dynamic ordination and consecration data
+                update_ordinations_from_form(clergy, request.form)
+                update_consecrations_from_form(clergy, request.form)
+                
+                # Handle soft delete
+                mark_deleted = request.form.get('mark_deleted') == '1'
+                if mark_deleted and not clergy.is_deleted:
+                    clergy.is_deleted = True
+                    clergy.deleted_at = datetime.utcnow()
+                elif not mark_deleted and clergy.is_deleted:
+                    clergy.is_deleted = False
+                    clergy.deleted_at = None
+                
+                db.session.commit()
+                log_audit_event(
+                    action='update',
+                    entity_type='clergy',
+                    entity_id=clergy.id,
+                    entity_name=clergy.name,
+                    details={
+                        'rank': clergy.rank,
+                        'organization': clergy.organization,
+                        'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
+                        'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
+                        'ordinations_count': len(clergy.ordinations),
+                        'consecrations_count': len(clergy.consecrations),
+                        'is_deleted': clergy.is_deleted,
+                        'deleted_at': clergy.deleted_at.isoformat() if clergy.deleted_at else None
+                    }
+                )
+                # Check if this is an HTMX request
+                is_htmx = request.headers.get('HX-Request') == 'true'
+                
+                if is_htmx:
+                    # For HTMX requests, return a response that will trigger redirect
+                    response = make_response('<script>window.location.href = "' + url_for('clergy.clergy_list') + '";</script>')
+                    response.headers['HX-Trigger'] = 'redirect'
+                    return response
+                else:
+                    # For regular AJAX requests, return JSON
+                    return jsonify({'success': True, 'message': 'Clergy record updated successfully!'})
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({'success': False, 'message': str(e)}), 400
+        # Handle regular form submission (fallback)
+        clergy.name = request.form.get('name')
+        clergy.rank = request.form.get('rank')
+        clergy.papal_name = request.form.get('papal_name')
+        clergy.organization = request.form.get('organization')
+        date_of_birth = request.form.get('date_of_birth')
+        date_of_death = request.form.get('date_of_death')
+        clergy.notes = request.form.get('notes')
+        if date_of_birth:
+            clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+        else:
+            clergy.date_of_birth = None
+        if date_of_death:
+            clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
+        else:
+            clergy.date_of_death = None
+        
+        # Handle new dynamic ordination and consecration data
+        update_ordinations_from_form(clergy, request.form)
+        update_consecrations_from_form(clergy, request.form)
+        
+        # Handle soft delete
+        mark_deleted = request.form.get('mark_deleted') == '1'
+        if mark_deleted and not clergy.is_deleted:
+            clergy.is_deleted = True
+            clergy.deleted_at = datetime.utcnow()
+        elif not mark_deleted and clergy.is_deleted:
+            clergy.is_deleted = False
+            clergy.deleted_at = None
+        
+        db.session.commit()
+        log_audit_event(
+            action='update',
+            entity_type='clergy',
+            entity_id=clergy.id,
+            entity_name=clergy.name,
+            details={
+                'rank': clergy.rank,
+                'organization': clergy.organization,
+                'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
+                'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
+                'ordinations_count': len(clergy.ordinations),
+                'consecrations_count': len(clergy.consecrations),
+                'is_deleted': clergy.is_deleted,
+                'deleted_at': clergy.deleted_at.isoformat() if clergy.deleted_at else None
+            }
+        )
+        flash('Clergy record updated successfully!', 'success')
+        return redirect(url_for('clergy.clergy_list'))
+    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+    # Set display names for all clergy
+    for clergy_member in all_clergy:
+        set_clergy_display_name(clergy_member)
+    
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': getattr(clergy_member, 'display_name', clergy_member.name),
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    
+    # Get bishops for the pre-filtered dropdowns with temporal logic
+    # A bishop can only ordain/consecrate if they were:
+    # 1. Alive on the ordination/consecration date
+    # 2. Already a bishop on that date (consecrated before or on that date)
+    # Get all clergy with ranks that are flagged as bishops
+    all_bishops = db.session.query(Clergy).join(Rank, Clergy.rank == Rank.name).filter(
+        Rank.is_bishop == True,
+        Clergy.is_deleted != True
+    ).order_by(Clergy.name).all()
+    
+    # Set display names for bishops
+    for bishop in all_bishops:
+        set_clergy_display_name(bishop)
+    
+    # Filter bishops based on temporal logic
+    def is_valid_bishop_for_dates(bishop, ordination_date, consecration_date):
+        """Check if a bishop was valid for the given ordination and consecration dates."""
+        
+        # For ordaining bishop: must be alive and be a bishop on ordination date
+        if ordination_date:
+            if not bishop.was_bishop_on(ordination_date):
+                return False
+        
+        # For consecrator: must be alive and be a bishop on consecration date
+        if consecration_date:
+            if not bishop.was_bishop_on(consecration_date):
+                return False
+        
+        # If no dates specified, include all bishops
+        return True
+    
+    # Filter bishops based on the clergy's dates
+    # Get ordination and consecration dates from new tables
+    ordination_date = None
+    consecration_date = None
+    
+    # Get primary ordination date
+    primary_ordination = clergy.get_primary_ordination()
+    if primary_ordination:
+        ordination_date = primary_ordination.date
+    
+    # Get primary consecration date
+    primary_consecration = clergy.get_primary_consecration()
+    if primary_consecration:
+        consecration_date = primary_consecration.date
+    
+    all_bishops_suggested = [
+        bishop for bishop in all_bishops
+        if is_valid_bishop_for_dates(bishop, ordination_date, consecration_date)
+    ]
+    
+    # Convert to list of dictionaries for JSON serialization
+    all_bishops_suggested = [
+        {
+            'id': bishop.id,
+            'name': getattr(bishop, 'display_name', bishop.name)
+        }
+        for bishop in all_bishops_suggested
+    ]
+    
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    return render_template('edit_clergy_with_comments.html',
+                         clergy=clergy,
+                         user=user,
+                         comments=comments,
+                         all_clergy=all_clergy,
+                         all_clergy_data=all_clergy_data,
+                         all_bishops_suggested=all_bishops_suggested,
+                         ranks=ranks,
+                         organizations=organizations,
+                         org_abbreviation_map=org_abbreviation_map,
+                         org_color_map=org_color_map,
+                         edit_mode=True)
+
+def clergy_filter_partial_handler():
+    if 'user_id' not in session:
+        return '', 401
+    user = User.query.get(session['user_id'])
+    exclude_priests = request.args.get('exclude_priests') == '1'
+    exclude_coconsecrators = request.args.get('exclude_coconsecrators') == '1'
+    exclude_organizations = request.args.getlist('exclude_organizations')
+    search = request.args.get('search', '').strip()
+    query = Clergy.query.filter(Clergy.is_deleted != True)  # Exclude deleted records by default
+    if exclude_priests:
+        query = query.filter(Clergy.rank != 'Priest')
+    if exclude_coconsecrators:
+        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+        # Get co-consecrator IDs from the new consecration table
+        coconsecrator_ids = set()
+        for c in all_clergy:
+            for consecration in c.consecrations:
+                for co_consecrator in consecration.co_consecrators:
+                    coconsecrator_ids.add(co_consecrator.id)
+        if coconsecrator_ids:
+            query = query.filter(~Clergy.id.in_(coconsecrator_ids))
+    if exclude_organizations:
+        query = query.filter(~Clergy.organization.in_(exclude_organizations))
+    if search:
+        query = query.filter(Clergy.name.ilike(f'%{search}%'))
+    clergy_list = query.all()
+    for clergy in clergy_list:
+        set_clergy_display_name(clergy)
+    organizations = Organization.query.order_by(Organization.name).all()
+    org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
+    org_color_map = {org.name: org.color for org in organizations}
+    return render_template('clergy_table_body.html', clergy_list=clergy_list, org_abbreviation_map=org_abbreviation_map, org_color_map=org_color_map, user=user)
+
+def clergy_json_handler(clergy_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+    clergy = Clergy.query.get_or_404(clergy_id)
+    return jsonify({
+        'id': clergy.id,
+        'name': clergy.name,
+        'rank': clergy.rank,
+        'organization': clergy.organization,
+        'date_of_birth': clergy.date_of_birth.strftime('%Y-%m-%d') if clergy.date_of_birth else None,
+        'ordinations_count': len(clergy.ordinations),
+        'consecrations_count': len(clergy.consecrations),
+        'notes': clergy.notes
+    }) 
+
+def soft_delete_clergy_handler(clergy_id, user=None):
+    from models import Clergy, db
+    clergy = Clergy.query.get_or_404(clergy_id)
+    # Clean up ordination and consecration references
+    # Remove ordinations where this clergy was the ordaining bishop
+    Ordination.query.filter(Ordination.ordaining_bishop_id == clergy_id).delete()
+    
+    # Remove consecrations where this clergy was the consecrator
+    Consecration.query.filter(Consecration.consecrator_id == clergy_id).delete()
+    
+    # Remove co-consecrator relationships
+    for consecration in Consecration.query.all():
+        if clergy in consecration.co_consecrators:
+            consecration.co_consecrators.remove(clergy)
+    clergy.is_deleted = True
+    clergy.deleted_at = datetime.utcnow()
+    db.session.commit()
+    return {'success': True, 'message': 'Clergy record soft-deleted successfully!'} 
+
+def get_filtered_bishops_handler():
+    """Get bishops filtered by temporal logic for AJAX requests."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    # Get dates from request parameters
+    ordination_date_str = request.args.get('ordination_date')
+    consecration_date_str = request.args.get('consecration_date')
+    
+    # Convert string dates to date objects
+    ordination_date = None
+    consecration_date = None
+    
+    if ordination_date_str:
+        try:
+            ordination_date = datetime.strptime(ordination_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid ordination date format'}), 400
+    
+    if consecration_date_str:
+        try:
+            consecration_date = datetime.strptime(consecration_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid consecration date format'}), 400
+    
+    # Get all active (non-deleted) bishops
+    all_bishops = db.session.query(Clergy).join(Rank, Clergy.rank == Rank.name).filter(
+        Rank.is_bishop == True,
+        Clergy.is_deleted != True
+    ).order_by(Clergy.name).all()
+    
+    # Filter bishops based on temporal logic
+    def is_valid_bishop_for_dates(bishop, ord_date, cons_date):
+        """Check if a bishop was valid for the given ordination and consecration dates."""
+        
+        # For ordaining bishop: must be alive and be a bishop on ordination date
+        if ord_date:
+            if not bishop.was_bishop_on(ord_date):
+                return False
+        
+        # For consecrator: must be alive and be a bishop on consecration date
+        if cons_date:
+            if not bishop.was_bishop_on(cons_date):
+                return False
+        
+        # If no dates specified, include all bishops
+        return True
+    
+    # Filter bishops
+    filtered_bishops = [
+        bishop for bishop in all_bishops
+        if is_valid_bishop_for_dates(bishop, ordination_date, consecration_date)
+    ]
+    
+    # Convert to list of dictionaries for JSON serialization
+    bishops_data = [
+        {
+            'id': bishop.id,
+            'name': bishop.name,
+            'rank': bishop.rank,
+            'date_of_birth': bishop.date_of_birth.isoformat() if bishop.date_of_birth else None,
+            'date_of_death': bishop.date_of_death.isoformat() if bishop.date_of_death else None,
+            'consecrations_count': len(bishop.consecrations)
+        }
+        for bishop in filtered_bishops
+    ]
+    
+    return jsonify({'bishops': bishops_data}) 

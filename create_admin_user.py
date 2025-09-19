@@ -8,7 +8,8 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 def create_admin_user():
-    from app import app, db, User
+    from app import app, db
+    from models import User
     
     with app.app_context():
         # Check if admin user already exists

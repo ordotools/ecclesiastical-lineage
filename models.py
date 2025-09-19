@@ -88,28 +88,77 @@ class Clergy(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     rank = db.Column(db.String(100), nullable=False)
+    papal_name = db.Column(db.String(200), nullable=True)  # Papal name for popes
     organization = db.Column(db.String(200))
     date_of_birth = db.Column(db.Date)
-    date_of_ordination = db.Column(db.Date)
-    ordaining_bishop_id = db.Column(db.Integer, db.ForeignKey('clergy.id'))
-    date_of_consecration = db.Column(db.Date)
-    consecrator_id = db.Column(db.Integer, db.ForeignKey('clergy.id'))
-    co_consecrators = db.Column(db.Text)
     date_of_death = db.Column(db.Date)
     notes = db.Column(db.Text)
-    ordaining_bishop = db.relationship('Clergy', foreign_keys=[ordaining_bishop_id], remote_side=[id])
-    consecrator = db.relationship('Clergy', foreign_keys=[consecrator_id], remote_side=[id])
+    image_url = db.Column(db.Text)  # Store base64 image data or file path
+    image_data = db.Column(db.Text)  # Store JSON with multiple image sizes
+    is_deleted = db.Column(db.Boolean, default=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
-    def set_co_consecrators(self, co_consecrator_ids):
-        if co_consecrator_ids:
-            self.co_consecrators = json.dumps(co_consecrator_ids)
+
+    def was_alive_on(self, date):
+        """Return True if this clergy was alive on the given date (or if date unknown, assume alive)."""
+        if not date:
+            return True
+        if self.date_of_birth and date < self.date_of_birth:
+            return False
+        if self.date_of_death and date > self.date_of_death:
+            return False
+        return True
+
+    def was_bishop_on(self, date):
+        """Return True if this clergy was a bishop on the given date (or if date unknown, assume yes if currently bishop)."""
+        if not date:
+            # Check if their rank is flagged as a bishop
+            if self.rank:
+                rank_obj = Rank.query.filter_by(name=self.rank).first()
+                return rank_obj and rank_obj.is_bishop
+            return False
+        
+        # Check if their rank is flagged as a bishop
+        if self.rank:
+            rank_obj = Rank.query.filter_by(name=self.rank).first()
+            if not rank_obj or not rank_obj.is_bishop:
+                return False
         else:
-            self.co_consecrators = None
+            return False
+        
+        # Check if they were alive on that date
+        if not self.was_alive_on(date):
+            return False
+        
+        # Check if they were already a bishop on that date
+        # Check new consecrations table for valid consecrations before the date
+        valid_consecrations = [c for c in self.consecrations if c.date <= date and not c.is_invalid]
+        if valid_consecrations:
+            return True
+        
+        return False
 
-    def get_co_consecrators(self):
-        if self.co_consecrators:
-            return json.loads(self.co_consecrators)
-        return []
+    def get_primary_ordination(self):
+        """Get the primary (non-sub conditione) ordination if it exists."""
+        for ordination in self.ordinations:
+            if not ordination.is_sub_conditione and not ordination.is_invalid:
+                return ordination
+        return None
+
+    def get_primary_consecration(self):
+        """Get the primary (non-sub conditione) consecration if it exists."""
+        for consecration in self.consecrations:
+            if not consecration.is_sub_conditione and not consecration.is_invalid:
+                return consecration
+        return None
+
+    def get_all_ordinations(self):
+        """Get all ordinations ordered by date."""
+        return sorted(self.ordinations, key=lambda x: x.date)
+
+    def get_all_consecrations(self):
+        """Get all consecrations ordered by date."""
+        return sorted(self.consecrations, key=lambda x: x.date)
 
     def __repr__(self):
         return f'<Clergy {self.name}>'
@@ -119,6 +168,7 @@ class Rank(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     description = db.Column(db.Text)
     color = db.Column(db.String(7), nullable=False, default="#000000")
+    is_bishop = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):
@@ -176,6 +226,51 @@ class ClergyComment(db.Model):
 
     def __repr__(self):
         return f'<ClergyComment {self.id} on Clergy {self.clergy_id}>'
+
+# Association table for co-consecrators
+co_consecrators = db.Table('co_consecrators',
+    db.Column('consecration_id', db.Integer, db.ForeignKey('consecration.id'), primary_key=True),
+    db.Column('co_consecrator_id', db.Integer, db.ForeignKey('clergy.id'), primary_key=True)
+)
+
+class Ordination(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    ordaining_bishop_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=True)
+    is_sub_conditione = db.Column(db.Boolean, default=False, nullable=False)
+    is_doubtful = db.Column(db.Boolean, default=False, nullable=False)
+    is_invalid = db.Column(db.Boolean, default=False, nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    clergy = db.relationship('Clergy', foreign_keys=[clergy_id], backref='ordinations')
+    ordaining_bishop = db.relationship('Clergy', foreign_keys=[ordaining_bishop_id], backref='ordinations_performed')
+    
+    def __repr__(self):
+        return f'<Ordination {self.clergy.name if self.clergy else self.clergy_id} on {self.date}>'
+
+class Consecration(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    consecrator_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=True)
+    is_sub_conditione = db.Column(db.Boolean, default=False, nullable=False)
+    is_doubtful = db.Column(db.Boolean, default=False, nullable=False)
+    is_invalid = db.Column(db.Boolean, default=False, nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    clergy = db.relationship('Clergy', foreign_keys=[clergy_id], backref='consecrations')
+    consecrator = db.relationship('Clergy', foreign_keys=[consecrator_id], backref='consecrations_performed')
+    co_consecrators = db.relationship('Clergy', secondary=co_consecrators, backref='co_consecrations_performed')
+    
+    def __repr__(self):
+        return f'<Consecration {self.clergy.name if self.clergy else self.clergy_id} on {self.date}>'
 
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)

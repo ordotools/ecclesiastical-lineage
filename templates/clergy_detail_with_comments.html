@@ -5,12 +5,12 @@
 {% block full_content %}
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <a href="{{ url_for('routes.clergy_list') }}" class="btn btn-link">
+        <a href="{{ url_for('clergy.clergy_list') }}" class="btn btn-link">
             <i class="fas fa-arrow-left me-2"></i>Back to List
         </a>
         <div class="btn-group">
             {% if user.can_edit_clergy() %}
-            <a href="{{ url_for('routes.edit_clergy', clergy_id=clergy.id) }}" class="btn btn-outline-primary">
+            <a href="{{ url_for('clergy.edit_clergy', clergy_id=clergy.id) }}" class="btn btn-outline-primary">
                 <i class="fas fa-edit me-2"></i>Edit Record
             </a>
             {% endif %}
@@ -83,72 +83,65 @@
                             </span>
                         </dd>
                         
-                        <dt class="col-sm-4">Date of Ordination</dt>
+                        <dt class="col-sm-4">Ordinations</dt>
                         <dd class="col-sm-8">
-                            <span class="data-field" data-field="date_of_ordination" data-value="{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '' }}">
-                                {{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '-' }}
-                                {% if user.can_comment() %}
-                                <button class="btn btn-sm btn-outline-secondary ms-2 comment-btn" data-field="date_of_ordination" data-value="{{ clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else '' }}">
-                                    <i class="fas fa-comment"></i>
-                                </button>
-                                {% endif %}
-                            </span>
+                            {% if clergy.ordinations %}
+                                <ul class="mb-0">
+                                {% for ordination in clergy.ordinations %}
+                                    <li>
+                                        {{ ordination.date.strftime('%Y-%m-%d') }}
+                                        {% if ordination.ordaining_bishop %} - {{ ordination.ordaining_bishop.name }}{% endif %}
+                                        {% if ordination.is_sub_conditione %} (Sub Conditione){% endif %}
+                                        {% if ordination.is_doubtful %} (Doubtful){% endif %}
+                                        {% if ordination.is_invalid %} (Invalid){% endif %}
+                                    </li>
+                                {% endfor %}
+                                </ul>
+                            {% else %}
+                                -
+                            {% endif %}
                         </dd>
                         
-                        <dt class="col-sm-4">Ordaining Bishop</dt>
+                        
+                        <dt class="col-sm-4">Consecrations</dt>
                         <dd class="col-sm-8">
-                            <span class="data-field" data-field="ordaining_bishop" data-value="{{ clergy.ordaining_bishop.name if clergy.ordaining_bishop else '' }}">
-                                {{ clergy.ordaining_bishop.name if clergy.ordaining_bishop else '-' }}
-                                {% if user.can_comment() %}
-                                <button class="btn btn-sm btn-outline-secondary ms-2 comment-btn" data-field="ordaining_bishop" data-value="{{ clergy.ordaining_bishop.name if clergy.ordaining_bishop else '' }}">
-                                    <i class="fas fa-comment"></i>
-                                </button>
-                                {% endif %}
-                            </span>
+                            {% if clergy.consecrations %}
+                                <ul class="mb-0">
+                                {% for consecration in clergy.consecrations %}
+                                    <li>
+                                        {{ consecration.date.strftime('%Y-%m-%d') }}
+                                        {% if consecration.consecrator %} - {{ consecration.consecrator.name }}{% endif %}
+                                        {% if consecration.is_sub_conditione %} (Sub Conditione){% endif %}
+                                        {% if consecration.is_doubtful %} (Doubtful){% endif %}
+                                        {% if consecration.is_invalid %} (Invalid){% endif %}
+                                    </li>
+                                {% endfor %}
+                                </ul>
+                            {% else %}
+                                -
+                            {% endif %}
                         </dd>
                         
-                        <dt class="col-sm-4">Date of Consecration</dt>
-                        <dd class="col-sm-8">
-                            <span class="data-field" data-field="date_of_consecration" data-value="{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else '' }}">
-                                {{ clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else '-' }}
-                                {% if user.can_comment() %}
-                                <button class="btn btn-sm btn-outline-secondary ms-2 comment-btn" data-field="date_of_consecration" data-value="{{ clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else '' }}">
-                                    <i class="fas fa-comment"></i>
-                                </button>
-                                {% endif %}
-                            </span>
-                        </dd>
-                        
-                        <dt class="col-sm-4">Principal Consecrator</dt>
-                        <dd class="col-sm-8">
-                            <span class="data-field" data-field="consecrator" data-value="{{ clergy.consecrator.name if clergy.consecrator else '' }}">
-                                {{ clergy.consecrator.name if clergy.consecrator else '-' }}
-                                {% if user.can_comment() %}
-                                <button class="btn btn-sm btn-outline-secondary ms-2 comment-btn" data-field="consecrator" data-value="{{ clergy.consecrator.name if clergy.consecrator else '' }}">
-                                    <i class="fas fa-comment"></i>
-                                </button>
-                                {% endif %}
-                            </span>
-                        </dd>
                         
                         <dt class="col-sm-4">Co-Consecrators</dt>
                         <dd class="col-sm-8">
-                            <span class="data-field" data-field="co_consecrators" data-value="{{ clergy.get_co_consecrators()|join(',') if clergy.get_co_consecrators() else '' }}">
-                                {% set co_ids = clergy.get_co_consecrators() %}
-                                {% if co_ids %}
-                                    <ul class="mb-0">
-                                    {% for cid in co_ids %}
-                                        {% set co = (clergy.query.get(cid)) %}
-                                        <li>{{ co.name if co else 'Unknown' }}</li>
-                                    {% endfor %}
-                                    </ul>
-                                {% else %}-{% endif %}
-                                {% if user.can_comment() %}
-                                <button class="btn btn-sm btn-outline-secondary ms-2 comment-btn" data-field="co_consecrators" data-value="{{ clergy.get_co_consecrators()|join(',') if clergy.get_co_consecrators() else '' }}">
-                                    <i class="fas fa-comment"></i>
-                                </button>
+                            {% set has_co_consecrators = false %}
+                            {% for consecration in clergy.consecrations %}
+                                {% if consecration.co_consecrators %}
+                                    {% set has_co_consecrators = true %}
+                                    <div class="mb-2">
+                                        <strong>{{ consecration.date.strftime('%Y-%m-%d') }}:</strong>
+                                        <ul class="mb-0">
+                                        {% for co_consecrator in consecration.co_consecrators %}
+                                            <li>{{ co_consecrator.name }}</li>
+                                        {% endfor %}
+                                        </ul>
+                                    </div>
                                 {% endif %}
-                            </span>
+                            {% endfor %}
+                            {% if not has_co_consecrators %}
+                                -
+                            {% endif %}
                         </dd>
                         
                         <dt class="col-sm-4">Notes</dt>
@@ -174,7 +167,7 @@
                     <h3 class="h5 mb-0">Comments & Feedback</h3>
                     <div class="btn-group">
                         {% if user.can_resolve_comments() %}
-                        <a href="{{ url_for('routes.view_resolved_comments', clergy_id=clergy.id) }}" class="btn btn-sm btn-outline-secondary">
+                        <a href="{{ url_for('clergy.view_resolved_comments', clergy_id=clergy.id) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="fas fa-check-circle me-2"></i>View Resolved
                         </a>
                         {% endif %}
@@ -445,7 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('field_name', commentFieldName.value);
             formData.append('is_public', document.getElementById('isPublic').checked ? '1' : '0');
             
-            fetch('{{ url_for("routes.add_clergy_comment", clergy_id=clergy.id) }}', {
+            fetch('{{ url_for("clergy.add_clergy_comment", clergy_id=clergy.id) }}', {
                 method: 'POST',
                 body: formData
             })

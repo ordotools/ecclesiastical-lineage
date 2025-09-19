@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Ecclesiastical Lineage{% endblock %}
+{% block title %}Dashboard - Episcopal Lineage{% endblock %}
 
 {% block full_content %}
     <div class="container mt-4">
@@ -24,7 +24,7 @@
                             </div>
                         </div>
                         <p class="text-muted">Add, view, and manage clergy records including ordination and consecration information.</p>
-                        <a href="{{ url_for('routes.clergy_list') }}" class="btn btn-primary">
+                        <a href="{{ url_for('clergy.clergy_list') }}" class="btn btn-primary">
                             <i class="fas fa-arrow-right me-2"></i>Manage Clergy
                         </a>
                     </div>
@@ -44,7 +44,7 @@
                             </div>
                         </div>
                         <p class="text-muted">View clergy records and lineage information. You can also add comments and feedback.</p>
-                        <a href="{{ url_for('routes.clergy_list') }}" class="btn btn-info">
+                        <a href="{{ url_for('clergy.clergy_list') }}" class="btn btn-info">
                             <i class="fas fa-arrow-right me-2"></i>View Clergy
                         </a>
                     </div>
@@ -66,7 +66,7 @@
                             </div>
                         </div>
                         <p class="text-muted">Track and visualize apostolic succession and ecclesiastical lineage.</p>
-                        <a href="{{ url_for('routes.lineage_visualization') }}" class="btn btn-success">
+                        <a href="{{ url_for('main.lineage_visualization') }}" class="btn btn-success">
                             <i class="fas fa-chart-line me-2"></i>View Lineage
                         </a>
                     </div>
@@ -90,7 +90,7 @@
                             </div>
                         </div>
                         <p class="text-muted">Configure ranks, organizations, and other metadata used in clergy records.</p>
-                        <a href="{{ url_for('routes.metadata') }}" class="btn btn-warning">
+                        <a href="{{ url_for('settings.metadata') }}" class="btn btn-warning">
                             <i class="fas fa-cogs me-2"></i>Manage Metadata
                         </a>
                     </div>
@@ -112,7 +112,7 @@
                             </div>
                         </div>
                         <p class="text-muted">Add, edit, and manage user accounts with different permission levels.</p>
-                        <a href="{{ url_for('routes.user_management') }}" class="btn btn-danger">
+                        <a href="{{ url_for('settings.user_management') }}" class="btn btn-danger">
                             <i class="fas fa-user-cog me-2"></i>Manage Users
                         </a>
                     </div>
@@ -134,7 +134,7 @@
                             </div>
                         </div>
                         <p class="text-muted">Review comments on clergy records, provide feedback, and track resolution status.</p>
-                        <a href="{{ url_for('routes.comments_management') }}" class="btn btn-info">
+                        <a href="{{ url_for('settings.comments_management') }}" class="btn btn-info">
                             <i class="fas fa-comments me-2"></i>Manage Comments
                         </a>
                     </div>
@@ -156,7 +156,7 @@
                             </div>
                         </div>
                         <p class="text-muted">View detailed audit logs of all system activities, changes, and user actions.</p>
-                        <a href="{{ url_for('routes.audit_logs') }}" class="btn btn-dark">
+                        <a href="{{ url_for('settings.audit_logs') }}" class="btn btn-dark">
                             <i class="fas fa-history me-2"></i>View Audit Logs
                         </a>
                     </div>
@@ -172,22 +172,6 @@
 
 {% block extra_styles %}{% endblock %}
 
-{% block extra_scripts %}
-<script>
-    // Handle logout redirect
-    document.body.addEventListener('htmx:afterRequest', function(evt) {
-        if (evt.detail.xhr.status === 200) {
-            const response = evt.detail.xhr.responseText;
-            if (response.includes('logout')) {
-                const redirectDiv = evt.detail.target.querySelector('#redirect');
-                if (redirectDiv) {
-                    const url = redirectDiv.getAttribute('data-url');
-                    setTimeout(function() {
-                        window.location.href = url;
-                    }, 1000);
-                }
-            }
-        }
-    });
-</script>
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %} 

@@ -1,0 +1,63 @@
+<!-- Clergy Information Panel - Loaded via HTMX -->
+<div class="aside-content">
+    <div class="clergy-image-container">
+        <img id="clergy-aside-image" src="" alt="Clergy portrait" class="clergy-aside-image">
+        <button id="close-aside" class="close-aside-btn-overlay" aria-label="Close information panel">
+            <i class="fas fa-times"></i>
+        </button>
+        <!-- Edit button for editors -->
+        {% if user and user.can_edit_clergy() %}
+        <button id="edit-clergy-btn" class="edit-clergy-btn-overlay" aria-label="Edit clergy" style="display: none;">
+            <i class="fas fa-edit"></i>
+        </button>
+        {% endif %}
+    </div>
+
+    <div class="dates-section mb-1" style="font-size: 10pt; line-height: 1.1; margin-bottom: 0.25rem;">
+        <div class="d-flex justify-content-center align-items-center gap-2">
+            <div class="date-item text-center p-0" style="min-width: 0;">
+                <div id="clergy-aside-ordination" class="date-value" style="font-size: 10pt; font-weight: 300;"></div>
+                <div class="date-label" style="font-size: 8pt; color: #888;">Ordination</div>
+            </div>
+            <span style="font-size: 9pt; color: #bbb;">|</span>
+            <div class="date-item text-center p-0" style="min-width: 0;">
+                <div id="clergy-aside-consecration" class="date-value" style="font-size: 10pt; font-weight: 300;"></div>
+                <div class="date-label" style="font-size: 8pt; color: #888;">Consecration</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="info-section mt-1">
+        <!-- Relationship Information -->
+        <div class="relationships-section mt-1">
+            <!-- Ordained by -->
+            <div class="relationship-item mb-1">
+                <strong>Ordained by:</strong>
+                <span id="ordained-by-info"></span>
+            </div>
+            
+            <!-- Consecrated by (only for bishops) -->
+            <div class="relationship-item mb-1" id="consecrated-by-section" style="display: none;">
+                <strong>Consecrated by:</strong>
+                <span id="consecrated-by-info"></span>
+            </div>
+            
+            <!-- Ordained clergy -->
+            <div class="relationship-item mb-1">
+                <strong>Ordained:</strong>
+                <div id="ordained-clergy-list"></div>
+            </div>
+            
+            <!-- Consecrated clergy (only for bishops) -->
+            <div class="relationship-item mb-1" id="consecrated-clergy-section" style="display: none;">
+                <strong>Consecrated:</strong>
+                <div id="consecrated-clergy-list"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Pass user editor status to JavaScript
+window.userCanEditClergy = {{ 'true' if user and user.can_edit_clergy() else 'false' }};
+</script>

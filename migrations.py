@@ -73,12 +73,14 @@ def run_database_migration(app):
         initialize_roles_and_permissions()
         print("✅ Roles and permissions initialized")
         inspector = inspect(db.engine)
+        
+        # Check and fix user table columns
         columns = [col['name'] for col in inspector.get_columns('user')]
         required_columns = ['email', 'full_name', 'is_active', 'created_at', 'last_login', 'role_id']
         missing_columns = [col for col in required_columns if col not in columns]
         if missing_columns:
-            print(f"❌ Missing columns: {missing_columns}")
-            print("🔧 Adding missing columns...")
+            print(f"❌ Missing user columns: {missing_columns}")
+            print("🔧 Adding missing user columns...")
             for col in missing_columns:
                 try:
                     with db.engine.connect() as conn:
@@ -95,9 +97,50 @@ def run_database_migration(app):
                         elif col == 'role_id':
                             conn.execute(db.text("ALTER TABLE \"user\" ADD COLUMN role_id INTEGER"))
                         conn.commit()
-                    print(f"✅ Added column: {col}")
+                    print(f"✅ Added user column: {col}")
                 except Exception as e:
-                    print(f"⚠️  Column {col} might already exist: {e}")
+                    print(f"⚠️  User column {col} might already exist: {e}")
+        
+        # Check and fix clergy table columns
+        clergy_columns = [col['name'] for col in inspector.get_columns('clergy')]
+        required_clergy_columns = ['papal_name']
+        missing_clergy_columns = [col for col in required_clergy_columns if col not in clergy_columns]
+        if missing_clergy_columns:
+            print(f"❌ Missing clergy columns: {missing_clergy_columns}")
+            print("🔧 Adding missing clergy columns...")
+            for col in missing_clergy_columns:
+                try:
+                    with db.engine.connect() as conn:
+                        if col == 'papal_name':
+                            conn.execute(db.text("ALTER TABLE clergy ADD COLUMN papal_name VARCHAR(200)"))
+                        conn.commit()
+                    print(f"✅ Added clergy column: {col}")
+                except Exception as e:
+                    print(f"⚠️  Clergy column {col} might already exist: {e}")
+        else:
+            print("✅ All required clergy columns exist")
+        
+        # Check and fix rank table columns
+        try:
+            rank_columns = [col['name'] for col in inspector.get_columns('rank')]
+            required_rank_columns = ['is_bishop']
+            missing_rank_columns = [col for col in required_rank_columns if col not in rank_columns]
+            if missing_rank_columns:
+                print(f"❌ Missing rank columns: {missing_rank_columns}")
+                print("🔧 Adding missing rank columns...")
+                for col in missing_rank_columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            if col == 'is_bishop':
+                                conn.execute(db.text("ALTER TABLE rank ADD COLUMN is_bishop BOOLEAN DEFAULT false"))
+                            conn.commit()
+                        print(f"✅ Added rank column: {col}")
+                    except Exception as e:
+                        print(f"⚠️  Rank column {col} might already exist: {e}")
+            else:
+                print("✅ All required rank columns exist")
+        except Exception as e:
+            print(f"⚠️  Could not check rank table (might not exist yet): {e}")
         super_admin_role = Role.query.filter_by(name='Super Admin').first()
         if super_admin_role:
             existing_users = User.query.filter_by(role_id=None).all()
@@ -109,3 +152,28 @@ def run_database_migration(app):
             db.session.commit()
             print(f"✅ Updated {len(existing_users)} users with Super Admin role")
         print("✅ Database migration completed successfully!") 
+
+# Migration script to add is_deleted and deleted_at columns to clergy table
+from models import db
+from sqlalchemy import Column, Boolean, DateTime
+
+def upgrade():
+    # Add is_deleted and deleted_at columns
+    with db.engine.connect() as conn:
+        conn.execute('ALTER TABLE clergy ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE')
+        conn.execute('ALTER TABLE clergy ADD COLUMN deleted_at TIMESTAMP NULL')
+
+def downgrade():
+    # Remove is_deleted and deleted_at columns
+    with db.engine.connect() as conn:
+        conn.execute('ALTER TABLE clergy DROP COLUMN IF EXISTS is_deleted')
+        conn.execute('ALTER TABLE clergy DROP COLUMN IF EXISTS deleted_at')
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == 'downgrade':
+        downgrade()
+        print('Downgrade complete.')
+    else:
+        upgrade()
+        print('Upgrade complete.') 

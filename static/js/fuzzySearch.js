@@ -93,4 +93,68 @@ function fuzzySearch(list, query, keyFn) {
     return scored;
 }
 
+/**
+ * Attach a fuzzy-search-powered autocomplete dropdown to an input.
+ * @param {HTMLInputElement} input - The text input element.
+ * @param {HTMLInputElement} hidden - The hidden input to store the selected ID.
+ * @param {HTMLElement} dropdown - The dropdown container for suggestions.
+ * @param {Array} dataList - The array of objects to search.
+ * @param {function} labelFn - Function to get display label from item.
+ * @param {function} idFn - Function to get ID from item.
+ */
+function attachAutocomplete(input, hidden, dropdown, dataList, labelFn, idFn) {
+    console.log('attachAutocomplete called with:', {
+        input: !!input,
+        hidden: !!hidden,
+        dropdown: !!dropdown,
+        dataListLength: dataList ? dataList.length : 0,
+        labelFn: typeof labelFn,
+        idFn: typeof idFn
+    });
+    
+    input.setAttribute('autocomplete', 'off');
+    input.addEventListener('input', function() {
+        console.log('Input event fired, value:', this.value);
+        const val = this.value.trim();
+        dropdown.innerHTML = '';
+        if (!val) {
+            dropdown.style.display = 'none';
+            hidden.value = '';
+            return;
+        }
+        const results = window.fuzzySearch(dataList, val, labelFn);
+        console.log('Fuzzy search results:', results.length, 'matches for:', val);
+        if (results.length === 0) {
+            dropdown.style.display = 'none';
+            hidden.value = '';
+            return;
+        }
+        results.forEach(result => {
+            const item = result.item;
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.textContent = labelFn(item);
+            div.style.cursor = 'pointer';
+            div.style.padding = '4px 8px';
+            div.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                input.value = labelFn(item);
+                hidden.value = idFn(item);
+                dropdown.style.display = 'none';
+            });
+            dropdown.appendChild(div);
+        });
+        dropdown.style.display = 'block';
+    });
+    input.addEventListener('blur', function() {
+        setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+    });
+    input.addEventListener('focus', function() {
+        if (this.value.trim()) {
+            this.dispatchEvent(new Event('input'));
+        }
+    });
+}
+window.attachAutocomplete = attachAutocomplete;
+
 window.fuzzySearch = fuzzySearch; 

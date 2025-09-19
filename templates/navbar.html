@@ -1,49 +1,30 @@
-<nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm" style="position:fixed; top:0; left:0; width:100vw; z-index:1050; height:48px; min-height:48px;">
-  <div class="container-fluid px-3">
-    <a class="navbar-brand py-0" href="/" style="font-size:1.1rem;">Ecclesiastical Lineage</a>
-    <div class="d-flex align-items-center ms-auto">
+<!-- Minimal Header with Button-like Elements -->
+<div class="minimal-header" style="position:fixed; top:0; left:0; width:100vw; z-index:1050; padding:16px; background:transparent;">
+  <div class="d-flex align-items-center justify-content-between" style="max-width: 100%;">
+    <!-- Title Button -->
+    <a href="/" class="btn minimal-title-btn">
+      Episcopal Lineage
+    </a>
+    
+    <!-- Right Side Buttons -->
+    <div class="d-flex align-items-center gap-2">
       {% if session.get('is_admin') %}
-        <a class="nav-link px-2" href="{{ url_for('routes.settings') }}" title="Settings">
-          <i class="fas fa-cog fa-lg"></i>
+        <a href="{{ url_for('settings.settings') }}" class="btn minimal-action-btn" title="Settings">
+          <i class="fas fa-cog"></i>
         </a>
       {% endif %}
       {% if session.get('user_id') %}
-        <a class="nav-link px-2" href="#" title="Logout" hx-get="{{ url_for('routes.logout') }}" hx-target="body" hx-push-url="true">
-          <i class="fas fa-sign-out-alt fa-lg"></i>
+        <a href="#" class="btn minimal-action-btn" title="Logout" hx-get="{{ url_for('auth.logout') }}" hx-target="body" hx-push-url="true">
+          <i class="fas fa-sign-out-alt"></i>
         </a>
       {% else %}
-        <a class="nav-link px-2" href="{{ url_for('routes.login') }}" title="Login">
-          <i class="fas fa-sign-in-alt fa-lg"></i>
+        <a href="{{ url_for('auth.login') }}" class="btn minimal-action-btn" title="Login">
+          <i class="fas fa-sign-in-alt"></i>
         </a>
       {% endif %}
     </div>
   </div>
-</nav>
-
-<!-- Breadcrumb Navigation -->
-{% if breadcrumbs %}
-<div class="breadcrumb-header" style="position:fixed; top:48px; left:0; width:100vw; z-index:1040; height:36px; min-height:36px;">
-  <div class="container-fluid px-3">
-    <nav aria-label="breadcrumb">
-      <ol class="breadcrumb">
-        {% for breadcrumb in breadcrumbs %}
-          {% if loop.last %}
-            <li class="breadcrumb-item active" aria-current="page">
-              {{ breadcrumb.text }}
-            </li>
-          {% else %}
-            <li class="breadcrumb-item">
-              <a href="{{ breadcrumb.url }}">{{ breadcrumb.text }}</a>
-            </li>
-          {% endif %}
-        {% endfor %}
-      </ol>
-    </nav>
-  </div>
 </div>
-<!-- Spacer to prevent content from being hidden behind navbar and breadcrumbs -->
-<div style="height:84px;"></div>
-{% else %}
+
 <!-- Spacer to prevent content from being hidden behind navbar -->
-<div style="height:48px;"></div>
-{% endif %} 
+<!-- <div style="height:68px;"></div>  -->

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Lineage Visualization - Ecclesiastical Lineage{% endblock %}
+{% block title %}Lineage Visualization - Episcopal Lineage{% endblock %}
 
 {% block full_content %}
 <script>
@@ -33,11 +33,20 @@
                 <div style="width: 20px; height: 2px; background: var(--lineage-green); margin-right: 8px;"></div>
                 <small class="text-dark">Consecration</small>
             </div>
-            <div class="d-flex align-items-center mb-2">
-                <div style="width: 20px; height: 2px; background: var(--lineage-green); border-top: 2px dotted var(--lineage-green); margin-right: 8px;"></div>
-                <small class="text-dark">Co-consecration</small>
-            </div>
+
           </div>
+          <!-- Search -->
+          <div class="visualization-search-mobile mt-3">
+            <h6 class="fw-bold mb-2 text-dark">Search</h6>
+            <div class="input-group">
+              <input type="text" id="clergy-search-mobile" class="form-control form-control-sm" placeholder="Search clergy...">
+              <button id="clear-search-mobile" class="btn btn-sm btn-outline-secondary" type="button">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div id="search-results-mobile" class="search-results mt-2" style="display: none;"></div>
+          </div>
+          
           <!-- Controls -->
           <div class="visualization-controls-mobile mt-3">
             <button id="reset-zoom-mobile" class="btn btn-sm btn-outline-secondary mb-2 w-100">
@@ -47,48 +56,249 @@
                 <i class="fas fa-crosshairs me-1"></i>Center Graph
             </button>
           </div>
+          <!-- Filters -->
+          <div class="visualization-filters-mobile mt-3">
+            <h6 class="fw-bold mb-2 text-dark">Filters</h6>
+            <div class="filter-item">
+              <label class="switch-label" for="hide-priests-mobile">
+                <small class="text-dark">Hide Priests</small>
+              </label>
+              <label class="switch">
+                <input type="checkbox" id="hide-priests-mobile" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          
+          <!-- Views -->
+          <div class="visualization-views-mobile mt-3">
+            <h6 class="fw-bold mb-2 text-dark">Views</h6>
+            <!-- Timeline View - Temporarily disabled
+            <div class="filter-item">
+              <label class="switch-label" for="timeline-view-mobile">
+                <small class="text-dark">Timeline View</small>
+              </label>
+              <label class="switch">
+                <input type="checkbox" id="timeline-view-mobile">
+                <span class="slider"></span>
+              </label>
+            </div>
+            -->
+            <div class="filter-item">
+              <label class="switch-label" for="backbone-only-mobile">
+                <small class="text-dark">Backbone Only</small>
+              </label>
+              <label class="switch">
+                <input type="checkbox" id="backbone-only-mobile" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          
+          <!-- Layout Options -->
+          <div class="visualization-layout-mobile mt-3">
+            <h6 class="fw-bold mb-2 text-dark">Layout</h6>
+            <div class="filter-item">
+              <label class="switch-label" for="elk-layout-toggle-mobile">
+                <small class="text-dark">ELK Layered Layout</small>
+              </label>
+              <label class="switch">
+                <input type="checkbox" id="elk-layout-toggle-mobile">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <small class="text-muted">Experimental layered layout algorithm</small>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Legend -->
-    <div class="legend-visualization">
-        <h6 class="fw-bold mb-2 text-dark">Lineage Types</h6>
-        <div class="d-flex align-items-center mb-2">
-            <div style="width: 20px; height: 2px; background: var(--lineage-black); margin-right: 8px;"></div>
-            <small class="text-dark">Ordination</small>
+    <!-- Side Menu -->
+    <div id="side-menu" class="side-menu">
+        <!-- Legend -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Lineage Types</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 20px; height: 2px; background: var(--lineage-black); margin-right: 8px;"></div>
+                    <small class="text-dark">Ordination</small>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 20px; height: 2px; background: var(--lineage-green); margin-right: 8px;"></div>
+                    <small class="text-dark">Consecration</small>
+                </div>
+            </div>
         </div>
-        <div class="d-flex align-items-center mb-2">
-            <div style="width: 20px; height: 2px; background: var(--lineage-green); margin-right: 8px;"></div>
-            <small class="text-dark">Consecration</small>
+
+        <!-- Search -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Search</h6>
+            </div>
+            <div class="card-body">
+                <div class="input-group mb-2">
+                    <input type="text" id="clergy-search" class="form-control form-control-sm" placeholder="Search clergy...">
+                    <button id="clear-search" class="btn btn-sm btn-outline-secondary" type="button">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="search-results" class="search-results" style="display: none;"></div>
+            </div>
         </div>
-        <div class="d-flex align-items-center mb-2">
-            <div style="width: 20px; height: 2px; background: var(--lineage-green); border-top: 2px dotted var(--lineage-green); margin-right: 8px;"></div>
-            <small class="text-dark">Co-consecration</small>
+
+        <!-- Controls -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Controls</h6>
+            </div>
+            <div class="card-body">
+                <button id="reset-zoom" class="btn btn-sm btn-outline-secondary mb-2 w-100">
+                    <i class="fas fa-search-plus me-1"></i>Reset Zoom
+                </button>
+                <button id="center-graph" class="btn btn-sm btn-outline-secondary w-100">
+                    <i class="fas fa-crosshairs me-1"></i>Center Graph
+                </button>
+            </div>
         </div>
+
+        <!-- Filters -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Filters</h6>
+            </div>
+            <div class="card-body">
+                <div class="filter-item">
+                    <label class="switch-label" for="hide-priests">
+                        <small class="text-dark">Hide Priests</small>
+                    </label>
+                    <label class="switch">
+                        <input type="checkbox" id="hide-priests" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Views -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Views</h6>
+            </div>
+            <div class="card-body">
+                <!-- Timeline View - Temporarily disabled
+                <div class="filter-item">
+                    <label class="switch-label" for="timeline-view">
+                        <small class="text-dark">Timeline View</small>
+                    </label>
+                    <label class="switch">
+                        <input type="checkbox" id="timeline-view">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                -->
+                <div class="filter-item">
+                    <label class="switch-label" for="backbone-only">
+                        <small class="text-dark">Backbone Only</small>
+                    </label>
+                    <label class="switch">
+                        <input type="checkbox" id="backbone-only" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Layout Options -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Layout</h6>
+            </div>
+            <div class="card-body">
+                <div class="filter-item">
+                    <label class="switch-label" for="elk-layout-toggle">
+                        <small class="text-dark">ELK Layered Layout</small>
+                    </label>
+                    <label class="switch">
+                        <input type="checkbox" id="elk-layout-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <small class="text-muted">Experimental layered layout algorithm</small>
+            </div>
+        </div>
+        
+        <!-- Toggle Button - Positioned on the right side -->
+        <button id="side-menu-toggle" class="side-menu-toggle-btn" aria-label="Toggle side menu">
+            <i class="fas fa-bars"></i>
+        </button>
     </div>
 
-    <!-- Controls -->
-    <div class="visualization-controls">
-        <button id="reset-zoom" class="btn btn-sm btn-outline-secondary mb-2 w-100">
-            <i class="fas fa-search-plus me-1"></i>Reset Zoom
-        </button>
-        <button id="center-graph" class="btn btn-sm btn-outline-secondary w-100">
-            <i class="fas fa-crosshairs me-1"></i>Center Graph
-        </button>
+    <!-- Right Side Aside - Clergy Information Panel -->
+    <div id="clergy-aside" class="clergy-aside">
+        <!-- HTMX-powered clergy information panel -->
+        <div id="clergy-info-panel" 
+             hx-get="/clergy/info-panel" 
+             hx-trigger="load"
+             hx-target="this"
+             hx-swap="innerHTML">
+            <!-- Loading placeholder -->
+            <div class="text-center p-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Click on a clergy member to view information</p>
+            </div>
+        </div>
     </div>
 
     <!-- Admin Navigation Button -->
     {% if session.user_id %}
     <div class="admin-nav-container">
-        <a href="{{ url_for('routes.dashboard') }}" class="btn admin-nav-btn">
+        <a href="{{ url_for('auth.dashboard') }}" class="btn admin-nav-btn">
             <i class="fas fa-tachometer-alt me-2"></i>Dashboard
         </a>
     </div>
     {% endif %}
 
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="position-fixed" style="top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1200;">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading lineage visualization...</p>
+        </div>
+    </div>
+
     <!-- Graph Container -->
     <div id="graph-container" class="graph-container-full"></div>
+    
+    <!-- Error Message Display -->
+    {% if error_message %}
+    <div class="alert alert-warning alert-dismissible fade show position-fixed" style="top: 20px; right: 20px; z-index: 1200;" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        {{ error_message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- Clergy Form Modal -->
+    <div class="modal fade" id="clergyFormModal" tabindex="-1" aria-labelledby="clergyFormModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" style="max-width: 90%; margin: 20px auto;">
+            <div class="modal-content" style="border: none; box-shadow: none; background: transparent;">
+                <div class="modal-header" style="padding: 0; border: none; background: transparent;">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="position: absolute; top: 15px; right: 15px; z-index: 1050; background: transparent; border: none; font-size: 24px; color: #666; cursor: pointer; padding: 0; width: auto; height: auto; line-height: 1;">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="clergyFormModalBody" style="padding: 0;">
+                    <!-- HTMX will load content here -->
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -97,533 +307,13 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
+<script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
+<script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dynamic-clergy-form.js') }}"></script>
 <script>
-    // Visualization constants
-    const LINK_DISTANCE = 144;
-    const CHARGE_STRENGTH = -400;
-    const COLLISION_RADIUS = 48;
-    const OUTER_RADIUS = 18; // Organization ring
-    const INNER_RADIUS = 14; // Rank ring
-    const IMAGE_SIZE = 20;
-    const LABEL_DY = 30;
-    const ARROWHEAD_LENGTH = 12; // Should match marker refX
-    const ARROW_OFFSET = 4; // Small offset beyond node edge
-
-    // Show/hide floating menu button and hide fixed legend/controls on mobile
-    function handleMobileMenuDisplay() {
-      const isMobile = window.innerWidth <= 768;
-      document.getElementById('mobile-menu-btn').style.display = isMobile ? 'block' : 'none';
-      document.querySelector('.legend-visualization').style.display = isMobile ? 'none' : '';
-      document.querySelector('.visualization-controls').style.display = isMobile ? 'none' : '';
-    }
-    window.addEventListener('resize', handleMobileMenuDisplay);
-    document.addEventListener('DOMContentLoaded', handleMobileMenuDisplay);
-
-    // Mobile menu open/close logic
-    const menuBtn = document.getElementById('mobile-menu-btn');
-    const menuModal = document.getElementById('mobile-menu-modal');
-    const closeBtn = document.getElementById('close-mobile-menu');
-    if (menuBtn && menuModal && closeBtn) {
-      menuBtn.addEventListener('click', () => {
-        menuModal.style.display = 'block';
-      });
-      closeBtn.addEventListener('click', () => {
-        menuModal.style.display = 'none';
-      });
-      menuModal.addEventListener('click', (e) => {
-        if (e.target === menuModal) menuModal.style.display = 'none';
-      });
-    }
-    // Wire up mobile controls to main controls
-    const resetZoomMobile = document.getElementById('reset-zoom-mobile');
-    const centerGraphMobile = document.getElementById('center-graph-mobile');
-    if (resetZoomMobile) {
-      resetZoomMobile.addEventListener('click', function() {
-        document.getElementById('reset-zoom').click();
-        menuModal.style.display = 'none';
-      });
-    }
-    if (centerGraphMobile) {
-      centerGraphMobile.addEventListener('click', function() {
-        document.getElementById('center-graph').click();
-        menuModal.style.display = 'none';
-      });
-    }
-
-    // Specify the dimensions of the chart
-    const width = window.innerWidth;
-    const height = window.innerHeight - 76;
-
-    // Define color constants for consistency
-    const GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim() || '#27ae60';
-    const BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-black').trim() || '#000000';
-
-    // The force simulation mutates links and nodes, so create a copy
-    const linksRaw = {{ links | safe }};
-    const nodesRaw = {{ nodes | safe }};
-    const links = linksRaw.map(d => ({...d}));
-    const nodes = nodesRaw.map(d => ({...d}));
-
-    // Function to detect and offset parallel links
-    function processParallelLinks(links) {
-        // Group links by source-target pairs
-        const linkGroups = {};
-        
-        links.forEach(link => {
-            const key = `${link.source}-${link.target}`;
-            if (!linkGroups[key]) {
-                linkGroups[key] = [];
-            }
-            linkGroups[key].push(link);
-        });
-        
-        // Add offset to parallel links
-        Object.values(linkGroups).forEach(group => {
-            if (group.length > 1) {
-                // Sort by type to ensure consistent ordering
-                group.sort((a, b) => {
-                    const typeOrder = { 'ordination': 0, 'consecration': 1, 'co-consecration': 2 };
-                    return (typeOrder[a.type] || 0) - (typeOrder[b.type] || 0);
-                });
-                
-                // Calculate offset for each link
-                const offset = 8; // Distance between parallel lines
-                const totalOffset = (group.length - 1) * offset / 2;
-                
-                group.forEach((link, index) => {
-                    link.parallelIndex = index;
-                    link.parallelOffset = (index * offset) - totalOffset;
-                });
-            } else {
-                group[0].parallelIndex = 0;
-                group[0].parallelOffset = 0;
-            }
-        });
-        
-        return links;
-    }
-
-    // Process links to handle parallel connections
-    const processedLinks = processParallelLinks(links);
-
-    // Function to find connected components (disjoint subgraphs)
-    function findConnectedComponents(nodes, links) {
-        const visited = new Set();
-        const components = [];
-        
-        function dfs(nodeId, component) {
-            if (visited.has(nodeId)) return;
-            visited.add(nodeId);
-            component.push(nodeId);
-            
-            // Find all connected nodes
-            links.forEach(link => {
-                if (link.source.id === nodeId && !visited.has(link.target.id)) {
-                    dfs(link.target.id, component);
-                } else if (link.target.id === nodeId && !visited.has(link.source.id)) {
-                    dfs(link.source.id, component);
-                }
-            });
-        }
-        
-        nodes.forEach(node => {
-            if (!visited.has(node.id)) {
-                const component = [];
-                dfs(node.id, component);
-                components.push(component);
-            }
-        });
-        
-        return components;
-    }
-
-    // Find connected components
-    const components = findConnectedComponents(nodes, processedLinks);
-    
-    // Assign component IDs to nodes and set initial positions
-    nodes.forEach(node => {
-        const componentIndex = components.findIndex(comp => comp.includes(node.id));
-        node.component = componentIndex;
-        
-        // Set initial positions in a circle pattern for each component
-        if (componentIndex >= 0) {
-            const component = components[componentIndex];
-            const nodeIndex = component.indexOf(node.id);
-            const angle = (nodeIndex / component.length) * 2 * Math.PI;
-            const radius = 50 + (componentIndex * 100); // Each component gets its own radius
-            
-            // Spread components around the center
-            const componentAngle = (componentIndex / components.length) * 2 * Math.PI;
-            const componentRadius = 200;
-            
-            node.x = width / 2 + Math.cos(componentAngle) * componentRadius + Math.cos(angle) * radius;
-            node.y = height / 2 + Math.sin(componentAngle) * componentRadius + Math.sin(angle) * radius;
-        }
-    });
-
-    // Custom force for component separation
-    function componentForce() {
-        const strength = 0.15; // Increased strength for better separation
-        const padding = 150; // Increased minimum distance between components
-        
-        return function(alpha) {
-            for (let i = 0; i < components.length; i++) {
-                for (let j = i + 1; j < components.length; j++) {
-                    const comp1 = components[i];
-                    const comp2 = components[j];
-                    
-                    // Calculate center of each component
-                    let center1 = { x: 0, y: 0 };
-                    let center2 = { x: 0, y: 0 };
-                    
-                    comp1.forEach(nodeId => {
-                        const node = nodes.find(n => n.id === nodeId);
-                        if (node) {
-                            center1.x += node.x;
-                            center1.y += node.y;
-                        }
-                    });
-                    center1.x /= comp1.length;
-                    center1.y /= comp1.length;
-                    
-                    comp2.forEach(nodeId => {
-                        const node = nodes.find(n => n.id === nodeId);
-                        if (node) {
-                            center2.x += node.x;
-                            center2.y += node.y;
-                        }
-                    });
-                    center2.x /= comp2.length;
-                    center2.y /= comp2.length;
-                    
-                    // Calculate distance between component centers
-                    const dx = center2.x - center1.x;
-                    const dy = center2.y - center1.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (distance < padding) {
-                        const force = (padding - distance) * strength * alpha;
-                        const fx = (dx / distance) * force;
-                        const fy = (dy / distance) * force;
-                        
-                        // Apply force to all nodes in both components
-                        comp1.forEach(nodeId => {
-                            const node = nodes.find(n => n.id === nodeId);
-                            if (node) {
-                                node.vx -= fx / comp1.length;
-                                node.vy -= fy / comp1.length;
-                            }
-                        });
-                        
-                        comp2.forEach(nodeId => {
-                            const node = nodes.find(n => n.id === nodeId);
-                            if (node) {
-                                node.vx += fx / comp2.length;
-                                node.vy += fy / comp2.length;
-                            }
-                        });
-                    }
-                }
-            }
-        };
-    }
-
-    // Custom charge force with stronger repulsion for bishops
-    function customChargeForce() {
-        return function(alpha) {
-            const strength = CHARGE_STRENGTH;
-            const bishopMultiplier = 1.2; // 20% stronger repulsion for bishops
-            const minDistance = 1; // Minimum distance to prevent division by zero
-            
-            for (let i = 0; i < nodes.length; i++) {
-                const node = nodes[i];
-                const isBishop = node.rank && node.rank.toLowerCase().includes('bishop');
-                const nodeStrength = isBishop ? strength * bishopMultiplier : strength;
-                
-                for (let j = i + 1; j < nodes.length; j++) {
-                    const other = nodes[j];
-                    const otherIsBishop = other.rank && other.rank.toLowerCase().includes('bishop');
-                    const otherStrength = otherIsBishop ? strength * bishopMultiplier : strength;
-                    
-                    // Use the stronger of the two forces
-                    const effectiveStrength = Math.max(nodeStrength, otherStrength);
-                    
-                    const dx = other.x - node.x;
-                    const dy = other.y - node.y;
-                    const distance = Math.max(Math.sqrt(dx * dx + dy * dy), minDistance);
-                    
-                    const force = effectiveStrength * alpha / (distance * distance);
-                    const fx = (dx / distance) * force;
-                    const fy = (dy / distance) * force;
-                    
-                    node.vx -= fx;
-                    node.vy -= fy;
-                    other.vx += fx;
-                    other.vy += fy;
-                }
-            }
-        };
-    }
-
-    // Create a simulation with several forces
-    const simulation = d3.forceSimulation(nodes)
-        .force("link", d3.forceLink(processedLinks).id(d => d.id).distance(LINK_DISTANCE))
-        .force("charge", customChargeForce())
-        .force("component", componentForce())
-        .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collision", d3.forceCollide().radius(COLLISION_RADIUS))
-        .on("tick", ticked);
-
-    // Create the SVG container
-    const svg = d3.select("#graph-container")
-        .append("svg")
-        .attr("width", width)
-        .attr("height", height)
-        .attr("viewBox", [0, 0, width, height])
-        .attr("style", "max-width: 100%; height: auto;");
-
-    // Add zoom behavior
-    const zoom = d3.zoom()
-        .scaleExtent([0.1, 4])
-        .on("zoom", function(event) {
-            container.attr("transform", event.transform);
-        });
-    svg.call(zoom);
-    const container = svg.append("g");
-
-    // Add arrow markers
-    const defs = svg.append("defs");
-    defs.append("marker")
-        .attr("id", "arrowhead-black")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 8)
-        .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
-        .attr("orient", "auto")
-        .attr("markerUnits", "strokeWidth")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", BLACK_COLOR);
-    
-    defs.append("marker")
-        .attr("id", "arrowhead-green")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 8)
-        .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
-        .attr("orient", "auto")
-        .attr("markerUnits", "strokeWidth")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", GREEN_COLOR);
-
-    // Add a line for each link (restore this block before nodeGroup)
-    const link = container.append("g")
-        .attr("stroke", "#999")
-        .attr("stroke-opacity", 1)
-        .selectAll("line")
-        .data(processedLinks)
-        .join("line")
-        .attr("stroke-width", 3.2)
-        .attr("stroke", d => {
-            if (d.color === GREEN_COLOR) return GREEN_COLOR;
-            if (d.color === BLACK_COLOR) return BLACK_COLOR;
-            return d.color;
-        })
-        .attr("stroke-dasharray", d => d.dashed ? "5,5" : "none")
-        .attr("marker-end", d => {
-            if (d.color === BLACK_COLOR) return "url(#arrowhead-black)";
-            if (d.color === GREEN_COLOR) return "url(#arrowhead-green)";
-            return "url(#arrowhead-black)";
-        });
-
-    // Add a group for each node to allow concentric rings and image
-    const nodeGroup = container.append("g")
-        .selectAll("g")
-        .data(nodes)
-        .join("g")
-        .attr("class", "node-group");
-
-    // Outer ring (organization color)
-    nodeGroup.append("circle")
-        .attr("r", OUTER_RADIUS)
-        .attr("fill", "#fcfaf5")
-        .attr("stroke", d => d.org_color)
-        .attr("stroke-width", 4);
-
-    // Inner ring (rank color)
-    nodeGroup.append("circle")
-        .attr("r", INNER_RADIUS)
-        .attr("fill", "#fcfaf5")
-        .attr("stroke", d => d.rank_color)
-        .attr("stroke-width", 3);
-
-    // Image (centered)
-    nodeGroup.append("image")
-        .attr("xlink:href", d => d.image_url)
-        .attr("x", -IMAGE_SIZE/2)
-        .attr("y", -IMAGE_SIZE/2)
-        .attr("width", IMAGE_SIZE)
-        .attr("height", IMAGE_SIZE)
-        .attr("clip-path", "circle(10px at 10px 10px)");
-
-    // Node label (unchanged)
-    nodeGroup.append("text")
-        .attr("class", "node-label")
-        .attr("dy", LABEL_DY)
-        .text(d => d.name);
-
-    // Add tooltips
-    nodeGroup.append("title")
-        .text(d => d.name);
-
-    // Add a drag behavior
-    nodeGroup.call(d3.drag()
-        .on("start", dragstarted)
-        .on("drag", dragged)
-        .on("end", dragended));
-
-    // Add tooltip behavior - only show on click, not hover
-    let isDragging = false;
-    let clickedNode = null;
-    
-    nodeGroup.on("mousedown", function(event, d) {
-        isDragging = false;
-        clickedNode = d;
-    })
-    .on("mousemove", function(event, d) {
-        if (clickedNode === d) {
-            isDragging = true;
-        }
-    })
-    .on("mouseup", function(event, d) {
-        if (clickedNode === d && !isDragging) {
-            // Show tooltip only if clicked without dragging
-            const tooltip = d3.select("body").append("div")
-                .attr("class", "tooltip")
-                .style("opacity", 0);
-            
-            tooltip.transition()
-                .duration(200)
-                .style("opacity", .9);
-            tooltip.html(
-                "<h6>" + d.name + "</h6>" +
-                "<p><strong>Rank:</strong> " + (d.rank || 'N/A') + "</p>" +
-                "<p><strong>Organization:</strong> " + (d.organization || 'N/A') + "</p>"
-            )
-                .style("left", (event.pageX + 10) + "px")
-                .style("top", (event.pageY - 28) + "px");
-        }
-        clickedNode = null;
-        isDragging = false;
-    });
-
-    // Set the position attributes of links and nodes each time the simulation ticks
-    function ticked() {
-        link
-            .attr("x1", d => {
-                const dx = d.target.x - d.source.x;
-                const dy = d.target.y - d.source.y;
-                const angle = Math.atan2(dy, dx);
-                const offsetX = Math.cos(angle + Math.PI/2) * d.parallelOffset;
-                const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
-                // Move start point out from center by OUTER_RADIUS
-                return d.source.x + offsetX + Math.cos(angle) * OUTER_RADIUS;
-            })
-            .attr("y1", d => {
-                const dx = d.target.x - d.source.x;
-                const dy = d.target.y - d.source.y;
-                const angle = Math.atan2(dy, dx);
-                const offsetX = Math.cos(angle + Math.PI/2) * d.parallelOffset;
-                const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
-                return d.source.y + offsetY + Math.sin(angle) * OUTER_RADIUS;
-            })
-            .attr("x2", d => {
-                const dx = d.target.x - d.source.x;
-                const dy = d.target.y - d.source.y;
-                const angle = Math.atan2(dy, dx);
-                const offsetX = Math.cos(angle + Math.PI/2) * d.parallelOffset;
-                const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
-                // Move end point just outside node edge
-                return d.target.x + offsetX - Math.cos(angle) * (OUTER_RADIUS + ARROW_OFFSET);
-            })
-            .attr("y2", d => {
-                const dx = d.target.x - d.source.x;
-                const dy = d.target.y - d.source.y;
-                const angle = Math.atan2(dy, dx);
-                const offsetX = Math.cos(angle + Math.PI/2) * d.parallelOffset;
-                const offsetY = Math.sin(angle + Math.PI/2) * d.parallelOffset;
-                return d.target.y + offsetY - Math.sin(angle) * (OUTER_RADIUS + ARROW_OFFSET);
-            });
-
-        nodeGroup.attr("transform", d => `translate(${d.x},${d.y})`);
-        // Removed nodeLabel positioning, handled by group transform
-    }
-
-    // Reheat the simulation when drag starts, and fix the subject position
-    function dragstarted(event) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        event.subject.fx = event.subject.x;
-        event.subject.fy = event.subject.y;
-    }
-
-    // Update the subject (dragged node) position during drag
-    function dragged(event) {
-        event.subject.fx = event.x;
-        event.subject.fy = event.y;
-    }
-
-    // Restore the target alpha so the simulation cools after dragging ends
-    // Unfix the subject position now that it's no longer being dragged
-    function dragended(event) {
-        if (!event.active) simulation.alphaTarget(0);
-        event.subject.fx = null;
-        event.subject.fy = null;
-    }
-
-    // Control buttons
-    document.getElementById("reset-zoom").addEventListener("click", function() {
-        svg.transition().duration(750).call(
-            zoom.transform,
-            d3.zoomIdentity
-        );
-    });
-
-    document.getElementById("center-graph").addEventListener("click", function() {
-        simulation.force("center", d3.forceCenter(width / 2, height / 2));
-        simulation.alpha(1).restart();
-        
-        // Also restart component force to ensure proper separation
-        simulation.force("component", componentForce());
-    });
-
-    // Handle window resize
-    window.addEventListener("resize", function() {
-        const newWidth = window.innerWidth;
-        const newHeight = window.innerHeight - 76;
-        svg.attr("width", newWidth).attr("height", newHeight);
-        simulation.force("center", d3.forceCenter(newWidth / 2, newHeight / 2));
-        simulation.force("component", componentForce());
-        simulation.alpha(1).restart();
-    });
-
-    // Handle logout redirect
-    document.body.addEventListener('htmx:afterRequest', function(evt) {
-        if (evt.detail.xhr.status === 200) {
-            const response = evt.detail.xhr.responseText;
-            if (response.includes('logout')) {
-                const redirectDiv = evt.detail.target.querySelector('#redirect');
-                if (redirectDiv) {
-                    const url = redirectDiv.getAttribute('data-url');
-                    setTimeout(function() {
-                        window.location.href = url;
-                    }, 1000);
-                }
-            }
-        }
-    });
+window.linksData = {{ links | safe }};
+window.nodesData = {{ nodes | safe }};
 </script>
+<script type="module" src="{{ url_for('static', filename='js/lineageVisualization.js') }}"></script>
 {% endblock %} 

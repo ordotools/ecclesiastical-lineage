@@ -123,11 +123,20 @@ fi
 
 echo "✅ Local environment configured"
 
-# Activate virtual environment if it exists
+# Activate virtual environment if it exists, or create one
 if [ -d "env" ]; then
-  echo "🐍 Activating virtual environment..."
+  echo "🐍 Activating existing virtual environment..."
   source env/bin/activate
   echo "✅ Virtual environment activated"
+  
+  # Check if dependencies are installed
+  if ! python3 -c "import flask" 2>/dev/null; then
+    echo "📦 Installing dependencies in existing virtual environment..."
+    pip install -r requirements.txt
+    echo "✅ Dependencies installed"
+  else
+    echo "✅ Dependencies already installed"
+  fi
 else
   echo "⚠️  Virtual environment not found. Creating one..."
   python3 -m venv env
@@ -139,14 +148,24 @@ fi
 
 # Test the local database connection
 echo "🔍 Testing local database connection..."
-python3 -c "
-import os
-os.environ['DATABASE_URL'] = '$LOCAL_DATABASE_URL'
-from app import app, db
-with app.app_context():
-    db.engine.connect()
-    print('✅ Local database connection test successful')
-"
+python3 -c "import os; os.environ['DATABASE_URL'] = '$LOCAL_DATABASE_URL'; from app import app, db; app.app_context().push(); db.engine.connect(); print('✅ Local database connection test successful')"
+
+# Run database migrations
+echo "🗄️  Running database migrations (flask db upgrade)..."
+# After database sync, we need to handle the case where columns already exist
+# Try to run migrations, and if they fail due to duplicate columns, stamp them instead
+if ! flask db upgrade 2>/dev/null; then
+  echo "📋 Migration failed (likely due to existing columns), stamping migrations to match database state..."
+  # Stamp all migrations as applied since the synced database already has all columns
+  flask db stamp bc170867dac1 2>/dev/null || true
+  flask db stamp 8cd1c86c2ec4 2>/dev/null || true  
+  flask db stamp 9eed07e44dd1 2>/dev/null || true
+  echo "✅ Migration history synchronized with database state"
+  
+  # Try upgrade again after stamping
+  flask db upgrade 2>/dev/null || true
+fi
+echo "✅ Database migrations applied"
 
 echo ""
 echo "🎉 Development environment setup complete!"

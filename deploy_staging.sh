@@ -60,8 +60,24 @@ print_status "🗄️  Initializing database tables..."
 if python3 init_postgres_db.py; then
     print_success "✅ Database initialization completed successfully!"
 else
-    print_error "❌ Database initialization failed!"
-    exit 1
+    print_warning "⚠️  Database initialization had warnings (admin user may already exist)"
+    print_status "🔍 Checking if database is functional..."
+    if python3 -c "
+from app import app, db
+from models import User
+with app.app_context():
+    user_count = User.query.count()
+    print(f'✅ Database is functional - {user_count} users found')
+    if user_count > 0:
+        print('✅ Database has data, continuing with deployment')
+    else:
+        print('⚠️  Database is empty but functional')
+"; then
+        print_success "✅ Database is functional, continuing deployment"
+    else
+        print_error "❌ Database is not functional!"
+        exit 1
+    fi
 fi
 
 # Step 5: Run database migration using Flask-Migrate

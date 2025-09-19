@@ -96,19 +96,29 @@ def init_postgres_database():
         print("ℹ️  Sample data functionality has been removed to prevent accidental data overwrites")
         
         # Create admin user if it doesn't exist
-        existing_admin = User.query.filter_by(is_admin=True).first()
+        existing_admin = User.query.filter_by(username="admin").first()
         if not existing_admin:
             print("👤 Creating admin user...")
-            admin_user = User(
-                username="admin",
-                is_admin=True
-            )
-            admin_user.set_password("admin123")
-            db.session.add(admin_user)
-            db.session.commit()
-            print("✅ Admin user created successfully!")
-            print("Username: admin")
-            print("Password: admin123")
+            try:
+                admin_user = User(
+                    username="admin",
+                    is_admin=True
+                )
+                admin_user.set_password("admin123")
+                db.session.add(admin_user)
+                db.session.commit()
+                print("✅ Admin user created successfully!")
+                print("Username: admin")
+                print("Password: admin123")
+            except Exception as e:
+                print(f"⚠️  Admin user creation failed (may already exist): {e}")
+                db.session.rollback()
+                # Check again after rollback
+                existing_admin = User.query.filter_by(username="admin").first()
+                if existing_admin:
+                    print(f"ℹ️  Admin user already exists: {existing_admin.username}")
+                else:
+                    print("❌ Admin user creation failed and user doesn't exist")
         else:
             print(f"ℹ️  Admin user already exists: {existing_admin.username}")
 

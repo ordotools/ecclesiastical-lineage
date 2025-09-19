@@ -216,6 +216,14 @@ def get_lineage_data():
             'message': 'Unable to load lineage data. Please try again later.'
         }), 500
 
+@main_bp.route('/test-migration')
+def test_migration():
+    """Test endpoint to verify routing is working"""
+    return jsonify({
+        'success': True,
+        'message': 'Test endpoint working'
+    })
+
 @main_bp.route('/admin/force-migrate-lineage', methods=['GET', 'POST'])
 def force_migrate_lineage():
     """Admin endpoint to force migrate lineage data"""

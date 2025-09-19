@@ -314,6 +314,9 @@
 <script>
 window.linksData = {{ links | safe }};
 window.nodesData = {{ nodes | safe }};
+console.log('Template rendered at:', new Date().toISOString());
+console.log('Template links count:', window.linksData ? window.linksData.length : 'undefined');
+console.log('Template nodes count:', window.nodesData ? window.nodesData.length : 'undefined');
 </script>
-<script type="module" src="{{ url_for('static', filename='js/lineageVisualization.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/lineageVisualization.js') }}?v={{ range(1000, 9999) | random }}"></script>
 {% endblock %} 

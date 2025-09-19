@@ -216,7 +216,7 @@ def get_lineage_data():
             'message': 'Unable to load lineage data. Please try again later.'
         }), 500
 
-@main_bp.route('/admin/force-migrate-lineage')
+@main_bp.route('/admin/force-migrate-lineage', methods=['GET', 'POST'])
 def force_migrate_lineage():
     """Admin endpoint to force migrate lineage data"""
     try:

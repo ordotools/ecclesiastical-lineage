@@ -1082,6 +1082,7 @@ function initModalEditClergy() {
 // Function to refresh visualization data without page reload
 function refreshVisualizationData() {
   console.log('Refreshing visualization data...');
+  console.log('Current window.linksData before refresh:', window.linksData ? window.linksData.length : 'undefined');
   
   // Fetch updated data from the server
   fetch('/clergy/lineage-data')
@@ -1089,6 +1090,8 @@ function refreshVisualizationData() {
     .then(data => {
       if (data.success) {
         console.log('Data refreshed successfully');
+        console.log('Received links:', data.links ? data.links.length : 'undefined');
+        console.log('Received nodes:', data.nodes ? data.nodes.length : 'undefined');
         
         // Update the global data
         window.linksData = data.links;

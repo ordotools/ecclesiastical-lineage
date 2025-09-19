@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Lineage Data</title>
+</head>
+<body>
+    <h1>Lineage Data Debug</h1>
+    <div id="debug-output"></div>
+    
+    <script>
+        // Test if we can access the data
+        console.log('Testing lineage data...');
+        console.log('window.linksData:', window.linksData);
+        console.log('window.nodesData:', window.nodesData);
+        
+        if (window.linksData) {
+            console.log('Links count:', window.linksData.length);
+            console.log('Sample link:', window.linksData[0]);
+        } else {
+            console.log('No linksData found');
+        }
+        
+        if (window.nodesData) {
+            console.log('Nodes count:', window.nodesData.length);
+            console.log('Sample node:', window.nodesData[0]);
+        } else {
+            console.log('No nodesData found');
+        }
+        
+        // Display results on page
+        document.getElementById('debug-output').innerHTML = `
+            <p>Links Data: ${window.linksData ? window.linksData.length + ' links' : 'Not found'}</p>
+            <p>Nodes Data: ${window.nodesData ? window.nodesData.length + ' nodes' : 'Not found'}</p>
+            <p>Sample Link: ${window.linksData ? JSON.stringify(window.linksData[0]) : 'None'}</p>
+            <p>Sample Node: ${window.nodesData ? JSON.stringify(window.nodesData[0]) : 'None'}</p>
+        `;
+    </script>
+</body>
+</html>

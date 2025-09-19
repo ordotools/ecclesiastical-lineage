@@ -15,6 +15,10 @@ console.log('Available data:', {
   nodes: window.nodesData ? window.nodesData.length : 'undefined'
 });
 
+// Debug: Check if data is being overwritten
+console.log('Full window.linksData:', window.linksData);
+console.log('Full window.nodesData:', window.nodesData);
+
 // Debug: Log sample data
 if (window.linksData && window.linksData.length > 0) {
   console.log('Sample link data:', window.linksData[0]);

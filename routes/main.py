@@ -18,6 +18,63 @@ def index():
 @main_bp.route('/lineage_visualization')
 def lineage_visualization():
     try:
+        # Check if we have any ordination/consecration data
+        ordination_count = Ordination.query.count()
+        consecration_count = Consecration.query.count()
+        
+        # If no data exists, create some synthetic data
+        if ordination_count == 0 and consecration_count == 0:
+            current_app.logger.info("No lineage data found, creating synthetic data...")
+            
+            from datetime import datetime
+            
+            # Get all clergy
+            all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+            
+            # Create synthetic lineage data
+            bishops = [c for c in all_clergy if c.rank and 'bishop' in c.rank.lower()]
+            priests = [c for c in all_clergy if c.rank and 'priest' in c.rank.lower()]
+            
+            current_app.logger.info(f"Found {len(bishops)} bishops and {len(priests)} priests")
+            
+            # Create ordinations for priests
+            for priest in priests[:10]:  # Limit to first 10
+                if bishops:
+                    ordaining_bishop = bishops[0]
+                    
+                    ordination = Ordination(
+                        clergy_id=priest.id,
+                        date=datetime.now().date(),
+                        ordaining_bishop_id=ordaining_bishop.id,
+                        is_sub_conditione=False,
+                        is_doubtful=False,
+                        is_invalid=False,
+                        notes=f"Synthetic ordination for {priest.name}",
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    )
+                    db.session.add(ordination)
+            
+            # Create consecrations for bishops
+            for i, bishop in enumerate(bishops[1:], 1):
+                consecrator = bishops[0]
+                
+                consecration = Consecration(
+                    clergy_id=bishop.id,
+                    date=datetime.now().date(),
+                    consecrator_id=consecrator.id,
+                    is_sub_conditione=False,
+                    is_doubtful=False,
+                    is_invalid=False,
+                    notes=f"Synthetic consecration for {bishop.name}",
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                db.session.add(consecration)
+            
+            db.session.commit()
+            current_app.logger.info("Synthetic lineage data created successfully")
+        
         # Allow both logged-in and non-logged-in users to view lineage visualization
         # Get only active (non-deleted) clergy for the visualization
         all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()

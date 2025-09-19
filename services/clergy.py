@@ -1,5 +1,5 @@
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response
-from models import db, Clergy, Rank, Organization, User, ClergyComment
+from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordination, Consecration
 from utils import generate_breadcrumbs, log_audit_event
 from datetime import datetime
 import json
@@ -33,57 +33,12 @@ def create_clergy_from_form(form):
     clergy.papal_name = form.get('papal_name')
     clergy.organization = form.get('organization')
     date_of_birth = form.get('date_of_birth')
-    date_of_ordination = form.get('date_of_ordination')
-    date_of_consecration = form.get('date_of_consecration')
     date_of_death = form.get('date_of_death')
     clergy.notes = form.get('notes')
     if date_of_birth:
         clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
-    if date_of_ordination:
-        clergy.date_of_ordination = datetime.strptime(date_of_ordination, '%Y-%m-%d').date()
-    if date_of_consecration:
-        clergy.date_of_consecration = datetime.strptime(date_of_consecration, '%Y-%m-%d').date()
     if date_of_death:
         clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
-    # Handle ordaining bishop with auto-creation logic
-    ordaining_bishop_id = form.get('ordaining_bishop_id')
-    ordaining_bishop_input = form.get('ordaining_bishop_input')
-    if ordaining_bishop_id and ordaining_bishop_id != 'None':
-        clergy.ordaining_bishop_id = int(ordaining_bishop_id)
-    elif ordaining_bishop_input:
-        # Check if bishop exists by name
-        existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
-        if existing:
-            clergy.ordaining_bishop_id = existing.id
-        else:
-            # Auto-create missing ordaining bishop
-            new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
-            db.session.add(new_bishop)
-            db.session.flush()  # Get the ID without committing
-            clergy.ordaining_bishop_id = new_bishop.id
-    
-    # Handle consecrator with auto-creation logic
-    consecrator_id = form.get('consecrator_id')
-    consecrator_input = form.get('consecrator_input')
-    if consecrator_id and consecrator_id != 'None':
-        clergy.consecrator_id = int(consecrator_id)
-    elif consecrator_input:
-        # Check if bishop exists by name
-        existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
-        if existing:
-            clergy.consecrator_id = existing.id
-        else:
-            # Auto-create missing consecrator
-            new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
-            db.session.add(new_bishop)
-            db.session.flush()  # Get the ID without committing
-            clergy.consecrator_id = new_bishop.id
-    
-    # Handle co-consecrators
-    co_consecrators = form.get('co_consecrators')
-    if co_consecrators:
-        co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
-        clergy.set_co_consecrators(co_consecrator_ids)
     
     # Handle image upload for new clergy
     # New comprehensive image system: 64x64 for lineage, 320x320 for detail views
@@ -145,8 +100,169 @@ def create_clergy_from_form(form):
             print(f"File converted to base64 for new clergy: {len(base64_data)} characters")
     
     db.session.add(clergy)
+    db.session.flush()  # Get the ID without committing
+    
+    # Handle new ordination and consecration data
+    create_ordinations_from_form(clergy, form)
+    create_consecrations_from_form(clergy, form)
+    
     db.session.commit()
     return clergy
+
+def create_ordinations_from_form(clergy, form):
+    """Create ordination records from form data"""
+    ordinations_data = {}
+    
+    # Parse ordination data from form
+    for key, value in form.items():
+        if key.startswith('ordinations[') and ']' in key:
+            # Extract index and field name from pattern like "ordinations[1][date]"
+            import re
+            match = re.match(r'ordinations\[(\d+)\]\[([^\]]+)\]', key)
+            if match:
+                index_part = match.group(1)
+                field_part = match.group(2)
+                
+                if index_part not in ordinations_data:
+                    ordinations_data[index_part] = {}
+                ordinations_data[index_part][field_part] = value
+    
+    # Create ordination records
+    for index, data in ordinations_data.items():
+        if data.get('date'):  # Only create if date is provided
+            ordination = Ordination()
+            ordination.clergy_id = clergy.id
+            ordination.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+            ordination.is_sub_conditione = data.get('is_sub_conditione') == 'on'
+            ordination.is_doubtful = data.get('is_doubtful') == 'on'
+            ordination.is_invalid = data.get('is_invalid') == 'on'
+            ordination.notes = data.get('notes', '')
+            
+            # Handle ordaining bishop
+            ordaining_bishop_id = data.get('ordaining_bishop_id')
+            ordaining_bishop_input = data.get('ordaining_bishop_input')
+            if ordaining_bishop_id and ordaining_bishop_id != 'None':
+                ordination.ordaining_bishop_id = int(ordaining_bishop_id)
+            elif ordaining_bishop_input:
+                # Check if bishop exists by name
+                existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
+                if existing:
+                    ordination.ordaining_bishop_id = existing.id
+                else:
+                    # Auto-create missing ordaining bishop
+                    new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
+                    db.session.add(new_bishop)
+                    db.session.flush()
+                    ordination.ordaining_bishop_id = new_bishop.id
+            
+            db.session.add(ordination)
+
+def create_consecrations_from_form(clergy, form):
+    """Create consecration records from form data"""
+    consecrations_data = {}
+    
+    # Parse consecration data from form
+    for key, value in form.items():
+        if key.startswith('consecrations[') and ']' in key:
+            # Extract index and field name from pattern like "consecrations[1][date]" or "consecrations[1][co_consecrators][1][id]"
+            import re
+            
+            # Check for co-consecrators pattern first
+            co_match = re.match(r'consecrations\[(\d+)\]\[co_consecrators\]\[(\d+)\]\[([^\]]+)\]', key)
+            if co_match:
+                index_part = co_match.group(1)
+                co_index = co_match.group(2)
+                co_field = co_match.group(3)
+                
+                if index_part not in consecrations_data:
+                    consecrations_data[index_part] = {}
+                if 'co_consecrators' not in consecrations_data[index_part]:
+                    consecrations_data[index_part]['co_consecrators'] = {}
+                if co_index not in consecrations_data[index_part]['co_consecrators']:
+                    consecrations_data[index_part]['co_consecrators'][co_index] = {}
+                consecrations_data[index_part]['co_consecrators'][co_index][co_field] = value
+            else:
+                # Regular consecration field
+                match = re.match(r'consecrations\[(\d+)\]\[([^\]]+)\]', key)
+                if match:
+                    index_part = match.group(1)
+                    field_part = match.group(2)
+                    
+                    if index_part not in consecrations_data:
+                        consecrations_data[index_part] = {}
+                    consecrations_data[index_part][field_part] = value
+    
+    # Create consecration records
+    for index, data in consecrations_data.items():
+        if data.get('date'):  # Only create if date is provided
+            consecration = Consecration()
+            consecration.clergy_id = clergy.id
+            consecration.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+            consecration.is_sub_conditione = data.get('is_sub_conditione') == 'on'
+            consecration.is_doubtful = data.get('is_doubtful') == 'on'
+            consecration.is_invalid = data.get('is_invalid') == 'on'
+            consecration.notes = data.get('notes', '')
+            
+            # Handle consecrator
+            consecrator_id = data.get('consecrator_id')
+            consecrator_input = data.get('consecrator_input')
+            if consecrator_id and consecrator_id != 'None':
+                consecration.consecrator_id = int(consecrator_id)
+            elif consecrator_input:
+                # Check if bishop exists by name
+                existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
+                if existing:
+                    consecration.consecrator_id = existing.id
+                else:
+                    # Auto-create missing consecrator
+                    new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
+                    db.session.add(new_bishop)
+                    db.session.flush()
+                    consecration.consecrator_id = new_bishop.id
+            
+            db.session.add(consecration)
+            db.session.flush()  # Get the ID for co-consecrators
+            
+            # Handle co-consecrators
+            co_consecrators_data = data.get('co_consecrators', {})
+            for co_index, co_data in co_consecrators_data.items():
+                co_consecrator_id = co_data.get('id')
+                co_consecrator_input = co_data.get('input')
+                if co_consecrator_id and co_consecrator_id != 'None':
+                    # Add to many-to-many relationship
+                    co_consecrator = Clergy.query.get(int(co_consecrator_id))
+                    if co_consecrator:
+                        consecration.co_consecrators.append(co_consecrator)
+                elif co_consecrator_input:
+                    # Check if bishop exists by name
+                    existing = Clergy.query.filter_by(name=co_consecrator_input.strip()).first()
+                    if existing:
+                        consecration.co_consecrators.append(existing)
+                    else:
+                        # Auto-create missing co-consecrator
+                        new_bishop = Clergy(name=co_consecrator_input.strip(), rank='Bishop')
+                        db.session.add(new_bishop)
+                        db.session.flush()
+                        consecration.co_consecrators.append(new_bishop)
+
+def update_ordinations_from_form(clergy, form):
+    """Update ordination records from form data (for editing)"""
+    # Clear existing ordinations
+    Ordination.query.filter_by(clergy_id=clergy.id).delete()
+    
+    # Create new ordinations from form data
+    create_ordinations_from_form(clergy, form)
+
+def update_consecrations_from_form(clergy, form):
+    """Update consecration records from form data (for editing)"""
+    # Clear existing consecrations and their co-consecrators
+    existing_consecrations = Consecration.query.filter_by(clergy_id=clergy.id).all()
+    for consecration in existing_consecrations:
+        consecration.co_consecrators.clear()
+        db.session.delete(consecration)
+    
+    # Create new consecrations from form data
+    create_consecrations_from_form(clergy, form)
 
 def clergy_list_handler():
     if 'user_id' not in session:
@@ -163,7 +279,9 @@ def clergy_list_handler():
         all_clergy = Clergy.query.all()
         coconsecrator_ids = set()
         for c in all_clergy:
-            coconsecrator_ids.update(c.get_co_consecrators())
+            for consecration in c.consecrations:
+                for co_consecrator in consecration.co_consecrators:
+                    coconsecrator_ids.add(co_consecrator.id)
         if coconsecrator_ids:
             query = query.filter(~Clergy.id.in_(coconsecrator_ids))
     if exclude_organizations:
@@ -293,7 +411,7 @@ def add_clergy_handler():
             'rank': bishop.rank,
             'date_of_birth': bishop.date_of_birth.isoformat() if bishop.date_of_birth else None,
             'date_of_death': bishop.date_of_death.isoformat() if bishop.date_of_death else None,
-            'date_of_consecration': bishop.date_of_consecration.isoformat() if bishop.date_of_consecration else None
+            'consecrations_count': len(bishop.consecrations)
         }
         for bishop in all_bishops
     ]
@@ -322,6 +440,14 @@ def view_clergy_handler(clergy_id):
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
     org_color_map = {org.name: org.color for org in organizations}
     comments = ClergyComment.query.filter_by(clergy_id=clergy_id, is_public=True, is_resolved=False).order_by(ClergyComment.created_at.desc()).all()
+    
+    # Create co-consecrators map for template
+    co_consecrators_map = {}
+    # Get co-consecrators from the new consecration table
+    for consecration in clergy.consecrations:
+        for co_consecrator in consecration.co_consecrators:
+            co_consecrators_map[co_consecrator.id] = co_consecrator
+    
     breadcrumbs = generate_breadcrumbs('view_clergy', clergy=clergy)
     return render_template('clergy_detail_with_comments.html', 
                          clergy=clergy, 
@@ -329,6 +455,7 @@ def view_clergy_handler(clergy_id):
                          comments=comments,
                          org_abbreviation_map=org_abbreviation_map,
                          org_color_map=org_color_map,
+                         co_consecrators_map=co_consecrators_map,
                          breadcrumbs=breadcrumbs)
 
 def edit_clergy_handler(clergy_id):
@@ -338,6 +465,11 @@ def edit_clergy_handler(clergy_id):
     user = User.query.get(session['user_id'])
     clergy = Clergy.query.get_or_404(clergy_id)
     set_clergy_display_name(clergy)  # Set display name for the clergy being edited
+    
+    # Explicitly load ordinations and consecrations relationships for the template
+    # This ensures the relationships are available when the template renders
+    _ = clergy.ordinations  # Trigger lazy loading
+    _ = clergy.consecrations  # Trigger lazy loading
     comments = ClergyComment.query.filter_by(clergy_id=clergy_id, is_public=True, is_resolved=False).order_by(ClergyComment.created_at.desc()).all()
     organizations = Organization.query.all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
@@ -356,13 +488,6 @@ def edit_clergy_handler(clergy_id):
                 clergy.papal_name = request.form.get('papal_name')
                 clergy.organization = request.form.get('organization')
                 date_of_birth = request.form.get('date_of_birth')
-                date_of_ordination = request.form.get('date_of_ordination')
-                ordaining_bishop_id = request.form.get('ordaining_bishop_id')
-                ordaining_bishop_input = request.form.get('ordaining_bishop_input')
-                date_of_consecration = request.form.get('date_of_consecration')
-                consecrator_id = request.form.get('consecrator_id')
-                consecrator_input = request.form.get('consecrator_input')
-                co_consecrators = request.form.get('co_consecrators')
                 date_of_death = request.form.get('date_of_death')
                 clergy.notes = request.form.get('notes')
                 
@@ -433,49 +558,14 @@ def edit_clergy_handler(clergy_id):
                     clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
                 else:
                     clergy.date_of_birth = None
-                if date_of_ordination:
-                    clergy.date_of_ordination = datetime.strptime(date_of_ordination, '%Y-%m-%d').date()
-                else:
-                    clergy.date_of_ordination = None
-                if date_of_consecration:
-                    clergy.date_of_consecration = datetime.strptime(date_of_consecration, '%Y-%m-%d').date()
-                else:
-                    clergy.date_of_consecration = None
                 if date_of_death:
                     clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
                 else:
                     clergy.date_of_death = None
-                if ordaining_bishop_id and ordaining_bishop_id != 'None':
-                    clergy.ordaining_bishop_id = int(ordaining_bishop_id)
-                elif ordaining_bishop_input:
-                    existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
-                    if existing:
-                        clergy.ordaining_bishop_id = existing.id
-                    else:
-                        new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
-                        db.session.add(new_bishop)
-                        db.session.flush()
-                        clergy.ordaining_bishop_id = new_bishop.id
-                else:
-                    clergy.ordaining_bishop_id = None
-                if consecrator_id and consecrator_id != 'None':
-                    clergy.consecrator_id = int(consecrator_id)
-                elif consecrator_input:
-                    existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
-                    if existing:
-                        clergy.consecrator_id = existing.id
-                    else:
-                        new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
-                        db.session.add(new_bishop)
-                        db.session.flush()
-                        clergy.consecrator_id = new_bishop.id
-                else:
-                    clergy.consecrator_id = None
-                if co_consecrators:
-                    co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
-                    clergy.set_co_consecrators(co_consecrator_ids)
-                else:
-                    clergy.set_co_consecrators([])
+                
+                # Handle new dynamic ordination and consecration data
+                update_ordinations_from_form(clergy, request.form)
+                update_consecrations_from_form(clergy, request.form)
                 
                 # Handle soft delete
                 mark_deleted = request.form.get('mark_deleted') == '1'
@@ -496,12 +586,9 @@ def edit_clergy_handler(clergy_id):
                         'rank': clergy.rank,
                         'organization': clergy.organization,
                         'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
-                        'date_of_ordination': clergy.date_of_ordination.isoformat() if clergy.date_of_ordination else None,
-                        'date_of_consecration': clergy.date_of_consecration.isoformat() if clergy.date_of_consecration else None,
                         'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
-                        'ordaining_bishop_id': clergy.ordaining_bishop_id,
-                        'consecrator_id': clergy.consecrator_id,
-                        'co_consecrators': clergy.get_co_consecrators(),
+                        'ordinations_count': len(clergy.ordinations),
+                        'consecrations_count': len(clergy.consecrations),
                         'is_deleted': clergy.is_deleted,
                         'deleted_at': clergy.deleted_at.isoformat() if clergy.deleted_at else None
                     }
@@ -526,62 +613,20 @@ def edit_clergy_handler(clergy_id):
         clergy.papal_name = request.form.get('papal_name')
         clergy.organization = request.form.get('organization')
         date_of_birth = request.form.get('date_of_birth')
-        date_of_ordination = request.form.get('date_of_ordination')
-        ordaining_bishop_id = request.form.get('ordaining_bishop_id')
-        ordaining_bishop_input = request.form.get('ordaining_bishop_input')
-        date_of_consecration = request.form.get('date_of_consecration')
-        consecrator_id = request.form.get('consecrator_id')
-        consecrator_input = request.form.get('consecrator_input')
-        co_consecrators = request.form.get('co_consecrators')
         date_of_death = request.form.get('date_of_death')
         clergy.notes = request.form.get('notes')
         if date_of_birth:
             clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
         else:
             clergy.date_of_birth = None
-        if date_of_ordination:
-            clergy.date_of_ordination = datetime.strptime(date_of_ordination, '%Y-%m-%d').date()
-        else:
-            clergy.date_of_ordination = None
-        if date_of_consecration:
-            clergy.date_of_consecration = datetime.strptime(date_of_consecration, '%Y-%m-%d').date()
-        else:
-            clergy.date_of_consecration = None
         if date_of_death:
             clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
         else:
             clergy.date_of_death = None
-        if ordaining_bishop_id and ordaining_bishop_id != 'None':
-            clergy.ordaining_bishop_id = int(ordaining_bishop_id)
-        elif ordaining_bishop_input:
-            existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
-            if existing:
-                clergy.ordaining_bishop_id = existing.id
-            else:
-                new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
-                db.session.add(new_bishop)
-                db.session.flush()
-                clergy.ordaining_bishop_id = new_bishop.id
-        else:
-            clergy.ordaining_bishop_id = None
-        if consecrator_id and consecrator_id != 'None':
-            clergy.consecrator_id = int(consecrator_id)
-        elif consecrator_input:
-            existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
-            if existing:
-                clergy.consecrator_id = existing.id
-            else:
-                new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
-                db.session.add(new_bishop)
-                db.session.flush()
-                clergy.consecrator_id = new_bishop.id
-        else:
-            clergy.consecrator_id = None
-        if co_consecrators:
-            co_consecrator_ids = [int(cid.strip()) for cid in co_consecrators.split(',') if cid.strip()]
-            clergy.set_co_consecrators(co_consecrator_ids)
-        else:
-            clergy.set_co_consecrators([])
+        
+        # Handle new dynamic ordination and consecration data
+        update_ordinations_from_form(clergy, request.form)
+        update_consecrations_from_form(clergy, request.form)
         
         # Handle soft delete
         mark_deleted = request.form.get('mark_deleted') == '1'
@@ -602,12 +647,9 @@ def edit_clergy_handler(clergy_id):
                 'rank': clergy.rank,
                 'organization': clergy.organization,
                 'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
-                'date_of_ordination': clergy.date_of_ordination.isoformat() if clergy.date_of_ordination else None,
-                'date_of_consecration': clergy.date_of_consecration.isoformat() if clergy.date_of_consecration else None,
                 'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
-                'ordaining_bishop_id': clergy.ordaining_bishop_id,
-                'consecrator_id': clergy.consecrator_id,
-                'co_consecrators': clergy.get_co_consecrators(),
+                'ordinations_count': len(clergy.ordinations),
+                'consecrations_count': len(clergy.consecrations),
                 'is_deleted': clergy.is_deleted,
                 'deleted_at': clergy.deleted_at.isoformat() if clergy.deleted_at else None
             }
@@ -661,8 +703,19 @@ def edit_clergy_handler(clergy_id):
         return True
     
     # Filter bishops based on the clergy's dates
-    ordination_date = clergy.date_of_ordination
-    consecration_date = clergy.date_of_consecration
+    # Get ordination and consecration dates from new tables
+    ordination_date = None
+    consecration_date = None
+    
+    # Get primary ordination date
+    primary_ordination = clergy.get_primary_ordination()
+    if primary_ordination:
+        ordination_date = primary_ordination.date
+    
+    # Get primary consecration date
+    primary_consecration = clergy.get_primary_consecration()
+    if primary_consecration:
+        consecration_date = primary_consecration.date
     
     all_bishops_suggested = [
         bishop for bishop in all_bishops
@@ -711,9 +764,12 @@ def clergy_filter_partial_handler():
         query = query.filter(Clergy.rank != 'Priest')
     if exclude_coconsecrators:
         all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+        # Get co-consecrator IDs from the new consecration table
         coconsecrator_ids = set()
         for c in all_clergy:
-            coconsecrator_ids.update(c.get_co_consecrators())
+            for consecration in c.consecrations:
+                for co_consecrator in consecration.co_consecrators:
+                    coconsecrator_ids.add(co_consecrator.id)
         if coconsecrator_ids:
             query = query.filter(~Clergy.id.in_(coconsecrator_ids))
     if exclude_organizations:
@@ -738,33 +794,25 @@ def clergy_json_handler(clergy_id):
         'rank': clergy.rank,
         'organization': clergy.organization,
         'date_of_birth': clergy.date_of_birth.strftime('%Y-%m-%d') if clergy.date_of_birth else None,
-        'date_of_ordination': clergy.date_of_ordination.strftime('%Y-%m-%d') if clergy.date_of_ordination else None,
-        'ordaining_bishop_id': clergy.ordaining_bishop_id,
-        'date_of_consecration': clergy.date_of_consecration.strftime('%Y-%m-%d') if clergy.date_of_consecration else None,
-        'consecrator_id': clergy.consecrator_id,
+        'ordinations_count': len(clergy.ordinations),
+        'consecrations_count': len(clergy.consecrations),
         'notes': clergy.notes
     }) 
 
 def soft_delete_clergy_handler(clergy_id, user=None):
     from models import Clergy, db
     clergy = Clergy.query.get_or_404(clergy_id)
-    # Clean up ordaining_bishop_id and consecrator_id references
-    referencing_clergy = Clergy.query.filter(
-        (Clergy.ordaining_bishop_id == clergy_id) | (Clergy.consecrator_id == clergy_id),
-        Clergy.is_deleted != True
-    ).all()
-    for c in referencing_clergy:
-        if c.ordaining_bishop_id == clergy_id:
-            c.ordaining_bishop_id = None
-        if c.consecrator_id == clergy_id:
-            c.consecrator_id = None
-    # Clean up co-consecrator references
-    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
-    for c in all_clergy:
-        co_consecrators = c.get_co_consecrators()
-        if clergy_id in co_consecrators:
-            co_consecrators = [cid for cid in co_consecrators if cid != clergy_id]
-            c.set_co_consecrators(co_consecrators)
+    # Clean up ordination and consecration references
+    # Remove ordinations where this clergy was the ordaining bishop
+    Ordination.query.filter(Ordination.ordaining_bishop_id == clergy_id).delete()
+    
+    # Remove consecrations where this clergy was the consecrator
+    Consecration.query.filter(Consecration.consecrator_id == clergy_id).delete()
+    
+    # Remove co-consecrator relationships
+    for consecration in Consecration.query.all():
+        if clergy in consecration.co_consecrators:
+            consecration.co_consecrators.remove(clergy)
     clergy.is_deleted = True
     clergy.deleted_at = datetime.utcnow()
     db.session.commit()
@@ -832,7 +880,7 @@ def get_filtered_bishops_handler():
             'rank': bishop.rank,
             'date_of_birth': bishop.date_of_birth.isoformat() if bishop.date_of_birth else None,
             'date_of_death': bishop.date_of_death.isoformat() if bishop.date_of_death else None,
-            'date_of_consecration': bishop.date_of_consecration.isoformat() if bishop.date_of_consecration else None
+            'consecrations_count': len(bishop.consecrations)
         }
         for bishop in filtered_bishops
     ]

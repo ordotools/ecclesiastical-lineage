@@ -20,8 +20,8 @@ def clergy_list():
         'rank': clergy.rank,
         'organization': clergy.organization,
         'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
-        'date_of_ordination': clergy.date_of_ordination.isoformat() if clergy.date_of_ordination else None,
-        'date_of_consecration': clergy.date_of_consecration.isoformat() if clergy.date_of_consecration else None,
+        'ordinations_count': len(clergy.ordinations),
+        'consecrations_count': len(clergy.consecrations),
         'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None
     } if clergy else None
 )
@@ -46,6 +46,41 @@ def clergy_filter_partial():
 def clergy_json(clergy_id):
     clergy = Clergy.query.get_or_404(clergy_id)
     return jsonify(clergy.to_dict())
+
+@clergy_bp.route('/api/search_bishops')
+def search_bishops():
+    """API endpoint to search for bishops for autocomplete"""
+    query = request.args.get('q', '').strip()
+    
+    if len(query) < 2:
+        return '<div class="dropdown-item text-muted">Type at least 2 characters to search</div>'
+    
+    # Search for bishops and priests (they can be co-consecrators)
+    bishops = Clergy.query.filter(
+        Clergy.name.ilike(f'%{query}%'),
+        Clergy.is_deleted == False,
+        Clergy.rank.in_(['Bishop', 'Archbishop', 'Cardinal', 'Pope', 'Priest'])
+    ).limit(10).all()
+    
+    if not bishops:
+        return '<div class="dropdown-item text-muted">No bishops found</div>'
+    
+    html = ''
+    for bishop in bishops:
+        display_name = getattr(bishop, 'display_name', bishop.name)
+        html += f'''
+        <div class="dropdown-item bishop-search-result" 
+             data-id="{bishop.id}" 
+             data-name="{bishop.name}"
+             data-display-name="{display_name}"
+             style="cursor: pointer;">
+            <strong>{display_name}</strong>
+            <br>
+            <small class="text-muted">{bishop.rank}</small>
+        </div>
+        '''
+    
+    return html
 
 @clergy_bp.route('/clergy/<int:clergy_id>/comments')
 def clergy_comments(clergy_id):

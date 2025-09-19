@@ -15,29 +15,25 @@ function isBishopRank(rankValue) {
            lowerRank.includes('patriarch');
 }
 
-// Function to toggle consecration fields and papal name field based on rank selection
-function toggleConsecrationFields(rankValue) {
-    console.log('toggleConsecrationFields called with:', rankValue);
-    
-    // Wait for DOM to be ready if elements aren't found
-    const consecrationDateField = document.getElementById('consecrationDateField');
-    const consecratorField = document.getElementById('consecratorField');
-    const coConsecratorsField = document.getElementById('coConsecratorsField');
-    const deathDateField = document.getElementById('deathDateField');
+// Function to handle papal name field visibility (this is the only thing this file should handle)
+function handlePapalNameField(rankValue) {
     const papalNameField = document.getElementById('papalNameField');
-    
-    console.log('consecrationDateField found:', !!consecrationDateField);
-    console.log('consecratorField found:', !!consecratorField);
-    console.log('coConsecratorsField found:', !!coConsecratorsField);
-    console.log('deathDateField found:', !!deathDateField);
-    console.log('papalNameField found:', !!papalNameField);
-    
-    // If elements aren't found, try again after a short delay
-    if (!consecrationDateField || !consecratorField) {
-        console.log('Elements not found, retrying in 100ms');
-        setTimeout(() => toggleConsecrationFields(rankValue), 100);
-        return;
+    if (rankValue && rankValue.toLowerCase() === 'pope') {
+        console.log('Setting papal name field to visible');
+        if (papalNameField) papalNameField.style.display = 'flex';
+    } else {
+        console.log('Setting papal name field to hidden');
+        if (papalNameField) papalNameField.style.display = 'none';
+        
+        // Clear papal name when hiding field
+        const papalName = document.getElementById('papal_name');
+        if (papalName) papalName.value = '';
     }
+}
+
+// Legacy form handling function
+function handleLegacyForm(rankValue, consecrationDateField, consecratorField, coConsecratorsField, papalNameField) {
+    console.log('Handling legacy form for rank:', rankValue);
     
     // Handle papal name field visibility
     if (rankValue && rankValue.toLowerCase() === 'pope') {
@@ -54,12 +50,12 @@ function toggleConsecrationFields(rankValue) {
     
     // Handle consecration fields visibility
     if (rankValue && isBishopRank(rankValue)) {
-        console.log('Setting consecration fields to visible');
+        console.log('Setting legacy consecration fields to visible');
         consecrationDateField.style.display = 'flex';
         consecratorField.style.display = 'flex';
         if (coConsecratorsField) coConsecratorsField.style.display = 'flex';
     } else {
-        console.log('Setting consecration fields to hidden');
+        console.log('Setting legacy consecration fields to hidden');
         consecrationDateField.style.display = 'none';
         consecratorField.style.display = 'none';
         if (coConsecratorsField) coConsecratorsField.style.display = 'none';
@@ -69,42 +65,85 @@ function toggleConsecrationFields(rankValue) {
         const consecratorSearch = document.getElementById('consecrator_search');
         const consecratorId = document.getElementById('consecrator_id');
         const coConsecrators = document.getElementById('co_consecrators');
-        const dateOfDeathBishop = document.getElementById('date_of_death_bishop');
         
         if (dateOfConsecration) dateOfConsecration.value = '';
         if (consecratorSearch) consecratorSearch.value = '';
         if (consecratorId) consecratorId.value = '';
         if (coConsecrators) coConsecrators.value = '';
-        if (dateOfDeathBishop) dateOfDeathBishop.value = '';
     }
 }
 
 // Make function globally available immediately
-window.toggleConsecrationFields = toggleConsecrationFields;
-console.log('toggleConsecrationFields function registered globally');
+window.handlePapalNameField = handlePapalNameField;
+console.log('handlePapalNameField function registered globally');
 
 // Initialize field visibility on page load
 document.addEventListener('DOMContentLoaded', function() {
     console.log('clergyForm.js DOMContentLoaded fired');
+    
+    // Check if form has already been initialized
+    if (window.clergyFormInitialized) {
+        console.log('Form already initialized, skipping');
+        return;
+    }
+    
     const rankSelect = document.getElementById('rank');
     console.log('rankSelect found:', !!rankSelect);
     
     if (rankSelect) {
         console.log('rankSelect value:', rankSelect.value);
-        // Set initial visibility based on current value
-        toggleConsecrationFields(rankSelect.value);
+        
+        // Use dynamic form functions if available, otherwise use legacy
+        if (typeof window.toggleConsecrationFields === 'function') {
+            console.log('Using dynamic form functions');
+            window.toggleConsecrationFields(rankSelect.value);
+        } else {
+            console.log('Using legacy form handling');
+            // Fallback to legacy form handling
+            const consecrationDateField = document.getElementById('consecrationDateField');
+            const consecratorField = document.getElementById('consecratorField');
+            const coConsecratorsField = document.getElementById('coConsecratorsField');
+            const papalNameField = document.getElementById('papalNameField');
+            
+            if (consecrationDateField && consecratorField) {
+                handleLegacyForm(rankSelect.value, consecrationDateField, consecratorField, coConsecratorsField, papalNameField);
+            } else {
+                // Just handle papal name field
+                handlePapalNameField(rankSelect.value);
+            }
+        }
         
         // Set up change event listener if not already set
         if (!rankSelect.hasAttribute('data-clergy-form-listener')) {
             console.log('Adding change event listener to rankSelect');
             rankSelect.addEventListener('change', function() {
                 console.log('rankSelect change event fired, new value:', this.value);
-                toggleConsecrationFields(this.value);
+                
+                // Use dynamic form functions if available, otherwise use legacy
+                if (typeof window.toggleConsecrationFields === 'function') {
+                    window.toggleConsecrationFields(this.value);
+                } else {
+                    // Fallback to legacy form handling
+                    const consecrationDateField = document.getElementById('consecrationDateField');
+                    const consecratorField = document.getElementById('consecratorField');
+                    const coConsecratorsField = document.getElementById('coConsecratorsField');
+                    const papalNameField = document.getElementById('papalNameField');
+                    
+                    if (consecrationDateField && consecratorField) {
+                        handleLegacyForm(this.value, consecrationDateField, consecratorField, coConsecratorsField, papalNameField);
+                    } else {
+                        // Just handle papal name field
+                        handlePapalNameField(this.value);
+                    }
+                }
             });
             rankSelect.setAttribute('data-clergy-form-listener', 'true');
         } else {
             console.log('rankSelect already has event listener');
         }
+        
+        // Mark form as initialized
+        window.clergyFormInitialized = true;
     } else {
         console.log('rankSelect not found in DOM');
     }

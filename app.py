@@ -134,13 +134,16 @@ app.jinja_env.filters['from_json'] = from_json
 
 # Run database migration on startup using Flask-Migrate
 with app.app_context():
-    from flask_migrate import upgrade
-    try:
-        upgrade()
-        print("✅ Flask-Migrate upgrade completed")
-    except Exception as e:
-        print(f"⚠️  Flask-Migrate upgrade failed, running fallback migration: {e}")
-        run_database_migration(app)
+    # Temporarily skip Flask-Migrate upgrade due to migration chain issue
+    # from flask_migrate import upgrade
+    # try:
+    #     upgrade()
+    #     print("✅ Flask-Migrate upgrade completed")
+    # except Exception as e:
+    #     print(f"⚠️  Flask-Migrate upgrade failed, running fallback migration: {e}")
+    #     run_database_migration(app)
+    print("🔧 Running fallback migration...")
+    run_database_migration(app)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

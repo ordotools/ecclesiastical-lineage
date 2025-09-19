@@ -39,6 +39,9 @@ def get_engine_url():
 config.set_main_option('sqlalchemy.url', get_engine_url())
 target_db = current_app.extensions['migrate'].db
 
+# Import all models so Alembic can detect them
+from models import *
+
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")

@@ -15,6 +15,14 @@ console.log('Available data:', {
   nodes: window.nodesData ? window.nodesData.length : 'undefined'
 });
 
+// Debug: Log sample data
+if (window.linksData && window.linksData.length > 0) {
+  console.log('Sample link data:', window.linksData[0]);
+}
+if (window.nodesData && window.nodesData.length > 0) {
+  console.log('Sample node data:', window.nodesData[0]);
+}
+
 // Initialize all components
 async function initializeAll() {
   // Initialize UI components first

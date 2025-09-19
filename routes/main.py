@@ -460,6 +460,75 @@ def clergy_info_panel():
     
     return render_template('_clergy_info_panel.html', user=user)
 
+@main_bp.route('/debug-lineage')
+def debug_lineage():
+    """Debug endpoint to check lineage data"""
+    try:
+        # Get all clergy for the visualization
+        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+        
+        # Get all organizations and ranks for color lookup
+        organizations = {org.name: org.color for org in Organization.query.all()}
+        ranks = {rank.name: rank.color for rank in Rank.query.all()}
+
+        # Prepare data for D3.js
+        nodes = []
+        links = []
+        
+        # Create nodes for each clergy
+        for clergy in all_clergy:
+            org_color = organizations.get(clergy.organization) or '#2c3e50'
+            rank_color = ranks.get(clergy.rank) or '#888888'
+            nodes.append({
+                'id': clergy.id,
+                'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
+                'rank': clergy.rank,
+                'organization': clergy.organization,
+                'org_color': org_color,
+                'rank_color': rank_color
+            })
+        
+        # Create links for ordinations (black arrows)
+        for clergy in all_clergy:
+            for ordination in clergy.ordinations:
+                if ordination.ordaining_bishop:
+                    links.append({
+                        'source': ordination.ordaining_bishop.id,
+                        'target': clergy.id,
+                        'type': 'ordination',
+                        'date': ordination.date.strftime('%Y-%m-%d'),
+                        'color': '#000000'
+                    })
+        
+        # Create links for consecrations (green arrows)
+        for clergy in all_clergy:
+            for consecration in clergy.consecrations:
+                if consecration.consecrator:
+                    links.append({
+                        'source': consecration.consecrator.id,
+                        'target': clergy.id,
+                        'type': 'consecration',
+                        'date': consecration.date.strftime('%Y-%m-%d'),
+                        'color': '#27ae60'
+                    })
+        
+        return jsonify({
+            'nodes_count': len(nodes),
+            'links_count': len(links),
+            'nodes': nodes[:5],  # First 5 nodes
+            'links': links[:5],  # First 5 links
+            'sample_ordination_links': [l for l in links if l['type'] == 'ordination'][:3],
+            'sample_consecration_links': [l for l in links if l['type'] == 'consecration'][:3]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/test-fixes')
+def test_fixes():
+    """Test page to verify fixes"""
+    from flask import current_app
+    return current_app.send_static_file('test_fixes.html')
+
 @main_bp.route('/clergy/add_from_lineage', methods=['GET', 'POST'])
 @audit_log(
     action='create',

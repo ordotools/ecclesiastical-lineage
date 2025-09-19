@@ -379,6 +379,13 @@ export async function initializeVisualization() {
     sampleNode: nodesRaw[0],
     sampleLink: linksRaw[0]
   });
+  
+  // Debug: Log link types
+  const linkTypes = {};
+  linksRaw.forEach(link => {
+    linkTypes[link.type] = (linkTypes[link.type] || 0) + 1;
+  });
+  console.log('Link types found:', linkTypes);
 
   const nodes = nodesRaw.map(d => ({...d}));
   const links = linksRaw.map(d => ({...d}));
@@ -402,6 +409,8 @@ export async function initializeVisualization() {
     }
     return true;
   });
+  
+  console.log(`Valid links after filtering: ${validLinks.length} out of ${links.length}`);
 
   // Process parallel links (keep for force layout compatibility)
   function processParallelLinks(links) {

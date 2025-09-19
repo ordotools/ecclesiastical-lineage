@@ -61,7 +61,7 @@ def verify_migration():
             return False
         
         # Check if users have roles assigned
-        from app import User
+        from models import User
         users_with_roles = User.query.filter(User.role_id.isnot(None)).count()
         total_users = User.query.count()
         print(f"✅ {users_with_roles}/{total_users} users have roles assigned")

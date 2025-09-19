@@ -17,7 +17,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 load_dotenv()
 
 # Import Flask app and models
-from app import app, db, User, Role, Permission, ClergyComment, initialize_roles_and_permissions
+from app import app, db
+from models import User, Role, Permission, ClergyComment
+from migrations import initialize_roles_and_permissions
 
 def backup_existing_data():
     """Backup existing data before migration"""

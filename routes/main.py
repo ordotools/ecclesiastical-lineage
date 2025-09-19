@@ -130,7 +130,7 @@ def lineage_visualization():
                         'source': ordination.ordaining_bishop.id,
                         'target': clergy.id,
                         'type': 'ordination',
-                        'date': ordination.date.strftime('%Y-%m-%d'),
+                        'date': ordination.date.strftime('%Y-%m-%d') if ordination.date else '',
                         'color': '#000000'
                     })
         
@@ -142,7 +142,7 @@ def lineage_visualization():
                         'source': consecration.consecrator.id,
                         'target': clergy.id,
                         'type': 'consecration',
-                        'date': consecration.date.strftime('%Y-%m-%d'),
+                        'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
                         'color': '#27ae60'
                     })
         
@@ -154,15 +154,24 @@ def lineage_visualization():
                         'source': co_consecrator.id,
                         'target': clergy.id,
                         'type': 'co-consecration',
-                        'date': consecration.date.strftime('%Y-%m-%d'),
+                        'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
                         'color': '#27ae60',
                         'dashed': True
                     })
         
         current_app.logger.info(f"Lineage visualization: {len(nodes)} nodes, {len(links)} links created")
+        
+        # Safely serialize data to JSON
+        try:
+            nodes_json = json.dumps(nodes)
+            links_json = json.dumps(links)
+        except (TypeError, ValueError) as e:
+            current_app.logger.error(f"Error serializing data to JSON: {e}")
+            raise e
+            
         return render_template('lineage_visualization.html', 
-                             nodes=json.dumps(nodes), 
-                             links=json.dumps(links))
+                             nodes=nodes_json, 
+                             links=links_json)
     except Exception as e:
         current_app.logger.error(f"Error in lineage_visualization: {e}")
         import traceback
@@ -294,7 +303,7 @@ def get_lineage_data():
                         'source': ordination.ordaining_bishop.id,
                         'target': clergy.id,
                         'type': 'ordination',
-                        'date': ordination.date.strftime('%Y-%m-%d'),
+                        'date': ordination.date.strftime('%Y-%m-%d') if ordination.date else '',
                         'color': '#000000'
                     })
         
@@ -306,7 +315,7 @@ def get_lineage_data():
                         'source': consecration.consecrator.id,
                         'target': clergy.id,
                         'type': 'consecration',
-                        'date': consecration.date.strftime('%Y-%m-%d'),
+                        'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
                         'color': '#27ae60'
                     })
         
@@ -318,7 +327,7 @@ def get_lineage_data():
                         'source': co_consecrator.id,
                         'target': clergy.id,
                         'type': 'co-consecration',
-                        'date': consecration.date.strftime('%Y-%m-%d'),
+                        'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
                         'color': '#27ae60',
                         'dashed': True
                     })
@@ -713,7 +722,7 @@ def debug_lineage():
                         'source': ordination.ordaining_bishop.id,
                         'target': clergy.id,
                         'type': 'ordination',
-                        'date': ordination.date.strftime('%Y-%m-%d'),
+                        'date': ordination.date.strftime('%Y-%m-%d') if ordination.date else '',
                         'color': '#000000'
                     })
         
@@ -725,7 +734,7 @@ def debug_lineage():
                         'source': consecration.consecrator.id,
                         'target': clergy.id,
                         'type': 'consecration',
-                        'date': consecration.date.strftime('%Y-%m-%d'),
+                        'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
                         'color': '#27ae60'
                     })
         

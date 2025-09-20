@@ -1,0 +1,315 @@
+{% macro clergy_form_clean(fields, clergy=None, edit_mode=False, user=None, redirect_url=None, use_htmx=True, context_type=None, context_clergy_id=None, all_clergy_data=None, all_bishops_suggested=None) %}
+<!-- Clean Clergy Form - Rebuilt from scratch -->
+
+<!-- Form Configuration -->
+<script>
+window.ClergyFormConfig = {
+    editMode: {{ edit_mode|lower }},
+    clergyData: {% if edit_mode and clergy %}{
+        id: {{ clergy.id }},
+        name: "{{ clergy.name or '' }}",
+        papal_name: "{{ clergy.papal_name or '' }}",
+        rank: "{{ clergy.rank or '' }}",
+        organization: "{{ clergy.organization or '' }}",
+        date_of_birth: "{{ clergy.date_of_birth.strftime('%Y-%m-%d') if clergy.date_of_birth else '' }}",
+        date_of_death: "{{ clergy.date_of_death.strftime('%Y-%m-%d') if clergy.date_of_death else '' }}",
+        notes: "{{ clergy.notes or '' }}",
+        is_deleted: {{ clergy.is_deleted|lower if clergy.is_deleted is defined else 'false' }},
+        ordinations: [
+            {% for ordination in clergy.get_all_ordinations() %}
+            {
+                id: {{ ordination.id }},
+                date: "{{ ordination.date.strftime('%Y-%m-%d') if ordination.date else '' }}",
+                is_sub_conditione: {{ ordination.is_sub_conditione|lower }},
+                is_doubtful: {{ ordination.is_doubtful|lower }},
+                is_invalid: {{ ordination.is_invalid|lower }},
+                notes: "{{ ordination.notes or '' }}",
+                ordaining_bishop: {% if ordination.ordaining_bishop %}{
+                    id: {{ ordination.ordaining_bishop.id }},
+                    name: "{{ ordination.ordaining_bishop.name }}"
+                }{% else %}null{% endif %}
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ],
+        consecrations: [
+            {% for consecration in clergy.get_all_consecrations() %}
+            {
+                id: {{ consecration.id }},
+                date: "{{ consecration.date.strftime('%Y-%m-%d') if consecration.date else '' }}",
+                is_sub_conditione: {{ consecration.is_sub_conditione|lower }},
+                is_doubtful: {{ consecration.is_doubtful|lower }},
+                is_invalid: {{ consecration.is_invalid|lower }},
+                notes: "{{ consecration.notes or '' }}",
+                consecrator: {% if consecration.consecrator %}{
+                    id: {{ consecration.consecrator.id }},
+                    name: "{{ consecration.consecrator.name }}"
+                }{% else %}null{% endif %},
+                co_consecrators: [
+                    {% for co_consecrator in consecration.co_consecrators %}
+                    {
+                        id: {{ co_consecrator.id }},
+                        name: "{{ co_consecrator.name }}"
+                    }{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                ]
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]
+    }{% else %}null{% endif %},
+    ranks: {{ fields.ranks | map(attribute='name') | list | tojson | safe }},
+    organizations: {{ fields.organizations | map(attribute='name') | list | tojson | safe }},
+    bishops: {{ all_bishops_suggested | tojson | safe if all_bishops_suggested else '[]' }},
+    user: {
+        canEdit: {{ (user and user.can_edit_clergy())|lower if user else 'false' }},
+        canComment: {{ (user and user.can_comment())|lower if user else 'false' }}
+    }
+};
+</script>
+
+<!-- Form Action Configuration -->
+{% set form_action = fields.form_action if fields.form_action else (
+    url_for('clergy.edit_clergy', clergy_id=clergy.id) if edit_mode and clergy else
+    url_for('main.add_clergy_from_lineage') if context_type else
+    url_for('clergy.add_clergy')
+) %}
+
+<div class="clergy-form-container">
+    <div class="clergy-form-card">
+        <div class="clergy-form-header">
+            <h2 class="clergy-form-title">
+                {% if edit_mode %}Edit {{ clergy.name }}{% else %}Add New Clergy{% endif %}
+            </h2>
+        </div>
+        
+        <div class="clergy-form-body">
+            <form id="clergyForm" class="clergy-form" method="POST" action="{{ form_action }}" enctype="multipart/form-data"
+                  {% if use_htmx %}
+                  hx-post="{{ form_action }}" 
+                  hx-target="body" 
+                  hx-swap="outerHTML"
+                  hx-trigger="submit"
+                  hx-push-url="true"
+                  hx-on::after-request="if(event.detail.successful) { window.location.href = '{{ redirect_url or url_for('clergy.clergy_list') }}'; }"
+                  {% endif %}>
+                
+                <!-- Hidden Context Fields -->
+                {% if context_type %}
+                <input type="hidden" name="context_type" value="{{ context_type }}">
+                {% endif %}
+                {% if context_clergy_id %}
+                <input type="hidden" name="context_clergy_id" value="{{ context_clergy_id }}">
+                {% endif %}
+                
+                <!-- Form Layout -->
+                <div class="form-layout">
+                    <!-- Photo Section -->
+                    <div class="photo-section">
+                        <label class="form-label">Photo</label>
+                        <div class="image-upload-area" id="imageUploadArea">
+                            <div class="image-preview" id="imagePreview">
+                                <div class="image-placeholder">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            </div>
+                            <div class="image-controls">
+                                <input type="file" id="imageInput" name="clergy_image" accept="image/*" style="display: none;">
+                                <button type="button" class="btn btn-upload" id="uploadBtn" title="Upload Image">
+                                    <i class="fas fa-upload"></i>
+                                </button>
+                                <button type="button" class="btn btn-crop" id="cropBtn" title="Edit Image" style="display: none;">
+                                    <i class="fas fa-crop"></i>
+                                </button>
+                                <button type="button" class="btn btn-remove" id="removeBtn" title="Remove Image" style="display: none;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Form Fields -->
+                    <div class="form-fields">
+                        <!-- Basic Information -->
+                        <div class="form-section">
+                            <h3 class="section-title">Basic Information</h3>
+                            
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label for="name" class="form-label required">Full Name</label>
+                                    <input type="text" id="name" name="name" class="form-control" required>
+                                    {% if edit_mode and user and user.can_comment() %}
+                                    <button type="button" class="btn btn-comment" data-field="name" title="Add comment">
+                                        <i class="fas fa-comment"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="form-field" id="papalNameField" style="display: none;">
+                                    <label for="papal_name" class="form-label">Papal Name</label>
+                                    <input type="text" id="papal_name" name="papal_name" class="form-control" placeholder="e.g., Pope Francis">
+                                    {% if edit_mode and user and user.can_comment() %}
+                                    <button type="button" class="btn btn-comment" data-field="papal_name" title="Add comment">
+                                        <i class="fas fa-comment"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="form-field">
+                                    <label for="rank" class="form-label required">Rank</label>
+                                    <select id="rank" name="rank" class="form-control" required>
+                                        <option value="">Select Rank</option>
+                                        {% for rank in fields.ranks %}
+                                        <option value="{{ rank.name }}">{{ rank.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% if edit_mode and user and user.can_comment() %}
+                                    <button type="button" class="btn btn-comment" data-field="rank" title="Add comment">
+                                        <i class="fas fa-comment"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="form-field">
+                                    <label for="organization" class="form-label">Organization</label>
+                                    <select id="organization" name="organization" class="form-control">
+                                        <option value="">Select Organization</option>
+                                        {% for org in fields.organizations %}
+                                        <option value="{{ org.name }}">{{ org.name }}{% if org.abbreviation %} ({{ org.abbreviation }}){% endif %}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% if edit_mode and user and user.can_comment() %}
+                                    <button type="button" class="btn btn-comment" data-field="organization" title="Add comment">
+                                        <i class="fas fa-comment"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="form-field">
+                                    <label for="date_of_birth" class="form-label">Date of Birth</label>
+                                    <input type="date" id="date_of_birth" name="date_of_birth" class="form-control">
+                                    {% if edit_mode and user and user.can_comment() %}
+                                    <button type="button" class="btn btn-comment" data-field="date_of_birth" title="Add comment">
+                                        <i class="fas fa-comment"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="form-field">
+                                    <label for="date_of_death" class="form-label">Date of Death</label>
+                                    <input type="date" id="date_of_death" name="date_of_death" class="form-control">
+                                    {% if edit_mode and user and user.can_comment() %}
+                                    <button type="button" class="btn btn-comment" data-field="date_of_death" title="Add comment">
+                                        <i class="fas fa-comment"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Ordinations Section (Always Visible) -->
+                        <div class="form-section" id="ordinationsSection">
+                            <div class="section-header">
+                                <h3 class="section-title">Ordinations <span class="required-indicator">*</span></h3>
+                                <div class="section-controls">
+                                    <button type="button" class="btn btn-primary btn-sm" id="addOrdinationBtn">
+                                        <i class="fas fa-plus"></i> Add Ordination
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-sm" id="clearOrdinationsBtn" title="Clear all ordinations">
+                                        <i class="fas fa-trash"></i> Clear All
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="section-help">
+                                <i class="fas fa-info-circle"></i> Every clergy member must have at least one ordination.
+                            </div>
+                            <div id="ordinationsContainer" class="dynamic-sections">
+                                <!-- Dynamic ordination sections will be added here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Consecrations Section (Conditional) -->
+                        <div class="form-section" id="consecrationsSection" style="display: none;">
+                            <div class="section-header">
+                                <h3 class="section-title">Consecrations</h3>
+                                <div class="section-controls">
+                                    <button type="button" class="btn btn-primary btn-sm" id="addConsecrationBtn">
+                                        <i class="fas fa-plus"></i> Add Consecration
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-sm" id="clearConsecrationsBtn" title="Clear all consecrations">
+                                        <i class="fas fa-trash"></i> Clear All
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="section-help">
+                                <i class="fas fa-info-circle"></i> Consecration is required for bishops, archbishops, cardinals, and popes.
+                            </div>
+                            <div id="consecrationsContainer" class="dynamic-sections">
+                                <!-- Dynamic consecration sections will be added here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Notes Section -->
+                        <div class="form-section">
+                            <div class="form-field">
+                                <label for="notes" class="form-label">Notes</label>
+                                <textarea id="notes" name="notes" class="form-control" rows="4" placeholder="Additional information about this clergy member..."></textarea>
+                                {% if edit_mode and user and user.can_comment() %}
+                                <button type="button" class="btn btn-comment" data-field="notes" title="Add comment">
+                                    <i class="fas fa-comment"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Admin Controls (Edit Mode Only) -->
+                        {% if edit_mode and clergy and user and user.can_edit_clergy() %}
+                        <div class="form-section admin-section">
+                            <h3 class="section-title admin-title">
+                                <i class="fas fa-shield-alt"></i> Administrative Controls
+                            </h3>
+                            <div class="form-field">
+                                <div class="form-check">
+                                    <input type="checkbox" id="mark_deleted" name="mark_deleted" class="form-check-input" value="1">
+                                    <label for="mark_deleted" class="form-check-label">
+                                        Mark this record as deleted
+                                    </label>
+                                </div>
+                                <small class="form-text">
+                                    This will hide the record from normal views but keep it in the database for audit purposes.
+                                </small>
+                                {% if clergy.is_deleted %}
+                                <div class="deletion-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    Record was marked as deleted on: {{ clergy.deleted_at.strftime('%Y-%m-%d %H:%M:%S') if clergy.deleted_at else 'Unknown date' }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-save"></i>
+                        {% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}
+                    </button>
+                    <a href="{{ fields.cancel_url or url_for('clergy.clergy_list') }}" class="btn btn-secondary btn-lg">
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Include Image Editor Modal -->
+{% include '_image_editor_modal.html' %}
+
+<!-- Include Form Styles -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/clergy-form-clean.css') }}">
+
+<!-- Include Form Controller -->
+<script src="{{ url_for('static', filename='js/clergy-form-controller.js') }}"></script>
+
+{% endmacro %}

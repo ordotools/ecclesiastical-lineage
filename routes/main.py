@@ -416,10 +416,27 @@ def clergy_modal_add():
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
     
+    # Get bishops data for autocomplete
+    all_bishops = db.session.query(Clergy).join(Rank, Clergy.rank == Rank.name).filter(
+        Rank.is_bishop == True,
+        Clergy.is_deleted != True
+    ).all()
+    
+    all_bishops_suggested = [
+        {
+            'id': bishop.id,
+            'name': getattr(bishop, 'display_name', bishop.name),
+            'rank': bishop.rank,
+            'organization': bishop.organization
+        }
+        for bishop in all_bishops
+    ]
+    
     return render_template('_clergy_modal.html', 
                          clergy=None, 
                          action='add',
                          all_clergy_data=all_clergy_data,
+                         all_bishops_suggested=all_bishops_suggested,
                          ranks=ranks,
                          organizations=organizations,
                          user=user)
@@ -449,10 +466,27 @@ def clergy_modal_edit(clergy_id):
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
     
+    # Get bishops data for autocomplete
+    all_bishops = db.session.query(Clergy).join(Rank, Clergy.rank == Rank.name).filter(
+        Rank.is_bishop == True,
+        Clergy.is_deleted != True
+    ).all()
+    
+    all_bishops_suggested = [
+        {
+            'id': bishop.id,
+            'name': getattr(bishop, 'display_name', bishop.name),
+            'rank': bishop.rank,
+            'organization': bishop.organization
+        }
+        for bishop in all_bishops
+    ]
+    
     return render_template('_clergy_modal.html', 
                          clergy=clergy, 
                          action='edit',
                          all_clergy_data=all_clergy_data,
+                         all_bishops_suggested=all_bishops_suggested,
                          ranks=ranks,
                          organizations=organizations,
                          user=user)
@@ -507,6 +541,7 @@ def edit_clergy_from_lineage(clergy_id):
                          clergy=clergy, 
                          edit_mode=True, 
                          user=user,
+                         all_clergy_data=all_clergy_data,
                          all_bishops_suggested=all_bishops_suggested)
 
 @main_bp.route('/clergy/modal/<int:clergy_id>/comment')

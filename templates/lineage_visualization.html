@@ -286,7 +286,7 @@
 
     <!-- Clergy Form Modal -->
     <div class="modal fade" id="clergyFormModal" tabindex="-1" aria-labelledby="clergyFormModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg" style="max-width: 90%; margin: 20px auto;">
+        <div class="modal-dialog modal-xl" style="max-width: 95%; margin: 20px auto;">
             <div class="modal-content" style="border: none; box-shadow: none; background: transparent;">
                 <div class="modal-header" style="padding: 0; border: none; background: transparent;">
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="position: absolute; top: 15px; right: 15px; z-index: 1050; background: transparent; border: none; font-size: 24px; color: #666; cursor: pointer; padding: 0; width: auto; height: auto; line-height: 1;">
@@ -304,13 +304,15 @@
 
 {% block extra_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visualizer.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/clergy-form-clean.css') }}">
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
 <script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
 <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
-<script src="{{ url_for('static', filename='js/dynamic-clergy-form.js') }}"></script>
+<!-- Include the new clean clergy form controller -->
+<script src="{{ url_for('static', filename='js/clergy-form-controller.js') }}"></script>
 <script>
 window.linksData = {{ links | safe }};
 window.nodesData = {{ nodes | safe }};

@@ -17,6 +17,7 @@ def index():
 # Lineage visualization
 @main_bp.route('/lineage_visualization')
 def lineage_visualization():
+    current_app.logger.info("=== LINEAGE_VISUALIZATION ROUTE CALLED ===")
     try:
         # Check if we have any ordination/consecration data
         ordination_count = Ordination.query.count()
@@ -28,8 +29,13 @@ def lineage_visualization():
             
             from datetime import datetime
             
-            # Get all clergy
-            all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+            # Get all clergy with relationships loaded
+            from sqlalchemy.orm import joinedload
+            all_clergy = Clergy.query.options(
+                joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+                joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+                joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+            ).filter(Clergy.is_deleted != True).all()
             
             # Create synthetic lineage data
             bishops = [c for c in all_clergy if c.rank and 'bishop' in c.rank.lower()]
@@ -76,8 +82,13 @@ def lineage_visualization():
             current_app.logger.info("Synthetic lineage data created successfully")
         
         # Allow both logged-in and non-logged-in users to view lineage visualization
-        # Get only active (non-deleted) clergy for the visualization
-        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+        # Get only active (non-deleted) clergy for the visualization with relationships loaded
+        from sqlalchemy.orm import joinedload
+        all_clergy = Clergy.query.options(
+            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+        ).filter(Clergy.is_deleted != True).all()
         
         # Get all organizations and ranks for color lookup
         organizations = {org.name: org.color for org in Organization.query.all()}
@@ -165,10 +176,12 @@ def lineage_visualization():
         try:
             nodes_json = json.dumps(nodes)
             links_json = json.dumps(links)
+            current_app.logger.info(f"JSON serialization successful: {len(nodes)} nodes, {len(links)} links")
         except (TypeError, ValueError) as e:
             current_app.logger.error(f"Error serializing data to JSON: {e}")
             raise e
             
+        current_app.logger.info(f"=== RENDERING TEMPLATE WITH {len(nodes)} NODES AND {len(links)} LINKS ===")
         return render_template('lineage_visualization.html', 
                              nodes=nodes_json, 
                              links=links_json)
@@ -180,7 +193,7 @@ def lineage_visualization():
         return render_template('lineage_visualization.html', 
                              nodes=json.dumps([]), 
                              links=json.dumps([]),
-                             error_message="Unable to load lineage data. Please try again later.")
+                             error_message=f"Unable to load lineage data. Error: {str(e)}")
 
 @main_bp.route('/clergy/lineage-data')
 def get_lineage_data():
@@ -196,8 +209,13 @@ def get_lineage_data():
             
             from datetime import datetime
             
-            # Get all clergy
-            all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+            # Get all clergy with relationships loaded
+            from sqlalchemy.orm import joinedload
+            all_clergy = Clergy.query.options(
+                joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+                joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+                joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+            ).filter(Clergy.is_deleted != True).all()
             
             # Create synthetic lineage data
             bishops = [c for c in all_clergy if c.rank and 'bishop' in c.rank.lower()]
@@ -248,8 +266,13 @@ def get_lineage_data():
     
     try:
         # Allow both logged-in and non-logged-in users to view lineage data
-        # Get only active (non-deleted) clergy for the visualization
-        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+        # Get only active (non-deleted) clergy for the visualization with relationships loaded
+        from sqlalchemy.orm import joinedload
+        all_clergy = Clergy.query.options(
+            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+        ).filter(Clergy.is_deleted != True).all()
         
         # Get all organizations and ranks for color lookup
         organizations = {org.name: org.color for org in Organization.query.all()}
@@ -367,8 +390,13 @@ def force_migrate_lineage():
         db.session.commit()
         print("✅ Cleared existing data")
         
-        # Get all clergy
-        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+        # Get all clergy with relationships loaded
+        from sqlalchemy.orm import joinedload
+        all_clergy = Clergy.query.options(
+            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+        ).filter(Clergy.is_deleted != True).all()
         print(f"📊 Found {len(all_clergy)} clergy records")
         
         # Create synthetic lineage data
@@ -687,8 +715,13 @@ def clergy_info_panel():
 def debug_lineage():
     """Debug endpoint to check lineage data"""
     try:
-        # Get all clergy for the visualization
-        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+        # Get all clergy for the visualization with relationships loaded
+        from sqlalchemy.orm import joinedload
+        all_clergy = Clergy.query.options(
+            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+        ).filter(Clergy.is_deleted != True).all()
         
         # Get all organizations and ranks for color lookup
         organizations = {org.name: org.color for org in Organization.query.all()}

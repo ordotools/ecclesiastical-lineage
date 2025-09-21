@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: chmod +x deploy_direct_migration.sh && ./deploy_direct_migration.sh
+    startCommand: chmod +x deploy_flask_migrate_proper.sh && ./deploy_flask_migrate_proper.sh
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.11

@@ -24,6 +24,9 @@ def simple_stamp_to_latest():
     
     with app.app_context():
         try:
+            # Get the latest revision ID from our migrations
+            latest_revision = "ffca03f86792"  # This is our smart migration revision
+            
             # Ensure alembic_version table exists
             print("📋 Ensuring alembic_version table exists...")
             app.engine.execute(text("""
@@ -33,11 +36,13 @@ def simple_stamp_to_latest():
                 )
             """))
             
-            # Stamp to latest revision
-            print("📋 Stamping to latest revision...")
-            stamp('head')
+            # Clear any existing version and set to latest
+            print("📋 Setting database version to latest revision...")
+            app.engine.execute(text("DELETE FROM alembic_version"))
+            app.engine.execute(text("INSERT INTO alembic_version (version_num) VALUES (:version)"), 
+                             {"version": latest_revision})
             
-            print("✅ Successfully stamped database to latest revision!")
+            print(f"✅ Successfully set database version to {latest_revision}!")
             print("All migrations are now marked as applied.")
             print("You can now run the smart migration directly.")
             

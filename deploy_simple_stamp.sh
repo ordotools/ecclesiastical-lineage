@@ -1,9 +1,9 @@
 #!/bin/bash
-# Production deployment script with migration conflict resolution
+# Simple deployment script that stamps database to latest and runs smart migration
 
 set -e  # Exit on any error
 
-echo "🚀 Starting PRODUCTION deployment with migration fixes..."
+echo "🚀 Starting simple deployment with database stamping..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -12,7 +12,6 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Function to print colored output
 print_status() {
     echo -e "${BLUE}$1${NC}"
 }
@@ -73,9 +72,18 @@ with app.app_context():
     fi
 fi
 
-# Step 4: Check and fix migration state
-print_status "🔍 Checking migration state and fixing conflicts..."
-python3 -c "
+# Step 4: Stamp database to latest revision (bypass all migrations)
+print_status "🔧 Stamping database to latest revision..."
+if python3 simple_stamp_to_latest.py; then
+    print_success "✅ Database stamped to latest revision!"
+else
+    print_error "❌ Failed to stamp database!"
+    exit 1
+fi
+
+# Step 5: Run the smart migration directly
+print_status "🔄 Running smart migration directly..."
+if python3 -c "
 import os
 import sys
 from dotenv import load_dotenv
@@ -84,61 +92,21 @@ load_dotenv()
 # Add current directory to path
 sys.path.insert(0, os.getcwd())
 
-from app import app
-from models import db
-from sqlalchemy import inspect
-from flask_migrate import current
+# Import and run the smart migration
+from migrations.versions.ffca03f86792_smart_production_data_migration_with_ import upgrade
 
-with app.app_context():
-    # Check if alembic_version table exists
-    inspector = inspect(db.engine)
-    tables = inspector.get_table_names()
-    
-    if 'alembic_version' not in tables:
-        print('⚠️  Alembic version table not found - this is normal for new databases')
-    else:
-        try:
-            current_revision = current()
-            print(f'✅ Current migration revision: {current_revision}')
-        except Exception as e:
-            print(f'⚠️  Could not get current revision: {e}')
-    
-    # Check if clergy table has the columns that might cause conflicts
-    if 'clergy' in tables:
-        clergy_columns = [col['name'] for col in inspector.get_columns('clergy')]
-        conflict_columns = ['is_deleted', 'deleted_at']
-        
-        existing_columns = [col for col in conflict_columns if col in clergy_columns]
-        if existing_columns:
-            print(f'⚠️  Columns already exist in clergy: {existing_columns}')
-            print('🔧 The updated migration will handle this gracefully')
-        else:
-            print('✅ No column conflicts detected')
-"
-
-# Step 5: Run database migration using Flask-Migrate with error handling
-print_status "🗄️  Running database migration with Flask-Migrate..."
-
-# First, try to fix production migration state comprehensively
-print_status "🔧 Fixing production migration state comprehensively..."
-if python3 fix_production_migration_state.py; then
-    print_success "✅ Production migration state fixed!"
+print('🚀 Running smart migration upgrade function directly...')
+try:
+    upgrade()
+    print('✅ Smart migration completed successfully!')
+except Exception as e:
+    print(f'❌ Smart migration failed: {e}')
+    sys.exit(1)
+"; then
+    print_success "✅ Smart migration completed successfully!"
 else
-    print_warning "⚠️  Migration state fix failed, trying normal upgrade..."
-fi
-
-# Now try the upgrade
-if flask db upgrade; then
-    print_success "✅ Flask-Migrate upgrade completed successfully!"
-else
-    print_warning "⚠️  Flask-Migrate upgrade failed - checking migration state..."
-    
-    # Show migration history
-    print_status "🔍 Migration history:"
-    flask db history
-    
-    # Try to continue anyway - the smart migration might still work
-    print_status "🔧 Attempting to continue with smart migration..."
+    print_error "❌ Smart migration failed!"
+    exit 1
 fi
 
 # Step 6: Verify migration was successful
@@ -179,16 +147,16 @@ else
 fi
 
 # Step 7: Start the application
-print_status "🌐 Starting PRODUCTION application..."
-print_success "✅ PRODUCTION deployment completed successfully!"
+print_status "🌐 Starting application..."
+print_success "✅ Deployment completed successfully!"
 echo ""
-print_status "🚀 PRODUCTION application is ready to serve requests!"
+print_status "🚀 Application is ready to serve requests!"
 echo ""
-print_status "📋 Production deployment complete:"
-echo "   • Application is live and serving users"
-echo "   • All database migrations applied"
+print_status "📋 Next steps:"
+echo "   • Test the lineage visualization endpoint"
+echo "   • Verify clergy images are loading"
+echo "   • Check that lineage relationships are displayed"
 echo "   • Monitor application logs for any issues"
-echo "   • Monitor performance and user feedback"
 
 # Start gunicorn
 gunicorn app:app

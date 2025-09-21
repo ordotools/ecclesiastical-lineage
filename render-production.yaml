@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: chmod +x deploy_production_fixed.sh && ./deploy_production_fixed.sh
+    startCommand: chmod +x deploy_simple_stamp.sh && ./deploy_simple_stamp.sh
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.11

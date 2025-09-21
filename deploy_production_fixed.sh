@@ -119,12 +119,12 @@ with app.app_context():
 # Step 5: Run database migration using Flask-Migrate with error handling
 print_status "🗄️  Running database migration with Flask-Migrate..."
 
-# First, try to stamp the database to latest to bypass conflicts
-print_status "🔧 Stamping database to latest revision to bypass conflicts..."
-if python3 stamp_database_latest.py; then
-    print_success "✅ Database stamped to latest revision!"
+# First, try to fix all migration conflicts comprehensively
+print_status "🔧 Fixing all migration conflicts comprehensively..."
+if python3 fix_all_migration_conflicts.py; then
+    print_success "✅ All migration conflicts resolved!"
 else
-    print_warning "⚠️  Stamping failed, trying normal upgrade..."
+    print_warning "⚠️  Migration conflict resolution failed, trying normal upgrade..."
 fi
 
 # Now try the upgrade

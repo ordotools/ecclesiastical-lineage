@@ -1,4 +1,4 @@
-"""Migrate production lineage data
+"""Migrate production lineage data - SAFE VERSION
 
 Revision ID: 1f45b673ab3c
 Revises: 810871a86b33
@@ -19,10 +19,11 @@ depends_on = None
 
 
 def upgrade():
-    """Migrate production lineage data"""
-    print("🚀 Starting production data migration...")
+    """Migrate production lineage data - SAFE VERSION (no API calls)"""
+    print("🚀 Starting production data migration (SAFE VERSION)...")
     print("⚠️  Skipping data migration - API calls removed for safety")
     print("✅ Migration completed (no data imported)")
+    print("✅ This version will not make any external API calls")
 
 
 def downgrade():

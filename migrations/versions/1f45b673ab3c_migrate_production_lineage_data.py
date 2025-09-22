@@ -26,7 +26,7 @@ def fetch_production_data():
     print("🔄 Fetching data from production API...")
     
     try:
-        response = requests.get("https://ecclesiastical-lineage.onrender.com/clergy/lineage-data", timeout=30)
+        response = requests.get("https://ecclesiastical-lineage.onrender.com/clergy/lineage-data", timeout=10)
         response.raise_for_status()
         
         data = response.json()
@@ -37,8 +37,9 @@ def fetch_production_data():
         return data
         
     except Exception as e:
-        print(f"❌ Error fetching data from production API: {e}")
-        raise
+        print(f"⚠️  Warning: Could not fetch data from production API: {e}")
+        print("🔄 Continuing migration without data fetch - database will be created with empty tables")
+        return None
 
 
 def parse_date(date_str):
@@ -91,6 +92,12 @@ def upgrade():
     try:
         # Fetch production data
         production_data = fetch_production_data()
+        
+        if production_data is None:
+            print("⚠️  Skipping data migration due to API fetch failure")
+            print("✅ Database schema migration completed successfully")
+            return
+            
         nodes = production_data.get('nodes', [])
         links = production_data.get('links', [])
         

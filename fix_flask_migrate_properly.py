@@ -14,7 +14,7 @@ load_dotenv()
 # Add the project root to the Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app import app
+from app import app, db
 from flask_migrate import stamp, current
 from sqlalchemy import text
 
@@ -25,8 +25,9 @@ def check_migration_state():
     with app.app_context():
         try:
             # Check if alembic_version table exists
-            result = app.engine.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'alembic_version')"))
-            alembic_exists = result.fetchone()[0]
+            with db.engine.connect() as conn:
+                result = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'alembic_version')"))
+                alembic_exists = result.fetchone()[0]
             
             if alembic_exists:
                 print("✅ Alembic version table exists")
@@ -54,14 +55,15 @@ def stamp_to_correct_revision():
     with app.app_context():
         try:
             # Check what tables exist
-            result = app.engine.execute(text("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_type = 'BASE TABLE'
-                ORDER BY table_name
-            """))
-            tables = [row[0] for row in result.fetchall()]
+            with db.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_type = 'BASE TABLE'
+                    ORDER BY table_name
+                """))
+                tables = [row[0] for row in result.fetchall()]
             
             print(f"📋 Found {len(tables)} tables: {sorted(tables)}")
             
@@ -126,12 +128,14 @@ def fix_flask_migrate():
             # Ensure alembic_version table exists
             if 'alembic_version' not in tables:
                 print("📋 Creating alembic_version table...")
-                app.engine.execute(text("""
-                    CREATE TABLE alembic_version (
-                        version_num VARCHAR(32) NOT NULL,
-                        CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
-                    )
-                """))
+                with db.engine.connect() as conn:
+                    conn.execute(text("""
+                        CREATE TABLE alembic_version (
+                            version_num VARCHAR(32) NOT NULL,
+                            CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+                        )
+                    """))
+                    conn.commit()
             
             # Stamp to target revision
             print(f"📋 Stamping to {target_revision}...")

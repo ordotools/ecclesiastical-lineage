@@ -18,6 +18,8 @@ services:
         value: production
       - key: FLASK_ENV
         value: production
+      - key: PRODUCTION_API_URL
+        value: https://ecclesiastical-lineage.onrender.com/clergy/lineage-data
 
 databases:
   - name: ecclesiastical-lineage-db

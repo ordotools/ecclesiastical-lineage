@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Editor - Episcopal Lineage{% endblock %}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
+    <script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            min-height: 100vh;
+            color: white;
+            overflow: hidden;
+        }
+
+        .editor-container {
+            display: grid;
+            grid-template-columns: 350px 1fr 400px;
+            grid-template-rows: 1fr 300px;
+            grid-template-areas:
+                "left-panel center-panel right-panel"
+                "bottom-panel bottom-panel bottom-panel";
+            height: 100vh;
+            gap: 1px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .panel {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .left-panel {
+            grid-area: left-panel;
+        }
+
+        .center-panel {
+            grid-area: center-panel;
+            position: relative;
+        }
+
+        .right-panel {
+            grid-area: right-panel;
+        }
+
+        .bottom-panel {
+            grid-area: bottom-panel;
+        }
+
+        .panel-header {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.75em 1em;
+            font-weight: 500;
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            flex-shrink: 0;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0;
+        }
+
+        /* Scrollbar styling */
+        .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .panel-content::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .panel-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .panel-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Graph container styling for center panel */
+        #graph-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* Bottom panel tabs */
+        .bottom-tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .bottom-tab {
+            padding: 0.75em 1.5em;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border-bottom: 2px solid transparent;
+        }
+
+        .bottom-tab:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .bottom-tab.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-bottom-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .bottom-tab-content {
+            display: none;
+            flex: 1;
+            padding: 1em;
+            overflow-y: auto;
+        }
+
+        .bottom-tab-content.active {
+            display: block;
+        }
+
+        /* Loading states */
+        .loading-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            flex-direction: column;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9em;
+        }
+
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 0.5em;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Override form styles for the right panel */
+        .right-panel .panel-content {
+            padding: 1em;
+        }
+
+        /* Make the clergy form fit nicely in the right panel */
+        .right-panel .panel-content > div {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            max-width: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Responsive design */
+        @media (max-width: 1400px) {
+            .editor-container {
+                grid-template-columns: 300px 1fr 350px;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .editor-container {
+                grid-template-columns: 250px 1fr 300px;
+                grid-template-rows: 1fr 250px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .editor-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 200px 1fr 300px 200px;
+                grid-template-areas:
+                    "center-panel"
+                    "left-panel"
+                    "right-panel"
+                    "bottom-panel";
+            }
+        }
+
+        /* Style overrides for nested content */
+        .panel-content h1, .panel-content h2, .panel-content h3, 
+        .panel-content h4, .panel-content h5, .panel-content h6 {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .panel-content .text-muted {
+            color: rgba(255, 255, 255, 0.6) !important;
+        }
+
+        .panel-content .btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .panel-content .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* D3 visualization CSS variables for colors */
+        :root {
+            --lineage-green: #27ae60;
+            --lineage-black: #000000;
+        }
+    </style>
+    {% block extra_styles %}{% endblock %}
+</head>
+<body>
+    <div class="editor-container">
+        <!-- Left Panel: Clergy List -->
+        <div class="panel left-panel">
+            <div class="panel-header">
+                <i class="fas fa-users"></i>
+                Clergy List
+            </div>
+            <div class="panel-content" 
+                 hx-get="/editor/clergy-list"
+                 hx-trigger="load"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading clergy list...
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Panel: Lineage Visualization -->
+        <div class="panel center-panel">
+            <div class="panel-header">
+                <i class="fas fa-sitemap"></i>
+                Lineage Visualization
+            </div>
+            <div class="panel-content"
+                 hx-get="/editor/visualization"
+                 hx-trigger="load"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading visualization...
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Clergy Form -->
+        <div class="panel right-panel">
+            <div class="panel-header">
+                <i class="fas fa-edit"></i>
+                Clergy Form
+            </div>
+            <div class="panel-content"
+                 hx-get="/editor/clergy-form"
+                 hx-trigger="load"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Select a clergy member to edit...
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Panel: Tabs -->
+        <div class="panel bottom-panel">
+            <div class="bottom-tabs">
+                <button class="bottom-tab active" data-tab="audit-logs">
+                    <i class="fas fa-history"></i>
+                    Audit Logs
+                </button>
+                <button class="bottom-tab" data-tab="metadata">
+                    <i class="fas fa-cogs"></i>
+                    Metadata
+                </button>
+                <button class="bottom-tab" data-tab="comments">
+                    <i class="fas fa-comments"></i>
+                    Comments
+                </button>
+                <button class="bottom-tab" data-tab="statistics">
+                    <i class="fas fa-chart-bar"></i>
+                    Statistics
+                </button>
+            </div>
+            
+            <div class="bottom-tab-content active" id="audit-logs-content"
+                 hx-get="/editor/audit-logs"
+                 hx-trigger="load"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading audit logs...
+                </div>
+            </div>
+            
+            <div class="bottom-tab-content" id="metadata-content"
+                 hx-get="/editor/metadata"
+                 hx-trigger="revealed"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading metadata...
+                </div>
+            </div>
+            
+            <div class="bottom-tab-content" id="comments-content"
+                 hx-get="/editor/comments"
+                 hx-trigger="revealed"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading comments...
+                </div>
+            </div>
+            
+            <div class="bottom-tab-content" id="statistics-content"
+                 hx-get="/editor/statistics"
+                 hx-trigger="revealed"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading statistics...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabs = document.querySelectorAll('.bottom-tab');
+            const tabContents = document.querySelectorAll('.bottom-tab-content');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const targetTab = this.dataset.tab;
+
+                    // Remove active class from all tabs and contents
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.remove('active'));
+
+                    // Add active class to clicked tab and corresponding content
+                    this.classList.add('active');
+                    const targetContent = document.getElementById(targetTab + '-content');
+                    if (targetContent) {
+                        targetContent.classList.add('active');
+                        // Trigger HTMX load if not loaded yet
+                        if (targetContent.getAttribute('hx-trigger') === 'revealed') {
+                            htmx.trigger(targetContent, 'revealed');
+                        }
+                    }
+                });
+            });
+        });
+
+        // Global event listeners for panel updates
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            console.log('HTMX request completed for:', evt.target);
+        });
+
+        // Listen for clergy selection events to update the form panel
+        document.body.addEventListener('clergySeleced', function(evt) {
+            const clergyId = evt.detail.clergyId;
+            if (clergyId) {
+                // Update the clergy form panel
+                htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
+                    target: '.right-panel .panel-content',
+                    swap: 'innerHTML'
+                });
+            }
+        });
+
+        // Custom event for when a clergy member is selected
+        function selectClergy(clergyId) {
+            // Dispatch custom event
+            document.body.dispatchEvent(new CustomEvent('clergySeleced', {
+                detail: { clergyId: clergyId }
+            }));
+        }
+
+        // Make selectClergy globally available
+        window.selectClergy = selectClergy;
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!-- Clergy Form Panel Content -->
+{% if clergy and edit_mode %}
+    {% from '_clergy_form.html' import clergy_form %}
+    {{ clergy_form(fields, clergy, edit_mode=True, user=user, redirect_url=None, use_htmx=False) }}
+{% elif not edit_mode %}
+    {% from '_clergy_form.html' import clergy_form %}
+    {{ clergy_form(fields, None, edit_mode=False, user=user, redirect_url=None, use_htmx=False) }}
+{% else %}
+<!-- Default state - no clergy selected -->
+<div style="padding: 2em; text-align: center; color: rgba(255, 255, 255, 0.6);">
+    <div style="margin-bottom: 1em;">
+        <i class="fas fa-edit" style="font-size: 3em; opacity: 0.3;"></i>
+    </div>
+    <h3 style="margin: 0 0 0.5em 0; font-weight: 500; color: rgba(255, 255, 255, 0.8);">No Clergy Selected</h3>
+    <p style="margin: 0; font-size: 0.9em;">Select a clergy member from the list to edit, or click "Add New Clergy" to create a new record.</p>
+</div>
+{% endif %}
+
+<!-- Override form styles for editor panel -->
+<style>
+/* Make the form fit better in the right panel */
+.right-panel .panel-content > div > div {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 1em !important;
+}
+
+/* Adjust form grid for smaller space */
+.right-panel .panel-content [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 0.5em !important;
+}
+
+/* Stack fields vertically in narrow panel */
+.right-panel .panel-content [style*="grid-column: 1 / -1"],
+.right-panel .panel-content [style*="grid-column: 1"],
+.right-panel .panel-content [style*="grid-column: 2"] {
+    grid-column: 1 / -1 !important;
+}
+
+/* Reduce photo section size */
+.right-panel .panel-content #photoField {
+    grid-row: auto !important;
+    max-height: 150px;
+}
+
+/* Adjust input sizes */
+.right-panel .panel-content input,
+.right-panel .panel-content select,
+.right-panel .panel-content textarea {
+    font-size: 0.85em !important;
+    padding: 0.4em !important;
+}
+
+/* Compact headers */
+.right-panel .panel-content h2 {
+    font-size: 1.1em !important;
+    margin-bottom: 0.5em !important;
+}
+
+.right-panel .panel-content h5 {
+    font-size: 0.9em !important;
+    margin: 0.5em 0 0.25em 0 !important;
+}
+
+/* Compact ordination/consecration sections */
+.right-panel .panel-content [style*="border-radius: 4px"][style*="padding: 0.75em"] {
+    padding: 0.5em !important;
+    margin-bottom: 0.5em !important;
+}
+
+/* Make buttons smaller */
+.right-panel .panel-content button {
+    font-size: 0.8em !important;
+    padding: 0.4em 0.8em !important;
+}
+
+/* Compact form sections */
+.right-panel .panel-content > div > div > div > div > div {
+    margin-bottom: 0.5em !important;
+}
+
+/* Handle modal overlay - hide organization modal in panel */
+.right-panel #addOrganizationModal {
+    display: none !important;
+}
+</style>
+
+<script>
+// Override form submission for editor panel
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('.right-panel #clergyForm');
+    if (!form) return;
+    
+    console.log('Editor clergy form initialized');
+    
+    // Override form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        console.log('Editor form submitted');
+        
+        const formData = new FormData(this);
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        
+        // Show loading state
+        submitBtn.textContent = 'Saving...';
+        submitBtn.disabled = true;
+        
+        // Submit via fetch
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Success - refresh panels
+                console.log('Form saved successfully');
+                
+                // Refresh clergy list
+                htmx.ajax('GET', '/editor/clergy-list', {
+                    target: '.left-panel .panel-content',
+                    swap: 'innerHTML'
+                });
+                
+                // Refresh visualization
+                htmx.ajax('GET', '/editor/visualization', {
+                    target: '.center-panel .panel-content',
+                    swap: 'innerHTML'
+                });
+                
+                // Show success message
+                showNotification('Clergy record saved successfully!', 'success');
+                
+            } else {
+                throw new Error(data.message || 'Failed to save clergy record');
+            }
+        })
+        .catch(error => {
+            console.error('Form submission error:', error);
+            showNotification('Error saving record: ' + error.message, 'error');
+        })
+        .finally(() => {
+            // Reset button
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+        });
+    });
+    
+    // Initialize embedded form functionality
+    if (typeof window.initializeEmbeddedFormScript === 'function') {
+        window.initializeEmbeddedFormScript();
+    }
+});
+
+// Simple notification system for editor
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? 'rgba(46, 160, 67, 0.9)' : 'rgba(231, 76, 60, 0.9)'};
+        color: white;
+        padding: 1em 1.5em;
+        border-radius: 6px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        z-index: 9999;
+        font-size: 0.9em;
+        max-width: 300px;
+        transform: translateX(400px);
+        transition: transform 0.3s ease;
+    `;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+        notification.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        notification.style.transform = 'translateX(400px)';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+}
+</script>

@@ -1,0 +1,131 @@
+<!-- Clergy List Panel Content -->
+<div style="padding: 1em;">
+    <!-- Search and Filter -->
+    <div style="margin-bottom: 1em;">
+        <form hx-get="/editor/clergy-list" hx-target=".left-panel .panel-content" hx-swap="innerHTML" style="margin-bottom: 0.75em;">
+            <div style="position: relative;">
+                <input type="text" name="search" value="{{ search or '' }}" 
+                       placeholder="Search clergy..." 
+                       style="width: 100%; padding: 0.5em 2em 0.5em 0.75em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; font-size: 0.9em;">
+                <button type="submit" style="position: absolute; right: 0.5em; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255, 255, 255, 0.6); cursor: pointer;">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            
+            <!-- Quick Filters -->
+            <div style="margin-top: 0.5em; font-size: 0.8em;">
+                <label style="display: inline-flex; align-items: center; margin-right: 1em; color: rgba(255, 255, 255, 0.8);">
+                    <input type="checkbox" name="exclude_priests" value="1" {% if exclude_priests %}checked{% endif %} 
+                           style="margin-right: 0.25em;" onchange="this.form.requestSubmit()">
+                    Hide Priests
+                </label>
+            </div>
+        </form>
+    </div>
+
+    <!-- Clergy List -->
+    <div style="max-height: calc(100vh - 200px); overflow-y: auto;">
+        {% for clergy in clergy_list %}
+        <div class="clergy-item" 
+             onclick="selectClergy({{ clergy.id }})"
+             style="display: flex; align-items: center; padding: 0.75em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
+             onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
+             onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">
+            
+            <!-- Clergy Photo -->
+            <div style="margin-right: 0.75em; flex-shrink: 0;">
+                {% if clergy.image_url %}
+                    <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" 
+                         style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255, 255, 255, 0.2);">
+                {% else %}
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; border: 2px solid rgba(255, 255, 255, 0.2);">
+                        <i class="fas fa-user" style="color: rgba(255, 255, 255, 0.5); font-size: 0.9em;"></i>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Clergy Info -->
+            <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 500; color: rgba(255, 255, 255, 0.95); font-size: 0.9em; margin-bottom: 0.25em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    {{ clergy.name }}
+                </div>
+                <div style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6);">
+                    {{ clergy.rank }}{% if clergy.organization %} · {{ clergy.organization }}{% endif %}
+                </div>
+                {% if clergy.date_of_birth or clergy.date_of_death %}
+                <div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5); margin-top: 0.25em;">
+                    {% if clergy.date_of_birth %}{{ clergy.date_of_birth.strftime('%Y') }}{% endif %}{% if clergy.date_of_death %} - {{ clergy.date_of_death.strftime('%Y') }}{% endif %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Status Indicators -->
+            <div style="margin-left: 0.5em; display: flex; flex-direction: column; gap: 0.25em;">
+                {% if clergy.ordinations %}
+                <div style="width: 8px; height: 8px; background: #000000; border-radius: 50%;" title="Has Ordinations"></div>
+                {% endif %}
+                {% if clergy.consecrations %}
+                <div style="width: 8px; height: 8px; background: #27ae60; border-radius: 50%;" title="Has Consecrations"></div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        
+        {% if not clergy_list %}
+        <div style="text-align: center; padding: 2em; color: rgba(255, 255, 255, 0.6);">
+            <i class="fas fa-search" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.5;"></i>
+            <div>No clergy found</div>
+            {% if search %}
+            <small style="color: rgba(255, 255, 255, 0.4);">Try a different search term</small>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Add New Button -->
+    {% if user and user.can_edit_clergy() %}
+    <div style="padding: 1em 0; border-top: 1px solid rgba(255, 255, 255, 0.1); margin-top: 1em;">
+        <button onclick="selectClergy(null)" 
+                style="width: 100%; padding: 0.75em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 6px; color: rgba(255, 255, 255, 0.9); cursor: pointer; font-size: 0.9em; transition: all 0.2s ease;"
+                onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'"
+                onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
+            <i class="fas fa-plus" style="margin-right: 0.5em;"></i>Add New Clergy
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Override the global selectClergy function to include HTMX updates
+function selectClergy(clergyId) {
+    console.log('Clergy selected:', clergyId);
+    
+    // Update visual selection
+    document.querySelectorAll('.clergy-item').forEach(item => {
+        item.style.background = 'rgba(255, 255, 255, 0.05)';
+        item.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+    });
+    
+    if (clergyId) {
+        const selectedItem = document.querySelector(`[onclick="selectClergy(${clergyId})"]`);
+        if (selectedItem) {
+            selectedItem.style.background = 'rgba(255, 255, 255, 0.15)';
+            selectedItem.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+        }
+        
+        // Load clergy form for editing
+        htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
+            target: '.right-panel .panel-content',
+            swap: 'innerHTML'
+        });
+    } else {
+        // Load empty form for adding new clergy
+        htmx.ajax('GET', '/editor/clergy-form', {
+            target: '.right-panel .panel-content',
+            swap: 'innerHTML'
+        });
+    }
+    
+    // Refresh visualization to highlight selected clergy
+    // You could add visualization update logic here
+}</script>

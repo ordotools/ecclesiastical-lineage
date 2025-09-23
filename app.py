@@ -4,6 +4,7 @@ from models import db, User, Role
 from routes.auth import auth_bp
 from routes.clergy import clergy_bp
 from routes.main import main_bp
+from routes.editor import editor_bp
 from migrations import run_database_migration, initialize_roles_and_permissions
 import os
 from dotenv import load_dotenv
@@ -158,6 +159,7 @@ ensure_database_schema()
 app.register_blueprint(auth_bp)
 app.register_blueprint(clergy_bp)
 app.register_blueprint(main_bp)
+app.register_blueprint(editor_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(metadata_bp)
 

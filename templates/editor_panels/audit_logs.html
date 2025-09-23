@@ -1,0 +1,93 @@
+<!-- Audit Logs Panel Content -->
+<div style="padding: 1em;">
+    <div style="margin-bottom: 1em; display: flex; justify-content: between; align-items: center;">
+        <h6 style="margin: 0; color: rgba(255, 255, 255, 0.9); font-size: 0.95em;">Recent Activity</h6>
+        <div style="font-size: 0.8em; color: rgba(255, 255, 255, 0.6);">
+            Showing {{ logs.items | length }} of {{ logs.total }} entries
+        </div>
+    </div>
+
+    {% if logs.items %}
+    <div style="max-height: 200px; overflow-y: auto;">
+        {% for log in logs.items %}
+        <div style="display: flex; align-items: start; padding: 0.75em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 4px; font-size: 0.85em;">
+            <!-- Icon based on action -->
+            <div style="margin-right: 0.75em; flex-shrink: 0; margin-top: 0.1em;">
+                {% if log.action == 'create' %}
+                    <i class="fas fa-plus" style="color: #2ecc71; font-size: 0.9em;"></i>
+                {% elif log.action == 'update' %}
+                    <i class="fas fa-edit" style="color: #f39c12; font-size: 0.9em;"></i>
+                {% elif log.action == 'delete' %}
+                    <i class="fas fa-trash" style="color: #e74c3c; font-size: 0.9em;"></i>
+                {% elif log.action == 'login' %}
+                    <i class="fas fa-sign-in-alt" style="color: #3498db; font-size: 0.9em;"></i>
+                {% else %}
+                    <i class="fas fa-circle" style="color: rgba(255, 255, 255, 0.4); font-size: 0.6em;"></i>
+                {% endif %}
+            </div>
+            
+            <!-- Log Details -->
+            <div style="flex: 1; min-width: 0;">
+                <div style="color: rgba(255, 255, 255, 0.9); margin-bottom: 0.25em;">
+                    {% if log.entity_name %}
+                        <strong>{{ log.action.title() }}</strong> {{ log.entity_type or 'record' }}: 
+                        <span style="color: rgba(255, 255, 255, 0.8);">{{ log.entity_name }}</span>
+                    {% else %}
+                        <strong>{{ log.action.title() }}</strong> {{ log.entity_type or 'action' }}
+                    {% endif %}
+                </div>
+                
+                <div style="color: rgba(255, 255, 255, 0.5); font-size: 0.8em;">
+                    by {{ log.user.username if log.user else 'System' }} • 
+                    <span title="{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}">
+                        {{ log.timestamp.strftime('%m/%d %H:%M') }}
+                    </span>
+                </div>
+                
+                {% if log.details %}
+                <div style="margin-top: 0.5em; padding: 0.5em; background: rgba(255, 255, 255, 0.02); border-radius: 3px; font-size: 0.75em; color: rgba(255, 255, 255, 0.6);">
+                    {% if log.details.rank %}Rank: {{ log.details.rank }}<br>{% endif %}
+                    {% if log.details.organization %}Organization: {{ log.details.organization }}<br>{% endif %}
+                    {% if log.details.ordinations_count is defined %}Ordinations: {{ log.details.ordinations_count }}<br>{% endif %}
+                    {% if log.details.consecrations_count is defined %}Consecrations: {{ log.details.consecrations_count }}{% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if logs.pages > 1 %}
+    <div style="margin-top: 1em; padding-top: 0.75em; border-top: 1px solid rgba(255, 255, 255, 0.1); display: flex; justify-content: center; gap: 0.5em;">
+        {% if logs.has_prev %}
+        <button hx-get="/editor/audit-logs?page={{ logs.prev_num }}" 
+                hx-target="#audit-logs-content" 
+                hx-swap="innerHTML"
+                style="padding: 0.25em 0.5em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.8); cursor: pointer; font-size: 0.8em;">
+            Previous
+        </button>
+        {% endif %}
+        
+        <span style="color: rgba(255, 255, 255, 0.6); font-size: 0.8em; padding: 0.25em 0.5em;">
+            Page {{ logs.page }} of {{ logs.pages }}
+        </span>
+        
+        {% if logs.has_next %}
+        <button hx-get="/editor/audit-logs?page={{ logs.next_num }}" 
+                hx-target="#audit-logs-content" 
+                hx-swap="innerHTML"
+                style="padding: 0.25em 0.5em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.8); cursor: pointer; font-size: 0.8em;">
+            Next
+        </button>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div style="text-align: center; padding: 2em; color: rgba(255, 255, 255, 0.5);">
+        <i class="fas fa-history" style="font-size: 2em; opacity: 0.3; margin-bottom: 0.5em;"></i>
+        <div>No audit logs found</div>
+    </div>
+    {% endif %}
+</div>

@@ -1,0 +1,15 @@
+1	view_clergy	View clergy records	2025-07-19 20:08:18.989158
+2	add_clergy	Add new clergy records	2025-07-19 20:08:18.992844
+3	edit_clergy	Edit existing clergy records	2025-07-19 20:08:18.996059
+4	delete_clergy	Delete clergy records	2025-07-19 20:08:18.998889
+5	manage_metadata	Manage ranks and organizations	2025-07-19 20:08:19.032444
+6	manage_users	Manage user accounts and roles	2025-07-19 20:08:19.036333
+7	add_comments	Add comments to clergy records	2025-07-19 20:08:19.04095
+8	view_comments	View comments on clergy records	2025-07-19 20:08:19.04355
+9	resolve_comments	Resolve comments and feedback	2025-07-19 20:08:19.046097
+10	view_lineage	View lineage visualization	2025-07-19 20:08:19.048683
+11	export_data	Export data from the system	2025-07-19 20:08:19.051124
+12	view_audit_logs	View audit logs and system history	2025-07-19 20:08:19.053645
+\.
+
+

@@ -198,6 +198,7 @@
                             <div style="display: flex; gap: 0.5em; margin-bottom: 1em;">
                                 <button type="button" id="addOrdinationBtn" style="padding: 0.4em 0.8em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
                                     Add Ordination
+
                                 </button>
                             </div>
                             
@@ -243,6 +244,9 @@
                                 <!-- Dynamic ordination sections will be added here -->
                             </div>
                         </div>
+                        <small class="form-text text-muted">
+                            <i class="fas fa-info-circle"></i> Every clergy member must have at least one ordination.
+                        </small>
                     </div>
 
                     <!-- Consecrations Section (2 columns) -->
@@ -255,6 +259,7 @@
                             <div style="display: flex; gap: 0.5em; margin-bottom: 1em;">
                                 <button type="button" id="addConsecrationBtn" style="padding: 0.4em 0.8em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
                                     Add Consecration
+
                                 </button>
                             </div>
                             
@@ -313,6 +318,9 @@
                                 <!-- Dynamic consecration sections will be added here -->
                             </div>
                         </div>
+                        <small class="form-text text-muted">
+                            <i class="fas fa-info-circle"></i> Consecration is required for bishops, archbishops, cardinals, and popes.
+                        </small>
                     </div>
 
                     <!-- Notes (2 columns) -->
@@ -942,219 +950,72 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Initialize form with existing data for edit mode -->
 <!-- COMMENTED OUT FOR REBUILD: All JavaScript initialization code -->
+
 {% if edit_mode and clergy %}
 <!--
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Starting form initialization for edit mode...');
-    
-    // Wait for dynamic form to be initialized
-    function initializeFormData() {
-        console.log('Checking for dynamic form functions...');
-        
-        // Check if dynamic form functions are available
-        if (typeof window.addOrdinationSection === 'function' && typeof window.addConsecrationSection === 'function') {
-            console.log('Dynamic form functions available, initializing data...');
-            
-            // Ensure sections are visible before pre-filling
-            const ordinationSectionEl = document.getElementById('ordinationSection');
-            const consecrationSectionEl = document.getElementById('consecrationSection');
-            
-            // Check if we have ordination/consecration data
-            const hasOrdinations = {{ 'true' if clergy.ordinations else 'false' }};
-            const hasConsecrations = {{ 'true' if clergy.consecrations else 'false' }};
-            
-            console.log('Has ordinations:', hasOrdinations);
-            console.log('Has consecrations:', hasConsecrations);
-            
-            // Show ordination section if there are ordinations
-            if (hasOrdinations && ordinationSectionEl) {
-                ordinationSectionEl.style.display = 'block';
-                console.log('Showing ordination section for existing data');
-            }
-            
-            // Show consecration section if there are consecrations
-            if (hasConsecrations && consecrationSectionEl) {
-                consecrationSectionEl.style.display = 'block';
-                console.log('Showing consecration section for existing data');
-            }
-            
-            // Initialize form with existing ordination data
-            {% if clergy.ordinations %}
-            // Check if ordination sections already exist (from dynamic form initialization)
-            const existingOrdinationSections = document.querySelectorAll('#ordinationsContainer .ordination-section');
-            if (existingOrdinationSections.length === 0) {
-                // No existing sections, add them
-                console.log('No existing ordination sections, adding them...');
-                {% for ordination in clergy.get_all_ordinations() %}
-                console.log('Adding ordination section for: {{ ordination.date }}');
-                addOrdinationSection();
-                const ordinationSectionItem = document.querySelector('#ordinationsContainer .ordination-section:last-child');
-                if (ordinationSectionItem) {
-                    const dateInput = ordinationSectionItem.querySelector('input[name$="[date]"]');
-                    const subConditioneInput = ordinationSectionItem.querySelector('input[name$="[is_sub_conditione]"]');
-                    const doubtfulInput = ordinationSectionItem.querySelector('input[name$="[is_doubtful]"]');
-                    const invalidInput = ordinationSectionItem.querySelector('input[name$="[is_invalid]"]');
-                    const notesTextarea = ordinationSectionItem.querySelector('textarea[name$="[notes]"]');
-                    const bishopInput = ordinationSectionItem.querySelector('input[name$="[ordaining_bishop_input]"]');
-                    const bishopIdInput = ordinationSectionItem.querySelector('input[name$="[ordaining_bishop_id]"]');
-                    
-                    if (dateInput) {
-                        dateInput.value = '{{ ordination.date.strftime('%Y-%m-%d') }}';
-                        console.log('Set ordination date:', dateInput.value);
-                    }
-                    if (subConditioneInput) subConditioneInput.checked = {{ ordination.is_sub_conditione|lower }};
-                    if (doubtfulInput) doubtfulInput.checked = {{ ordination.is_doubtful|lower }};
-                    if (invalidInput) invalidInput.checked = {{ ordination.is_invalid|lower }};
-                    if (notesTextarea) notesTextarea.value = '{{ ordination.notes or '' }}';
-                    {% if ordination.ordaining_bishop %}
-                    if (bishopInput) {
-                        bishopInput.value = '{{ ordination.ordaining_bishop.name }}';
-                        console.log('Set ordaining bishop:', bishopInput.value);
-                    }
-                    if (bishopIdInput) bishopIdInput.value = '{{ ordination.ordaining_bishop.id }}';
-                    {% endif %}
-                }
-                {% endfor %}
-            } else {
-                // Sections already exist, populate them
-                console.log('Existing ordination sections found, populating them...');
-                const ordinationSections = document.querySelectorAll('#ordinationsContainer .ordination-section');
-                {% for ordination in clergy.get_all_ordinations() %}
-                if (ordinationSections[{{ loop.index0 }}]) {
-                    const ordinationSectionItem = ordinationSections[{{ loop.index0 }}];
-                    const dateInput = ordinationSectionItem.querySelector('input[name$="[date]"]');
-                    const subConditioneInput = ordinationSectionItem.querySelector('input[name$="[is_sub_conditione]"]');
-                    const doubtfulInput = ordinationSectionItem.querySelector('input[name$="[is_doubtful]"]');
-                    const invalidInput = ordinationSectionItem.querySelector('input[name$="[is_invalid]"]');
-                    const notesTextarea = ordinationSectionItem.querySelector('textarea[name$="[notes]"]');
-                    const bishopInput = ordinationSectionItem.querySelector('input[name$="[ordaining_bishop_input]"]');
-                    const bishopIdInput = ordinationSectionItem.querySelector('input[name$="[ordaining_bishop_id]"]');
-                    
-                    if (dateInput) {
-                        dateInput.value = '{{ ordination.date.strftime('%Y-%m-%d') }}';
-                        console.log('Set ordination date:', dateInput.value);
-                    }
-                    if (subConditioneInput) subConditioneInput.checked = {{ ordination.is_sub_conditione|lower }};
-                    if (doubtfulInput) doubtfulInput.checked = {{ ordination.is_doubtful|lower }};
-                    if (invalidInput) invalidInput.checked = {{ ordination.is_invalid|lower }};
-                    if (notesTextarea) notesTextarea.value = '{{ ordination.notes or '' }}';
-                    {% if ordination.ordaining_bishop %}
-                    if (bishopInput) {
-                        bishopInput.value = '{{ ordination.ordaining_bishop.name }}';
-                        console.log('Set ordaining bishop:', bishopInput.value);
-                    }
-                    if (bishopIdInput) bishopIdInput.value = '{{ ordination.ordaining_bishop.id }}';
-                    {% endif %}
-                }
-                {% endfor %}
-            }
-            {% endif %}
-            
-            // Initialize form with existing consecration data
-            {% if clergy.consecrations %}
-            // Check if consecration sections already exist (from dynamic form initialization)
-            const existingConsecrationSections = document.querySelectorAll('#consecrationsContainer .consecration-section');
-            if (existingConsecrationSections.length === 0) {
-                // No existing sections, add them
-                console.log('No existing consecration sections, adding them...');
-                {% for consecration in clergy.get_all_consecrations() %}
-                console.log('Adding consecration section for: {{ consecration.date }}');
-                addConsecrationSection();
-                const consecrationSectionItem = document.querySelector('#consecrationsContainer .consecration-section:last-child');
-                if (consecrationSectionItem) {
-                    const dateInput = consecrationSectionItem.querySelector('input[name$="[date]"]');
-                    const subConditioneInput = consecrationSectionItem.querySelector('input[name$="[is_sub_conditione]"]');
-                    const doubtfulInput = consecrationSectionItem.querySelector('input[name$="[is_doubtful]"]');
-                    const invalidInput = consecrationSectionItem.querySelector('input[name$="[is_invalid]"]');
-                    const notesTextarea = consecrationSectionItem.querySelector('textarea[name$="[notes]"]');
-                    const consecratorInput = consecrationSectionItem.querySelector('input[name$="[consecrator_input]"]');
-                    const consecratorIdInput = consecrationSectionItem.querySelector('input[name$="[consecrator_id]"]');
-                    
-                    if (dateInput) {
-                        dateInput.value = '{{ consecration.date.strftime('%Y-%m-%d') }}';
-                        console.log('Set consecration date:', dateInput.value);
-                    }
-                    if (subConditioneInput) subConditioneInput.checked = {{ consecration.is_sub_conditione|lower }};
-                    if (doubtfulInput) doubtfulInput.checked = {{ consecration.is_doubtful|lower }};
-                    if (invalidInput) invalidInput.checked = {{ consecration.is_invalid|lower }};
-                    if (notesTextarea) notesTextarea.value = '{{ consecration.notes or '' }}';
-                    {% if consecration.consecrator %}
-                    if (consecratorInput) {
-                        consecratorInput.value = '{{ consecration.consecrator.name }}';
-                        console.log('Set consecrator:', consecratorInput.value);
-                    }
-                    if (consecratorIdInput) consecratorIdInput.value = '{{ consecration.consecrator.id }}';
-                    {% endif %}
-                    {% for co_consecrator in consecration.co_consecrators %}
-                    console.log('Adding co-consecrator: {{ co_consecrator.name }}');
-                    addCoConsecrator({{ loop.index0 + 1 }});
-                    const coConsecratorItem = consecrationSectionItem.querySelector('.co-consecrators-container .co-consecrator-item:last-child');
-                    if (coConsecratorItem) {
-                        const coInput = coConsecratorItem.querySelector('input[name$="[input]"]');
-                        const coIdInput = coConsecratorItem.querySelector('input[name$="[id]"]');
-                        if (coInput) coInput.value = '{{ co_consecrator.name }}';
-                        if (coIdInput) coIdInput.value = '{{ co_consecrator.id }}';
-                    }
+    // Wait for form to be initialized, then pre-fill with clergy data
+    setTimeout(() => {
+        if (window.ClergyForm && window.ClergyForm.initialized) {
+            // Prepare clergy data object for pre-filling
+            const clergyData = {
+                name: '{{ clergy.name or '' }}',
+                papal_name: '{{ clergy.papal_name or '' }}',
+                rank: '{{ clergy.rank or '' }}',
+                organization: '{{ clergy.organization or '' }}',
+                date_of_birth: '{{ clergy.date_of_birth.strftime('%Y-%m-%d') if clergy.date_of_birth else '' }}',
+                date_of_death: '{{ clergy.date_of_death.strftime('%Y-%m-%d') if clergy.date_of_death else '' }}',
+                notes: '{{ clergy.notes or '' }}',
+                is_deleted: {{ clergy.is_deleted|lower if clergy.is_deleted is defined else 'false' }},
+                ordinations: [
+                    {% for ordination in clergy.get_all_ordinations() %}
+                    {
+                        date: '{{ ordination.date.strftime('%Y-%m-%d') if ordination.date else '' }}',
+                        is_sub_conditione: {{ ordination.is_sub_conditione|lower }},
+                        is_doubtful: {{ ordination.is_doubtful|lower }},
+                        is_invalid: {{ ordination.is_invalid|lower }},
+                        notes: '{{ ordination.notes or '' }}',
+                        ordaining_bishop: {
+                            {% if ordination.ordaining_bishop %}
+                            id: {{ ordination.ordaining_bishop.id }},
+                            name: '{{ ordination.ordaining_bishop.name }}'
+                            {% endif %}
+                        }
+                    }{% if not loop.last %},{% endif %}
                     {% endfor %}
-                }
-                {% endfor %}
-            } else {
-                // Sections already exist, populate them
-                console.log('Existing consecration sections found, populating them...');
-                const consecrationSections = document.querySelectorAll('#consecrationsContainer .consecration-section');
-                {% for consecration in clergy.get_all_consecrations() %}
-                if (consecrationSections[{{ loop.index0 }}]) {
-                    const consecrationSectionItem = consecrationSections[{{ loop.index0 }}];
-                    const dateInput = consecrationSectionItem.querySelector('input[name$="[date]"]');
-                    const subConditioneInput = consecrationSectionItem.querySelector('input[name$="[is_sub_conditione]"]');
-                    const doubtfulInput = consecrationSectionItem.querySelector('input[name$="[is_doubtful]"]');
-                    const invalidInput = consecrationSectionItem.querySelector('input[name$="[is_invalid]"]');
-                    const notesTextarea = consecrationSectionItem.querySelector('textarea[name$="[notes]"]');
-                    const consecratorInput = consecrationSectionItem.querySelector('input[name$="[consecrator_input]"]');
-                    const consecratorIdInput = consecrationSectionItem.querySelector('input[name$="[consecrator_id]"]');
-                    
-                    if (dateInput) {
-                        dateInput.value = '{{ consecration.date.strftime('%Y-%m-%d') }}';
-                        console.log('Set consecration date:', dateInput.value);
-                    }
-                    if (subConditioneInput) subConditioneInput.checked = {{ consecration.is_sub_conditione|lower }};
-                    if (doubtfulInput) doubtfulInput.checked = {{ consecration.is_doubtful|lower }};
-                    if (invalidInput) invalidInput.checked = {{ consecration.is_invalid|lower }};
-                    if (notesTextarea) notesTextarea.value = '{{ consecration.notes or '' }}';
-                    {% if consecration.consecrator %}
-                    if (consecratorInput) {
-                        consecratorInput.value = '{{ consecration.consecrator.name }}';
-                        console.log('Set consecrator:', consecratorInput.value);
-                    }
-                    if (consecratorIdInput) consecratorIdInput.value = '{{ consecration.consecrator.id }}';
-                    {% endif %}
-                    {% for co_consecrator in consecration.co_consecrators %}
-                    console.log('Adding co-consecrator: {{ co_consecrator.name }}');
-                    addCoConsecrator({{ loop.index0 + 1 }});
-                    const coConsecratorItem = consecrationSectionItem.querySelector('.co-consecrators-container .co-consecrator-item:last-child');
-                    if (coConsecratorItem) {
-                        const coInput = coConsecratorItem.querySelector('input[name$="[input]"]');
-                        const coIdInput = coConsecratorItem.querySelector('input[name$="[id]"]');
-                        if (coInput) coInput.value = '{{ co_consecrator.name }}';
-                        if (coIdInput) coIdInput.value = '{{ co_consecrator.id }}';
-                    }
+                ],
+                consecrations: [
+                    {% for consecration in clergy.get_all_consecrations() %}
+                    {
+                        date: '{{ consecration.date.strftime('%Y-%m-%d') if consecration.date else '' }}',
+                        is_sub_conditione: {{ consecration.is_sub_conditione|lower }},
+                        is_doubtful: {{ consecration.is_doubtful|lower }},
+                        is_invalid: {{ consecration.is_invalid|lower }},
+                        notes: '{{ consecration.notes or '' }}',
+                        consecrator: {
+                            {% if consecration.consecrator %}
+                            id: {{ consecration.consecrator.id }},
+                            name: '{{ consecration.consecrator.name }}'
+                            {% endif %}
+                        },
+                        co_consecrators: [
+                            {% for co_consecrator in consecration.co_consecrators %}
+                            {
+                                id: {{ co_consecrator.id }},
+                                name: '{{ co_consecrator.name }}'
+                            }{% if not loop.last %},{% endif %}
+                            {% endfor %}
+                        ]
+                    }{% if not loop.last %},{% endif %}
                     {% endfor %}
-                }
-                {% endfor %}
-            }
-            {% endif %}
+                ]
+            };
             
-            console.log('Form initialization complete');
-        } else {
-            // Retry after a short delay
-            console.log('Dynamic form functions not yet available, retrying...');
-            setTimeout(initializeFormData, 100);
+            // Pre-fill the form with clergy data
+            window.ClergyForm.prefillForm(clergyData);
         }
-    }
-    
-    // Start initialization
-    initializeFormData();
+    }, 100);
 });
 </script>
 -->
@@ -1385,3 +1246,18 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 {% endmacro %}
+
+<!-- Public API for pre-filling the form -->
+<script>
+// Make the pre-fill function globally available for external use
+window.prefillClergyForm = function(clergyData) {
+    if (window.ClergyForm && window.ClergyForm.prefillForm) {
+        window.ClergyForm.prefillForm(clergyData);
+    } else {
+        console.warn('ClergyForm not yet initialized. Please wait for DOMContentLoaded.');
+    }
+};
+
+// Also make it available on the ClergyForm namespace
+window.ClergyForm.prefillFormPublic = window.prefillClergyForm;
+</script>

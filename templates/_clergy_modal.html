@@ -6,19 +6,13 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                {% from '_clergy_form.html' import clergy_form %}
-                {{ clergy_form({
+                {% from '_clergy_form_clean.html' import clergy_form_clean %}
+                {{ clergy_form_clean({
                     'ranks': ranks,
                     'organizations': organizations,
                     'cancel_url': '#'
-                }, clergy=clergy, edit_mode=(action == 'edit'), user=user) }}
+                }, clergy=clergy, edit_mode=(action == 'edit'), user=user, all_clergy_data=all_clergy_data, all_bishops_suggested=all_bishops_suggested) }}
             </div>
         </div>
     </div>
-</div>
-
-<script src="/static/js/fuzzySearch.js"></script>
-<script>
-    window.allClergy = {{ all_clergy_data | tojson | safe }};
-</script>
-<script src="/static/js/modalClergy.js"></script> 
+</div> 

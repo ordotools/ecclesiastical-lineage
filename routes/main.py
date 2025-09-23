@@ -23,63 +23,8 @@ def lineage_visualization():
         ordination_count = Ordination.query.count()
         consecration_count = Consecration.query.count()
         
-        # If no data exists, create some synthetic data
-        if ordination_count == 0 and consecration_count == 0:
-            current_app.logger.info("No lineage data found, creating synthetic data...")
-            
-            from datetime import datetime
-            
-            # Get all clergy with relationships loaded
-            from sqlalchemy.orm import joinedload
-            all_clergy = Clergy.query.options(
-                joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
-                joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
-                joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
-            ).filter(Clergy.is_deleted != True).all()
-            
-            # Create synthetic lineage data
-            bishops = [c for c in all_clergy if c.rank and 'bishop' in c.rank.lower()]
-            priests = [c for c in all_clergy if c.rank and 'priest' in c.rank.lower()]
-            
-            current_app.logger.info(f"Found {len(bishops)} bishops and {len(priests)} priests")
-            
-            # Create ordinations for priests
-            for priest in priests[:10]:  # Limit to first 10
-                if bishops:
-                    ordaining_bishop = bishops[0]
-                    
-                    ordination = Ordination(
-                        clergy_id=priest.id,
-                        date=datetime.now().date(),
-                        ordaining_bishop_id=ordaining_bishop.id,
-                        is_sub_conditione=False,
-                        is_doubtful=False,
-                        is_invalid=False,
-                        notes=f"Synthetic ordination for {priest.name}",
-                        created_at=datetime.now(),
-                        updated_at=datetime.now()
-                    )
-                    db.session.add(ordination)
-            
-            # Create consecrations for bishops
-            for i, bishop in enumerate(bishops[1:], 1):
-                consecrator = bishops[0]
-                
-                consecration = Consecration(
-                    clergy_id=bishop.id,
-                    date=datetime.now().date(),
-                    consecrator_id=consecrator.id,
-                    is_sub_conditione=False,
-                    is_doubtful=False,
-                    is_invalid=False,
-                    notes=f"Synthetic consecration for {bishop.name}",
-                    created_at=datetime.now(),
-                    updated_at=datetime.now()
-                )
-                db.session.add(consecration)
-            
-            db.session.commit()
-            current_app.logger.info("Synthetic lineage data created successfully")
+        # Log current data status
+        current_app.logger.info(f"Found {ordination_count} ordinations and {consecration_count} consecrations in database")
         
         # Allow both logged-in and non-logged-in users to view lineage visualization
         # Get only active (non-deleted) clergy for the visualization with relationships loaded
@@ -210,6 +155,7 @@ def get_lineage_data():
         ordination_count = Ordination.query.count()
         consecration_count = Consecration.query.count()
         
+
         # If no data exists, create some synthetic data
         if ordination_count == 0 and consecration_count == 0:
             current_app.logger.info("No lineage data found, creating synthetic data...")
@@ -268,8 +214,9 @@ def get_lineage_data():
             db.session.commit()
             current_app.logger.info("Synthetic lineage data created successfully")
         
+
     except Exception as e:
-        current_app.logger.error(f"Error creating synthetic data: {e}")
+        current_app.logger.error(f"Error checking data counts: {e}")
     
     try:
         # Allow both logged-in and non-logged-in users to view lineage data
@@ -533,10 +480,27 @@ def clergy_modal_add():
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
     
+    # Get bishops data for autocomplete
+    all_bishops = db.session.query(Clergy).join(Rank, Clergy.rank == Rank.name).filter(
+        Rank.is_bishop == True,
+        Clergy.is_deleted != True
+    ).all()
+    
+    all_bishops_suggested = [
+        {
+            'id': bishop.id,
+            'name': getattr(bishop, 'display_name', bishop.name),
+            'rank': bishop.rank,
+            'organization': bishop.organization
+        }
+        for bishop in all_bishops
+    ]
+    
     return render_template('_clergy_modal.html', 
                          clergy=None, 
                          action='add',
                          all_clergy_data=all_clergy_data,
+                         all_bishops_suggested=all_bishops_suggested,
                          ranks=ranks,
                          organizations=organizations,
                          user=user)
@@ -566,10 +530,27 @@ def clergy_modal_edit(clergy_id):
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
     
+    # Get bishops data for autocomplete
+    all_bishops = db.session.query(Clergy).join(Rank, Clergy.rank == Rank.name).filter(
+        Rank.is_bishop == True,
+        Clergy.is_deleted != True
+    ).all()
+    
+    all_bishops_suggested = [
+        {
+            'id': bishop.id,
+            'name': getattr(bishop, 'display_name', bishop.name),
+            'rank': bishop.rank,
+            'organization': bishop.organization
+        }
+        for bishop in all_bishops
+    ]
+    
     return render_template('_clergy_modal.html', 
                          clergy=clergy, 
                          action='edit',
                          all_clergy_data=all_clergy_data,
+                         all_bishops_suggested=all_bishops_suggested,
                          ranks=ranks,
                          organizations=organizations,
                          user=user)
@@ -624,6 +605,7 @@ def edit_clergy_from_lineage(clergy_id):
                          clergy=clergy, 
                          edit_mode=True, 
                          user=user,
+                         all_clergy_data=all_clergy_data,
                          all_bishops_suggested=all_bishops_suggested)
 
 @main_bp.route('/clergy/modal/<int:clergy_id>/comment')

@@ -245,7 +245,25 @@ export function initializeAside() {
       console.log('Click detected on expanded panel, target:', event.target);
       
       // Check if click is inside a modal
-      const isInsideModal = event.target.closest('.modal') || event.target.closest('[data-bs-toggle="modal"]');
+      const isInsideModal = event.target.closest('.modal') || 
+                           event.target.closest('[data-bs-toggle="modal"]') ||
+                           event.target.closest('#clergyFormModalBody') ||
+                           event.target.closest('#clergyFormModal');
+      
+      console.log('Modal detection:', {
+        isModalOpen,
+        isInsideModal,
+        target: event.target,
+        closestModal: event.target.closest('.modal'),
+        closestModalBody: event.target.closest('#clergyFormModalBody'),
+        closestModalId: event.target.closest('#clergyFormModal')
+      });
+      
+      // If modal is open and click is inside modal, don't interfere with the click
+      if (isModalOpen && isInsideModal) {
+        console.log('Click inside modal - allowing event to proceed');
+        return; // Don't interfere with modal interactions
+      }
       
       if (isInsideModal) {
         console.log('Click ignored - inside modal');

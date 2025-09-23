@@ -1,0 +1,24 @@
+{
+  "ordinations": [
+    {
+      "clergy_name": "Bernard Fellay",
+      "ordaining_bishop_name": "Marcel Lefebvre",
+      "date": "1988-06-29",
+      "notes": "Ordained priest by Archbishop Lefebvre"
+    }
+  ],
+  "consecrations": [
+    {
+      "clergy_name": "Bernard Fellay",
+      "consecrator_name": "Marcel Lefebvre",
+      "date": "1988-06-30",
+      "notes": "Consecrated bishop by Archbishop Lefebvre"
+    },
+    {
+      "clergy_name": "Bernard Tissier de Mallerais",
+      "consecrator_name": "Marcel Lefebvre",
+      "date": "1988-06-30",
+      "notes": "Consecrated bishop by Archbishop Lefebvre"
+    }
+  ]
+}

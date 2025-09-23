@@ -1,24 +1,133 @@
-<!-- Clergy Form Panel Content -->
-{% if clergy and edit_mode %}
-    {% from '_clergy_form.html' import clergy_form %}
-    {{ clergy_form(fields, clergy, edit_mode=True, user=user, redirect_url=None, use_htmx=False) }}
-{% elif not edit_mode %}
-    {% from '_clergy_form.html' import clergy_form %}
-    {{ clergy_form(fields, None, edit_mode=False, user=user, redirect_url=None, use_htmx=False) }}
-{% else %}
-<!-- Default state - no clergy selected -->
-<div style="padding: 2em; text-align: center; color: rgba(255, 255, 255, 0.6);">
-    <div style="margin-bottom: 1em;">
-        <i class="fas fa-edit" style="font-size: 3em; opacity: 0.3;"></i>
-    </div>
-    <h3 style="margin: 0 0 0.5em 0; font-weight: 500; color: rgba(255, 255, 255, 0.8);">No Clergy Selected</h3>
-    <p style="margin: 0; font-size: 0.9em;">Select a clergy member from the list to edit, or click "Add New Clergy" to create a new record.</p>
+<!-- Clergy Form Panel Content with HTMX Loading -->
+<div id="clergyFormContainer">
+    {% if clergy and edit_mode %}
+        <!-- Load form content via HTMX for edit mode -->
+        <div hx-get="{{ url_for('editor.clergy_form_content', clergy_id=clergy.id) }}" 
+             hx-trigger="load" 
+             hx-swap="innerHTML"
+             class="form-content-loader">
+            <!-- Minimal loading state -->
+            <div id="formLoadingIndicatorEdit" style="padding: 1em; text-align: center; color: rgba(255, 255, 255, 0.5); font-size: 0.8em;">
+                Loading form for {{ clergy.name }}...
+            </div>
+        </div>
+        <script>
+        console.log('🔄 HTMX: Should load form content for clergy ID {{ clergy.id }}');
+        console.log('🔄 HTMX: URL: {{ url_for("editor.clergy_form_content", clergy_id=clergy.id) }}');
+        
+        // Test if HTMX is working at all
+        setTimeout(() => {
+            const loader = document.querySelector('.form-content-loader');
+            if (loader) {
+                console.log('🔄 HTMX: Form loader element found:', loader);
+                console.log('🔄 HTMX: Has hx-get attribute:', loader.hasAttribute('hx-get'));
+                console.log('🔄 HTMX: hx-get value:', loader.getAttribute('hx-get'));
+            } else {
+                console.log('🔄 HTMX: Form loader element NOT found');
+            }
+        }, 1000);
+        
+        // Immediate initialization test
+        console.log('🔄 HTMX: Immediate initialization test...');
+        if (typeof window.debugFormInit === 'function') {
+            console.log('🔄 HTMX: Calling debugFormInit()');
+            window.debugFormInit();
+        }
+        </script>
+    {% elif not edit_mode %}
+        <!-- Load form content via HTMX for add mode -->
+        <div hx-get="{{ url_for('editor.clergy_form_content') }}" 
+             hx-trigger="load" 
+             hx-swap="innerHTML"
+             class="form-content-loader">
+            <!-- Minimal loading state -->
+            <div id="formLoadingIndicatorAdd" style="padding: 1em; text-align: center; color: rgba(255, 255, 255, 0.5); font-size: 0.8em;">
+                Loading new clergy form...
+            </div>
+        </div>
+        <script>
+        console.log('🔄 HTMX: Should load form content for new clergy');
+        console.log('🔄 HTMX: URL: {{ url_for("editor.clergy_form_content") }}');
+        </script>
+    {% else %}
+        <!-- Default state - no clergy selected -->
+        <div style="padding: 2em; text-align: center; color: rgba(255, 255, 255, 0.6);">
+            <div style="margin-bottom: 1em;">
+                <i class="fas fa-edit" style="font-size: 3em; opacity: 0.3;"></i>
+            </div>
+            <h3 style="margin: 0 0 0.5em 0; font-weight: 500; color: rgba(255, 255, 255, 0.8);">No Clergy Selected</h3>
+            <p style="margin: 0; font-size: 0.9em;">Select a clergy member from the list to edit, or click "Add New Clergy" to create a new record.</p>
+        </div>
+    {% endif %}
 </div>
-{% endif %}
 
-<!-- Override form styles for editor panel -->
+<!-- Enhanced form styles for editor panel with HTMX -->
 <style>
-/* Make the form fit better in the right panel */
+/* Loading animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* No animations - instant updates like clergy list */
+
+/* Form container optimization for HTMX content */
+.right-panel .panel-content #clergyFormContainer {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+/* Smooth content loading */
+.right-panel .form-content-loader {
+    width: 100%;
+    min-height: 400px;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Loading placeholder styling */
+.right-panel .loading-placeholder {
+    padding: 3em 2em;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.6);
+    position: relative;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.right-panel .loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top: 3px solid rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1em;
+}
+
+.right-panel .loading-spinner-small {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-top: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 1em auto;
+}
+
+/* Instant loading - no animations or transitions */
+.right-panel .form-container {
+    opacity: 1;
+}
+
+/* Simple focus styles without animation */
+.right-panel input:focus,
+.right-panel select:focus,
+.right-panel textarea:focus {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Make the form completely seamless with the panel */
 .right-panel .panel-content > div > div {
     background: transparent !important;
     backdrop-filter: none !important;
@@ -26,85 +135,164 @@
     box-shadow: none !important;
     max-width: none !important;
     margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+}
+
+/* Ensure full width for form container */
+.right-panel .panel-content #clergyFormContainer {
+    width: 100% !important;
     padding: 1em !important;
 }
 
-/* Adjust form grid for smaller space */
-.right-panel .panel-content [style*="grid-template-columns"] {
-    grid-template-columns: 1fr !important;
-    gap: 0.5em !important;
+/* Form Container Optimizations for new grid layout */
+.right-panel .form-container {
+    width: 100%;
 }
 
-/* Stack fields vertically in narrow panel */
-.right-panel .panel-content [style*="grid-column: 1 / -1"],
-.right-panel .panel-content [style*="grid-column: 1"],
-.right-panel .panel-content [style*="grid-column: 2"] {
-    grid-column: 1 / -1 !important;
+.right-panel .form-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.75em !important;
+    grid-auto-rows: min-content;
 }
 
-/* Reduce photo section size */
-.right-panel .panel-content #photoField {
-    grid-row: auto !important;
-    max-height: 150px;
+/* Photo Section Styling */
+.right-panel .photo-section {
+    min-height: 280px;
 }
 
-/* Adjust input sizes */
-.right-panel .panel-content input,
-.right-panel .panel-content select,
-.right-panel .panel-content textarea {
+.right-panel .photo-container {
+    min-height: 220px !important;
+    padding: 0.75em !important;
+}
+
+.right-panel .photo-controls button {
+    padding: 0.4em 0.6em !important;
+    font-size: 0.75em !important;
+}
+
+/* Form Fields Styling */
+.right-panel .form-field {
+    margin-bottom: 0;
+}
+
+.right-panel .form-field label {
+    font-size: 0.8em !important;
+    margin-bottom: 0.2em !important;
+    font-weight: 500 !important;
+}
+
+/* Input and control styling */
+.right-panel .form-field input,
+.right-panel .form-field select,
+.right-panel .form-field textarea {
     font-size: 0.85em !important;
     padding: 0.4em !important;
+    border-radius: 3px !important;
 }
 
-/* Compact headers */
-.right-panel .panel-content h2 {
-    font-size: 1.1em !important;
-    margin-bottom: 0.5em !important;
+.right-panel .form-field textarea {
+    min-height: 60px !important;
 }
 
-.right-panel .panel-content h5 {
+/* Section headers */
+.right-panel .form-section h5 {
     font-size: 0.9em !important;
-    margin: 0.5em 0 0.25em 0 !important;
+    margin-bottom: 0.4em !important;
 }
 
-/* Compact ordination/consecration sections */
-.right-panel .panel-content [style*="border-radius: 4px"][style*="padding: 0.75em"] {
-    padding: 0.5em !important;
-    margin-bottom: 0.5em !important;
+/* Section containers */
+.right-panel .form-section > div {
+    padding: 0.75em !important;
 }
 
-/* Make buttons smaller */
-.right-panel .panel-content button {
+/* Dynamic entry styling */
+.right-panel .ordination-entry,
+.right-panel .consecration-entry {
+    padding: 0.6em !important;
+    margin-bottom: 0.6em !important;
+}
+
+.right-panel .ordination-entry input,
+.right-panel .ordination-entry textarea,
+.right-panel .ordination-entry select,
+.right-panel .consecration-entry input,
+.right-panel .consecration-entry textarea,
+.right-panel .consecration-entry select {
+    font-size: 0.75em !important;
+    padding: 0.3em !important;
+}
+
+.right-panel .ordination-entry label,
+.right-panel .consecration-entry label {
+    font-size: 0.75em !important;
+    margin-bottom: 0.2em !important;
+}
+
+/* Button styling - no animations */
+.right-panel button {
     font-size: 0.8em !important;
-    padding: 0.4em 0.8em !important;
 }
 
-/* Compact form sections */
-.right-panel .panel-content > div > div > div > div > div {
-    margin-bottom: 0.5em !important;
+.right-panel button:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
 }
 
-/* Handle modal overlay - hide organization modal in panel */
-.right-panel #addOrganizationModal {
-    display: none !important;
+/* Admin controls styling */
+.right-panel .admin-controls {
+    margin-top: 1em;
+    padding: 0.75em;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Submit buttons area */
+.right-panel .form-actions {
+    margin-top: 1em !important;
+    padding-top: 0.75em !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.right-panel .form-actions button,
+.right-panel .form-actions a {
+    font-size: 0.85em !important;
+    padding: 0.5em 1em !important;
+}
+
+/* Responsive adjustments for smaller panels */
+@media (max-width: 1200px) {
+    .right-panel .form-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.6em !important;
+    }
+    
+    .right-panel .photo-section {
+        min-height: 240px;
+    }
+    
+    .right-panel .photo-container {
+        min-height: 180px !important;
+    }
 }
 </style>
 
 <script>
-// Override form submission for editor panel
+// Simple form handling - instant updates like clergy list
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('.right-panel #clergyForm');
-    if (!form) return;
-    
-    console.log('Editor clergy form initialized');
-    
-    // Override form submission
-    form.addEventListener('submit', function(e) {
+    console.log('Editor clergy form panel initialized');
+});
+
+// Use event delegation for HTMX-loaded form content
+document.addEventListener('submit', function(e) {
+    // Check if this is our clergy form (loaded via HTMX)
+    if (e.target && e.target.id === 'clergyForm') {
         e.preventDefault();
-        console.log('Editor form submitted');
+        console.log('HTMX-loaded clergy form submitted');
         
-        const formData = new FormData(this);
-        const submitBtn = this.querySelector('button[type="submit"]');
+        const form = e.target;
+        const formData = new FormData(form);
+        const submitBtn = form.querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;
         
         // Show loading state
@@ -112,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.disabled = true;
         
         // Submit via fetch
-        fetch(this.action, {
+        fetch(form.action, {
             method: 'POST',
             body: formData,
             headers: {
@@ -122,20 +310,25 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Success - refresh panels
+                // Success - refresh panels smoothly
                 console.log('Form saved successfully');
                 
-                // Refresh clergy list
+                // Instant refresh - no transitions like clergy list
                 htmx.ajax('GET', '/editor/clergy-list', {
                     target: '.left-panel .panel-content',
                     swap: 'innerHTML'
                 });
                 
-                // Refresh visualization
+                // Instant visualization refresh
                 htmx.ajax('GET', '/editor/visualization', {
                     target: '.center-panel .panel-content',
                     swap: 'innerHTML'
                 });
+                
+                // If we have a clergy ID from the response, refresh the form instantly
+                if (data.clergy_id) {
+                    refreshClergyForm(data.clergy_id);
+                }
                 
                 // Show success message
                 showNotification('Clergy record saved successfully!', 'success');
@@ -153,16 +346,58 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.textContent = originalText;
             submitBtn.disabled = false;
         });
-    });
-    
-    // Initialize embedded form functionality
-    if (typeof window.initializeEmbeddedFormScript === 'function') {
-        window.initializeEmbeddedFormScript();
     }
 });
 
-// Simple notification system for editor
+// HTMX event handling with form initialization
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.target.closest('#clergyFormContainer')) {
+        console.log('🔄 HTMX: Clergy form content loaded instantly');
+        
+        // Initialize the form after HTMX loads it - immediate execution
+        console.log('🔄 HTMX: Checking for initialization function...');
+        
+        // Check if we have initialization functions available
+        if (typeof window.initializeFormFromRank === 'function') {
+            console.log('🔄 HTMX: Calling window.initializeFormFromRank()');
+            window.initializeFormFromRank();
+        } else {
+            console.log('🔄 HTMX: initializeFormFromRank not available, triggering rank change event');
+            // Initialize directly if the functions are in the loaded content
+            const rankSelect = document.getElementById('rank');
+            if (rankSelect && rankSelect.value) {
+                console.log('🔄 HTMX: Triggering change event on rank select');
+                rankSelect.dispatchEvent(new Event('change'));
+            }
+        }
+    }
+});
+
+// Simple instant refresh function
+function refreshClergyForm(clergyId = null) {
+    const container = document.querySelector('#clergyFormContainer .form-content-loader');
+    if (!container) return;
+    
+    const url = clergyId ? 
+        `/editor/clergy-form-content/${clergyId}` : 
+        '/editor/clergy-form-content';
+    
+    // Instant HTMX load - no transitions
+    htmx.ajax('GET', url, {
+        target: container,
+        swap: 'innerHTML'
+    });
+}
+
+// Make refresh function globally available
+window.refreshClergyFormSmooth = refreshClergyForm;
+
+// Simple instant notification system
 function showNotification(message, type = 'info') {
+    // Just log to console - no visual distraction
+    console.log(`${type.toUpperCase()}: ${message}`);
+    
+    // Optionally show a very brief, instant alert that auto-closes
     const notification = document.createElement('div');
     notification.style.cssText = `
         position: fixed;
@@ -170,33 +405,21 @@ function showNotification(message, type = 'info') {
         right: 20px;
         background: ${type === 'success' ? 'rgba(46, 160, 67, 0.9)' : 'rgba(231, 76, 60, 0.9)'};
         color: white;
-        padding: 1em 1.5em;
-        border-radius: 6px;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        padding: 0.5em 1em;
+        border-radius: 4px;
         z-index: 9999;
-        font-size: 0.9em;
-        max-width: 300px;
-        transform: translateX(400px);
-        transition: transform 0.3s ease;
+        font-size: 0.8em;
+        opacity: 1;
     `;
     notification.textContent = message;
     
     document.body.appendChild(notification);
     
-    // Animate in
+    // Auto remove quickly
     setTimeout(() => {
-        notification.style.transform = 'translateX(0)';
-    }, 100);
-    
-    // Auto remove after 3 seconds
-    setTimeout(() => {
-        notification.style.transform = 'translateX(400px)';
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        }, 300);
-    }, 3000);
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 1500);
 }
 </script>

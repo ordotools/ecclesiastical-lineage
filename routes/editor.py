@@ -189,6 +189,47 @@ def clergy_form_panel(clergy_id=None):
                              edit_mode=False, 
                              user=user)
 
+@editor_bp.route('/editor/clergy-form-content')
+@editor_bp.route('/editor/clergy-form-content/<int:clergy_id>')
+@require_permission('edit_clergy')
+def clergy_form_content(clergy_id=None):
+    """HTMX endpoint for the clergy form content only"""
+    user = User.query.get(session['user_id']) if 'user_id' in session else None
+    
+    # Get form data
+    ranks = Rank.query.all()
+    organizations = Organization.query.all()
+    
+    # Create fields object for the form
+    class FormFields:
+        def __init__(self, ranks, organizations):
+            self.ranks = ranks
+            self.organizations = organizations
+            self.form_action = None
+            self.cancel_url = None
+    
+    fields = FormFields(ranks, organizations)
+    
+    if clergy_id:
+        # Edit mode
+        clergy = Clergy.query.get_or_404(clergy_id)
+        return render_template('clergy_form_content.html', 
+                             fields=fields, 
+                             clergy=clergy, 
+                             edit_mode=True, 
+                             user=user,
+                             context_type=None,
+                             context_clergy_id=None)
+    else:
+        # Add mode
+        return render_template('clergy_form_content.html', 
+                             fields=fields, 
+                             clergy=None, 
+                             edit_mode=False, 
+                             user=user,
+                             context_type=None,
+                             context_clergy_id=None)
+
 @editor_bp.route('/editor/audit-logs')
 @require_permission('view_audit_logs')
 def audit_logs_panel():

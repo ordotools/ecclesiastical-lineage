@@ -113,13 +113,13 @@ function selectClergy(clergyId) {
             selectedItem.style.borderColor = 'rgba(255, 255, 255, 0.3)';
         }
         
-        // Load clergy form for editing
+        // Load clergy form for editing instantly
         htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
             target: '.right-panel .panel-content',
             swap: 'innerHTML'
         });
     } else {
-        // Load empty form for adding new clergy
+        // Load empty form for adding new clergy instantly
         htmx.ajax('GET', '/editor/clergy-form', {
             target: '.right-panel .panel-content',
             swap: 'innerHTML'

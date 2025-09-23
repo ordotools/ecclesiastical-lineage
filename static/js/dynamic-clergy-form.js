@@ -12,7 +12,10 @@ if (typeof window.dynamicFormCounters === 'undefined') {
     };
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+// Function to initialize the dynamic form (can be called manually)
+function initializeDynamicFormSystem() {
+    console.log('initializeDynamicFormSystem called');
+    
     // Check if dynamic form has already been initialized
     if (window.dynamicFormInitialized) {
         console.log('Dynamic form already initialized, skipping');
@@ -27,6 +30,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Mark dynamic form as initialized
     window.dynamicFormInitialized = true;
+}
+
+// Make function globally available
+window.initializeDynamicFormSystem = initializeDynamicFormSystem;
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('dynamic-clergy-form.js DOMContentLoaded fired');
+    initializeDynamicFormSystem();
 });
 
 function initializeDynamicForm() {
@@ -77,16 +88,25 @@ function setupEventListeners() {
         });
     }
     
-    // Add ordination button
-    const addOrdinationBtn = document.getElementById('addOrdinationBtn');
-    if (addOrdinationBtn) {
-        addOrdinationBtn.addEventListener('click', addOrdinationSection);
-    }
+    // Check if we have existing template elements (embedded form)
+    const existingOrdinationEntries = document.querySelectorAll('.ordination-entry');
+    const existingConsecrationEntries = document.querySelectorAll('.consecration-entry');
     
-    // Add consecration button
-    const addConsecrationBtn = document.getElementById('addConsecrationBtn');
-    if (addConsecrationBtn) {
-        addConsecrationBtn.addEventListener('click', addConsecrationSection);
+    // Only add dynamic form event listeners if no existing template elements
+    if (existingOrdinationEntries.length === 0 && existingConsecrationEntries.length === 0) {
+        // Add ordination button
+        const addOrdinationBtn = document.getElementById('addOrdinationBtn');
+        if (addOrdinationBtn) {
+            addOrdinationBtn.addEventListener('click', addOrdinationSection);
+        }
+        
+        // Add consecration button
+        const addConsecrationBtn = document.getElementById('addConsecrationBtn');
+        if (addConsecrationBtn) {
+            addConsecrationBtn.addEventListener('click', addConsecrationSection);
+        }
+    } else {
+        console.log('Dynamic form: Existing template elements detected, skipping dynamic form event listeners');
     }
     
     // Clear all ordinations button

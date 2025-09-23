@@ -1,10 +1,10 @@
 from flask import Flask
-from models import db
+from models import db, User, Role
 # from init_routes import routes  # Temporarily disabled due to route conflicts
 from routes.auth import auth_bp
 from routes.clergy import clergy_bp
 from routes.main import main_bp
-from migrations import run_database_migration
+from migrations import run_database_migration, initialize_roles_and_permissions
 import os
 from dotenv import load_dotenv
 from utils import getContrastColor, getBorderStyle, from_json
@@ -118,6 +118,39 @@ def ensure_database_schema():
         except Exception as e:
             print(f"⚠️  Database schema check failed: {e}")
 
+def ensure_admin_user():
+    """Ensure there is at least one Super Admin user in the database"""
+    try:
+        # Check if any Super Admin users exist
+        super_admin_role = Role.query.filter_by(name='Super Admin').first()
+        if not super_admin_role:
+            print("🔧 No Super Admin role found, initializing roles and permissions...")
+            initialize_roles_and_permissions()
+            super_admin_role = Role.query.filter_by(name='Super Admin').first()
+        
+        if super_admin_role:
+            existing_admin = User.query.filter_by(role_id=super_admin_role.id).first()
+            if not existing_admin:
+                print("👤 No Super Admin user found, creating default admin user...")
+                admin_user = User(
+                    username="admin",
+                    role_id=super_admin_role.id
+                )
+                admin_user.set_password("admin123")
+                db.session.add(admin_user)
+                db.session.commit()
+                print("✅ Default admin user created successfully!")
+                print("   Username: admin")
+                print("   Password: admin123")
+                print("   ⚠️  IMPORTANT: Change this password after first login!")
+            else:
+                print(f"ℹ️  Super Admin user already exists: {existing_admin.username}")
+        else:
+            print("❌ Failed to create or find Super Admin role")
+    except Exception as e:
+        print(f"⚠️  Admin user creation failed: {e}")
+        db.session.rollback()
+
 # Ensure database schema is set up
 ensure_database_schema()
 
@@ -144,6 +177,9 @@ with app.app_context():
     #     run_database_migration(app)
     print("🔧 Running fallback migration...")
     run_database_migration(app)
+    
+    # Ensure admin user exists
+    ensure_admin_user()
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

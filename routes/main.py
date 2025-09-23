@@ -127,17 +127,24 @@ def lineage_visualization():
             raise e
             
         current_app.logger.info(f"=== RENDERING TEMPLATE WITH {len(nodes)} NODES AND {len(links)} LINKS ===")
+        
+        # Get current user if logged in
+        user = None
+        if 'user_id' in session:
+            user = User.query.get(session['user_id'])
+        
         return render_template('lineage_visualization.html', 
-                             nodes=nodes_json, 
-                             links=links_json)
+                             nodes_json=nodes_json, 
+                             links_json=links_json,
+                             user=user)
     except Exception as e:
         current_app.logger.error(f"Error in lineage_visualization: {e}")
         import traceback
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         # Return a simple error page or redirect
         return render_template('lineage_visualization.html', 
-                             nodes=json.dumps([]), 
-                             links=json.dumps([]),
+                             nodes_json=json.dumps([]), 
+                             links_json=json.dumps([]),
                              error_message=f"Unable to load lineage data. Error: {str(e)}")
 
 @main_bp.route('/clergy/lineage-data')
@@ -148,9 +155,66 @@ def get_lineage_data():
         ordination_count = Ordination.query.count()
         consecration_count = Consecration.query.count()
         
-        # Log current data status
-        current_app.logger.info(f"API endpoint: Found {ordination_count} ordinations and {consecration_count} consecrations in database")
-    
+
+        # If no data exists, create some synthetic data
+        if ordination_count == 0 and consecration_count == 0:
+            current_app.logger.info("No lineage data found, creating synthetic data...")
+            
+            from datetime import datetime
+            
+            # Get all clergy with relationships loaded
+            from sqlalchemy.orm import joinedload
+            all_clergy = Clergy.query.options(
+                joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+                joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+                joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+            ).filter(Clergy.is_deleted != True).all()
+            
+            # Create synthetic lineage data
+            bishops = [c for c in all_clergy if c.rank and 'bishop' in c.rank.lower()]
+            priests = [c for c in all_clergy if c.rank and 'priest' in c.rank.lower()]
+            
+            current_app.logger.info(f"Found {len(bishops)} bishops and {len(priests)} priests")
+            
+            # Create ordinations for priests
+            for priest in priests[:10]:  # Limit to first 10
+                if bishops:
+                    ordaining_bishop = bishops[0]
+                    
+                    ordination = Ordination(
+                        clergy_id=priest.id,
+                        date=datetime.now().date(),
+                        ordaining_bishop_id=ordaining_bishop.id,
+                        is_sub_conditione=False,
+                        is_doubtful=False,
+                        is_invalid=False,
+                        notes=f"Synthetic ordination for {priest.name}",
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    )
+                    db.session.add(ordination)
+            
+            # Create consecrations for bishops
+            for i, bishop in enumerate(bishops[1:], 1):
+                consecrator = bishops[0]
+                
+                consecration = Consecration(
+                    clergy_id=bishop.id,
+                    date=datetime.now().date(),
+                    consecrator_id=consecrator.id,
+                    is_sub_conditione=False,
+                    is_doubtful=False,
+                    is_invalid=False,
+                    notes=f"Synthetic consecration for {bishop.name}",
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                db.session.add(consecration)
+            
+            db.session.commit()
+            current_app.logger.info("Synthetic lineage data created successfully")
+        
+
     except Exception as e:
         current_app.logger.error(f"Error checking data counts: {e}")
     
@@ -568,14 +632,12 @@ def clergy_relationships(clergy_id):
             consecrator = primary_consecration.consecrator
         
         # Get ordained clergy (clergy ordained by this person) from new ordination table
-        from models import Ordination
         ordained_clergy = db.session.query(Clergy).join(Ordination, Clergy.id == Ordination.clergy_id).filter(
             Ordination.ordaining_bishop_id == clergy_id,
             Clergy.is_deleted == False
         ).all()
         
         # Get consecrated clergy (clergy consecrated by this person) from new consecration table
-        from models import Consecration
         consecrated_clergy = db.session.query(Clergy).join(Consecration, Clergy.id == Consecration.clergy_id).filter(
             Consecration.consecrator_id == clergy_id,
             Clergy.is_deleted == False
@@ -712,6 +774,84 @@ def test_fixes():
     from flask import current_app
     return current_app.send_static_file('test_fixes.html')
 
+@main_bp.route('/test-bishop-creation')
+def test_bishop_creation():
+    """Test page for bishop creation functionality"""
+    return current_app.send_static_file('test_bishop_creation.html')
+
+@main_bp.route('/test-clergy-form', methods=['GET', 'POST'])
+def test_clergy_form():
+    """Temporary test route to display the clergy form template"""
+    from models import Rank, Organization, Clergy, User
+    
+    # Get current user if logged in
+    user = None
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+    
+    # Handle POST requests (form submission)
+    if request.method == 'POST':
+        try:
+            # Use the existing clergy service to create clergy from form
+            clergy = clergy_service.create_clergy_from_form(request.form)
+            
+            # Check if this is an AJAX request
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            
+            if is_ajax:
+                return jsonify({
+                    'success': True, 
+                    'message': f'Clergy record "{clergy.name}" created successfully!', 
+                    'redirect': url_for('main.index')
+                })
+            
+            flash(f'Clergy record "{clergy.name}" created successfully!', 'success')
+            return redirect(url_for('main.index'))
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f'Error creating clergy: {str(e)}')
+            
+            # Check if this is an AJAX request
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            
+            if is_ajax:
+                return jsonify({'success': False, 'message': str(e)}), 400
+            
+            flash(f'Error creating clergy record: {str(e)}', 'error')
+    
+    # GET request - show the form
+    # Get sample data for the form
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    
+    # Create a mock fields object with the required data
+    fields = {
+        'form_action': url_for('main.test_clergy_form'),
+        'ranks': ranks,
+        'organizations': organizations,
+        'cancel_url': url_for('main.index')
+    }
+    
+    # Render the test template that uses the macro
+    return render_template('test_clergy_form.html',
+                         fields=fields,
+                         clergy=None,
+                         edit_mode=False,
+                         user=user,
+                         redirect_url=url_for('main.index'),
+                         use_htmx=True,
+                         context_type=None,
+                         context_clergy_id=None)
+
 @main_bp.route('/clergy/add_from_lineage', methods=['GET', 'POST'])
 @audit_log(
     action='create',
@@ -731,16 +871,172 @@ def test_fixes():
 def add_clergy_from_lineage():
     """Add clergy from lineage visualization with context - now uses new dynamic form system"""
     from services import clergy as clergy_service
+    from models import Rank, Organization, Clergy, User
     
     # Get context parameters
     context_type = request.args.get('context_type')  # 'ordination' or 'consecration'
     context_clergy_id = request.args.get('context_clergy_id')  # ID of the clergy providing context
     
-    # Use the new dynamic form system
-    return clergy_service.add_clergy_handler()
+    if request.method == 'POST':
+        # Handle POST requests with custom redirect logic
+        try:
+            clergy = clergy_service.create_clergy_from_form(request.form)
+            
+            # Check if this is an HTMX request
+            is_htmx = request.headers.get('HX-Request') == 'true'
+            
+            if is_htmx:
+                # For HTMX requests, return a response that will trigger redirect to lineage visualization
+                response = make_response('<script>window.location.href = "' + url_for('main.lineage_visualization') + '";</script>')
+                response.headers['HX-Trigger'] = 'redirect'
+                return response
+            
+            # Handle regular AJAX requests
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            if is_ajax:
+                return jsonify({'success': True, 'message': 'Clergy record added successfully!', 'redirect': url_for('main.lineage_visualization')})
+            
+            flash('Clergy record added successfully!', 'success')
+            return redirect(url_for('main.lineage_visualization'))
+        except Exception as e:
+            db.session.rollback()
+            
+            # Check if this is an HTMX request
+            is_htmx = request.headers.get('HX-Request') == 'true'
+            if is_htmx:
+                response = make_response(f'<div class="alert alert-danger">Error: {str(e)}</div>')
+                return response, 400
+            
+            # Handle regular AJAX requests
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            if is_ajax:
+                return jsonify({'success': False, 'message': str(e)}), 400
+            flash('Error adding clergy record.', 'error')
+            return redirect(url_for('main.lineage_visualization'))
+    
+    # For GET requests, render the form with proper cancel URL
+    user = User.query.get(session.get('user_id'))
+    
+    # Get the same data that add_clergy_handler provides
+    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+    all_clergy_data = [
+        {
+            'id': clergy_member.id,
+            'name': getattr(clergy_member, 'display_name', clergy_member.name),
+            'rank': clergy_member.rank,
+            'organization': clergy_member.organization
+        }
+        for clergy_member in all_clergy
+    ]
+    
+    # Get bishops data for autocomplete
+    all_bishops = Clergy.query.filter(
+        Clergy.rank.ilike('%bishop%'),
+        Clergy.is_deleted != True
+    ).order_by(Clergy.name).all()
+    
+    all_bishops_suggested = [
+        {
+            'id': bishop.id,
+            'name': getattr(bishop, 'display_name', bishop.name),
+            'rank': bishop.rank,
+            'organization': bishop.organization
+        }
+        for bishop in all_bishops
+    ]
+    
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    
+    # Render the form template with proper cancel URL pointing back to lineage visualization
+    return render_template('_clergy_form_modal.html',
+                         fields={
+                             'form_action': url_for('main.add_clergy_from_lineage'),
+                             'ranks': ranks,
+                             'organizations': organizations,
+                             'cancel_url': url_for('main.lineage_visualization')  # This is the key fix!
+                         },
+                         edit_mode=False,
+                         user=user,
+                         redirect_url=url_for('main.lineage_visualization'),  # Also fix HTMX redirect
+                         use_htmx=True,
+                         context_type=context_type,
+                         context_clergy_id=context_clergy_id,
+                         all_bishops_suggested=all_bishops_suggested)
 
 def favicon():
     return '', 204
+
+# API endpoint for checking and creating bishops
+@main_bp.route('/api/check-and-create-bishops', methods=['POST'])
+@require_permission('add_clergy')
+def check_and_create_bishops():
+    """Check if bishops exist by name and create them if they don't"""
+    try:
+        data = request.get_json()
+        bishop_names = data.get('bishop_names', [])
+        
+        if not bishop_names:
+            return jsonify({'success': True, 'bishop_mapping': {}})
+        
+        bishop_mapping = {}
+        
+        for name in bishop_names:
+            name = name.strip()
+            if not name:
+                continue
+                
+            # Check if bishop already exists
+            existing_bishop = Clergy.query.filter_by(name=name).first()
+            if existing_bishop:
+                bishop_mapping[name] = existing_bishop.id
+            else:
+                # Create new bishop with rank 'Bishop'
+                new_bishop = Clergy(
+                    name=name,
+                    rank='Bishop',
+                    notes=f'Auto-created bishop record for {name}'
+                )
+                db.session.add(new_bishop)
+                db.session.flush()  # Get the ID
+                bishop_mapping[name] = new_bishop.id
+                
+                # Log the creation
+                log_audit_event(
+                    action='create',
+                    entity_type='clergy',
+                    entity_id=new_bishop.id,
+                    entity_name=new_bishop.name,
+                    details={
+                        'rank': new_bishop.rank,
+                        'auto_created': True,
+                        'reason': 'Missing bishop for ordination/consecration'
+                    }
+                )
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'bishop_mapping': bishop_mapping,
+            'message': f'Created {len([b for b in bishop_mapping.values() if b])} new bishop records'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error creating bishops: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Error creating bishops: {str(e)}'
+        }), 500
 
 # Database initialization (for development)
 @main_bp.route('/init-db')

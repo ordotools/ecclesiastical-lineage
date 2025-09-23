@@ -77,9 +77,9 @@ function handleLegacyForm(rankValue, consecrationDateField, consecratorField, co
 window.handlePapalNameField = handlePapalNameField;
 console.log('handlePapalNameField function registered globally');
 
-// Initialize field visibility on page load
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('clergyForm.js DOMContentLoaded fired');
+// Function to initialize the clergy form (can be called manually)
+function initializeClergyForm() {
+    console.log('initializeClergyForm called');
     
     // Check if form has already been initialized
     if (window.clergyFormInitialized) {
@@ -147,4 +147,13 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         console.log('rankSelect not found in DOM');
     }
+}
+
+// Make function globally available
+window.initializeClergyForm = initializeClergyForm;
+
+// Initialize field visibility on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('clergyForm.js DOMContentLoaded fired');
+    initializeClergyForm();
 });

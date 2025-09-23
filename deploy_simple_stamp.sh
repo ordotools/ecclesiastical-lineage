@@ -1,11 +1,9 @@
 #!/bin/bash
-# Production deployment script
-# This script is used for production deployments on Render
+# Simple deployment script that stamps database to latest and runs smart migration
 
 set -e  # Exit on any error
 
-echo "🚀 Starting PRODUCTION deployment..."
-echo "===================================="
+echo "🚀 Starting simple deployment with database stamping..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -14,7 +12,6 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Function to print colored output
 print_status() {
     echo -e "${BLUE}$1${NC}"
 }
@@ -42,12 +39,7 @@ print_status "📦 Installing dependencies..."
 pip install -r requirements.txt
 print_success "✅ Dependencies installed"
 
-# Step 2: Debug environment variables
-print_status "🔍 Debugging environment variables..."
-python debug_env.py
-print_success "✅ Environment variables checked"
-
-# Step 3: Check if DATABASE_URL is set
+# Step 2: Check if DATABASE_URL is set
 print_status "🔍 Checking database connection..."
 if [ -z "$DATABASE_URL" ]; then
     print_error "❌ DATABASE_URL environment variable not set!"
@@ -55,7 +47,7 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 print_success "✅ DATABASE_URL is configured"
 
-# Step 4: Initialize database first (creates tables if they don't exist)
+# Step 3: Initialize database first (creates tables if they don't exist)
 print_status "🗄️  Initializing database tables..."
 if python3 init_postgres_db.py; then
     print_success "✅ Database initialization completed successfully!"
@@ -80,9 +72,18 @@ with app.app_context():
     fi
 fi
 
-# Step 4.5: Check migration state and stamp if needed
-print_status "🔍 Checking Flask-Migrate state..."
-python3 -c "
+# Step 4: Stamp database to latest revision (bypass all migrations)
+print_status "🔧 Stamping database to latest revision..."
+if python3 simple_stamp_to_latest.py; then
+    print_success "✅ Database stamped to latest revision!"
+else
+    print_error "❌ Failed to stamp database!"
+    exit 1
+fi
+
+# Step 5: Run the smart migration directly
+print_status "🔄 Running smart migration directly..."
+if python3 -c "
 import os
 import sys
 from dotenv import load_dotenv
@@ -91,59 +92,24 @@ load_dotenv()
 # Add current directory to path
 sys.path.insert(0, os.getcwd())
 
-from app import app
-from models import db
-from sqlalchemy import inspect
+# Import and run the smart migration
+from migrations.versions.ffca03f86792_smart_production_data_migration_with_ import upgrade
 
-with app.app_context():
-    # Check if alembic_version table exists
-    inspector = inspect(db.engine)
-    tables = inspector.get_table_names()
-    
-    if 'alembic_version' not in tables:
-        print('⚠️  Alembic version table not found - database may not be using Flask-Migrate')
-        print('🔧 This is normal for existing databases - Flask-Migrate will handle it')
-    else:
-        print('✅ Alembic version table found')
-    
-    # Check if clergy table has the columns that Flask-Migrate will try to add
-    clergy_columns = [col['name'] for col in inspector.get_columns('clergy')]
-    flask_migrate_columns = ['is_deleted', 'deleted_at']
-    
-    existing_columns = [col for col in flask_migrate_columns if col in clergy_columns]
-    if existing_columns:
-        print(f'⚠️  Columns already exist: {existing_columns}')
-        print('🔧 Flask-Migrate may try to add these again - this is expected and will be handled')
-    else:
-        print('✅ No column conflicts detected')
-"
-
-# Step 5: Run database migration using Flask-Migrate
-print_status "🗄️  Running database migration with Flask-Migrate..."
-if flask db upgrade; then
-    print_success "✅ Flask-Migrate upgrade completed successfully!"
+print('🚀 Running smart migration upgrade function directly...')
+try:
+    upgrade()
+    print('✅ Smart migration completed successfully!')
+except Exception as e:
+    print(f'❌ Smart migration failed: {e}')
+    sys.exit(1)
+"; then
+    print_success "✅ Smart migration completed successfully!"
 else
-    print_error "❌ Flask-Migrate upgrade failed!"
+    print_error "❌ Smart migration failed!"
     exit 1
 fi
 
-# Step 6: Migrate legacy lineage data
-print_status "🔄 Migrating legacy lineage data..."
-if python3 migrate_legacy_lineage_data.py; then
-    print_success "✅ Legacy lineage data migration completed!"
-else
-    print_warning "⚠️  Legacy lineage data migration failed or not needed"
-fi
-
-# Step 7: Force migrate lineage data if needed
-print_status "🔄 Force migrating lineage data..."
-if python3 force_migrate_lineage_data.py; then
-    print_success "✅ Force lineage data migration completed!"
-else
-    print_warning "⚠️  Force lineage data migration failed"
-fi
-
-# Step 8: Verify migration was successful
+# Step 6: Verify migration was successful
 print_status "🔍 Verifying migration..."
 python3 -c "
 import os
@@ -180,17 +146,17 @@ else
     exit 1
 fi
 
-# Step 9: Start the application
-print_status "🌐 Starting PRODUCTION application..."
-print_success "✅ PRODUCTION deployment completed successfully!"
+# Step 7: Start the application
+print_status "🌐 Starting application..."
+print_success "✅ Deployment completed successfully!"
 echo ""
-print_status "🚀 PRODUCTION application is ready to serve requests!"
+print_status "🚀 Application is ready to serve requests!"
 echo ""
-print_status "📋 Production deployment complete:"
-echo "   • Application is live and serving users"
-echo "   • All database migrations applied"
+print_status "📋 Next steps:"
+echo "   • Test the lineage visualization endpoint"
+echo "   • Verify clergy images are loading"
+echo "   • Check that lineage relationships are displayed"
 echo "   • Monitor application logs for any issues"
-echo "   • Monitor performance and user feedback"
 
 # Start gunicorn
 gunicorn app:app

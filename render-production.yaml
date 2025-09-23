@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: chmod +x deploy_production.sh && ./deploy_production.sh
+    startCommand: chmod +x deploy_flask_migrate_proper.sh && ./deploy_flask_migrate_proper.sh
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.11
@@ -18,6 +18,8 @@ services:
         value: production
       - key: FLASK_ENV
         value: production
+      - key: PRODUCTION_API_URL
+        value: https://ecclesiastical-lineage.onrender.com/clergy/lineage-data
 
 databases:
   - name: ecclesiastical-lineage-db

@@ -1,7 +1,6 @@
 {% macro clergy_form(fields, clergy=None, edit_mode=False, user=None, redirect_url=None, use_htmx=True, context_type=None, context_clergy_id=None) %}
 <!-- Include clergy form specific styles -->
-
-<link href="{{ url_for('static', filename='css/clergyForm.css') }}" rel="stylesheet">
+<!-- COMMENTED OUT FOR REBUILD: <link href="{{ url_for('static', filename='css/clergyForm.css') }}" rel="stylesheet"> -->
 
 {# Auto-generate form action if not provided #}
 {% set form_action = fields.form_action if fields.form_action else (
@@ -10,20 +9,22 @@
     url_for('clergy.add_clergy')
 ) %}
 
-<div class="card">
-    <div class="card-header">
-        <h2 class="h4 mb-0">{% if edit_mode %}Edit {{ clergy.name }}{% else %}Add New Clergy{% endif %}</h2>
+<div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 1em; margin: 0 auto; max-width: 600px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);">
+    <div style="margin-bottom: 1em; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom: 0.5em;">
+        <h2 style="margin: 0; color: white; font-weight: 500; font-size: 1.2em;">{% if edit_mode %}Edit {{ clergy.name }}{% else %}Add New Clergy{% endif %}</h2>
     </div>
-    <div class="card-body">
+    <div>
         <form id="clergyForm" method="POST" action="{{ form_action }}" enctype="multipart/form-data" 
               {% if use_htmx %}
+              <!-- COMMENTED OUT FOR REBUILD: HTMX attributes
               hx-post="{{ form_action }}" 
               hx-target="body" 
               hx-swap="outerHTML"
               hx-trigger="submit"
               hx-push-url="true"
               hx-on::after-request="if(event.detail.successful) { window.location.href = '{{ redirect_url or url_for('clergy.clergy_list') }}'; }"
-              {% endif %}>
+              -->
+              {% endif %}
             
             <!-- Hidden fields to preserve context -->
             {% if context_type %}
@@ -33,181 +34,295 @@
             <input type="hidden" name="context_clergy_id" value="{{ context_clergy_id }}">
             {% endif %}
             <!-- Clean Form Layout -->
-            <div class="form-container">
-                <!-- Photo Section -->
-                <div class="form-photo-section">
-                    <label class="form-label">Photo</label>
-                    <div class="image-upload-container">
-                        <div class="image-preview" id="imagePreview">
-                            {% if edit_mode and clergy and clergy.image_data %}
-                                {% set image_data = clergy.image_data | from_json %}
-                                {% if image_data and image_data.detail %}
-                                    <img src="{{ image_data.detail }}" alt="{{ clergy.name }}" class="preview-image" id="previewImage"
-                                         data-full-image="{{ clergy.image_data|safe }}">
-                                {% elif clergy.image_url %}
-                                    <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" class="preview-image" id="previewImage"
-                                         data-full-image="{{ clergy.image_data|safe }}">
+            <div>
+                <!-- Form Fields Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75em;">
+                    <!-- Row 1: Name (2 columns) -->
+                    <div style="grid-column: 1 / -1;">
+                        <label for="name" style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Full Name *</label>
+                        <input type="text" id="name" name="name" 
+                               value="{{ clergy.name if edit_mode and clergy else '' }}" required
+                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
+                        {% if edit_mode and user and user.can_comment() %}
+                        <button type="button" data-field="name" data-field-label="Name" 
+                                title="Add comment about this field"
+                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
+                            Comment
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Papal Name Field (only shown for popes) - Row 2, 2 columns -->
+                    <div id="papalNameField" style="display: none; grid-column: 1 / -1; grid-row: 2; flex-direction: column;">
+                        <label for="papal_name" style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Papal Name</label>
+                        <input type="text" id="papal_name" name="papal_name" 
+                               value="{{ clergy.papal_name if edit_mode and clergy else '' }}" 
+                               placeholder="e.g., Pope Francis, Pope Benedict XVI"
+                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
+                        {% if edit_mode and user and user.can_comment() %}
+                        <button type="button" data-field="papal_name" data-field-label="Papal Name" 
+                                title="Add comment about this field"
+                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
+                            Comment
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Photo Section (col 1, 3 rows, starting row 3) -->
+                    <div id="photoField" style="grid-column: 1; grid-row: 3 / 6; display: flex; flex-direction: column;">
+                        <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Photo</label>
+                        <div style="border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 1em; flex: 1; display: flex; align-items: center; justify-content: center;">
+                            <div id="imagePreview" style="text-align: center;">
+                                {% if edit_mode and clergy and clergy.image_data %}
+                                    {% set image_data = clergy.image_data | from_json %}
+                                    {% if image_data and image_data.detail %}
+                                        <img src="{{ image_data.detail }}" alt="{{ clergy.name }}" id="previewImage" style="max-width: 100px; max-height: 100px; border-radius: 4px;"
+                                             data-full-image="{{ clergy.image_data|safe }}">
+                                    {% elif clergy.image_url %}
+                                        <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage" style="max-width: 100px; max-height: 100px; border-radius: 4px;"
+                                             data-full-image="{{ clergy.image_data|safe }}">
+                                    {% endif %}
+                                {% elif edit_mode and clergy and clergy.image_url %}
+                                    <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage" style="max-width: 100px; max-height: 100px; border-radius: 4px;">
+                                {% else %}
+                                    <div style="color: rgba(255, 255, 255, 0.6); font-size: 0.9em;">
+                                        [User Icon]
+                                    </div>
                                 {% endif %}
-                            {% elif edit_mode and clergy and clergy.image_url %}
-                                <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" class="preview-image" id="previewImage">
-                            {% else %}
-                                <div class="placeholder-silhouette">
-                                    <i class="fas fa-user"></i>
+                                <!-- Hover overlay with image tools -->
+                                <div style="margin-top: 0.5em; display: flex; gap: 0.5em; justify-content: center;">
+                                    <input type="file" id="clergyImage" name="clergy_image" accept="image/*" style="display: none;">
+                                    <button type="button" id="uploadBtn" title="Upload Image"
+                                            style="padding: 0.4em 0.8em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
+                                        Upload
+                                    </button>
+                                    {% if edit_mode and clergy and clergy.image_url %}
+                                    <button type="button" id="cropExistingBtn" title="Edit Image"
+                                            style="padding: 0.4em 0.8em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
+                                        Edit
+                                    </button>
+                                    <button type="button" id="removeImageBtn" title="Remove Image"
+                                            style="padding: 0.4em 0.8em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
+                                        Remove
+                                    </button>
+                                    {% endif %}
                                 </div>
-                            {% endif %}
-                            <!-- Hover overlay with image tools -->
-                            <div class="image-tools-overlay">
-                                <input type="file" class="form-control" id="clergyImage" name="clergy_image" accept="image/*" style="display: none;">
-                                <button type="button" class="btn btn-icon btn-upload" id="uploadBtn" title="Upload Image">
-                                    <i class="fas fa-upload"></i>
-                                </button>
-                                {% if edit_mode and clergy and clergy.image_url %}
-                                <button type="button" class="btn btn-icon btn-crop" id="cropExistingBtn" title="Edit Image">
-                                    <i class="fas fa-crop"></i>
-                                </button>
-                                <button type="button" class="btn btn-icon btn-remove" id="removeImageBtn" title="Remove Image">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                                {% endif %}
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Form Fields Grid -->
-                <div class="form-fields-grid">
-                    <!-- Row 1: Basic Information -->
-                    <div class="form-field">
-                        <label for="name" class="form-label">Full Name *</label>
-                        <input type="text" class="form-control" id="name" name="name" 
-                               value="{{ clergy.name if edit_mode and clergy else '' }}" required>
-                        {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" class="btn btn-outline-secondary btn-sm comment-btn" data-field="name" data-field-label="Name" 
-                                title="Add comment about this field">
-                            <i class="fas fa-comment"></i>
-                        </button>
-                        {% endif %}
-                    </div>
-
-                    <!-- Papal Name Field (only shown for popes) -->
-                    <div class="form-field" id="papalNameField" style="display: none;">
-                        <label for="papal_name" class="form-label">Papal Name</label>
-                        <input type="text" class="form-control" id="papal_name" name="papal_name" 
-                               value="{{ clergy.papal_name if edit_mode and clergy else '' }}" 
-                               placeholder="e.g., Pope Francis, Pope Benedict XVI">
-                        {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" class="btn btn-outline-secondary btn-sm comment-btn" data-field="papal_name" data-field-label="Papal Name" 
-                                title="Add comment about this field">
-                            <i class="fas fa-comment"></i>
-                        </button>
-                        {% endif %}
-                    </div>
-
-                    <div class="form-field">
-                        <label for="rank" class="form-label">Rank *</label>
-                        <select class="form-control" id="rank" name="rank" required>
-                            <option value="">Select Rank</option>
+                    <!-- Row 4: Rank (col 2) -->
+                    <div id="rankField" style="grid-column: 2; grid-row: 3;">
+                        <label for="rank" style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Rank *</label>
+                        <select id="rank" name="rank" required
+                                style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
+                            <option value="" style="background: #2c3e50; color: white;">Select Rank</option>
                             {% for rank in fields.ranks %}
-                            <option value="{{ rank.name }}" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>
+                            <option value="{{ rank.name }}" data-is-bishop="{{ rank.is_bishop|lower }}" style="background: #2c3e50; color: white;" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>
                                 {{ rank.name }}
                             </option>
                             {% endfor %}
                         </select>
                         {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" class="btn btn-outline-secondary btn-sm comment-btn" data-field="rank" data-field-label="Rank" 
-                                title="Add comment about this field">
-                            <i class="fas fa-comment"></i>
+                        <button type="button" data-field="rank" data-field-label="Rank" 
+                                title="Add comment about this field"
+                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
+                            Comment
                         </button>
                         {% endif %}
                     </div>
 
-                    <div class="form-field">
-                        <label for="organization" class="form-label">Organization</label>
-                        <select class="form-control" id="organization" name="organization">
-                            <option value="">Select Organization</option>
-                            {% for org in fields.organizations %}
-                            <option value="{{ org.name }}" {% if clergy and clergy.organization == org.name %}selected{% endif %}>
-                                {{ org.name }}{% if org.abbreviation %} ({{ org.abbreviation }}){% endif %}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" class="btn btn-outline-secondary btn-sm comment-btn" data-field="organization" data-field-label="Organization">
-                            <i class="fas fa-comment"></i>
-                        </button>
-                        {% endif %}
-                    </div>
-
-                    <div class="form-field">
-                        <label for="date_of_birth" class="form-label">Date of Birth</label>
-                        <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
-                               value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}">
-                        {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" class="btn btn-outline-secondary btn-sm comment-btn" data-field="date_of_birth" data-field-label="Date of Birth">
-                            <i class="fas fa-comment"></i>
-                        </button>
-                        {% endif %}
-                    </div>
-
-
-                    <!-- Row 3: Date of Death (always visible) -->
-                    <div class="form-field" id="deathDateField">
-                        <label for="date_of_death" class="form-label">Date of Death</label>
-                        <input type="date" class="form-control" id="date_of_death" name="date_of_death" 
-                               value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}">
-                        {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" class="btn btn-outline-secondary btn-sm comment-btn" data-field="date_of_death" data-field-label="Date of Death">
-                            <i class="fas fa-comment"></i>
-                        </button>
-                        {% endif %}
-                    </div>
-
-
-                    <!-- Dynamic Ordinations Section -->
-                    <div class="form-field form-field-full" id="ordinationSection" 
-                         style="display: {% if edit_mode and clergy and clergy.ordinations %}block{% else %}none{% endif %};">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="mb-0">Ordinations</h5>
-                            <div class="btn-group">
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="addOrdinationBtn">
-                                    <i class="fas fa-plus"></i> Add Ordination
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-danger" id="clearAllOrdinationsBtn" title="Clear all ordination data">
-                                    <i class="fas fa-trash"></i> Clear All
-                                </button>
-                            </div>
+                    <!-- Organization (2 columns) -->
+                    <div id="organizationField" style="grid-column: 1 / -1; grid-row: 2;">
+                        <label for="organization" style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Organization</label>
+                        <div style="display: flex; gap: 0.5em; align-items: center;">
+                            <select id="organization" name="organization" 
+                                    style="flex: 1; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
+                                <option value="" style="background: #2c3e50; color: white;">Select Organization</option>
+                                {% for org in fields.organizations %}
+                                <option value="{{ org.name }}" style="background: #2c3e50; color: white;" {% if clergy and clergy.organization == org.name %}selected{% endif %}>
+                                    {{ org.name }}{% if org.abbreviation %} ({{ org.abbreviation }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" onclick="showOrganizationModal()" 
+                                    style="padding: 0.5em 0.75em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; white-space: nowrap; font-size: 0.8em; transition: all 0.2s;">
+                                Add New
+                            </button>
                         </div>
-                        <div id="ordinationsContainer">
-                            <!-- Dynamic ordination sections will be added here -->
-                        </div>
+                        {% if edit_mode and user and user.can_comment() %}
+                        <button type="button" data-field="organization" data-field-label="Organization" 
+                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
+                            Comment
+                        </button>
+                        {% endif %}
                     </div>
 
-                    <!-- Dynamic Consecrations Section -->
-                    <div class="form-field form-field-full" id="consecrationSection" 
-                         style="display: {% if edit_mode and clergy and clergy.consecrations %}block{% else %}none{% endif %};">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="mb-0">Consecrations</h5>
-                            <div class="btn-group">
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="addConsecrationBtn">
-                                    <i class="fas fa-plus"></i> Add Consecration
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-danger" id="clearAllConsecrationsBtn" title="Clear all consecration data">
-                                    <i class="fas fa-trash"></i> Clear All
+                    <!-- Row 5: Date of Birth (col 2) -->
+                    <div id="birthField" style="grid-column: 2; grid-row: 4;">
+                        <label for="date_of_birth" style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Date of Birth</label>
+                        <input type="date" id="date_of_birth" name="date_of_birth" 
+                               value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}"
+                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
+                        {% if edit_mode and user and user.can_comment() %}
+                        <button type="button" data-field="date_of_birth" data-field-label="Date of Birth"
+                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
+                            Comment
+                        </button>
+                        {% endif %}
+                    </div>
+
+
+                    <!-- Row 6: Date of Death (col 2) -->
+                    <div id="deathField" style="grid-column: 2; grid-row: 5;">
+                        <label for="date_of_death" style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Date of Death</label>
+                        <input type="date" id="date_of_death" name="date_of_death" 
+                               value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}"
+                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
+                        {% if edit_mode and user and user.can_comment() %}
+                        <button type="button" data-field="date_of_death" data-field-label="Date of Death"
+                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
+                            Comment
+                        </button>
+                        {% endif %}
+                    </div>
+
+
+                    <!-- Ordinations Section (2 columns) -->
+                    <div id="ordinationsField" style="grid-column: 1 / -1;">
+                        <h5 style="margin: 0 0 0.5em 0; color: white; font-size: 0.9em; font-weight: 500;">Ordinations</h5>
+                        <!-- <div style="margin-bottom: 0.5em; padding: 0.5em; background: rgba(255, 255, 255, 0.1); border-radius: 4px; font-size: 0.8em; color: rgba(255, 255, 255, 0.8);">
+                            <strong>Note:</strong> If you enter a bishop name that doesn't exist in the database, a new bishop record will be automatically created with the rank "Bishop".
+                        </div> -->
+                        <div style="border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 1em;">
+                            <div style="display: flex; gap: 0.5em; margin-bottom: 1em;">
+                                <button type="button" id="addOrdinationBtn" style="padding: 0.4em 0.8em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
+                                    Add Ordination
                                 </button>
                             </div>
-                        </div>
-                        <div id="consecrationsContainer">
-                            <!-- Dynamic consecration sections will be added here -->
+                            
+                            <!-- Sample Ordination Entry -->
+                            <div style="border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; background: rgba(255, 255, 255, 0.05); padding: 0.75em; margin-bottom: 0.75em;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
+                                    <div>
+                                        <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Date</label>
+                                        <input type="date" name="ordinations[0][date]" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                                    </div>
+                                    <div>
+                                        <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Ordaining Bishop</label>
+                                        <input type="text" name="ordinations[0][ordaining_bishop_input]" placeholder="Search for bishop..." style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                                        <input type="hidden" name="ordinations[0][ordaining_bishop_id]">
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
+                                    <div style="display: flex; align-items: center; gap: 0.25em;">
+                                        <input type="checkbox" name="ordinations[0][is_sub_conditione]" id="sub_conditione_0" style="margin: 0;">
+                                        <label for="sub_conditione_0" style="color: white; font-size: 0.8em; margin: 0;">Sub Conditione</label>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.25em;">
+                                        <input type="checkbox" name="ordinations[0][is_doubtful]" id="doubtful_0" style="margin: 0;">
+                                        <label for="doubtful_0" style="color: white; font-size: 0.8em; margin: 0;">Doubtful</label>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.25em;">
+                                        <input type="checkbox" name="ordinations[0][is_invalid]" id="invalid_0" style="margin: 0;">
+                                        <label for="invalid_0" style="color: white; font-size: 0.8em; margin: 0;">Invalid</label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Notes</label>
+                                    <textarea name="ordinations[0][notes]" rows="2" placeholder="Additional notes..." style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white; resize: vertical;"></textarea>
+                                </div>
+                                <div style="margin-top: 0.5em; text-align: right;">
+                                    <button type="button" class="remove-ordination" style="padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 3px; cursor: pointer; font-size: 0.75em;">
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="ordinationsContainer">
+                                <!-- Dynamic ordination sections will be added here -->
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Row 6: Notes (full width) -->
-                    <div class="form-field form-field-full">
-                        <label for="notes" class="form-label">Notes</label>
-                        <textarea class="form-control" id="notes" name="notes" rows="3">{{ clergy.notes if edit_mode and clergy else '' }}</textarea>
+                    <!-- Consecrations Section (2 columns) -->
+                    <div id="consecrationsField" style="grid-column: 1 / -1; display: none;">
+                        <h5 style="margin: 0 0 0.5em 0; color: white; font-size: 0.9em; font-weight: 500;">Consecrations</h5>
+                        <!-- <div style="margin-bottom: 0.5em; padding: 0.5em; background: rgba(255, 255, 255, 0.1); border-radius: 4px; font-size: 0.8em; color: rgba(255, 255, 255, 0.8);">
+                            <strong>Note:</strong> If you enter a bishop name that doesn't exist in the database, a new bishop record will be automatically created with the rank "Bishop".
+                        </div> -->
+                        <div style="border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 1em;">
+                            <div style="display: flex; gap: 0.5em; margin-bottom: 1em;">
+                                <button type="button" id="addConsecrationBtn" style="padding: 0.4em 0.8em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
+                                    Add Consecration
+                                </button>
+                            </div>
+                            
+                            <!-- Sample Consecration Entry -->
+                            <div class="consecration-entry" style="border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; background: rgba(255, 255, 255, 0.05); padding: 0.75em; margin-bottom: 0.75em;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
+                                    <div>
+                                        <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Date</label>
+                                        <input type="date" name="consecrations[0][date]" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                                    </div>
+                                    <div>
+                                        <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Consecrator</label>
+                                        <input type="text" name="consecrations[0][consecrator_input]" placeholder="Search for consecrator..." style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                                        <input type="hidden" name="consecrations[0][consecrator_id]">
+                                    </div>
+                                </div>
+                                <div style="margin-bottom: 0.5em;">
+                                    <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Co-Consecrators</label>
+                                    <div style="display: flex; gap: 0.5em; margin-bottom: 0.5em;">
+                                        <input type="text" name="consecrations[0][co_consecrators][0][input]" placeholder="Search for co-consecrator..." style="flex: 1; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                                        <input type="hidden" name="consecrations[0][co_consecrators][0][id]">
+                                        <button type="button" class="add-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 3px; cursor: pointer; font-size: 0.75em;">
+                                            Add
+                                        </button>
+                                    </div>
+                                    <div class="co-consecrators-list">
+                                        <!-- Additional co-consecrators will be added here -->
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
+                                    <div style="display: flex; align-items: center; gap: 0.25em;">
+                                        <input type="checkbox" name="consecrations[0][is_sub_conditione]" id="consec_sub_conditione_0" style="margin: 0;">
+                                        <label for="consec_sub_conditione_0" style="color: white; font-size: 0.8em; margin: 0;">Sub Conditione</label>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.25em;">
+                                        <input type="checkbox" name="consecrations[0][is_doubtful]" id="consec_doubtful_0" style="margin: 0;">
+                                        <label for="consec_doubtful_0" style="color: white; font-size: 0.8em; margin: 0;">Doubtful</label>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.25em;">
+                                        <input type="checkbox" name="consecrations[0][is_invalid]" id="consec_invalid_0" style="margin: 0;">
+                                        <label for="consec_invalid_0" style="color: white; font-size: 0.8em; margin: 0;">Invalid</label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Notes</label>
+                                    <textarea name="consecrations[0][notes]" rows="2" placeholder="Additional notes..." style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white; resize: vertical;"></textarea>
+                                </div>
+                                <div style="margin-top: 0.5em; text-align: right;">
+                                    <button type="button" class="remove-consecration" style="padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 3px; cursor: pointer; font-size: 0.75em;">
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="consecrationsContainer">
+                                <!-- Dynamic consecration sections will be added here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes (2 columns) -->
+                    <div style="grid-column: 1 / -1;">
+                        <label for="notes" style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Notes</label>
+                        <textarea id="notes" name="notes" rows="3" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s; resize: vertical;">{{ clergy.notes if edit_mode and clergy else '' }}</textarea>
                         {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" class="btn btn-outline-secondary btn-sm comment-btn" data-field="notes" data-field-label="Notes">
-                            <i class="fas fa-comment"></i>
+                        <button type="button" data-field="notes" data-field-label="Notes"
+                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
+                            Comment
                         </button>
                         {% endif %}
                     </div>
@@ -216,28 +331,27 @@
 
             <!-- Admin Controls -->
             {% if edit_mode and clergy and user and user.can_edit_clergy() %}
-            <div class="row mb-3">
-                <div class="col-12">
-                    <div class="card border-warning">
-                        <div class="card-header bg-warning text-dark">
-                            <h6 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Administrative Controls</h6>
+            <div>
+                <div>
+                    <div>
+                        <div>
+                            <h6>Administrative Controls</h6>
                         </div>
-                        <div class="card-body">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="mark_deleted" name="mark_deleted" value="1" 
+                        <div>
+                            <div>
+                                <input type="checkbox" id="mark_deleted" name="mark_deleted" value="1" 
                                        {% if clergy.is_deleted %}checked{% endif %}>
-                                <label class="form-check-label" for="mark_deleted">
+                                <label for="mark_deleted">
                                     Mark this record as deleted
                                 </label>
                             </div>
-                            <small class="form-text text-muted">
+                            <small>
                                 This will hide the record from normal views but keep it in the database for audit purposes. 
                                 You can uncheck this to restore the record.
                             </small>
                             {% if clergy.is_deleted %}
-                            <div class="mt-2">
-                                <small class="text-muted">
-                                    <i class="fas fa-info-circle me-1"></i>
+                            <div>
+                                <small>
                                     Record was marked as deleted on: {{ clergy.deleted_at.strftime('%Y-%m-%d %H:%M:%S') if clergy.deleted_at else 'Unknown date' }}
                                 </small>
                             </div>
@@ -248,13 +362,15 @@
             </div>
             {% endif %}
 
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save me-2"></i>{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}
-                </button>
-                <a href="{{ fields.cancel_url or url_for('clergy.clergy_list') }}" class="btn btn-secondary" id="cancel-btn">
+            <div style="display: flex; gap: 0.5em; justify-content: flex-end; margin-top: 1em; border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: 0.75em;">
+                <a href="{{ fields.cancel_url or url_for('clergy.clergy_list') }}" id="cancel-btn"
+                   style="padding: 0.5em 1em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 4px; cursor: pointer; font-weight: 400; color: rgba(255, 255, 255, 0.8); transition: all 0.2s; text-decoration: none; display: inline-block; font-size: 0.85em;">
                     Cancel
                 </a>
+                <button type="submit"
+                        style="padding: 0.5em 1em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-weight: 400; transition: all 0.2s; font-size: 0.85em;">
+                    {% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}
+                </button>
             </div>
         </form>
     </div>
@@ -262,32 +378,32 @@
 
 <!-- Add Organization Modal (only for add mode) -->
 {% if not edit_mode %}
-<div class="modal fade" id="addOrganizationModal" tabindex="-1" aria-labelledby="addOrganizationModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addOrganizationModalLabel">Add New Organization</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<div id="addOrganizationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 1000;">
+    <div style="position: absolute; top: 3em; left: 50%; transform: translateX(-50%); background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 16px; padding: 2em; width: 50%; max-width: 600px; min-width: 400px; max-height: calc(100vh - 6em); overflow-y: auto; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);">
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5em; border-bottom: 1px solid rgba(0, 0, 0, 0.1); padding-bottom: 0.75em;">
+                <h5 id="addOrganizationModalLabel" style="margin: 0; color: #333; font-weight: 600;">Add New Organization</h5>
+                <button type="button" id="closeModal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background-color 0.2s;">&times;</button>
             </div>
-            <div class="modal-body">
+            <div>
                 <form id="addOrganizationForm">
-                    <div class="mb-3">
-                        <label for="new-organization-name" class="form-label">Organization Name *</label>
-                        <input type="text" class="form-control" id="new-organization-name" required>
+                    <div style="margin-bottom: 1.25em;">
+                        <label for="new-organization-name" style="display: block; margin-bottom: 0.5em; font-weight: 500; color: #333;">Organization Name *</label>
+                        <input type="text" id="new-organization-name" required style="width: 100%; padding: 0.75em; border: 1px solid rgba(0, 0, 0, 0.2); border-radius: 8px; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 14px; transition: border-color 0.2s, box-shadow 0.2s;">
                     </div>
-                    <div class="mb-3">
-                        <label for="new-organization-abbreviation" class="form-label">Abbreviation</label>
-                        <input type="text" class="form-control" id="new-organization-abbreviation" placeholder="Optional short code">
+                    <div style="margin-bottom: 1.25em;">
+                        <label for="new-organization-abbreviation" style="display: block; margin-bottom: 0.5em; font-weight: 500; color: #333;">Abbreviation</label>
+                        <input type="text" id="new-organization-abbreviation" placeholder="Optional short code" style="width: 100%; padding: 0.75em; border: 1px solid rgba(0, 0, 0, 0.2); border-radius: 8px; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 14px; transition: border-color 0.2s, box-shadow 0.2s;">
                     </div>
-                    <div class="mb-3">
-                        <label for="new-organization-description" class="form-label">Description</label>
-                        <textarea class="form-control" id="new-organization-description" rows="3" placeholder="Optional description"></textarea>
+                    <div style="margin-bottom: 1.25em;">
+                        <label for="new-organization-description" style="display: block; margin-bottom: 0.5em; font-weight: 500; color: #333;">Description</label>
+                        <textarea id="new-organization-description" rows="3" placeholder="Optional description" style="width: 100%; padding: 0.75em; border: 1px solid rgba(0, 0, 0, 0.2); border-radius: 8px; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 14px; resize: vertical; transition: border-color 0.2s, box-shadow 0.2s;"></textarea>
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="addOrganization()">Add Organization</button>
+            <div style="display: flex; gap: 0.75em; justify-content: flex-end; margin-top: 1.5em; border-top: 1px solid rgba(0, 0, 0, 0.1); padding-top: 1em;">
+                <button type="button" id="cancelModal" style="padding: 0.75em 1.5em; border: 1px solid rgba(0, 0, 0, 0.2); background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 8px; cursor: pointer; font-weight: 500; color: #666; transition: all 0.2s;">Cancel</button>
+                <button type="button" onclick="addOrganization()" style="padding: 0.75em 1.5em; border: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">Add Organization</button>
             </div>
         </div>
     </div>
@@ -295,13 +411,539 @@
 {% endif %}
 
 <!-- Include the dedicated image editor modal -->
-{% include '_image_editor_modal.html' %}
+<!-- COMMENTED OUT FOR REBUILD: {% include '_image_editor_modal.html' %} -->
 
 <!-- Include dynamic form JavaScript -->
-<script src="{{ url_for('static', filename='js/dynamic-clergy-form.js') }}"></script>
+<!-- COMMENTED OUT FOR REBUILD: <script src="{{ url_for('static', filename='js/dynamic-clergy-form.js') }}"></script> -->
+
+<!-- Include clergy form submission handler -->
+
+<!-- Modal functionality -->
+<script>
+// Function to initialize the embedded form functionality
+function initializeEmbeddedFormScript() {
+    console.log('Initializing embedded form script');
+    const modal = document.getElementById('addOrganizationModal');
+    const closeBtn = document.getElementById('closeModal');
+    const cancelBtn = document.getElementById('cancelModal');
+    
+    
+    // Function to show modal
+    function showModal() {
+        if (modal) {
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+    }
+    
+    // Function to hide modal
+    function hideModal() {
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto'; // Restore scrolling
+            // Clear form
+            const form = document.getElementById('addOrganizationForm');
+            if (form) {
+                form.reset();
+            }
+        }
+    }
+    
+    // Close modal when clicking close button
+    if (closeBtn) {
+        closeBtn.addEventListener('click', hideModal);
+        
+        // Add hover effects for close button
+        closeBtn.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
+        });
+        closeBtn.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = 'transparent';
+        });
+    }
+    
+    // Close modal when clicking cancel button
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', hideModal);
+    }
+    
+    // Close modal when clicking outside the modal content
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                hideModal();
+            }
+        });
+    }
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal && modal.style.display === 'block') {
+            hideModal();
+        }
+    });
+    
+    // Make showModal function globally available
+    window.showOrganizationModal = showModal;
+
+    // Dynamic grid layout adjustment for papal name field and consecrations
+    function adjustGridLayout() {
+        const papalField = document.getElementById('papalNameField');
+        const consecrationsField = document.getElementById('consecrationsField');
+        const organizationField = document.getElementById('organizationField');
+        const photoField = document.getElementById('photoField');
+        const rankField = document.getElementById('rankField');
+        const birthField = document.getElementById('birthField');
+        const deathField = document.getElementById('deathField');
+
+        const papalVisible = papalField && papalField.style.display !== 'none';
+        const consecrationsVisible = consecrationsField && consecrationsField.style.display !== 'none';
+        
+        console.log('Adjusting layout. Papal field visible:', papalVisible, 'Consecrations visible:', consecrationsVisible);
+        console.log('Found elements:', { organizationField, photoField, rankField, birthField, deathField, consecrationsField });
+
+        // Calculate row positions based on what's visible
+        let currentRow = 2; // Start after name field
+        
+        // Papal name field (if visible, takes row 2)
+        if (papalVisible) {
+            if (papalField) {
+                papalField.style.gridRow = currentRow.toString();
+                console.log('Moved papal name to row', currentRow);
+                currentRow++;
+            }
+        }
+        
+        // Organization field
+        if (organizationField) {
+            organizationField.style.gridRow = currentRow.toString();
+            console.log('Moved organization to row', currentRow);
+            currentRow++;
+        }
+        
+        // Photo field (spans 3 rows)
+        if (photoField) {
+            photoField.style.gridRow = currentRow + ' / ' + (currentRow + 3);
+            console.log('Moved photo to rows', currentRow + '-' + (currentRow + 2));
+        }
+        
+        // Rank field (same row as photo start)
+        if (rankField) {
+            rankField.style.gridRow = currentRow.toString();
+            console.log('Moved rank to row', currentRow);
+        }
+        
+        // Birth field (second row of photo)
+        if (birthField) {
+            birthField.style.gridRow = (currentRow + 1).toString();
+            console.log('Moved birth to row', currentRow + 1);
+        }
+        
+        // Death field (third row of photo)
+        if (deathField) {
+            deathField.style.gridRow = (currentRow + 2).toString();
+            console.log('Moved death to row', currentRow + 2);
+        }
+        
+        // Move to next available row after photo section
+        currentRow += 3;
+        
+        // Ordinations field (always visible, spans 2 columns)
+        const ordinationsField = document.getElementById('ordinationsField');
+        if (ordinationsField) {
+            ordinationsField.style.gridRow = currentRow.toString();
+            console.log('Moved ordinations to row', currentRow);
+            currentRow++;
+        }
+        
+        // Consecrations field (only if visible)
+        if (consecrationsField) {
+            if (consecrationsVisible) {
+                consecrationsField.style.gridRow = currentRow.toString();
+                console.log('Moved consecrations to row', currentRow);
+                currentRow++;
+            } else {
+                consecrationsField.style.display = 'none';
+            }
+        }
+    }
+
+    // Watch for papal name field and consecrations field visibility changes
+    const papalObserver = new MutationObserver(adjustGridLayout);
+    if (document.getElementById('papalNameField')) {
+        papalObserver.observe(document.getElementById('papalNameField'), { 
+            attributes: true, 
+            attributeFilter: ['style'] 
+        });
+    }
+    if (document.getElementById('consecrationsField')) {
+        papalObserver.observe(document.getElementById('consecrationsField'), { 
+            attributes: true, 
+            attributeFilter: ['style'] 
+        });
+    }
+
+    // Watch for rank changes to show/hide papal name field and consecrations
+    const rankSelect = document.getElementById('rank');
+    if (rankSelect) {
+        rankSelect.addEventListener('change', function() {
+            const papalField = document.getElementById('papalNameField');
+            const consecrationsField = document.getElementById('consecrationsField');
+            const selectedOption = this.options[this.selectedIndex];
+            const rankValue = this.value.toLowerCase();
+            const isBishop = selectedOption.getAttribute('data-is-bishop') === 'true';
+            
+            console.log('Rank changed:', rankValue, 'is_bishop:', isBishop);
+            
+            // Handle papal name field (only for pope)
+            if (rankValue === 'pope') {
+                if (papalField) papalField.style.display = 'block';
+            } else {
+                if (papalField) papalField.style.display = 'none';
+            }
+            
+            // Handle consecrations field (for any rank with is_bishop flag)
+            if (isBishop) {
+                if (consecrationsField) consecrationsField.style.display = 'block';
+            } else {
+                if (consecrationsField) consecrationsField.style.display = 'none';
+            }
+            
+            // Layout will be automatically adjusted by the MutationObserver
+        });
+    }
+
+    // Initial layout adjustment
+    adjustGridLayout();
+
+    // Ordination and Consecration management (for embedded template)
+    let ordinationCount = 1; // Start at 1 since we have a sample entry
+    let consecrationCount = 1; // Start at 1 since we have a sample entry
+    let coConsecratorCount = 1; // Counter for co-consecrators
+    
+    // Undo stacks for removed entries
+    let removedOrdinations = [];
+    let removedConsecrations = [];
+    
+    // Maximum number of co-consecrators allowed
+    const MAX_CO_CONSECRATORS = 10;
+
+    // Add ordination functionality (for embedded template)
+    function addOrdination() {
+        const container = document.getElementById('ordinationsContainer');
+        if (!container) return;
+
+        const ordinationHtml = `
+            <div class="ordination-entry" style="border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; background: rgba(255, 255, 255, 0.05); padding: 0.75em; margin-bottom: 0.75em;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Date</label>
+                        <input type="date" name="ordinations[${ordinationCount}][date]" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Ordaining Bishop</label>
+                        <input type="text" name="ordinations[${ordinationCount}][ordaining_bishop_input]" placeholder="Search for bishop..." style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                        <input type="hidden" name="ordinations[${ordinationCount}][ordaining_bishop_id]">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
+                    <div style="display: flex; align-items: center; gap: 0.25em;">
+                        <input type="checkbox" name="ordinations[${ordinationCount}][is_sub_conditione]" id="sub_conditione_${ordinationCount}" style="margin: 0;">
+                        <label for="sub_conditione_${ordinationCount}" style="color: white; font-size: 0.8em; margin: 0;">Sub Conditione</label>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.25em;">
+                        <input type="checkbox" name="ordinations[${ordinationCount}][is_doubtful]" id="doubtful_${ordinationCount}" style="margin: 0;">
+                        <label for="doubtful_${ordinationCount}" style="color: white; font-size: 0.8em; margin: 0;">Doubtful</label>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.25em;">
+                        <input type="checkbox" name="ordinations[${ordinationCount}][is_invalid]" id="invalid_${ordinationCount}" style="margin: 0;">
+                        <label for="invalid_${ordinationCount}" style="color: white; font-size: 0.8em; margin: 0;">Invalid</label>
+                    </div>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Notes</label>
+                    <textarea name="ordinations[${ordinationCount}][notes]" rows="2" placeholder="Additional notes..." style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white; resize: vertical;"></textarea>
+                </div>
+                <div style="margin-top: 0.5em; text-align: right; display: flex; gap: 0.5em; justify-content: flex-end;">
+                    <button type="button" class="remove-ordination" style="padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 3px; cursor: pointer; font-size: 0.75em;">
+                        Remove
+                    </button>
+                </div>
+            </div>
+        `;
+
+        container.insertAdjacentHTML('beforeend', ordinationHtml);
+        ordinationCount++;
+    }
+
+    // Add consecration functionality (for embedded template)
+    function addConsecration() {
+        const container = document.getElementById('consecrationsContainer');
+        if (!container) return;
+
+        const consecrationHtml = `
+            <div class="consecration-entry" style="border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; background: rgba(255, 255, 255, 0.05); padding: 0.75em; margin-bottom: 0.75em;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Date</label>
+                        <input type="date" name="consecrations[${consecrationCount}][date]" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Consecrator</label>
+                        <input type="text" name="consecrations[${consecrationCount}][consecrator_input]" placeholder="Search for consecrator..." style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                        <input type="hidden" name="consecrations[${consecrationCount}][consecrator_id]">
+                    </div>
+                </div>
+                <div style="margin-bottom: 0.5em;">
+                    <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Co-Consecrators</label>
+                    <div style="display: flex; gap: 0.5em; margin-bottom: 0.5em;">
+                        <input type="text" name="consecrations[${consecrationCount}][co_consecrators][0][input]" placeholder="Search for co-consecrator..." style="flex: 1; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                        <input type="hidden" name="consecrations[${consecrationCount}][co_consecrators][0][id]">
+                        <button type="button" class="add-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 3px; cursor: pointer; font-size: 0.75em;">
+                            Add
+                        </button>
+                    </div>
+                    <div class="co-consecrators-list">
+                        <!-- Additional co-consecrators will be added here -->
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
+                    <div style="display: flex; align-items: center; gap: 0.25em;">
+                        <input type="checkbox" name="consecrations[${consecrationCount}][is_sub_conditione]" id="consec_sub_conditione_${consecrationCount}" style="margin: 0;">
+                        <label for="consec_sub_conditione_${consecrationCount}" style="color: white; font-size: 0.8em; margin: 0;">Sub Conditione</label>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.25em;">
+                        <input type="checkbox" name="consecrations[${consecrationCount}][is_doubtful]" id="consec_doubtful_${consecrationCount}" style="margin: 0;">
+                        <label for="consec_doubtful_${consecrationCount}" style="color: white; font-size: 0.8em; margin: 0;">Doubtful</label>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.25em;">
+                        <input type="checkbox" name="consecrations[${consecrationCount}][is_invalid]" id="consec_invalid_${consecrationCount}" style="margin: 0;">
+                        <label for="consec_invalid_${consecrationCount}" style="color: white; font-size: 0.8em; margin: 0;">Invalid</label>
+                    </div>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Notes</label>
+                    <textarea name="consecrations[${consecrationCount}][notes]" rows="2" placeholder="Additional notes..." style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white; resize: vertical;"></textarea>
+                </div>
+                <div style="margin-top: 0.5em; text-align: right; display: flex; gap: 0.5em; justify-content: flex-end;">
+                    <button type="button" class="remove-consecration" style="padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 3px; cursor: pointer; font-size: 0.75em;">
+                        Remove
+                    </button>
+                </div>
+            </div>
+        `;
+
+        container.insertAdjacentHTML('beforeend', consecrationHtml);
+        consecrationCount++;
+        
+        // Initialize button visibility for the new consecration entry
+        const newEntry = container.lastElementChild;
+        if (newEntry) {
+            updateAddCoConsecratorButton(newEntry);
+        }
+    }
+
+    // Add co-consecrator functionality
+    function addCoConsecrator(button) {
+        const consecrationEntry = button.closest('.consecration-entry');
+        if (!consecrationEntry) return;
+        
+        const coConsecratorsList = consecrationEntry.querySelector('.co-consecrators-list');
+        if (!coConsecratorsList) return;
+        
+        // Check if we've reached the maximum
+        const existingCoConsecrators = coConsecratorsList.querySelectorAll('.co-consecrator-item');
+        if (existingCoConsecrators.length >= MAX_CO_CONSECRATORS) {
+            alert(`Maximum of ${MAX_CO_CONSECRATORS} co-consecrators allowed.`);
+            return;
+        }
+        
+        // Get the consecration index from the form name
+        const consecrationInput = consecrationEntry.querySelector('input[name*="consecrations["][name*="][date]"]');
+        if (!consecrationInput) return;
+        
+        const nameMatch = consecrationInput.name.match(/consecrations\[(\d+)\]/);
+        if (!nameMatch) return;
+        
+        const consecrationIndex = nameMatch[1];
+        
+        const coConsecratorHtml = `
+            <div class="co-consecrator-item" style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
+                <input type="text" name="consecrations[${consecrationIndex}][co_consecrators][${coConsecratorCount}][input]" placeholder="Search for co-consecrator..." style="flex: 1; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                <input type="hidden" name="consecrations[${consecrationIndex}][co_consecrators][${coConsecratorCount}][id]">
+                <button type="button" class="remove-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 3px; cursor: pointer; font-size: 0.75em;">
+                    Remove
+                </button>
+            </div>
+        `;
+        
+        coConsecratorsList.insertAdjacentHTML('beforeend', coConsecratorHtml);
+        coConsecratorCount++;
+        
+        // Update the "Add" button visibility
+        updateAddCoConsecratorButton(consecrationEntry);
+    }
+    
+    function updateAddCoConsecratorButton(consecrationEntry) {
+        const coConsecratorsList = consecrationEntry.querySelector('.co-consecrators-list');
+        const addButton = consecrationEntry.querySelector('.add-co-consecrator');
+        
+        if (!coConsecratorsList || !addButton) return;
+        
+        const existingCoConsecrators = coConsecratorsList.querySelectorAll('.co-consecrator-item');
+        
+        if (existingCoConsecrators.length >= MAX_CO_CONSECRATORS) {
+            addButton.style.display = 'none';
+        } else {
+            addButton.style.display = 'inline-block';
+        }
+    }
+
+    // Undo functionality
+    function undoOrdination() {
+        if (removedOrdinations.length > 0) {
+            const lastRemoved = removedOrdinations.pop();
+            const container = document.getElementById('ordinationsContainer');
+            if (container) {
+                container.insertAdjacentHTML('beforeend', lastRemoved);
+            }
+        }
+    }
+
+    function undoConsecration() {
+        if (removedConsecrations.length > 0) {
+            const lastRemoved = removedConsecrations.pop();
+            const container = document.getElementById('consecrationsContainer');
+            if (container) {
+                container.insertAdjacentHTML('beforeend', lastRemoved);
+            }
+        }
+    }
+
+    // Event listeners for add/remove/undo buttons (for embedded template elements)
+    document.addEventListener('click', function(e) {
+        // Handle embedded template button clicks
+        if (e.target && e.target.id === 'addOrdinationBtn') {
+            addOrdination();
+        }
+        if (e.target && e.target.id === 'addConsecrationBtn') {
+            addConsecration();
+        }
+        if (e.target && e.target.classList.contains('remove-ordination')) {
+            const entry = e.target.closest('.ordination-entry');
+            if (entry) {
+                // Store for undo before removing
+                removedOrdinations.push(entry.outerHTML);
+                entry.remove();
+            }
+        }
+        if (e.target && e.target.classList.contains('remove-consecration')) {
+            const entry = e.target.closest('.consecration-entry');
+            if (entry) {
+                // Store for undo before removing
+                removedConsecrations.push(entry.outerHTML);
+                entry.remove();
+            }
+        }
+        if (e.target && e.target.classList.contains('add-co-consecrator')) {
+            addCoConsecrator(e.target);
+        }
+        if (e.target && e.target.classList.contains('remove-co-consecrator')) {
+            const coConsecratorItem = e.target.closest('.co-consecrator-item');
+            if (coConsecratorItem) {
+                coConsecratorItem.remove();
+                // Update the "Add" button visibility
+                const consecrationEntry = coConsecratorItem.closest('.consecration-entry');
+                if (consecrationEntry) {
+                    updateAddCoConsecratorButton(consecrationEntry);
+                }
+            }
+        }
+    });
+
+    // Add undo buttons to the sections
+    function addUndoButtons() {
+        // Add undo button to ordinations section
+        const ordinationsSection = document.querySelector('#ordinationsField h5');
+        if (ordinationsSection && !document.getElementById('undoOrdinationsBtn')) {
+            const undoBtn = document.createElement('button');
+            undoBtn.id = 'undoOrdinationsBtn';
+            undoBtn.type = 'button';
+            undoBtn.textContent = 'Undo Last Removal';
+            undoBtn.style.cssText = 'margin-left: 0.5em; padding: 0.3em 0.6em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 3px; cursor: pointer; font-size: 0.75em; opacity: 0.7;';
+            undoBtn.addEventListener('click', undoOrdination);
+            ordinationsSection.appendChild(undoBtn);
+        }
+
+        // Add undo button to consecrations section
+        const consecrationsSection = document.querySelector('#consecrationsField h5');
+        if (consecrationsSection && !document.getElementById('undoConsecrationsBtn')) {
+            const undoBtn = document.createElement('button');
+            undoBtn.id = 'undoConsecrationsBtn';
+            undoBtn.type = 'button';
+            undoBtn.textContent = 'Undo Last Removal';
+            undoBtn.style.cssText = 'margin-left: 0.5em; padding: 0.3em 0.6em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 3px; cursor: pointer; font-size: 0.75em; opacity: 0.7;';
+            undoBtn.addEventListener('click', undoConsecration);
+            consecrationsSection.appendChild(undoBtn);
+        }
+    }
+
+    // Add undo buttons when page loads
+    addUndoButtons();
+    
+    // Initialize co-consecrator button visibility for existing entries
+    document.addEventListener('DOMContentLoaded', function() {
+        const existingConsecrationEntries = document.querySelectorAll('.consecration-entry');
+        existingConsecrationEntries.forEach(entry => {
+            updateAddCoConsecratorButton(entry);
+        });
+    });
+    
+    // Add focus styles for form inputs
+    const formInputs = document.querySelectorAll('#addOrganizationModal input, #addOrganizationModal textarea');
+    formInputs.forEach(input => {
+        input.addEventListener('focus', function() {
+            this.style.borderColor = '#667eea';
+            this.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+        });
+        input.addEventListener('blur', function() {
+            this.style.borderColor = 'rgba(0, 0, 0, 0.2)';
+            this.style.boxShadow = 'none';
+        });
+    });
+    
+    // Add organization function (placeholder)
+    window.addOrganization = function() {
+        const name = document.getElementById('new-organization-name').value;
+        const abbreviation = document.getElementById('new-organization-abbreviation').value;
+        const description = document.getElementById('new-organization-description').value;
+        
+        if (!name.trim()) {
+            alert('Organization name is required');
+            return;
+        }
+        
+        // TODO: Implement actual organization creation
+        console.log('Adding organization:', { name, abbreviation, description });
+        alert('Organization added: ' + name);
+        hideModal();
+    };
+}
+
+// Make the function globally available
+window.initializeEmbeddedFormScript = initializeEmbeddedFormScript;
+
+// Initialize on DOMContentLoaded as fallback
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Embedded form script DOMContentLoaded fired');
+    initializeEmbeddedFormScript();
+});
+</script>
 
 <!-- Initialize form with existing data for edit mode -->
+<!-- COMMENTED OUT FOR REBUILD: All JavaScript initialization code -->
 {% if edit_mode and clergy %}
+<!--
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Starting form initialization for edit mode...');
@@ -515,6 +1157,231 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeFormData();
 });
 </script>
+-->
 {% endif %}
+
+<!-- Clergy Form Submission Handler - Embedded for self-contained functionality -->
+<script>
+(function() {
+    'use strict';
+    
+    // Use event delegation to catch form submission
+    console.log('Clergy form script loaded');
+    
+    // Notify UI system that form is ready
+    if (typeof window.setModalState === 'function') {
+        console.log('Notifying UI system that form is ready');
+        window.setModalState(true);
+    }
+    
+    // Add event listener to document to catch form submissions
+    document.addEventListener('submit', function(e) {
+        // Check if this is our clergy form
+        if (e.target && e.target.id === 'clergyForm') {
+            console.log('Clergy form submit event caught via delegation!');
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const form = e.target;
+            
+            // Show loading state
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Processing...';
+            submitBtn.disabled = true;
+
+            // Collect all bishop names that need to be checked
+            const bishopNames = collectBishopNames(form);
+            
+            if (bishopNames.length > 0) {
+                // Check and create missing bishops
+                checkAndCreateBishops(bishopNames)
+                    .then(() => {
+                        // Submit the form after bishops are created
+                        submitForm(form);
+                    })
+                    .catch(error => {
+                        console.error('Error creating bishops:', error);
+                        alert('Error creating missing bishops: ' + error.message);
+                        resetSubmitButton(submitBtn, originalText);
+                    });
+            } else {
+                // No bishops to check, submit directly
+                submitForm(form);
+            }
+        }
+    });
+    
+    function collectBishopNames(form) {
+        const bishopNames = new Set();
+        
+        console.log('Collecting bishop names...');
+        
+        // Collect ordaining bishops
+        const ordainingBishopInputs = form.querySelectorAll('input[name*="ordaining_bishop_input"]');
+        console.log('Found ordaining bishop inputs:', ordainingBishopInputs.length);
+        ordainingBishopInputs.forEach(input => {
+            const name = input.value.trim();
+            const idInput = input.parentElement.querySelector('input[name*="ordaining_bishop_id"]');
+            const id = idInput ? idInput.value : '';
+            console.log(`Ordaining bishop: "${name}", ID: "${id}"`);
+            if (name && !id) {
+                bishopNames.add(name);
+                console.log(`Added to bishop names: "${name}"`);
+            }
+        });
+        
+        // Collect consecrators
+        const consecratorInputs = form.querySelectorAll('input[name*="consecrator_input"]');
+        console.log('Found consecrator inputs:', consecratorInputs.length);
+        consecratorInputs.forEach(input => {
+            const name = input.value.trim();
+            const idInput = input.parentElement.querySelector('input[name*="consecrator_id"]');
+            const id = idInput ? idInput.value : '';
+            console.log(`Consecrator: "${name}", ID: "${id}"`);
+            if (name && !id) {
+                bishopNames.add(name);
+                console.log(`Added to bishop names: "${name}"`);
+            }
+        });
+        
+        // Collect co-consecrators
+        const coConsecratorInputs = form.querySelectorAll('input[name*="co_consecrators"][name*="input"]');
+        console.log('Found co-consecrator inputs:', coConsecratorInputs.length);
+        coConsecratorInputs.forEach(input => {
+            const name = input.value.trim();
+            const idInput = input.parentElement.querySelector('input[name*="id"]');
+            const id = idInput ? idInput.value : '';
+            console.log(`Co-consecrator: "${name}", ID: "${id}"`);
+            if (name && !id) {
+                bishopNames.add(name);
+                console.log(`Added to bishop names: "${name}"`);
+            }
+        });
+        
+        const result = Array.from(bishopNames);
+        console.log('Final bishop names to check:', result);
+        return result;
+    }
+    
+    function checkAndCreateBishops(bishopNames) {
+        return new Promise((resolve, reject) => {
+            // Send AJAX request to check and create bishops
+            fetch('/api/check-and-create-bishops', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    bishop_names: bishopNames
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update form with the created bishop IDs
+                    updateFormWithBishopIds(data.bishop_mapping);
+                    resolve();
+                } else {
+                    reject(new Error(data.message || 'Failed to create bishops'));
+                }
+            })
+            .catch(error => {
+                reject(error);
+            });
+        });
+    }
+    
+    function updateFormWithBishopIds(bishopMapping) {
+        const form = document.getElementById('clergyForm');
+        if (!form) return;
+        
+        // Update ordaining bishops
+        const ordainingBishopInputs = form.querySelectorAll('input[name*="ordaining_bishop_input"]');
+        ordainingBishopInputs.forEach(input => {
+            const name = input.value.trim();
+            if (bishopMapping[name]) {
+                const idInput = input.parentElement.querySelector('input[name*="ordaining_bishop_id"]');
+                if (idInput) idInput.value = bishopMapping[name];
+            }
+        });
+        
+        // Update consecrators
+        const consecratorInputs = form.querySelectorAll('input[name*="consecrator_input"]');
+        consecratorInputs.forEach(input => {
+            const name = input.value.trim();
+            if (bishopMapping[name]) {
+                const idInput = input.parentElement.querySelector('input[name*="consecrator_id"]');
+                if (idInput) idInput.value = bishopMapping[name];
+            }
+        });
+        
+        // Update co-consecrators
+        const coConsecratorInputs = form.querySelectorAll('input[name*="co_consecrators"][name*="input"]');
+        coConsecratorInputs.forEach(input => {
+            const name = input.value.trim();
+            if (bishopMapping[name]) {
+                const idInput = input.parentElement.querySelector('input[name*="id"]');
+                if (idInput) idInput.value = bishopMapping[name];
+            }
+        });
+    }
+    
+    function submitForm(form) {
+        // Create FormData from the form
+        const formData = new FormData(form);
+        
+        // Submit the form
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error(`Form submission failed with status ${response.status}`);
+            }
+        })
+        .then(data => {
+            console.log('Response data:', data);
+            if (data.success) {
+                // Show success message
+                alert(data.message || 'Clergy record created successfully!');
+                // Close the modal if it exists
+                const modal = bootstrap.Modal.getInstance(document.getElementById('clergyFormModal'));
+                if (modal) {
+                    modal.hide();
+                    // Notify UI system that modal is closed
+                    if (typeof window.setModalState === 'function') {
+                        window.setModalState(false);
+                    }
+                }
+                // Redirect to success page
+                window.location.href = data.redirect || '/';
+            } else {
+                throw new Error(data.message || 'Form submission failed');
+            }
+        })
+        .catch(error => {
+            console.error('Form submission error:', error);
+            alert('Error submitting form: ' + error.message);
+            resetSubmitButton(form.querySelector('button[type="submit"]'), 'Save Clergy Record');
+        });
+    }
+    
+    function resetSubmitButton(button, originalText) {
+        button.textContent = originalText;
+        button.disabled = false;
+    }
+})();
+</script>
 
 {% endmacro %}

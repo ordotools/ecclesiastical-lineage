@@ -1,6 +1,6 @@
 {% from '_clergy_form.html' import clergy_form %}
 
-{{ clergy_form(fields, clergy, edit_mode, user, redirect_url=None, use_htmx=False, context_type=context_type, context_clergy_id=context_clergy_id) }}
+{{ clergy_form(fields, clergy, edit_mode, user, redirect_url=None, use_htmx=True, context_type=context_type, context_clergy_id=context_clergy_id) }}
 
 <script data-bishops>
 {{ all_bishops_suggested | tojson | safe }}

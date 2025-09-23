@@ -190,6 +190,9 @@ input:focus + .slider {
   bottom: 12px !important;
   left: 12px !important;
   z-index: 1050;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
 }
 
 .lineage-container {

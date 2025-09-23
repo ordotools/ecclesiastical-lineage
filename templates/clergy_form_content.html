@@ -415,59 +415,6 @@ function populateExistingConsecrations() {
     {% endif %}
 }
 
-// Populate existing consecrations for edit mode
-function populateExistingConsecrations() {
-    {% if edit_mode and clergy and clergy.consecrations %}
-    const container = document.getElementById('consecrationsContainer');
-    if (!container) return;
-    
-    console.log('Populating {{ clergy.consecrations|length }} existing consecrations...');
-    
-    {% for consecration in clergy.consecrations %}
-    addConsecration();
-    const consecrationEntry = container.lastElementChild;
-    if (consecrationEntry) {
-        // Populate date
-        const dateInput = consecrationEntry.querySelector('input[name*="[date]"]');
-        if (dateInput) {
-            dateInput.value = '{{ consecration.date.strftime('%Y-%m-%d') if consecration.date else '' }}';
-        }
-        
-        // Populate consecrator
-        const consecratorInput = consecrationEntry.querySelector('input[name*="[consecrator_input]"]');
-        const consecratorIdInput = consecrationEntry.querySelector('input[name*="[consecrator_id]"]');
-        {% if consecration.consecrator %}
-        if (consecratorInput) consecratorInput.value = '{{ consecration.consecrator.name }}';
-        if (consecratorIdInput) consecratorIdInput.value = '{{ consecration.consecrator.id }}';
-        {% endif %}
-        
-        // Populate first co-consecrator
-        const coConsecratorInput = consecrationEntry.querySelector('input[name*="[co_consecrators][0][input]"]');
-        const coConsecratorIdInput = consecrationEntry.querySelector('input[name*="[co_consecrators][0][id]"]');
-        {% if consecration.co_consecrators %}
-        {% set first_co_consecrator = consecration.co_consecrators[0] %}
-        if (coConsecratorInput) coConsecratorInput.value = '{{ first_co_consecrator.name }}';
-        if (coConsecratorIdInput) coConsecratorIdInput.value = '{{ first_co_consecrator.id }}';
-        {% endif %}
-        
-        // Populate checkboxes
-        const subConditioneInput = consecrationEntry.querySelector('input[name*="[is_sub_conditione]"]');
-        const doubtfulInput = consecrationEntry.querySelector('input[name*="[is_doubtful]"]');
-        const invalidInput = consecrationEntry.querySelector('input[name*="[is_invalid]"]');
-        
-        if (subConditioneInput) subConditioneInput.checked = {{ consecration.is_sub_conditione|lower }};
-        if (doubtfulInput) doubtfulInput.checked = {{ consecration.is_doubtful|lower }};
-        if (invalidInput) invalidInput.checked = {{ consecration.is_invalid|lower }};
-        
-        // Populate notes
-        const notesTextarea = consecrationEntry.querySelector('textarea[name*="[notes]"]');
-        if (notesTextarea) notesTextarea.value = '{{ consecration.notes|replace("'", "\\'") if consecration.notes else '' }}';
-    }
-    {% endfor %}
-    {% else %}
-    console.log('No consecrations to populate or not in edit mode');
-    {% endif %}
-}
 
 // Dynamic grid layout adjustment for conditional fields
 function adjustFormLayout() {
@@ -718,75 +665,142 @@ function addConsecration() {
     consecrationCount++;
 }
 
-// Event listeners for add/remove buttons and image upload
-document.addEventListener('click', function(e) {
-    if (e.target && e.target.id === 'addOrdinationBtn') {
-        addOrdination();
-    }
-    if (e.target && e.target.id === 'addConsecrationBtn') {
-        addConsecration();
-    }
-    if (e.target && e.target.classList.contains('remove-ordination')) {
-        const entry = e.target.closest('.ordination-entry');
-        if (entry) {
-            entry.remove();
-        }
-    }
-    if (e.target && e.target.classList.contains('remove-consecration')) {
-        const entry = e.target.closest('.consecration-entry');
-        if (entry) {
-            entry.remove();
-        }
-    }
+// Add co-consecrator functionality
+function addCoConsecrator(button) {
+    const consecrationEntry = button.closest('.consecration-entry');
+    if (!consecrationEntry) return;
     
-    // Image upload functionality
-    if (e.target && e.target.id === 'uploadBtn') {
-        const fileInput = document.getElementById('clergyImage');
-        if (fileInput) {
-            fileInput.click();
-        }
-    }
+    const coConsecratorsList = consecrationEntry.querySelector('.co-consecrators-list');
+    if (!coConsecratorsList) return;
     
-    // Image remove functionality
-    if (e.target && e.target.id === 'removeImageBtn') {
-        const imagePreview = document.getElementById('imagePreview');
-        const fileInput = document.getElementById('clergyImage');
-        if (imagePreview && fileInput) {
-            imagePreview.innerHTML = `
-                <div style="color: rgba(255, 255, 255, 0.5); font-size: 0.9em; padding: 2em; border: 1px dashed rgba(255, 255, 255, 0.2); border-radius: 4px;">
-                    <i class="fas fa-user" style="font-size: 2em; margin-bottom: 0.5em; display: block; opacity: 0.6;"></i>
-                    No Photo
-                </div>
-            `;
-            fileInput.value = '';
-        }
-    }
-});
+    // Get the current consecration index from the form name
+    const consecrationIndex = consecrationEntry.querySelector('input[name*="[date]"]').name.match(/consecrations\[(\d+)\]/);
+    if (!consecrationIndex) return;
+    
+    const index = consecrationIndex[1];
+    const coConsecratorCount = coConsecratorsList.children.length + 1;
+    
+    const coConsecratorHtml = `
+        <div class="co-consecrator-item" style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
+            <input type="text" name="consecrations[${index}][co_consecrators][${coConsecratorCount}][input]" placeholder="Search for co-consecrator..." style="flex: 1; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+            <input type="hidden" name="consecrations[${index}][co_consecrators][${coConsecratorCount}][id]">
+            <button type="button" class="remove-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 100, 100, 0.4); background: rgba(255, 100, 100, 0.08); color: rgba(255, 150, 150, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.75em;">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    coConsecratorsList.insertAdjacentHTML('beforeend', coConsecratorHtml);
+}
 
-    // File input change handler for image preview
-    const fileInput = document.getElementById('clergyImage');
-    if (fileInput) {
-        fileInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const imagePreview = document.getElementById('imagePreview');
-                    if (imagePreview) {
-                        imagePreview.innerHTML = `
-                            <img src="${e.target.result}" alt="Preview" id="previewImage" 
-                                 style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;">
-                        `;
-                    }
-                };
-                reader.readAsDataURL(file);
+// Event listeners for add/remove buttons and image upload
+// Use a single global event listener with proper delegation to avoid duplicates
+if (!window.clergyFormEventListenersAttached) {
+    document.addEventListener('click', function(e) {
+        // Only handle clicks within the clergy form to avoid conflicts
+        if (!e.target.closest('#clergyForm')) return;
+        
+        if (e.target && e.target.id === 'addOrdinationBtn') {
+            e.preventDefault();
+            e.stopPropagation();
+            addOrdination();
+        }
+        if (e.target && e.target.id === 'addConsecrationBtn') {
+            e.preventDefault();
+            e.stopPropagation();
+            addConsecration();
+        }
+        if (e.target && e.target.classList.contains('add-co-consecrator')) {
+            e.preventDefault();
+            e.stopPropagation();
+            addCoConsecrator(e.target);
+        }
+        if (e.target && e.target.classList.contains('remove-co-consecrator')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const coConsecratorItem = e.target.closest('.co-consecrator-item');
+            if (coConsecratorItem) {
+                coConsecratorItem.remove();
+            }
+        }
+        if (e.target && e.target.classList.contains('remove-ordination')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const entry = e.target.closest('.ordination-entry');
+            if (entry) {
+                entry.remove();
+            }
+        }
+        if (e.target && e.target.classList.contains('remove-consecration')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const entry = e.target.closest('.consecration-entry');
+            if (entry) {
+                entry.remove();
+            }
+        }
+        
+        // Image upload functionality
+        if (e.target && e.target.id === 'uploadBtn') {
+            e.preventDefault();
+            e.stopPropagation();
+            const fileInput = document.getElementById('clergyImage');
+            if (fileInput) {
+                fileInput.click();
+            }
+        }
+        
+        // Image remove functionality
+        if (e.target && e.target.id === 'removeImageBtn') {
+            e.preventDefault();
+            e.stopPropagation();
+            const imagePreview = document.getElementById('imagePreview');
+            const fileInput = document.getElementById('clergyImage');
+            if (imagePreview && fileInput) {
+                imagePreview.innerHTML = `
+                    <div style="color: rgba(255, 255, 255, 0.5); font-size: 0.9em; padding: 2em; border: 1px dashed rgba(255, 255, 255, 0.2); border-radius: 4px;">
+                        <i class="fas fa-user" style="font-size: 2em; margin-bottom: 0.5em; display: block; opacity: 0.6;"></i>
+                        No Photo
+                    </div>
+                `;
+                fileInput.value = '';
+            }
+        }
+    });
+    
+    // Mark that event listeners have been attached
+    window.clergyFormEventListenersAttached = true;
+}
+
+    // File input change handler for image preview - use event delegation to avoid duplicates
+    if (!window.clergyFormFileHandlerAttached) {
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.id === 'clergyImage') {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const imagePreview = document.getElementById('imagePreview');
+                        if (imagePreview) {
+                            imagePreview.innerHTML = `
+                                <img src="${e.target.result}" alt="Preview" id="previewImage" 
+                                     style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;">
+                            `;
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
             }
         });
+        
+        // Mark that file handler has been attached
+        window.clergyFormFileHandlerAttached = true;
     }
 
     // Make functions globally available
     window.addOrdination = addOrdination;
     window.addConsecration = addConsecration;
+    window.addCoConsecrator = addCoConsecrator;
     
     // Make initialization function globally available
     window.initializeFormFromRank = initializeFormFromRank;

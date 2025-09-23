@@ -238,7 +238,7 @@ def audit_logs_panel():
     per_page = 50
     
     # Get recent audit logs
-    logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).paginate(
+    logs = AuditLog.query.order_by(AuditLog.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
     

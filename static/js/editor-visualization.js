@@ -6,6 +6,8 @@
 
 console.log('Editor visualization script loaded');
 
+// Prevent duplicate class declarations
+if (typeof window.EditorVisualization === 'undefined') {
 class EditorVisualization {
     constructor() {
         this.container = null;
@@ -231,6 +233,10 @@ class EditorVisualization {
         
         this.isInitialized = false;
     }
+}
+
+// Make class globally available
+window.EditorVisualization = EditorVisualization;
 }
 
 // Global instance

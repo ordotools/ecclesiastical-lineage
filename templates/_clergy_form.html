@@ -776,45 +776,66 @@ function initializeEmbeddedFormScript() {
     }
 
     // Event listeners for add/remove/undo buttons (for embedded template elements)
-    document.addEventListener('click', function(e) {
-        // Handle embedded template button clicks
-        if (e.target && e.target.id === 'addOrdinationBtn') {
-            addOrdination();
-        }
-        if (e.target && e.target.id === 'addConsecrationBtn') {
-            addConsecration();
-        }
-        if (e.target && e.target.classList.contains('remove-ordination')) {
-            const entry = e.target.closest('.ordination-entry');
-            if (entry) {
-                // Store for undo before removing
-                removedOrdinations.push(entry.outerHTML);
-                entry.remove();
+    // Use a single global event listener with proper delegation to avoid duplicates
+    if (!window.clergyFormEmbeddedEventListenersAttached) {
+        document.addEventListener('click', function(e) {
+            // Only handle clicks within clergy forms to avoid conflicts
+            if (!e.target.closest('form[id*="clergyForm"]') && !e.target.closest('#clergyFormContainer')) return;
+            
+            // Handle embedded template button clicks
+            if (e.target && e.target.id === 'addOrdinationBtn') {
+                e.preventDefault();
+                e.stopPropagation();
+                addOrdination();
             }
-        }
-        if (e.target && e.target.classList.contains('remove-consecration')) {
-            const entry = e.target.closest('.consecration-entry');
-            if (entry) {
-                // Store for undo before removing
-                removedConsecrations.push(entry.outerHTML);
-                entry.remove();
+            if (e.target && e.target.id === 'addConsecrationBtn') {
+                e.preventDefault();
+                e.stopPropagation();
+                addConsecration();
             }
-        }
-        if (e.target && e.target.classList.contains('add-co-consecrator')) {
-            addCoConsecrator(e.target);
-        }
-        if (e.target && e.target.classList.contains('remove-co-consecrator')) {
-            const coConsecratorItem = e.target.closest('.co-consecrator-item');
-            if (coConsecratorItem) {
-                coConsecratorItem.remove();
-                // Update the "Add" button visibility
-                const consecrationEntry = coConsecratorItem.closest('.consecration-entry');
-                if (consecrationEntry) {
-                    updateAddCoConsecratorButton(consecrationEntry);
+            if (e.target && e.target.classList.contains('remove-ordination')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const entry = e.target.closest('.ordination-entry');
+                if (entry) {
+                    // Store for undo before removing
+                    removedOrdinations.push(entry.outerHTML);
+                    entry.remove();
                 }
             }
-        }
-    });
+            if (e.target && e.target.classList.contains('remove-consecration')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const entry = e.target.closest('.consecration-entry');
+                if (entry) {
+                    // Store for undo before removing
+                    removedConsecrations.push(entry.outerHTML);
+                    entry.remove();
+                }
+            }
+            if (e.target && e.target.classList.contains('add-co-consecrator')) {
+                e.preventDefault();
+                e.stopPropagation();
+                addCoConsecrator(e.target);
+            }
+            if (e.target && e.target.classList.contains('remove-co-consecrator')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const coConsecratorItem = e.target.closest('.co-consecrator-item');
+                if (coConsecratorItem) {
+                    coConsecratorItem.remove();
+                    // Update the "Add" button visibility
+                    const consecrationEntry = coConsecratorItem.closest('.consecration-entry');
+                    if (consecrationEntry) {
+                        updateAddCoConsecratorButton(consecrationEntry);
+                    }
+                }
+            }
+        });
+        
+        // Mark that event listeners have been attached
+        window.clergyFormEmbeddedEventListenersAttached = true;
+    }
 
     // Add undo buttons to the sections
     function addUndoButtons() {

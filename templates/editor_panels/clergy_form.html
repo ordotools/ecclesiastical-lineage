@@ -284,11 +284,14 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Use event delegation for HTMX-loaded form content
-document.addEventListener('submit', function(e) {
-    // Check if this is our clergy form (loaded via HTMX)
-    if (e.target && e.target.id === 'clergyForm') {
-        e.preventDefault();
-        console.log('HTMX-loaded clergy form submitted');
+// Prevent duplicate event listeners
+if (!window.clergyFormHandlerAttached) {
+    window.clergyFormHandlerAttached = true;
+    document.addEventListener('submit', function(e) {
+        // Check if this is our clergy form (loaded via HTMX)
+        if (e.target && e.target.id === 'clergyForm') {
+            e.preventDefault();
+            console.log('HTMX-loaded clergy form submitted');
         
         const form = e.target;
         const formData = new FormData(form);
@@ -347,7 +350,8 @@ document.addEventListener('submit', function(e) {
             submitBtn.disabled = false;
         });
     }
-});
+    });
+}
 
 // HTMX event handling with form initialization
 document.body.addEventListener('htmx:afterSwap', function(evt) {

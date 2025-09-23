@@ -39,17 +39,14 @@
                 
                 <div style="color: rgba(255, 255, 255, 0.5); font-size: 0.8em;">
                     by {{ log.user.username if log.user else 'System' }} • 
-                    <span title="{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}">
-                        {{ log.timestamp.strftime('%m/%d %H:%M') }}
+                    <span title="{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+                        {{ log.created_at.strftime('%m/%d %H:%M') }}
                     </span>
                 </div>
                 
                 {% if log.details %}
                 <div style="margin-top: 0.5em; padding: 0.5em; background: rgba(255, 255, 255, 0.02); border-radius: 3px; font-size: 0.75em; color: rgba(255, 255, 255, 0.6);">
-                    {% if log.details.rank %}Rank: {{ log.details.rank }}<br>{% endif %}
-                    {% if log.details.organization %}Organization: {{ log.details.organization }}<br>{% endif %}
-                    {% if log.details.ordinations_count is defined %}Ordinations: {{ log.details.ordinations_count }}<br>{% endif %}
-                    {% if log.details.consecrations_count is defined %}Consecrations: {{ log.details.consecrations_count }}{% endif %}
+                    {{ log.details[:100] }}{% if log.details|length > 100 %}...{% endif %}
                 </div>
                 {% endif %}
             </div>

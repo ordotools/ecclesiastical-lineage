@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
     <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
     <script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
+    <script src="{{ url_for('static', filename='js/resizable-panes.js') }}"></script>
     <style>
         * {
             margin: 0;
@@ -108,6 +109,56 @@
             width: 100%;
             height: 100%;
             position: relative;
+        }
+
+        /* Resize handles */
+        .resize-handle {
+            position: absolute;
+            z-index: 10;
+            transition: background-color 0.2s ease;
+        }
+
+        .vertical-resize {
+            width: 4px;
+            height: 100%;
+            cursor: col-resize;
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .horizontal-resize {
+            width: 100%;
+            height: 4px;
+            cursor: row-resize;
+            background: rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .resize-handle:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Position resize handles - initial positions, JavaScript will update these */
+        #left-resizer {
+            top: 0;
+            left: 350px;
+            margin-left: -2px;
+            height: calc(100vh - 300px); /* Initial height, JS will update dynamically */
+        }
+
+        #right-resizer {
+            top: 0;
+            right: 400px;
+            margin-right: -2px;
+            height: calc(100vh - 300px); /* Initial height, JS will update dynamically */
+        }
+
+        #bottom-resizer {
+            bottom: 300px;
+            left: 0;
+            margin-bottom: -2px;
         }
 
         /* Bottom panel tabs */

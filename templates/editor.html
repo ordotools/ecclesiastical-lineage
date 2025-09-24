@@ -444,10 +444,92 @@
         .clergy-tab-content::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.3);
         }
+
+        /* Logout Button Styling */
+        .logout-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1000;
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            font-size: 0.85em;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .logout-btn i {
+            font-size: 0.9em;
+        }
+
+        .logout-btn span {
+            font-size: 0.8em;
+        }
+
+        .logout-btn .user-info {
+            font-size: 0.75em;
+            opacity: 0.8;
+            margin-left: 0.25rem;
+            padding-left: 0.5rem;
+            border-left: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Responsive logout button */
+        @media (max-width: 768px) {
+            .logout-container {
+                top: 0.5rem;
+                right: 0.5rem;
+            }
+            
+            .logout-btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.8em;
+            }
+            
+            .logout-btn span:not(.user-info) {
+                display: none; /* Hide "Logout" text on mobile, keep only icon */
+            }
+            
+            .logout-btn .user-info {
+                display: none; /* Hide username on mobile too for space */
+            }
+        }
     </style>
     {% block extra_styles %}{% endblock %}
 </head>
 <body>
+    <!-- Logout Button -->
+    <div class="logout-container">
+        <a href="{{ url_for('auth.logout') }}" class="logout-btn" title="Logout">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Logout</span>
+            {% if user %}
+                <span class="user-info">{{ user.username }}</span>
+            {% endif %}
+        </a>
+    </div>
+
     <div class="editor-container">
         <!-- Left Panel: Clergy List -->
         <div class="panel left-panel">

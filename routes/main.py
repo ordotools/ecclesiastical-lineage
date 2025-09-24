@@ -18,6 +18,11 @@ def index():
 @main_bp.route('/lineage_visualization')
 def lineage_visualization():
     current_app.logger.info("=== LINEAGE_VISUALIZATION ROUTE CALLED ===")
+    
+    # Check if user is logged in - redirect to editor if they are
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor'))
+    
     try:
         # Check if we have any ordination/consecration data
         ordination_count = Ordination.query.count()
@@ -205,6 +210,10 @@ def lineage_visualization():
 @main_bp.route('/clergy/lineage-data')
 def get_lineage_data():
     """API endpoint to get lineage data as JSON for AJAX requests"""
+    # Check if user is logged in - redirect to editor if they are
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor'))
+    
     try:
         # Check if we have any ordination/consecration data
         ordination_count = Ordination.query.count()

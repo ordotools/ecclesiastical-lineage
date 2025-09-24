@@ -10,8 +10,8 @@ auth_bp = Blueprint('auth', __name__)
 def index():
     # Check if user is logged in
     if 'user_id' in session:
-        # User is logged in, redirect to dashboard
-        return redirect(url_for('auth.dashboard'))
+        # User is logged in, redirect to editor
+        return redirect(url_for('editor.editor'))
     else:
         # User is not logged in, redirect to lineage visualization
         return redirect(url_for('main.lineage_visualization'))
@@ -29,7 +29,8 @@ def dashboard():
         flash('User not found. Please log in again.', 'error')
         return redirect(url_for('auth.login'))
     
-    return render_template('dashboard.html', user=user)
+    # Redirect logged-in users to editor instead of showing dashboard
+    return redirect(url_for('editor.editor'))
 
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 @audit_log(
@@ -68,7 +69,7 @@ def login():
 def logout():
     session.clear()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('auth.login'))
+    return redirect(url_for('main.lineage_visualization'))
 
 @auth_bp.route('/admin_invite_signup/<token>', methods=['GET', 'POST'])
 def admin_invite_signup(token):

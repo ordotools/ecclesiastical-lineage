@@ -19,18 +19,59 @@
                            style="margin-right: 0.25em;" onchange="this.form.requestSubmit()">
                     Hide Priests
                 </label>
+                <label style="display: inline-flex; align-items: center; margin-right: 1em; color: rgba(255, 255, 255, 0.8);">
+                    <input type="checkbox" name="show_deleted" value="1" {% if show_deleted %}checked{% endif %} 
+                           style="margin-right: 0.25em;" onchange="this.form.requestSubmit()">
+                    Show Deleted
+                </label>
             </div>
         </form>
     </div>
+
+    <!-- Bulk Actions (only shown when showing deleted records) -->
+    {% if show_deleted %}
+    <div id="bulk-actions" style="margin-bottom: 1em; padding: 0.5em; background: rgba(255, 0, 0, 0.1); border: 1px solid rgba(255, 0, 0, 0.3); border-radius: 4px; display: none;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 0.75em;">
+                <label style="display: flex; align-items: center; color: rgba(255, 255, 255, 0.9); font-size: 0.8em;">
+                    <input type="checkbox" id="select-all" onchange="toggleSelectAll()" style="margin-right: 0.4em;">
+                    Select All
+                </label>
+                <span id="selected-count" style="color: rgba(255, 255, 255, 0.7); font-size: 0.75em;">0 selected</span>
+            </div>
+            <div style="display: flex; gap: 0.5em;">
+                <button onclick="permanentlyDeleteSelected()" 
+                        style="padding: 0.3em 0.6em; background: rgba(255, 0, 0, 0.3); border: 1px solid rgba(255, 0, 0, 0.5); border-radius: 3px; color: rgba(255, 255, 255, 0.9); cursor: pointer; font-size: 0.75em; white-space: nowrap;"
+                        onmouseover="this.style.background='rgba(255, 0, 0, 0.5)'"
+                        onmouseout="this.style.background='rgba(255, 0, 0, 0.3)'">
+                    <i class="fas fa-trash" style="margin-right: 0.25em;"></i>Delete Selected
+                </button>
+                <button onclick="clearSelection()" 
+                        style="padding: 0.3em 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.9); cursor: pointer; font-size: 0.75em; white-space: nowrap;">
+                    Clear
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Clergy List -->
     <div style="max-height: calc(100vh - 200px); overflow-y: auto;">
         {% for clergy in clergy_list %}
         <div class="clergy-item" 
+             data-clergy-id="{{ clergy.id }}"
              onclick="selectClergy({{ clergy.id }})"
-             style="display: flex; align-items: center; padding: 0.75em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
+             style="display: flex; align-items: center; padding: 0.75em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; cursor: pointer; transition: all 0.2s ease; {% if clergy.is_deleted %}opacity: 0.6; border-left: 4px solid rgba(255, 0, 0, 0.5);{% endif %}"
              onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
              onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">
+            
+            <!-- Selection Checkbox (only for deleted records) -->
+            {% if show_deleted and clergy.is_deleted %}
+            <div style="margin-right: 0.75em; flex-shrink: 0;" onclick="event.stopPropagation();">
+                <input type="checkbox" class="clergy-select" data-clergy-id="{{ clergy.id }}" 
+                       onchange="updateSelection()" style="transform: scale(1.2); cursor: pointer;">
+            </div>
+            {% endif %}
             
             <!-- Clergy Photo -->
             <div style="margin-right: 0.75em; flex-shrink: 0;">
@@ -48,6 +89,9 @@
             <div style="flex: 1; min-width: 0;">
                 <div style="font-weight: 500; color: rgba(255, 255, 255, 0.95); font-size: 0.9em; margin-bottom: 0.25em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                     {{ clergy.name }}
+                    {% if clergy.is_deleted %}
+                    <span style="color: rgba(255, 0, 0, 0.8); font-size: 0.8em; margin-left: 0.5em;">[DELETED]</span>
+                    {% endif %}
                 </div>
                 <div style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6);">
                     {{ clergy.rank }}{% if clergy.organization %} · {{ clergy.organization }}{% endif %}
@@ -55,6 +99,11 @@
                 {% if clergy.date_of_birth or clergy.date_of_death %}
                 <div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5); margin-top: 0.25em;">
                     {% if clergy.date_of_birth %}{{ clergy.date_of_birth.strftime('%Y') }}{% endif %}{% if clergy.date_of_death %} - {{ clergy.date_of_death.strftime('%Y') }}{% endif %}
+                </div>
+                {% endif %}
+                {% if clergy.is_deleted and clergy.deleted_at %}
+                <div style="font-size: 0.7em; color: rgba(255, 0, 0, 0.7); margin-top: 0.25em;">
+                    Deleted: {{ clergy.deleted_at.strftime('%Y-%m-%d %H:%M') }}
                 </div>
                 {% endif %}
             </div>
@@ -73,10 +122,16 @@
         
         {% if not clergy_list %}
         <div style="text-align: center; padding: 2em; color: rgba(255, 255, 255, 0.6);">
+            {% if show_deleted %}
+            <i class="fas fa-trash" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.5;"></i>
+            <div>No deleted clergy records found</div>
+            <small style="color: rgba(255, 255, 255, 0.4);">All clergy records are currently active</small>
+            {% else %}
             <i class="fas fa-search" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.5;"></i>
             <div>No clergy found</div>
             {% if search %}
             <small style="color: rgba(255, 255, 255, 0.4);">Try a different search term</small>
+            {% endif %}
             {% endif %}
         </div>
         {% endif %}
@@ -128,4 +183,119 @@ function selectClergy(clergyId) {
     
     // Refresh visualization to highlight selected clergy
     // You could add visualization update logic here
-}</script>
+}
+
+// Bulk selection functions
+function updateSelection() {
+    const checkboxes = document.querySelectorAll('.clergy-select:checked');
+    const count = checkboxes.length;
+    const bulkActions = document.getElementById('bulk-actions');
+    const selectedCount = document.getElementById('selected-count');
+    
+    if (selectedCount) {
+        selectedCount.textContent = `${count} selected`;
+    }
+    
+    if (bulkActions) {
+        bulkActions.style.display = count > 0 ? 'block' : 'none';
+    }
+}
+
+// Initialize bulk actions visibility on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateSelection();
+});
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.clergy-select');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+    
+    updateSelection();
+}
+
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('.clergy-select');
+    const selectAllCheckbox = document.getElementById('select-all');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+    }
+    
+    updateSelection();
+}
+
+function permanentlyDeleteSelected() {
+    const checkboxes = document.querySelectorAll('.clergy-select:checked');
+    const clergyIds = Array.from(checkboxes).map(cb => cb.dataset.clergyId);
+    
+    if (clergyIds.length === 0) {
+        alert('Please select at least one record to delete.');
+        return;
+    }
+    
+    // Get the names of the records being deleted for confirmation
+    const selectedItems = Array.from(checkboxes).map(cb => {
+        const item = cb.closest('.clergy-item');
+        const nameElement = item.querySelector('div[style*=\"font-weight: 500\"]');
+        return nameElement ? nameElement.textContent.trim() : 'Unknown';
+    });
+    
+    const confirmMessage = `Are you sure you want to permanently delete these ${clergyIds.length} record(s)?\n\n${selectedItems.join(', ')}\n\nThis action cannot be undone.`;
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    // Show loading state
+    const deleteButton = event.target;
+    const originalText = deleteButton.innerHTML;
+    deleteButton.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 0.25em;"></i>Deleting...';
+    deleteButton.disabled = true;
+    
+    // Send delete request
+    fetch('/editor/permanently-delete-clergy', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ clergy_ids: clergyIds })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove deleted items from the list
+            clergyIds.forEach(id => {
+                const item = document.querySelector(`[data-clergy-id="${id}"]`);
+                if (item) {
+                    item.remove();
+                }
+            });
+            
+            // Update selection
+            updateSelection();
+            
+            // Show success message
+            alert(`Successfully deleted ${data.deleted_count} record(s).`);
+        } else {
+            alert('Error: ' + (data.message || 'Failed to delete records.'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error deleting records. Please try again.');
+    })
+    .finally(() => {
+        // Restore button state
+        deleteButton.innerHTML = originalText;
+        deleteButton.disabled = false;
+    });
+}
+</script>

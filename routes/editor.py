@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
 from services import clergy as clergy_service
+from services.clergy import permanently_delete_clergy_handler
 from utils import audit_log, require_permission, log_audit_event
 from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog
 import json
@@ -23,9 +24,13 @@ def clergy_list_panel():
     exclude_priests = request.args.get('exclude_priests') == '1'
     exclude_coconsecrators = request.args.get('exclude_coconsecrators') == '1'
     exclude_organizations = request.args.getlist('exclude_organizations')
+    show_deleted = request.args.get('show_deleted') == '1'
 
-    # Base query for active clergy
-    query = Clergy.query.filter(Clergy.is_deleted != True)
+    # Base query - show deleted records if requested, otherwise only active
+    if show_deleted:
+        query = Clergy.query.filter(Clergy.is_deleted == True)
+    else:
+        query = Clergy.query.filter(Clergy.is_deleted != True)
 
     # Apply search filter
     if search:
@@ -60,7 +65,8 @@ def clergy_list_panel():
                          search=search,
                          exclude_priests=exclude_priests,
                          exclude_coconsecrators=exclude_coconsecrators,
-                         exclude_organizations=exclude_organizations)
+                         exclude_organizations=exclude_organizations,
+                         show_deleted=show_deleted)
 
 @editor_bp.route('/editor/visualization')
 @require_permission('edit_clergy')
@@ -311,3 +317,31 @@ def statistics_panel():
     }
     
     return render_template('editor_panels/statistics.html', statistics=statistics)
+
+@editor_bp.route('/editor/permanently-delete-clergy', methods=['POST'])
+@require_permission('delete_clergy')
+def permanently_delete_clergy():
+    """Permanently delete selected clergy records"""
+    try:
+        data = request.get_json()
+        clergy_ids = data.get('clergy_ids', [])
+        
+        if not clergy_ids:
+            return jsonify({'success': False, 'message': 'No clergy IDs provided'})
+        
+        # Convert to integers
+        try:
+            clergy_ids = [int(id) for id in clergy_ids]
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'message': 'Invalid clergy ID format'})
+        
+        # Get user for audit logging
+        user = User.query.get(session['user_id']) if 'user_id' in session else None
+        
+        # Call the service function
+        result = permanently_delete_clergy_handler(clergy_ids, user)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error processing request: {str(e)}'})

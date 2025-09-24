@@ -260,6 +260,7 @@
     padding: 0.5em 1em !important;
 }
 
+
 /* Responsive adjustments for smaller panels */
 @media (max-width: 1200px) {
     .right-panel .form-grid {
@@ -295,25 +296,208 @@ if (!window.clergyFormHandlerAttached) {
             e.preventDefault();
             console.log('HTMX-loaded clergy form submitted - preventing default');
         
-        const form = e.target;
-        console.log('Form action URL:', form.action);
-        console.log('Form method:', form.method);
-        const formData = new FormData(form);
-        const submitBtn = form.querySelector('button[type="submit"]');
-        const originalText = submitBtn.textContent;
-        
-        // Show loading state
-        submitBtn.textContent = 'Saving...';
-        submitBtn.disabled = true;
-        
-        // Submit via fetch
-        fetch(form.action, {
+            const form = e.target;
+            console.log('Form action URL:', form.action);
+            console.log('Form method:', form.method);
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            
+            // Show loading state
+            submitBtn.textContent = 'Saving...';
+            submitBtn.disabled = true;
+            
+            // Collect all bishop names that need to be checked
+            const bishopNames = collectBishopNames(form);
+            
+            if (bishopNames.length > 0) {
+                console.log('🔄 Found bishops to create:', bishopNames);
+                // Show user feedback about bishop creation
+                submitBtn.textContent = `Creating ${bishopNames.length} bishop record${bishopNames.length > 1 ? 's' : ''}...`;
+                
+                // Check and create missing bishops
+                checkAndCreateBishops(bishopNames)
+                    .then(() => {
+                        console.log('🔄 Bishop creation successful, proceeding with form submission');
+                        // Update button text for final submission
+                        submitBtn.textContent = 'Submitting form...';
+                        // Submit the form after bishops are created
+                        submitFormWithData(form, formData);
+                    })
+                    .catch(error => {
+                        console.error('🔄 Error creating bishops:', error);
+                        showNotification(`Error creating missing bishops: ${error.message}`, 'error');
+                        resetSubmitButton(submitBtn, originalText);
+                    });
+            } else {
+                console.log('🔄 No bishops to create, submitting form directly');
+                // No bishops to check, submit directly
+                submitFormWithData(form, formData);
+            }
+        }
+    });
+}
+
+// Bishop creation functions for editor form
+function collectBishopNames(form) {
+    const bishopNames = new Set();
+    
+    console.log('Collecting bishop names...');
+    
+    // Collect ordaining bishops
+    const ordainingBishopInputs = form.querySelectorAll('input[name*="ordaining_bishop_input"]');
+    console.log('Found ordaining bishop inputs:', ordainingBishopInputs.length);
+    ordainingBishopInputs.forEach(input => {
+        const name = input.value.trim();
+        const idInput = input.parentElement.querySelector('input[name*="ordaining_bishop_id"]');
+        const id = idInput ? idInput.value : '';
+        console.log(`Ordaining bishop: "${name}", ID: "${id}"`);
+        if (name && !id) {
+            bishopNames.add(name);
+            console.log(`Added to bishop names: "${name}"`);
+        }
+    });
+    
+    // Collect consecrators
+    const consecratorInputs = form.querySelectorAll('input[name*="consecrator_input"]');
+    console.log('Found consecrator inputs:', consecratorInputs.length);
+    consecratorInputs.forEach(input => {
+        const name = input.value.trim();
+        const idInput = input.parentElement.querySelector('input[name*="consecrator_id"]');
+        const id = idInput ? idInput.value : '';
+        console.log(`Consecrator: "${name}", ID: "${id}"`);
+        if (name && !id) {
+            bishopNames.add(name);
+            console.log(`Added to bishop names: "${name}"`);
+        }
+    });
+    
+    // Collect co-consecrators
+    const coConsecratorInputs = form.querySelectorAll('input[name*="co_consecrators"][name*="input"]');
+    console.log('Found co-consecrator inputs:', coConsecratorInputs.length);
+    coConsecratorInputs.forEach(input => {
+        const name = input.value.trim();
+        const idInput = input.parentElement.querySelector('input[name*="id"]');
+        const id = idInput ? idInput.value : '';
+        console.log(`Co-consecrator: "${name}", ID: "${id}"`);
+        if (name && !id) {
+            bishopNames.add(name);
+            console.log(`Added to bishop names: "${name}"`);
+        }
+    });
+    
+    const result = Array.from(bishopNames);
+    console.log('Final bishop names to check:', result);
+    return result;
+}
+
+function checkAndCreateBishops(bishopNames) {
+    console.log('🔄 Creating missing bishops:', bishopNames);
+    return new Promise((resolve, reject) => {
+        // Send AJAX request to check and create bishops
+        fetch('/api/check-and-create-bishops', {
             method: 'POST',
-            body: formData,
             headers: {
+                'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                bishop_names: bishopNames
+            })
+        })
+        .then(response => {
+            console.log('🔄 Bishop creation response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('🔄 Bishop creation response:', data);
+            if (data.success) {
+                console.log('🔄 Successfully created bishops, updating form with IDs');
+                // Update form with the created bishop IDs
+                updateFormWithBishopIds(data.bishop_mapping);
+                resolve();
+            } else {
+                reject(new Error(data.message || 'Failed to create bishops'));
             }
         })
+        .catch(error => {
+            console.error('🔄 Error creating bishops:', error);
+            reject(error);
+        });
+    });
+}
+
+function updateFormWithBishopIds(bishopMapping) {
+    const form = document.getElementById('clergyForm');
+    if (!form) return;
+    
+    console.log('🔄 Updating form with bishop IDs:', bishopMapping);
+    
+    // Update ordaining bishops
+    const ordainingBishopInputs = form.querySelectorAll('input[name*="ordaining_bishop_input"]');
+    ordainingBishopInputs.forEach(input => {
+        const name = input.value.trim();
+        if (bishopMapping[name]) {
+            const idInput = input.parentElement.querySelector('input[name*="ordaining_bishop_id"]');
+            if (idInput) {
+                idInput.value = bishopMapping[name];
+                console.log(`🔄 Updated ordaining bishop "${name}" with ID: ${bishopMapping[name]}`);
+            } else {
+                console.warn(`🔄 No ID input found for ordaining bishop "${name}"`);
+            }
+        }
+    });
+    
+    // Update consecrators
+    const consecratorInputs = form.querySelectorAll('input[name*="consecrator_input"]');
+    consecratorInputs.forEach(input => {
+        const name = input.value.trim();
+        if (bishopMapping[name]) {
+            const idInput = input.parentElement.querySelector('input[name*="consecrator_id"]');
+            if (idInput) {
+                idInput.value = bishopMapping[name];
+                console.log(`🔄 Updated consecrator "${name}" with ID: ${bishopMapping[name]}`);
+            } else {
+                console.warn(`🔄 No ID input found for consecrator "${name}"`);
+            }
+        }
+    });
+    
+    // Update co-consecrators
+    const coConsecratorInputs = form.querySelectorAll('input[name*="co_consecrators"][name*="input"]');
+    coConsecratorInputs.forEach(input => {
+        const name = input.value.trim();
+        if (bishopMapping[name]) {
+            const idInput = input.parentElement.querySelector('input[name*="id"]');
+            if (idInput) {
+                idInput.value = bishopMapping[name];
+                console.log(`🔄 Updated co-consecrator "${name}" with ID: ${bishopMapping[name]}`);
+            } else {
+                console.warn(`🔄 No ID input found for co-consecrator "${name}"`);
+            }
+        }
+    });
+    
+    console.log('🔄 Form update with bishop IDs complete');
+}
+
+function resetSubmitButton(button, originalText) {
+    button.textContent = originalText;
+    button.disabled = false;
+}
+
+function submitFormWithData(form, formData) {
+    // Submit via fetch
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
         .then(response => {
             console.log('Raw response status:', response.status);
             console.log('Raw response headers:', response.headers);
@@ -391,15 +575,30 @@ if (!window.clergyFormHandlerAttached) {
                     }, 500); // Small delay to ensure the deletion is processed
                     
                     showNotification('Record marked for deletion. Form cleared for new entry.', 'info');
-                } else if (data.clergy_id) {
+                } else                 if (data.clergy_id) {
                     // Normal save - switch to edit mode and refresh the form
                     console.log('Switching to edit mode for clergy ID:', data.clergy_id);
                     switchToEditMode(data.clergy_id);
                     showNotification('Clergy record saved successfully!', 'success');
+                    
+                    // Dispatch custom event for clergy update
+                    document.body.dispatchEvent(new CustomEvent('clergyUpdated', {
+                        detail: { 
+                            clergyId: data.clergy_id,
+                            action: 'updated'
+                        }
+                    }));
                 } else {
                     // Fallback - just show success message
                     console.log('No clergy_id in response, showing generic success message');
                     showNotification('Clergy record saved successfully!', 'success');
+                    
+                    // Dispatch custom event for clergy creation
+                    document.body.dispatchEvent(new CustomEvent('clergyUpdated', {
+                        detail: { 
+                            action: 'created'
+                        }
+                    }));
                 }
                 
             } else {
@@ -420,8 +619,6 @@ if (!window.clergyFormHandlerAttached) {
             submitBtn.textContent = originalText;
             submitBtn.disabled = false;
         });
-    }
-    });
 }
 
 // HTMX event handling with form initialization
@@ -445,6 +642,43 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
                 rankSelect.dispatchEvent(new Event('change'));
             }
         }
+        
+        // Initialize clergy autocomplete for HTMX-loaded content
+        console.log('🔄 HTMX: Initializing clergy autocomplete...');
+        
+        // Wait a bit for the embedded form script to load
+        setTimeout(() => {
+            console.log('🔄 HTMX: Checking for autocomplete functions after delay...');
+            console.log('🔄 HTMX: initializeClergyAutocomplete available:', typeof window.initializeClergyAutocomplete);
+            console.log('🔄 HTMX: initializeSingleClergyAutocomplete available:', typeof window.initializeSingleClergyAutocomplete);
+            
+            if (typeof window.initializeClergyAutocomplete === 'function') {
+                console.log('🔄 HTMX: Calling window.initializeClergyAutocomplete()');
+                window.initializeClergyAutocomplete();
+            } else if (typeof window.initializeSingleClergyAutocomplete === 'function') {
+                console.log('🔄 HTMX: Using fallback with initializeSingleClergyAutocomplete');
+                const clergyInputs = document.querySelectorAll('input[name*="ordaining_bishop_input"], input[name*="consecrator_input"], input[name*="co_consecrators"][name*="input"]');
+                console.log('🔄 HTMX: Found clergy inputs:', clergyInputs.length);
+                clergyInputs.forEach(input => {
+                    if (!input.hasAttribute('data-autocomplete-initialized')) {
+                        console.log('🔄 HTMX: Initializing input:', input.name);
+                        window.initializeSingleClergyAutocomplete(input);
+                    }
+                });
+            } else {
+                console.log('🔄 HTMX: No autocomplete functions available, trying direct initialization');
+                // Direct initialization as last resort
+                const clergyInputs = document.querySelectorAll('input[name*="ordaining_bishop_input"], input[name*="consecrator_input"], input[name*="co_consecrators"][name*="input"]');
+                console.log('🔄 HTMX: Found clergy inputs for direct init:', clergyInputs.length);
+                clergyInputs.forEach(input => {
+                    if (!input.hasAttribute('data-autocomplete-initialized')) {
+                        console.log('🔄 HTMX: Direct initializing input:', input.name);
+                        // Direct initialization logic here
+                        initializeClergyAutocompleteDirect(input);
+                    }
+                });
+            }
+        }, 200);
     }
 });
 
@@ -543,6 +777,72 @@ console.log('Form functions available:', {
     switchToEditMode: typeof window.switchToEditMode,
     clearFormForNewEntry: typeof window.clearFormForNewEntry
 });
+
+// Direct autocomplete initialization as fallback
+function initializeClergyAutocompleteDirect(input) {
+    if (input.hasAttribute('data-autocomplete-initialized')) {
+        return;
+    }
+    
+    const dropdown = input.parentElement.querySelector('.autocomplete-dropdown');
+    if (!dropdown) {
+        console.log('No dropdown found for direct init:', input.name);
+        return;
+    }
+    
+    console.log('Direct initializing autocomplete for:', input.name);
+    input.setAttribute('data-autocomplete-initialized', 'true');
+    
+    input.addEventListener('input', function() {
+        const query = this.value.trim();
+        console.log('Direct input event for', this.name, 'query:', query);
+        
+        if (query.length < 2) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        
+        // Use fetch for direct initialization
+        fetch(`/api/search_bishops?q=${encodeURIComponent(query)}`)
+            .then(response => response.text())
+            .then(html => {
+                dropdown.innerHTML = html;
+                dropdown.style.display = 'block';
+                
+                // Attach click handlers
+                const results = dropdown.querySelectorAll('.bishop-search-result');
+                results.forEach(result => {
+                    result.addEventListener('click', function() {
+                        const bishopId = this.dataset.id;
+                        const bishopName = this.dataset.displayName || this.dataset.name;
+                        
+                        input.value = bishopName;
+                        const hiddenInput = input.parentElement.querySelector('input[type="hidden"]');
+                        if (hiddenInput) {
+                            hiddenInput.value = bishopId;
+                        }
+                        
+                        dropdown.style.display = 'none';
+                    });
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching bishops:', error);
+            });
+    });
+    
+    input.addEventListener('blur', function() {
+        setTimeout(() => {
+            dropdown.style.display = 'none';
+        }, 200);
+    });
+    
+    input.addEventListener('focus', function() {
+        if (this.value.trim().length >= 2) {
+            this.dispatchEvent(new Event('input'));
+        }
+    });
+}
 
 // Simple instant notification system
 function showNotification(message, type = 'info') {

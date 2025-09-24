@@ -236,6 +236,7 @@ console.log('🎯 CONTENT TEMPLATE LOADED: clergy_form_content.html');
 console.log('🎯 CONTENT TEMPLATE: Running immediate initialization');
 adjustFormLayout();
 initializeFormFromRank();
+initializeClergyAutocomplete();
 console.log('🎯 CONTENT TEMPLATE: Immediate initialization completed');
 
 // Also listen for DOMContentLoaded (in case it's not HTMX loaded)
@@ -245,6 +246,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Immediate initialization - no delays needed
     adjustFormLayout();
     initializeFormFromRank();
+    initializeClergyAutocomplete();
     console.log('🎯 CONTENT TEMPLATE: initializeFormFromRank completed');
 });
 
@@ -570,8 +572,11 @@ function addOrdination() {
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 0.25em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Ordaining Bishop</label>
-                    <input type="text" name="ordinations[${ordinationCount}][ordaining_bishop_input]" placeholder="Search for bishop..." style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
-                    <input type="hidden" name="ordinations[${ordinationCount}][ordaining_bishop_id]">
+                    <div style="position: relative;">
+                        <input type="text" name="ordinations[${ordinationCount}][ordaining_bishop_input]" placeholder="Search for bishop..." autocomplete="off" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                        <input type="hidden" name="ordinations[${ordinationCount}][ordaining_bishop_id]">
+                        <div class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 20; display: none; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; max-height: 200px; overflow-y: auto;"></div>
+                    </div>
                 </div>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75em; margin-bottom: 0.75em;">
@@ -602,6 +607,15 @@ function addOrdination() {
 
     container.insertAdjacentHTML('beforeend', ordinationHtml);
     ordinationCount++;
+    
+    // Initialize autocomplete for the new ordination field
+    const newOrdinationEntry = container.lastElementChild;
+    if (newOrdinationEntry) {
+        const newInput = newOrdinationEntry.querySelector('input[name*="ordaining_bishop_input"]');
+        if (newInput) {
+            initializeSingleClergyAutocomplete(newInput);
+        }
+    }
 }
 
 // Add consecration functionality
@@ -618,15 +632,21 @@ function addConsecration() {
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 0.25em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Consecrator</label>
-                    <input type="text" name="consecrations[${consecrationCount}][consecrator_input]" placeholder="Search for consecrator..." style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
-                    <input type="hidden" name="consecrations[${consecrationCount}][consecrator_id]">
+                    <div style="position: relative;">
+                        <input type="text" name="consecrations[${consecrationCount}][consecrator_input]" placeholder="Search for consecrator..." autocomplete="off" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                        <input type="hidden" name="consecrations[${consecrationCount}][consecrator_id]">
+                        <div class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 20; display: none; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; max-height: 200px; overflow-y: auto;"></div>
+                    </div>
                 </div>
             </div>
             <div style="margin-bottom: 0.75em;">
                 <label style="display: block; margin-bottom: 0.25em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Co-Consecrators</label>
                 <div style="display: flex; gap: 0.5em; margin-bottom: 0.5em;">
-                    <input type="text" name="consecrations[${consecrationCount}][co_consecrators][0][input]" placeholder="Search for co-consecrator..." style="flex: 1; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
-                    <input type="hidden" name="consecrations[${consecrationCount}][co_consecrators][0][id]">
+                    <div style="position: relative; flex: 1;">
+                        <input type="text" name="consecrations[${consecrationCount}][co_consecrators][0][input]" placeholder="Search for co-consecrator..." autocomplete="off" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                        <input type="hidden" name="consecrations[${consecrationCount}][co_consecrators][0][id]">
+                        <div class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 20; display: none; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; max-height: 200px; overflow-y: auto;"></div>
+                    </div>
                     <button type="button" class="add-co-consecrator" style="padding: 0.5em 0.75em; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.8em;">
                         <i class="fas fa-plus" style="margin-right: 0.25em;"></i>Add
                     </button>
@@ -663,6 +683,20 @@ function addConsecration() {
 
     container.insertAdjacentHTML('beforeend', consecrationHtml);
     consecrationCount++;
+    
+    // Initialize autocomplete for the new consecration fields
+    const newConsecrationEntry = container.lastElementChild;
+    if (newConsecrationEntry) {
+        const consecratorInput = newConsecrationEntry.querySelector('input[name*="consecrator_input"]');
+        const coConsecratorInput = newConsecrationEntry.querySelector('input[name*="co_consecrators"][name*="input"]');
+        
+        if (consecratorInput) {
+            initializeSingleClergyAutocomplete(consecratorInput);
+        }
+        if (coConsecratorInput) {
+            initializeSingleClergyAutocomplete(coConsecratorInput);
+        }
+    }
 }
 
 // Add co-consecrator functionality
@@ -682,8 +716,11 @@ function addCoConsecrator(button) {
     
     const coConsecratorHtml = `
         <div class="co-consecrator-item" style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
-            <input type="text" name="consecrations[${index}][co_consecrators][${coConsecratorCount}][input]" placeholder="Search for co-consecrator..." style="flex: 1; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
-            <input type="hidden" name="consecrations[${index}][co_consecrators][${coConsecratorCount}][id]">
+            <div style="position: relative; flex: 1;">
+                <input type="text" name="consecrations[${index}][co_consecrators][${coConsecratorCount}][input]" placeholder="Search for co-consecrator..." autocomplete="off" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                <input type="hidden" name="consecrations[${index}][co_consecrators][${coConsecratorCount}][id]">
+                <div class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 20; display: none; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; max-height: 200px; overflow-y: auto;"></div>
+            </div>
             <button type="button" class="remove-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 100, 100, 0.4); background: rgba(255, 100, 100, 0.08); color: rgba(255, 150, 150, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.75em;">
                 <i class="fas fa-trash"></i>
             </button>
@@ -691,6 +728,15 @@ function addCoConsecrator(button) {
     `;
     
     coConsecratorsList.insertAdjacentHTML('beforeend', coConsecratorHtml);
+    
+    // Initialize autocomplete for the new co-consecrator field
+    const newCoConsecratorItem = coConsecratorsList.lastElementChild;
+    if (newCoConsecratorItem) {
+        const coConsecratorInput = newCoConsecratorItem.querySelector('input[name*="co_consecrators"][name*="input"]');
+        if (coConsecratorInput) {
+            initializeSingleClergyAutocomplete(coConsecratorInput);
+        }
+    }
 }
 
 // Event listeners for add/remove buttons and image upload
@@ -817,5 +863,86 @@ if (!window.clergyFormEventListenersAttached) {
 // Placeholder for organization modal
 function showOrganizationModal() {
     alert('Organization management coming soon...');
+}
+
+// Initialize clergy autocomplete functionality
+function initializeClergyAutocomplete() {
+    console.log('🎯 CONTENT: Initializing clergy autocomplete...');
+    
+    // Find all clergy search input fields
+    const clergyInputs = document.querySelectorAll('input[name*="ordaining_bishop_input"], input[name*="consecrator_input"], input[name*="co_consecrators"][name*="input"]');
+    console.log('🎯 CONTENT: Found clergy inputs:', clergyInputs.length);
+    
+    clergyInputs.forEach((input, index) => {
+        console.log(`🎯 CONTENT: Initializing input ${index + 1}:`, input.name, input.placeholder);
+        initializeSingleClergyAutocomplete(input);
+    });
+}
+
+// Initialize autocomplete for a single input field
+function initializeSingleClergyAutocomplete(input) {
+    if (input.hasAttribute('data-autocomplete-initialized')) {
+        console.log('🎯 CONTENT: Input already initialized:', input.name);
+        return; // Already initialized
+    }
+    
+    const dropdown = input.parentElement.querySelector('.autocomplete-dropdown');
+    if (!dropdown) {
+        console.log('🎯 CONTENT: No dropdown found for input:', input.name, input.parentElement);
+        return;
+    }
+    
+    console.log('🎯 CONTENT: Initializing autocomplete for:', input.name, 'with dropdown:', !!dropdown);
+    input.setAttribute('data-autocomplete-initialized', 'true');
+    
+    input.addEventListener('input', function() {
+        const query = this.value.trim();
+        console.log('🎯 CONTENT: Input event for', this.name, 'query:', query);
+        
+        if (query.length < 2) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        
+        // Use fetch to search for bishops
+        fetch(`/api/search_bishops?q=${encodeURIComponent(query)}`)
+            .then(response => response.text())
+            .then(html => {
+                dropdown.innerHTML = html;
+                dropdown.style.display = 'block';
+                
+                // Attach click handlers
+                const results = dropdown.querySelectorAll('.bishop-search-result');
+                results.forEach(result => {
+                    result.addEventListener('click', function() {
+                        const bishopId = this.dataset.id;
+                        const bishopName = this.dataset.displayName || this.dataset.name;
+                        
+                        input.value = bishopName;
+                        const hiddenInput = input.parentElement.querySelector('input[type="hidden"]');
+                        if (hiddenInput) {
+                            hiddenInput.value = bishopId;
+                        }
+                        
+                        dropdown.style.display = 'none';
+                    });
+                });
+            })
+            .catch(error => {
+                console.error('🎯 CONTENT: Error fetching bishops:', error);
+            });
+    });
+    
+    input.addEventListener('blur', function() {
+        setTimeout(() => {
+            dropdown.style.display = 'none';
+        }, 200);
+    });
+    
+    input.addEventListener('focus', function() {
+        if (this.value.trim().length >= 2) {
+            this.dispatchEvent(new Event('input'));
+        }
+    });
 }
 </script>

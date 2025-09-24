@@ -140,10 +140,6 @@ function refreshStats() {
 }
 
 function showNotification(message, type = 'info') {
-    if (typeof window.showNotification === 'function') {
-        window.showNotification(message, type);
-    } else {
-        console.log(`${type.toUpperCase()}: ${message}`);
-    }
+    console.log(`${type.toUpperCase()}: ${message}`);
 }
 </script>

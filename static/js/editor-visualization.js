@@ -239,29 +239,31 @@ class EditorVisualization {
 window.EditorVisualization = EditorVisualization;
 }
 
-// Global instance
-let editorVisualization = null;
+// Global instance - use window to avoid redeclaration errors
+if (typeof window.editorVisualization === 'undefined') {
+    window.editorVisualization = null;
+}
 
 // Initialize function for use in templates
 function initializeEditorVisualization(nodesData, linksData) {
     console.log('initializeEditorVisualization called with:', nodesData.length, 'nodes,', linksData.length, 'links');
     
     // Cleanup existing instance
-    if (editorVisualization) {
+    if (window.editorVisualization) {
         console.log('Cleaning up existing editor visualization instance');
-        editorVisualization.cleanup();
+        window.editorVisualization.cleanup();
     }
     
     // Create new instance
     console.log('Creating new editor visualization instance');
-    editorVisualization = new EditorVisualization();
-    editorVisualization.init(nodesData, linksData);
+    window.editorVisualization = new EditorVisualization();
+    window.editorVisualization.init(nodesData, linksData);
 }
 
 // Cleanup function for panel reloads
 function cleanupEditorVisualization() {
-    if (editorVisualization) {
-        editorVisualization.cleanup();
-        editorVisualization = null;
+    if (window.editorVisualization) {
+        window.editorVisualization.cleanup();
+        window.editorVisualization = null;
     }
 }

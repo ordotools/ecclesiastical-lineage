@@ -2,7 +2,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from services import clergy as clergy_service
 from services.clergy import permanently_delete_clergy_handler
 from utils import audit_log, require_permission, log_audit_event
-from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog
+from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite
+from datetime import datetime
 import json
 import base64
 
@@ -343,3 +344,442 @@ def permanently_delete_clergy():
         
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error processing request: {str(e)}'})
+
+@editor_bp.route('/editor/settings')
+@require_permission('edit_clergy')
+def settings_panel():
+    """HTMX endpoint for the settings panel"""
+    user = User.query.get(session['user_id']) if 'user_id' in session else None
+    
+    # Filter roles based on user permissions
+    all_roles = Role.query.order_by(Role.name).all()
+    available_roles = []
+    
+    for role in all_roles:
+        # Super Admin can invite anyone
+        if user.is_admin():
+            available_roles.append(role)
+        # Admin can invite anyone except Super Admin
+        elif user.role and user.role.name == 'Admin':
+            if role.name != 'Super Admin':
+                available_roles.append(role)
+        # Regular users cannot invite anyone
+        else:
+            break
+    
+    return render_template('editor_panels/settings.html', 
+                         user=user, 
+                         roles=available_roles)
+
+@editor_bp.route('/editor/settings/change-password', methods=['POST'])
+@require_permission('edit_clergy')
+def change_password():
+    """HTMX endpoint for changing password from settings panel"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'You must be logged in to change your password.'})
+    
+    user = User.query.get(session['user_id'])
+    if not user:
+        return jsonify({'success': False, 'message': 'User not found.'})
+    
+    current_password = request.form.get('current_password')
+    new_password = request.form.get('new_password')
+    confirm_password = request.form.get('confirm_password')
+    
+    # Validate current password
+    if not user.check_password(current_password):
+        return jsonify({'success': False, 'message': 'Current password is incorrect.'})
+    
+    # Check if new password and confirmation match
+    if new_password != confirm_password:
+        return jsonify({'success': False, 'message': 'New password and confirmation do not match.'})
+    
+    # Validate new password strength
+    from utils import validate_password
+    is_valid, message = validate_password(new_password)
+    if not is_valid:
+        return jsonify({'success': False, 'message': f'Password validation failed: {message}'})
+    
+    # Update password
+    user.set_password(new_password)
+    db.session.commit()
+    
+    # Log password change
+    from utils import log_audit_event
+    log_audit_event(
+        action='change_password',
+        entity_type='user',
+        entity_id=user.id,
+        entity_name=user.username,
+        details={'password_changed': True}
+    )
+    
+    return jsonify({'success': True, 'message': 'Password changed successfully!'})
+
+@editor_bp.route('/editor/settings/invite', methods=['POST'])
+@require_permission('manage_users')
+def generate_admin_invite():
+    """HTMX endpoint for generating admin invite from settings panel"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        return jsonify({'success': False, 'message': 'Admin access required.'})
+    
+    user = User.query.get(session['user_id'])
+    
+    # Get form parameters
+    role_id = request.form.get('role_id')
+    expires_in_hours = int(request.form.get('expires_in_hours', 24))
+    max_uses = int(request.form.get('max_uses', 1))
+    
+    if not role_id:
+        return jsonify({'success': False, 'message': 'Please select a role for the invited user.'})
+    
+    # Validate the role exists
+    role = Role.query.get(role_id)
+    if not role:
+        return jsonify({'success': False, 'message': 'Selected role does not exist.'})
+    
+    # Check permissions based on user role
+    if not user.is_admin():
+        # Admin can only invite non-Super Admin roles
+        if role.name == 'Super Admin':
+            return jsonify({'success': False, 'message': 'You do not have permission to invite Super Admin users.'})
+    
+    # Enforce restrictions for admin roles
+    if role.name in ['Super Admin', 'Admin']:
+        expires_in_hours = 24  # Fixed 24 hours for admin roles
+        max_uses = 1  # Fixed 1 use for admin roles
+    else:
+        # Validate parameters for regular roles
+        if expires_in_hours < 1 or expires_in_hours > 168:  # 1 hour to 1 week
+            return jsonify({'success': False, 'message': 'Expiration time must be between 1 and 168 hours.'})
+        
+        if max_uses < 1 or max_uses > 100:  # 1 to 100 uses
+            return jsonify({'success': False, 'message': 'Maximum uses must be between 1 and 100.'})
+    
+    # Generate unique token and expiry
+    from datetime import datetime, timedelta
+    from uuid import uuid4
+    token = str(uuid4())
+    expires_at = datetime.utcnow() + timedelta(hours=expires_in_hours)
+    
+    invite = AdminInvite(
+        token=token, 
+        expires_at=expires_at, 
+        invited_by=session['user_id'], 
+        role_id=role_id,
+        expires_in_hours=expires_in_hours,
+        max_uses=max_uses,
+        current_uses=0
+    )
+    
+    db.session.add(invite)
+    db.session.commit()
+    
+    # Log admin invite generation
+    from utils import log_audit_event
+    log_audit_event(
+        action='generate_invite',
+        entity_type='admin_invite',
+        entity_id=invite.id,
+        entity_name=f"User invite for {token[:8]}...",
+        details={
+            'token': token,
+            'expires_at': expires_at.isoformat(),
+            'invited_by': session['user_id'],
+            'role_id': role_id,
+            'role_name': role.name,
+            'expires_in_hours': expires_in_hours,
+            'max_uses': max_uses
+        }
+    )
+    
+    invite_link = url_for('auth.admin_invite_signup', token=token, _external=True)
+    
+    return jsonify({
+        'success': True, 
+        'message': f'Invite link generated successfully for {role.name} role.',
+        'invite_link': invite_link
+    })
+
+@editor_bp.route('/editor/user-management')
+@require_permission('manage_users')
+def user_management_modal():
+    """HTMX endpoint for user management modal content"""
+    user = User.query.get(session['user_id']) if 'user_id' in session else None
+    users = User.query.order_by(User.username).all()
+    roles = Role.query.order_by(Role.name).all()
+    
+    return render_template('editor_panels/user_management.html', 
+                         user=user, 
+                         users=users, 
+                         roles=roles)
+
+@editor_bp.route('/editor/user-management/add', methods=['POST'])
+@require_permission('manage_users')
+def add_user():
+    """Add a new user"""
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        full_name = data.get('full_name', '').strip()
+        password = data.get('password', '').strip()
+        role_id = data.get('role_id')
+        is_active = data.get('is_active', True)
+        
+        # Validation
+        if not username:
+            return jsonify({'success': False, 'message': 'Username is required'}), 400
+        
+        if not password:
+            return jsonify({'success': False, 'message': 'Password is required'}), 400
+        
+        if not role_id:
+            return jsonify({'success': False, 'message': 'Role is required'}), 400
+        
+        # Check if username already exists
+        if User.query.filter_by(username=username).first():
+            return jsonify({'success': False, 'message': 'Username already exists'}), 400
+        
+        # Check if email already exists (if provided)
+        if email and User.query.filter_by(email=email).first():
+            return jsonify({'success': False, 'message': 'Email already exists'}), 400
+        
+        # Get role
+        role = Role.query.get(role_id)
+        if not role:
+            return jsonify({'success': False, 'message': 'Invalid role'}), 400
+        
+        # Create user
+        new_user = User(
+            username=username,
+            email=email if email else None,
+            full_name=full_name if full_name else None,
+            is_active=is_active
+        )
+        new_user.set_password(password)
+        new_user.role_id = role_id
+        
+        db.session.add(new_user)
+        db.session.commit()
+        
+        # Log audit event
+        log_audit_event(
+            user_id=session['user_id'],
+            action='create',
+            entity_type='user',
+            entity_id=new_user.id,
+            entity_name=new_user.username,
+            details=f'Created user with role: {role.name}'
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': f'User "{username}" created successfully',
+            'user_id': new_user.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error creating user: {str(e)}'}), 500
+
+@editor_bp.route('/editor/user-management/<int:user_id>/edit', methods=['PUT'])
+@require_permission('manage_users')
+def edit_user(user_id):
+    """Edit an existing user"""
+    try:
+        data = request.get_json()
+        user = User.query.get_or_404(user_id)
+        
+        # Don't allow editing the current user's password/role through this interface
+        if user.id == session['user_id']:
+            return jsonify({'success': False, 'message': 'Cannot edit your own account through this interface'}), 400
+        
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        full_name = data.get('full_name', '').strip()
+        password = data.get('password', '').strip()
+        role_id = data.get('role_id')
+        is_active = data.get('is_active', True)
+        
+        # Validation
+        if not username:
+            return jsonify({'success': False, 'message': 'Username is required'}), 400
+        
+        if not role_id:
+            return jsonify({'success': False, 'message': 'Role is required'}), 400
+        
+        # Check if username already exists (excluding current user)
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user and existing_user.id != user_id:
+            return jsonify({'success': False, 'message': 'Username already exists'}), 400
+        
+        # Check if email already exists (excluding current user)
+        if email:
+            existing_email = User.query.filter_by(email=email).first()
+            if existing_email and existing_email.id != user_id:
+                return jsonify({'success': False, 'message': 'Email already exists'}), 400
+        
+        # Get role
+        role = Role.query.get(role_id)
+        if not role:
+            return jsonify({'success': False, 'message': 'Invalid role'}), 400
+        
+        # Update user
+        old_username = user.username
+        user.username = username
+        user.email = email if email else None
+        user.full_name = full_name if full_name else None
+        user.is_active = is_active
+        user.role_id = role_id
+        
+        # Update password if provided
+        if password:
+            user.set_password(password)
+        
+        db.session.commit()
+        
+        # Log audit event
+        log_audit_event(
+            user_id=session['user_id'],
+            action='update',
+            entity_type='user',
+            entity_id=user.id,
+            entity_name=user.username,
+            details=f'Updated user from "{old_username}" to "{username}" with role: {role.name}'
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': f'User "{username}" updated successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error updating user: {str(e)}'}), 500
+
+@editor_bp.route('/editor/user-management/<int:user_id>')
+@require_permission('manage_users')
+def get_user(user_id):
+    """Get user data for editing"""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        return jsonify({
+            'success': True,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'full_name': user.full_name,
+                'role_id': user.role_id,
+                'is_active': user.is_active
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error loading user: {str(e)}'}), 500
+
+@editor_bp.route('/editor/user-management/<int:user_id>/delete', methods=['DELETE'])
+@require_permission('manage_users')
+def delete_user(user_id):
+    """Delete a user"""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Don't allow deleting the current user
+        if user.id == session['user_id']:
+            return jsonify({'success': False, 'message': 'Cannot delete your own account'}), 400
+        
+        # Don't allow deleting the last Super Admin
+        if user.role and user.role.name == 'Super Admin':
+            super_admin_count = User.query.join(Role).filter(Role.name == 'Super Admin').count()
+            if super_admin_count <= 1:
+                return jsonify({'success': False, 'message': 'Cannot delete the last Super Admin'}), 400
+        
+        username = user.username
+        user_id_for_log = user.id
+        
+        db.session.delete(user)
+        db.session.commit()
+        
+        # Log audit event
+        log_audit_event(
+            user_id=session['user_id'],
+            action='delete',
+            entity_type='user',
+            entity_id=user_id_for_log,
+            entity_name=username,
+            details=f'Deleted user "{username}"'
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': f'User "{username}" deleted successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error deleting user: {str(e)}'}), 500
+
+@editor_bp.route('/editor/metadata-management')
+@require_permission('manage_metadata')
+def metadata_management_modal():
+    """HTMX endpoint for metadata management modal content"""
+    ranks = Rank.query.order_by(Rank.name).all()
+    organizations = Organization.query.order_by(Organization.name).all()
+    
+    return render_template('editor_panels/metadata_management.html', 
+                         ranks=ranks, 
+                         organizations=organizations)
+
+@editor_bp.route('/editor/comments-management')
+@require_permission('view_comments')
+def comments_management_modal():
+    """HTMX endpoint for comments management modal content"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 25
+    
+    comments = ClergyComment.query.order_by(ClergyComment.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    return render_template('editor_panels/comments_management.html', 
+                         comments=comments)
+
+@editor_bp.route('/editor/audit-logs-management')
+@require_permission('view_audit_logs')
+def audit_logs_management_modal():
+    """HTMX endpoint for audit logs management modal content"""
+    page = request.args.get('page', 1, type=int)
+    action_filter = request.args.get('action', '')
+    entity_type_filter = request.args.get('entity_type', '')
+    user_filter = request.args.get('user', '')
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    
+    # Build query
+    query = AuditLog.query
+    
+    if action_filter:
+        query = query.filter(AuditLog.action == action_filter)
+    if entity_type_filter:
+        query = query.filter(AuditLog.entity_type == entity_type_filter)
+    if user_filter:
+        query = query.join(User).filter(User.username == user_filter)
+    if date_from:
+        query = query.filter(AuditLog.created_at >= datetime.strptime(date_from, '%Y-%m-%d'))
+    if date_to:
+        query = query.filter(AuditLog.created_at <= datetime.strptime(date_to, '%Y-%m-%d'))
+    
+    audit_logs = query.order_by(AuditLog.created_at.desc()).paginate(
+        page=page, per_page=50, error_out=False
+    )
+    
+    return render_template('editor_panels/audit_logs_management.html', 
+                         audit_logs=audit_logs,
+                         action_filter=action_filter,
+                         entity_type_filter=entity_type_filter,
+                         user_filter=user_filter,
+                         date_from=date_from,
+                         date_to=date_to)

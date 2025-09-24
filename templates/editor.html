@@ -28,8 +28,8 @@
 
         .editor-container {
             display: grid;
-            grid-template-columns: 350px 1fr 400px;
-            grid-template-rows: 1fr 300px;
+            grid-template-columns: minmax(200px, 400px) 1fr minmax(250px, 500px);
+            grid-template-rows: 1fr minmax(200px, 500px);
             grid-template-areas:
                 "left-panel center-panel right-panel"
                 "left-panel bottom-panel bottom-panel";
@@ -144,16 +144,16 @@
         /* Position resize handles - initial positions, JavaScript will update these */
         #left-resizer {
             top: 0;
-            left: 350px;
+            left: 300px;
             margin-left: -2px;
-            height: calc(100vh - 300px); /* Initial height, JS will update dynamically */
+            height: calc(100vh - 300px);
         }
 
         #right-resizer {
             top: 0;
-            right: 400px;
+            right: 350px;
             margin-right: -2px;
-            height: calc(100vh - 300px); /* Initial height, JS will update dynamically */
+            height: calc(100vh - 300px);
         }
 
         #bottom-resizer {
@@ -245,14 +245,14 @@
         /* Responsive design */
         @media (max-width: 1400px) {
             .editor-container {
-                grid-template-columns: 300px 1fr 350px;
+                grid-template-columns: minmax(180px, 350px) 1fr minmax(220px, 450px);
             }
         }
 
         @media (max-width: 1200px) {
             .editor-container {
-                grid-template-columns: 250px 1fr 300px;
-                grid-template-rows: 1fr 250px;
+                grid-template-columns: minmax(150px, 300px) 1fr minmax(200px, 400px);
+                grid-template-rows: 1fr minmax(150px, 400px);
             }
         }
 
@@ -596,6 +596,10 @@
                     <i class="fas fa-chart-bar"></i>
                     Statistics
                 </button>
+                <button class="bottom-tab" data-tab="settings">
+                    <i class="fas fa-user-cog"></i>
+                    Settings
+                </button>
             </div>
             
             <div class="bottom-tab-content active" id="metadata-content"
@@ -617,6 +621,17 @@
                 <div class="loading-placeholder">
                     <div class="loading-spinner"></div>
                     Loading statistics...
+                </div>
+            </div>
+            
+            <div class="bottom-tab-content" id="settings-content"
+                 hx-get="/editor/settings"
+                 hx-trigger="revealed"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading settings...
                 </div>
             </div>
         </div>
@@ -801,5 +816,287 @@
     </script>
 
     {% block extra_scripts %}{% endblock %}
+
+    <!-- Management Modals -->
+    <div id="user-management-modal" class="management-modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeUserManagementModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-users"></i> User Management</h3>
+                <button class="modal-close" onclick="closeUserManagementModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="user-management-content">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading user management...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="metadata-management-modal" class="management-modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeMetadataManagementModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-cogs"></i> Metadata Management</h3>
+                <button class="modal-close" onclick="closeMetadataManagementModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="metadata-management-content">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading metadata management...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="comments-management-modal" class="management-modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeCommentsManagementModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-comments"></i> Comments Management</h3>
+                <button class="modal-close" onclick="closeCommentsManagementModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="comments-management-content">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading comments management...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="audit-logs-modal" class="management-modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeAuditLogsModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-history"></i> Audit Logs</h3>
+                <button class="modal-close" onclick="closeAuditLogsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="audit-logs-content">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading audit logs...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Management Modals */
+        .management-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .modal-content {
+            position: relative;
+            background: rgba(0, 0, 0, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            width: 95vw;
+            max-width: 1400px;
+            height: 90vh;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1.2em;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            height: calc(90vh - 80px);
+            overflow-y: auto;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Modal scrollbar styling */
+        .modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .loading-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+
+    <script>
+        // Modal management functions
+        function openUserManagementModal() {
+            const modal = document.getElementById('user-management-modal');
+            const content = document.getElementById('user-management-content');
+
+            modal.style.display = 'flex';
+            content.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading user management...</div>';
+
+            // Load user management content via HTMX
+            htmx.ajax('GET', '/editor/user-management', {
+                target: content,
+                swap: 'innerHTML'
+            });
+        }
+
+        function closeUserManagementModal() {
+            document.getElementById('user-management-modal').style.display = 'none';
+        }
+
+        function openMetadataManagementModal() {
+            const modal = document.getElementById('metadata-management-modal');
+            const content = document.getElementById('metadata-management-content');
+
+            modal.style.display = 'flex';
+            content.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading metadata management...</div>';
+
+            // Load metadata management content via HTMX
+            htmx.ajax('GET', '/editor/metadata-management', {
+                target: content,
+                swap: 'innerHTML'
+            });
+        }
+
+        function closeMetadataManagementModal() {
+            document.getElementById('metadata-management-modal').style.display = 'none';
+        }
+
+        function openCommentsManagementModal() {
+            const modal = document.getElementById('comments-management-modal');
+            const content = document.getElementById('comments-management-content');
+
+            modal.style.display = 'flex';
+            content.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading comments management...</div>';
+
+            // Load comments management content via HTMX
+            htmx.ajax('GET', '/editor/comments-management', {
+                target: content,
+                swap: 'innerHTML'
+            });
+        }
+
+        function closeCommentsManagementModal() {
+            document.getElementById('comments-management-modal').style.display = 'none';
+        }
+
+        function openAuditLogsModal() {
+            const modal = document.getElementById('audit-logs-modal');
+            const content = document.getElementById('audit-logs-content');
+
+            modal.style.display = 'flex';
+            content.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading audit logs...</div>';
+
+            // Load audit logs content via HTMX
+            htmx.ajax('GET', '/editor/audit-logs-management', {
+                target: content,
+                swap: 'innerHTML'
+            });
+        }
+
+        function closeAuditLogsModal() {
+            document.getElementById('audit-logs-modal').style.display = 'none';
+        }
+
+        // Close modals with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeUserManagementModal();
+                closeMetadataManagementModal();
+                closeCommentsManagementModal();
+                closeAuditLogsModal();
+            }
+        });
+    </script>
 </body>
 </html>

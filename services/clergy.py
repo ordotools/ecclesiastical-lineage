@@ -351,7 +351,7 @@ def add_clergy_handler():
                 request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
             )
             if is_ajax:
-                return clergy, jsonify({'success': True, 'message': 'Clergy record added successfully!'})
+                return clergy, jsonify({'success': True, 'message': 'Clergy record added successfully!', 'clergy_id': clergy.id})
             
             flash('Clergy record added successfully!', 'success')
             return clergy, redirect(url_for('clergy.clergy_list'))
@@ -597,7 +597,7 @@ def edit_clergy_handler(clergy_id):
                     return response
                 else:
                     # For regular AJAX requests, return JSON
-                    return jsonify({'success': True, 'message': 'Clergy record updated successfully!'})
+                    return jsonify({'success': True, 'message': 'Clergy record updated successfully!', 'clergy_id': clergy.id})
             except Exception as e:
                 db.session.rollback()
                 return jsonify({'success': False, 'message': str(e)}), 400

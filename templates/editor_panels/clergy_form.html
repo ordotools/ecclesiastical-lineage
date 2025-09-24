@@ -287,13 +287,17 @@ document.addEventListener('DOMContentLoaded', function() {
 // Prevent duplicate event listeners
 if (!window.clergyFormHandlerAttached) {
     window.clergyFormHandlerAttached = true;
-    document.addEventListener('submit', function(e) {
+    console.log('Attaching form submit event listener to document.body');
+    document.body.addEventListener('submit', function(e) {
+        console.log('Form submit event detected:', e.target);
         // Check if this is our clergy form (loaded via HTMX)
         if (e.target && e.target.id === 'clergyForm') {
             e.preventDefault();
-            console.log('HTMX-loaded clergy form submitted');
+            console.log('HTMX-loaded clergy form submitted - preventing default');
         
         const form = e.target;
+        console.log('Form action URL:', form.action);
+        console.log('Form method:', form.method);
         const formData = new FormData(form);
         const submitBtn = form.querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;
@@ -310,8 +314,16 @@ if (!window.clergyFormHandlerAttached) {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Raw response status:', response.status);
+            console.log('Raw response headers:', response.headers);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Form save response:', data);
             if (data.success) {
                 // Success - refresh panels smoothly
                 console.log('Form saved successfully');
@@ -322,19 +334,73 @@ if (!window.clergyFormHandlerAttached) {
                     swap: 'innerHTML'
                 });
                 
-                // Instant visualization refresh
-                htmx.ajax('GET', '/editor/visualization', {
-                    target: '.center-panel .panel-content',
-                    swap: 'innerHTML'
-                });
-                
-                // If we have a clergy ID from the response, refresh the form instantly
-                if (data.clergy_id) {
-                    refreshClergyForm(data.clergy_id);
+                // Instant visualization refresh (will be done after specific actions)
+                console.log('Refreshing visualization after form save...');
+                console.log('HTMX available:', typeof htmx !== 'undefined');
+                const visualizationTarget = document.querySelector('.center-panel .panel-content');
+                console.log('Visualization target found:', !!visualizationTarget);
+                if (visualizationTarget && typeof htmx !== 'undefined') {
+                    htmx.ajax('GET', '/editor/visualization', {
+                        target: '.center-panel .panel-content',
+                        swap: 'innerHTML'
+                    }).then(() => {
+                        console.log('Visualization refresh completed');
+                    }).catch(error => {
+                        console.error('Visualization refresh failed:', error);
+                    });
+                } else {
+                    console.error('Visualization target not found or HTMX not available!', {
+                        target: !!visualizationTarget,
+                        htmx: typeof htmx !== 'undefined'
+                    });
                 }
                 
-                // Show success message
-                showNotification('Clergy record saved successfully!', 'success');
+                // Check if the record was marked for deletion
+                const markDeletedCheckbox = form.querySelector('input[name="mark_deleted"]');
+                const wasMarkedDeleted = markDeletedCheckbox && markDeletedCheckbox.checked;
+                console.log('Deletion checkbox found:', !!markDeletedCheckbox);
+                console.log('Deletion checkbox checked:', wasMarkedDeleted);
+                console.log('Response clergy_id:', data.clergy_id);
+                
+                if (wasMarkedDeleted) {
+                    // Record was marked for deletion - clear form and switch to add mode
+                    console.log('Record was marked for deletion, clearing form for new entry');
+                    clearFormForNewEntry();
+                    
+                    // Additional visualization refresh specifically for deletion
+                    console.log('Additional visualization refresh for deletion...');
+                    setTimeout(() => {
+                        const visualizationTarget = document.querySelector('.center-panel .panel-content');
+                        console.log('Deletion visualization target found:', !!visualizationTarget);
+                        console.log('HTMX available for deletion refresh:', typeof htmx !== 'undefined');
+                        if (visualizationTarget && typeof htmx !== 'undefined') {
+                            htmx.ajax('GET', '/editor/visualization', {
+                                target: '.center-panel .panel-content',
+                                swap: 'innerHTML'
+                            }).then(() => {
+                                console.log('Deletion visualization refresh completed');
+                            }).catch(error => {
+                                console.error('Deletion visualization refresh failed:', error);
+                            });
+                        } else {
+                            console.error('Deletion visualization target not found or HTMX not available!', {
+                                target: !!visualizationTarget,
+                                htmx: typeof htmx !== 'undefined'
+                            });
+                        }
+                    }, 500); // Small delay to ensure the deletion is processed
+                    
+                    showNotification('Record marked for deletion. Form cleared for new entry.', 'info');
+                } else if (data.clergy_id) {
+                    // Normal save - switch to edit mode and refresh the form
+                    console.log('Switching to edit mode for clergy ID:', data.clergy_id);
+                    switchToEditMode(data.clergy_id);
+                    showNotification('Clergy record saved successfully!', 'success');
+                } else {
+                    // Fallback - just show success message
+                    console.log('No clergy_id in response, showing generic success message');
+                    showNotification('Clergy record saved successfully!', 'success');
+                }
                 
             } else {
                 throw new Error(data.message || 'Failed to save clergy record');
@@ -342,7 +408,12 @@ if (!window.clergyFormHandlerAttached) {
         })
         .catch(error => {
             console.error('Form submission error:', error);
-            showNotification('Error saving record: ' + error.message, 'error');
+            if (error instanceof SyntaxError) {
+                console.error('JSON parsing error - response was not valid JSON');
+                showNotification('Error: Server returned invalid response', 'error');
+            } else {
+                showNotification('Error saving record: ' + error.message, 'error');
+            }
         })
         .finally(() => {
             // Reset button
@@ -377,6 +448,42 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
     }
 });
 
+// Switch form to edit mode after saving a new clergy record
+function switchToEditMode(clergyId) {
+    console.log('🔄 switchToEditMode called with clergy ID:', clergyId);
+    
+    // Use the same mechanism as selecting a clergy member for editing
+    // This will trigger the proper HTMX request to load the edit form
+    if (typeof selectClergy === 'function') {
+        selectClergy(clergyId);
+    } else {
+        console.error('🔄 selectClergy function not found, falling back to manual approach');
+        // Fallback: manually trigger the HTMX request
+        htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
+            target: '.right-panel .panel-content',
+            swap: 'innerHTML'
+        });
+    }
+}
+
+// Clear form and switch to add mode after deletion
+function clearFormForNewEntry() {
+    console.log('🔄 clearFormForNewEntry called - triggering selectClergy(null)');
+    
+    // Use the same mechanism as the "Add New Clergy" button
+    // This will trigger the proper HTMX request to load the empty form
+    if (typeof selectClergy === 'function') {
+        selectClergy(null);
+    } else {
+        console.error('🔄 selectClergy function not found, falling back to manual approach');
+        // Fallback: manually trigger the HTMX request
+        htmx.ajax('GET', '/editor/clergy-form', {
+            target: '.right-panel .panel-content',
+            swap: 'innerHTML'
+        });
+    }
+}
+
 // Simple instant refresh function
 function refreshClergyForm(clergyId = null) {
     const container = document.querySelector('#clergyFormContainer .form-content-loader');
@@ -393,8 +500,49 @@ function refreshClergyForm(clergyId = null) {
     });
 }
 
-// Make refresh function globally available
+// Make functions globally available
 window.refreshClergyFormSmooth = refreshClergyForm;
+window.switchToEditMode = switchToEditMode;
+window.clearFormForNewEntry = clearFormForNewEntry;
+
+// Add test functions for debugging
+window.testSwitchToEditMode = function() {
+    console.log('Testing switchToEditMode with ID 1');
+    switchToEditMode(1);
+};
+
+window.testClearFormForNewEntry = function() {
+    console.log('Testing clearFormForNewEntry');
+    clearFormForNewEntry();
+};
+
+window.testVisualizationRefresh = function() {
+    console.log('Testing visualization refresh...');
+    console.log('HTMX available:', typeof htmx !== 'undefined');
+    const visualizationTarget = document.querySelector('.center-panel .panel-content');
+    console.log('Visualization target found:', !!visualizationTarget);
+    if (visualizationTarget && typeof htmx !== 'undefined') {
+        htmx.ajax('GET', '/editor/visualization', {
+            target: '.center-panel .panel-content',
+            swap: 'innerHTML'
+        }).then(() => {
+            console.log('Test visualization refresh completed');
+        }).catch(error => {
+            console.error('Test visualization refresh failed:', error);
+        });
+    } else {
+        console.error('Test visualization target not found or HTMX not available!', {
+            target: !!visualizationTarget,
+            htmx: typeof htmx !== 'undefined'
+        });
+    }
+};
+
+console.log('Form functions available:', {
+    refreshClergyFormSmooth: typeof window.refreshClergyFormSmooth,
+    switchToEditMode: typeof window.switchToEditMode,
+    clearFormForNewEntry: typeof window.clearFormForNewEntry
+});
 
 // Simple instant notification system
 function showNotification(message, type = 'info') {

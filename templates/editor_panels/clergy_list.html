@@ -1,5 +1,8 @@
-<!-- Clergy List Panel Content -->
-<div style="padding: 1em;">
+<!-- Clergy List Panel Content with Internal Grid -->
+<div class="clergy-panel-container">
+    <!-- Top Section: Clergy List -->
+    <div class="clergy-list-section">
+        <div style="padding: 1em;">
     <!-- Search and Filter -->
     <div style="margin-bottom: 1em;">
         <div style="margin-bottom: 0.75em;">
@@ -152,6 +155,47 @@
         </button>
     </div>
     {% endif %}
+        </div>
+    </div>
+    
+    <!-- Internal Resize Handle -->
+    <div class="internal-resize-handle" id="clergy-internal-resizer"></div>
+    
+    <!-- Bottom Section: Tabs -->
+    <div class="clergy-tabs-section">
+        <div class="clergy-tabs">
+            <button class="clergy-tab active" data-tab="audit-logs">
+                <i class="fas fa-history"></i>
+                Audit Logs
+            </button>
+            <button class="clergy-tab" data-tab="comments">
+                <i class="fas fa-comments"></i>
+                Comments
+            </button>
+        </div>
+        
+        <div class="clergy-tab-content active" id="clergy-audit-logs-content"
+             hx-get="/editor/audit-logs"
+             hx-trigger="load"
+             hx-target="this"
+             hx-swap="innerHTML">
+            <div class="loading-placeholder">
+                <div class="loading-spinner"></div>
+                Loading audit logs...
+            </div>
+        </div>
+        
+        <div class="clergy-tab-content" id="clergy-comments-content"
+             hx-get="/editor/comments"
+             hx-trigger="revealed"
+             hx-target="this"
+             hx-swap="innerHTML">
+            <div class="loading-placeholder">
+                <div class="loading-spinner"></div>
+                Loading comments...
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -449,4 +493,116 @@ if (document.readyState === 'loading') {
 
 // Also try after a short delay in case HTMX is still loading content
 setTimeout(initializeClergyList, 100);
+
+// Internal panel resizing functionality
+class ClergyPanelResizer {
+    constructor() {
+        this.isResizing = false;
+        this.startY = 0;
+        this.startHeight = 0;
+        this.init();
+    }
+
+    init() {
+        const resizer = document.getElementById('clergy-internal-resizer');
+        if (!resizer) return;
+
+        resizer.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        document.addEventListener('mouseup', () => this.handleMouseUp());
+    }
+
+    handleMouseDown(e) {
+        this.isResizing = true;
+        this.startY = e.clientY;
+        
+        const container = document.querySelector('.clergy-panel-container');
+        if (!container) return;
+        
+        // Store initial heights
+        const listSection = document.querySelector('.clergy-list-section');
+        const tabsSection = document.querySelector('.clergy-tabs-section');
+        
+        if (listSection && tabsSection) {
+            this.startListHeight = listSection.offsetHeight;
+            this.startTabsHeight = tabsSection.offsetHeight;
+        }
+        
+        document.body.style.cursor = 'row-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    }
+
+    handleMouseMove(e) {
+        if (!this.isResizing) return;
+        
+        const deltaY = e.clientY - this.startY;
+        const container = document.querySelector('.clergy-panel-container');
+        if (!container) return;
+        
+        const containerHeight = container.offsetHeight;
+        const availableHeight = containerHeight - 4; // Subtract resize handle height
+        const minListHeight = 150; // Minimum height for clergy list
+        const minTabsHeight = 100; // Minimum height for tabs
+        
+        // Calculate new heights
+        let newListHeight = this.startListHeight + deltaY;
+        let newTabsHeight = this.startTabsHeight - deltaY;
+        
+        // Apply constraints
+        if (newListHeight < minListHeight) {
+            newListHeight = minListHeight;
+            newTabsHeight = availableHeight - minListHeight;
+        } else if (newTabsHeight < minTabsHeight) {
+            newTabsHeight = minTabsHeight;
+            newListHeight = availableHeight - minTabsHeight;
+        }
+        
+        // Apply the new layout with fixed resize handle height
+        const listRatio = newListHeight / (containerHeight - 4);
+        const tabsRatio = newTabsHeight / (containerHeight - 4);
+        
+        container.style.gridTemplateRows = `${listRatio}fr 4px ${tabsRatio}fr`;
+        
+        e.preventDefault();
+    }
+
+    handleMouseUp() {
+        if (!this.isResizing) return;
+        
+        this.isResizing = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    }
+}
+
+// Initialize clergy panel resizer
+new ClergyPanelResizer();
+
+// Clergy panel tab switching
+document.addEventListener('DOMContentLoaded', function() {
+    const clergyTabs = document.querySelectorAll('.clergy-tab');
+    const clergyTabContents = document.querySelectorAll('.clergy-tab-content');
+
+    clergyTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const targetTab = this.dataset.tab;
+
+            // Remove active class from all tabs and contents
+            clergyTabs.forEach(t => t.classList.remove('active'));
+            clergyTabContents.forEach(content => content.classList.remove('active'));
+
+            // Add active class to clicked tab and corresponding content
+            this.classList.add('active');
+            const targetContent = document.getElementById('clergy-' + targetTab + '-content');
+            if (targetContent) {
+                targetContent.classList.add('active');
+                // Trigger HTMX load if not loaded yet
+                if (targetContent.getAttribute('hx-trigger') === 'revealed') {
+                    htmx.trigger(targetContent, 'revealed');
+                }
+            }
+        });
+    });
+});
 </script>

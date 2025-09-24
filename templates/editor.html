@@ -32,7 +32,7 @@
             grid-template-rows: 1fr 300px;
             grid-template-areas:
                 "left-panel center-panel right-panel"
-                "bottom-panel bottom-panel bottom-panel";
+                "left-panel bottom-panel bottom-panel";
             height: 100vh;
             gap: 1px;
             background: rgba(255, 255, 255, 0.1);
@@ -157,8 +157,6 @@
         }
 
         #bottom-resizer {
-            bottom: 300px;
-            left: 0;
             margin-bottom: -2px;
         }
 
@@ -344,6 +342,108 @@
             font-size: 0.75em !important;
             color: #666 !important;
         }
+
+        /* Clergy Panel Internal Layout */
+        .clergy-panel-container {
+            display: grid;
+            grid-template-rows: 2fr 4px 1fr;
+            height: 100%;
+            gap: 0;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .clergy-list-section {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .clergy-tabs-section {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .internal-resize-handle {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: row-resize;
+            transition: background-color 0.2s ease;
+            flex-shrink: 0;
+            margin-top: -2px;
+            margin-bottom: -2px;
+        }
+
+        .internal-resize-handle:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Clergy Panel Tabs */
+        .clergy-tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+
+        .clergy-tab {
+            padding: 0.5em 1em;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border-bottom: 2px solid transparent;
+            flex: 1;
+        }
+
+        .clergy-tab:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .clergy-tab.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-bottom-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .clergy-tab-content {
+            display: none;
+            flex: 1;
+            padding: 0.75em;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .clergy-tab-content.active {
+            display: block;
+        }
+
+        /* Clergy tab scrollbar styling */
+        .clergy-tab-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .clergy-tab-content::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .clergy-tab-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        .clergy-tab-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
     </style>
     {% block extra_styles %}{% endblock %}
 </head>
@@ -403,20 +503,12 @@
             </div>
         </div>
 
-        <!-- Bottom Panel: Tabs -->
+        <!-- Bottom Panel: Metadata and Statistics -->
         <div class="panel bottom-panel">
             <div class="bottom-tabs">
-                <button class="bottom-tab active" data-tab="audit-logs">
-                    <i class="fas fa-history"></i>
-                    Audit Logs
-                </button>
-                <button class="bottom-tab" data-tab="metadata">
+                <button class="bottom-tab active" data-tab="metadata">
                     <i class="fas fa-cogs"></i>
                     Metadata
-                </button>
-                <button class="bottom-tab" data-tab="comments">
-                    <i class="fas fa-comments"></i>
-                    Comments
                 </button>
                 <button class="bottom-tab" data-tab="statistics">
                     <i class="fas fa-chart-bar"></i>
@@ -424,36 +516,14 @@
                 </button>
             </div>
             
-            <div class="bottom-tab-content active" id="audit-logs-content"
-                 hx-get="/editor/audit-logs"
+            <div class="bottom-tab-content active" id="metadata-content"
+                 hx-get="/editor/metadata"
                  hx-trigger="load"
                  hx-target="this"
                  hx-swap="innerHTML">
                 <div class="loading-placeholder">
                     <div class="loading-spinner"></div>
-                    Loading audit logs...
-                </div>
-            </div>
-            
-            <div class="bottom-tab-content" id="metadata-content"
-                 hx-get="/editor/metadata"
-                 hx-trigger="revealed"
-                 hx-target="this"
-                 hx-swap="innerHTML">
-                <div class="loading-placeholder">
-                    <div class="loading-spinner"></div>
                     Loading metadata...
-                </div>
-            </div>
-            
-            <div class="bottom-tab-content" id="comments-content"
-                 hx-get="/editor/comments"
-                 hx-trigger="revealed"
-                 hx-target="this"
-                 hx-swap="innerHTML">
-                <div class="loading-placeholder">
-                    <div class="loading-spinner"></div>
-                    Loading comments...
                 </div>
             </div>
             
@@ -471,18 +541,18 @@
     </div>
 
     <script>
-        // Tab switching functionality
+        // Bottom panel tab switching functionality
         document.addEventListener('DOMContentLoaded', function() {
-            const tabs = document.querySelectorAll('.bottom-tab');
-            const tabContents = document.querySelectorAll('.bottom-tab-content');
+            const bottomTabs = document.querySelectorAll('.bottom-tab');
+            const bottomTabContents = document.querySelectorAll('.bottom-tab-content');
 
-            tabs.forEach(tab => {
+            bottomTabs.forEach(tab => {
                 tab.addEventListener('click', function() {
                     const targetTab = this.dataset.tab;
 
                     // Remove active class from all tabs and contents
-                    tabs.forEach(t => t.classList.remove('active'));
-                    tabContents.forEach(content => content.classList.remove('active'));
+                    bottomTabs.forEach(t => t.classList.remove('active'));
+                    bottomTabContents.forEach(content => content.classList.remove('active'));
 
                     // Add active class to clicked tab and corresponding content
                     this.classList.add('active');

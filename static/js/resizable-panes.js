@@ -151,6 +151,13 @@ class ResizablePanes {
                 this.currentResizer.style.height = `${newHeight}px`;
             }
             
+            // Update bottom resizer position and width to match new left panel width
+            const bottomResizer = document.getElementById('bottom-resizer');
+            if (bottomResizer) {
+                bottomResizer.style.left = `${newLeftWidth}px`;
+                bottomResizer.style.width = `${container.offsetWidth - newLeftWidth}px`;
+            }
+            
         } else if (this.currentResizer.id === 'right-resizer') {
             // Resizing between center and right panels
             const newRightWidth = Math.max(250, Math.min(600, this.startRightWidth - deltaX));
@@ -169,6 +176,13 @@ class ResizablePanes {
             if (bottomPanel) {
                 const newHeight = container.offsetHeight - bottomPanel.offsetHeight;
                 this.currentResizer.style.height = `${newHeight}px`;
+            }
+            
+            // Update bottom resizer width to account for new right panel width
+            const bottomResizer = document.getElementById('bottom-resizer');
+            const currentLeftPanel = document.querySelector('.left-panel');
+            if (bottomResizer && currentLeftPanel) {
+                bottomResizer.style.width = `${container.offsetWidth - currentLeftPanel.offsetWidth}px`;
             }
         }
     }
@@ -306,6 +320,8 @@ class ResizablePanes {
         
         if (bottomResizer) {
             bottomResizer.style.bottom = `${bottomHeight}px`;
+            bottomResizer.style.left = `${leftWidth}px`;
+            bottomResizer.style.width = `${container.offsetWidth - leftWidth}px`;
         }
     }
 

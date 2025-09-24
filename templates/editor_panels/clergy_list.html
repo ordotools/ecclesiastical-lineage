@@ -2,34 +2,33 @@
 <div style="padding: 1em;">
     <!-- Search and Filter -->
     <div style="margin-bottom: 1em;">
-        <form hx-get="/editor/clergy-list" hx-target=".left-panel .panel-content" hx-swap="innerHTML" style="margin-bottom: 0.75em;">
+        <div style="margin-bottom: 0.75em;">
             <div style="position: relative;">
-                <input type="text" name="search" value="{{ search or '' }}" 
+                <input type="text" id="clergySearchInput" value="{{ search or '' }}" 
                        placeholder="Search clergy..." 
                        style="width: 100%; padding: 0.5em 2em 0.5em 0.75em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; font-size: 0.9em;">
-                <button type="submit" style="position: absolute; right: 0.5em; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255, 255, 255, 0.6); cursor: pointer;">
-                    <i class="fas fa-search"></i>
+                <button type="button" id="clearSearchBtn" style="position: absolute; right: 0.5em; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255, 255, 255, 0.6); cursor: pointer; display: none;">
+                    <i class="fas fa-times"></i>
                 </button>
             </div>
             
             <!-- Quick Filters -->
             <div style="margin-top: 0.5em; font-size: 0.8em;">
                 <label style="display: inline-flex; align-items: center; margin-right: 1em; color: rgba(255, 255, 255, 0.8);">
-                    <input type="checkbox" name="exclude_priests" value="1" {% if exclude_priests %}checked{% endif %} 
-                           style="margin-right: 0.25em;" onchange="this.form.requestSubmit()">
+                    <input type="checkbox" id="excludePriests" 
+                           style="margin-right: 0.25em;" onchange="applyFilters()">
                     Hide Priests
                 </label>
                 <label style="display: inline-flex; align-items: center; margin-right: 1em; color: rgba(255, 255, 255, 0.8);">
-                    <input type="checkbox" name="show_deleted" value="1" {% if show_deleted %}checked{% endif %} 
-                           style="margin-right: 0.25em;" onchange="this.form.requestSubmit()">
+                    <input type="checkbox" id="showDeleted" 
+                           style="margin-right: 0.25em;" onchange="applyFilters()">
                     Show Deleted
                 </label>
             </div>
-        </form>
+        </div>
     </div>
 
-    <!-- Bulk Actions (only shown when showing deleted records) -->
-    {% if show_deleted %}
+    <!-- Bulk Actions (shown when showing deleted records) -->
     <div id="bulk-actions" style="margin-bottom: 1em; padding: 0.5em; background: rgba(255, 0, 0, 0.1); border: 1px solid rgba(255, 0, 0, 0.3); border-radius: 4px; display: none;">
         <div style="display: flex; align-items: center; justify-content: space-between;">
             <div style="display: flex; align-items: center; gap: 0.75em;">
@@ -53,13 +52,18 @@
             </div>
         </div>
     </div>
-    {% endif %}
 
     <!-- Clergy List -->
-    <div style="max-height: calc(100vh - 200px); overflow-y: auto;">
+    <div id="clergyListContainer" style="max-height: calc(100vh - 200px); overflow-y: auto;">
         {% for clergy in clergy_list %}
         <div class="clergy-item" 
              data-clergy-id="{{ clergy.id }}"
+             data-name="{{ clergy.name }}"
+             data-rank="{{ clergy.rank }}"
+             data-organization="{{ clergy.organization or '' }}"
+             data-is-deleted="{{ clergy.is_deleted|lower }}"
+             data-has-ordinations="{{ (clergy.ordinations|length > 0)|lower }}"
+             data-has-consecrations="{{ (clergy.consecrations|length > 0)|lower }}"
              onclick="selectClergy({{ clergy.id }})"
              style="display: flex; align-items: center; padding: 0.75em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; cursor: pointer; transition: all 0.2s ease; {% if clergy.is_deleted %}opacity: 0.6; border-left: 4px solid rgba(255, 0, 0, 0.5);{% endif %}"
              onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
@@ -121,7 +125,7 @@
         {% endfor %}
         
         {% if not clergy_list %}
-        <div style="text-align: center; padding: 2em; color: rgba(255, 255, 255, 0.6);">
+        <div id="noResultsMessage" style="text-align: center; padding: 2em; color: rgba(255, 255, 255, 0.6);">
             {% if show_deleted %}
             <i class="fas fa-trash" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.5;"></i>
             <div>No deleted clergy records found</div>
@@ -151,6 +155,108 @@
 </div>
 
 <script>
+// Store all clergy data for client-side filtering
+let allClergyData = [];
+
+// Initialize clergy data from DOM
+function initializeClergyData() {
+    allClergyData = Array.from(document.querySelectorAll('.clergy-item')).map(item => ({
+        id: parseInt(item.dataset.clergyId),
+        name: item.dataset.name,
+        rank: item.dataset.rank,
+        organization: item.dataset.organization,
+        isDeleted: item.dataset.isDeleted === 'true',
+        hasOrdinations: item.dataset.hasOrdinations === 'true',
+        hasConsecrations: item.dataset.hasConsecrations === 'true',
+        element: item
+    }));
+}
+
+// Fuzzy search and filter function
+function applyFilters() {
+    const searchTerm = document.getElementById('clergySearchInput').value.trim();
+    const excludePriests = document.getElementById('excludePriests').checked;
+    const showDeleted = document.getElementById('showDeleted').checked;
+    const clearBtn = document.getElementById('clearSearchBtn');
+    const noResultsMessage = document.getElementById('noResultsMessage');
+    const bulkActions = document.getElementById('bulk-actions');
+    
+    // Show/hide clear button
+    if (searchTerm.length > 0) {
+        clearBtn.style.display = 'block';
+    } else {
+        clearBtn.style.display = 'none';
+    }
+    
+    // Show/hide bulk actions based on show deleted filter
+    if (bulkActions) {
+        bulkActions.style.display = showDeleted ? 'block' : 'none';
+    }
+    
+    let filteredData = allClergyData;
+    
+    // Apply deleted filter
+    if (!showDeleted) {
+        filteredData = filteredData.filter(clergy => !clergy.isDeleted);
+    } else {
+        filteredData = filteredData.filter(clergy => clergy.isDeleted);
+    }
+    
+    // Apply priest filter
+    if (excludePriests) {
+        filteredData = filteredData.filter(clergy => clergy.rank !== 'Priest');
+    }
+    
+    // Apply fuzzy search
+    if (searchTerm) {
+        console.log('Applying search for:', searchTerm, 'on', filteredData.length, 'items');
+        if (typeof window.fuzzySearch === 'function') {
+            console.log('Using fuzzy search');
+            const searchResults = window.fuzzySearch(filteredData, searchTerm, clergy => clergy.name);
+            console.log('Fuzzy search results:', searchResults.length);
+            filteredData = searchResults.map(result => result.item);
+        } else {
+            console.log('Using fallback search');
+            // Fallback to simple substring search if fuzzy search not available
+            const normalizedSearch = searchTerm.toLowerCase();
+            filteredData = filteredData.filter(clergy => 
+                clergy.name.toLowerCase().includes(normalizedSearch) ||
+                (clergy.organization && clergy.organization.toLowerCase().includes(normalizedSearch))
+            );
+        }
+        console.log('Final filtered results:', filteredData.length);
+    }
+    
+    // Update visibility of clergy items
+    allClergyData.forEach(clergy => {
+        const isVisible = filteredData.includes(clergy);
+        clergy.element.style.display = isVisible ? 'flex' : 'none';
+    });
+    
+    // Show/hide no results message
+    const visibleCount = filteredData.length;
+    if (noResultsMessage) {
+        if (visibleCount === 0) {
+            noResultsMessage.style.display = 'block';
+            if (searchTerm) {
+                noResultsMessage.innerHTML = `
+                    <i class="fas fa-search" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.5;"></i>
+                    <div>No clergy found</div>
+                    <small style="color: rgba(255, 255, 255, 0.4);">Try a different search term</small>
+                `;
+            } else if (showDeleted) {
+                noResultsMessage.innerHTML = `
+                    <i class="fas fa-trash" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.5;"></i>
+                    <div>No deleted clergy records found</div>
+                    <small style="color: rgba(255, 255, 255, 0.4);">All clergy records are currently active</small>
+                `;
+            }
+        } else {
+            noResultsMessage.style.display = 'none';
+        }
+    }
+}
+
 // Override the global selectClergy function to include HTMX updates
 function selectClergy(clergyId) {
     console.log('Clergy selected:', clergyId);
@@ -200,11 +306,6 @@ function updateSelection() {
         bulkActions.style.display = count > 0 ? 'block' : 'none';
     }
 }
-
-// Initialize bulk actions visibility on page load
-document.addEventListener('DOMContentLoaded', function() {
-    updateSelection();
-});
 
 function toggleSelectAll() {
     const selectAllCheckbox = document.getElementById('select-all');
@@ -279,6 +380,9 @@ function permanentlyDeleteSelected() {
                 }
             });
             
+            // Reinitialize data after deletion
+            initializeClergyData();
+            
             // Update selection
             updateSelection();
             
@@ -298,4 +402,51 @@ function permanentlyDeleteSelected() {
         deleteButton.disabled = false;
     });
 }
+
+// Initialize when DOM is loaded
+function initializeClergyList() {
+    console.log('Initializing clergy list...');
+    
+    // Initialize clergy data
+    initializeClergyData();
+    console.log('Clergy data initialized:', allClergyData.length, 'items');
+    
+    // Set up search input event listener
+    const searchInput = document.getElementById('clergySearchInput');
+    const clearBtn = document.getElementById('clearSearchBtn');
+    
+    if (searchInput) {
+        console.log('Setting up search input listener');
+        searchInput.addEventListener('input', applyFilters);
+        
+        // Clear search functionality
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                applyFilters();
+            });
+        }
+    } else {
+        console.error('Search input not found!');
+    }
+    
+    // Apply initial filters to set correct state
+    applyFilters();
+    
+    // Initialize bulk actions visibility
+    updateSelection();
+    
+    console.log('Clergy list initialization complete');
+}
+
+// Try multiple initialization approaches
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeClergyList);
+} else {
+    // DOM already loaded
+    initializeClergyList();
+}
+
+// Also try after a short delay in case HTMX is still loading content
+setTimeout(initializeClergyList, 100);
 </script>

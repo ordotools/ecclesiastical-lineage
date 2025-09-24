@@ -19,41 +19,9 @@ def editor():
 @require_permission('edit_clergy')  
 def clergy_list_panel():
     """HTMX endpoint for the left panel clergy list"""
-    # Get filter parameters
-    search = request.args.get('search', '').strip()
-    exclude_priests = request.args.get('exclude_priests') == '1'
-    exclude_coconsecrators = request.args.get('exclude_coconsecrators') == '1'
-    exclude_organizations = request.args.getlist('exclude_organizations')
-    show_deleted = request.args.get('show_deleted') == '1'
-
-    # Base query - show deleted records if requested, otherwise only active
-    if show_deleted:
-        query = Clergy.query.filter(Clergy.is_deleted == True)
-    else:
-        query = Clergy.query.filter(Clergy.is_deleted != True)
-
-    # Apply search filter
-    if search:
-        query = query.filter(
-            db.or_(
-                Clergy.name.ilike(f'%{search}%'),
-                Clergy.papal_name.ilike(f'%{search}%') if hasattr(Clergy, 'papal_name') else False
-            )
-        )
-
-    # Apply filters
-    if exclude_priests:
-        query = query.filter(Clergy.rank != 'Priest')
-
-    if exclude_coconsecrators:
-        # This would need more complex logic to identify co-consecrators
-        pass
-
-    if exclude_organizations:
-        query = query.filter(~Clergy.organization.in_(exclude_organizations))
-
-    # Get filtered clergy
-    clergy_list = query.order_by(Clergy.name).all()
+    # Load ALL clergy data for client-side filtering
+    # The JavaScript will handle all filtering including search, priests, deleted, etc.
+    clergy_list = Clergy.query.order_by(Clergy.name).all()
     organizations = Organization.query.all()
     
     user = User.query.get(session['user_id']) if 'user_id' in session else None
@@ -62,11 +30,11 @@ def clergy_list_panel():
                          clergy_list=clergy_list, 
                          organizations=organizations,
                          user=user,
-                         search=search,
-                         exclude_priests=exclude_priests,
-                         exclude_coconsecrators=exclude_coconsecrators,
-                         exclude_organizations=exclude_organizations,
-                         show_deleted=show_deleted)
+                         search='',  # No initial search
+                         exclude_priests=False,  # No initial filters
+                         exclude_coconsecrators=False,
+                         exclude_organizations=[],
+                         show_deleted=False)
 
 @editor_bp.route('/editor/visualization')
 @require_permission('edit_clergy')

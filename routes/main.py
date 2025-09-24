@@ -484,39 +484,59 @@ def force_migrate_lineage():
 
 # User management routes
 @main_bp.route('/users')
-@require_permission('manage_users')
 def user_management():
-    return render_template('user_management.html')
+    # Redirect to editor user management panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#user-management')
+    else:
+        flash('Please log in to access user management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @main_bp.route('/users/add', methods=['POST'])
-@require_permission('manage_users')
 def add_user():
-    # Implementation will be moved to services
-    return jsonify({'success': False, 'message': 'Not implemented yet'}), 501
+    # Redirect to editor user management panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#user-management')
+    else:
+        flash('Please log in to access user management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @main_bp.route('/users/<int:user_id>/edit', methods=['PUT'])
-@require_permission('manage_users')
 def edit_user(user_id):
-    # Implementation will be moved to services
-    return jsonify({'success': False, 'message': 'Not implemented yet'}), 501
+    # Redirect to editor user management panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#user-management')
+    else:
+        flash('Please log in to access user management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @main_bp.route('/users/<int:user_id>/delete', methods=['DELETE'])
-@require_permission('manage_users')
 def delete_user(user_id):
-    # Implementation will be moved to services
-    return jsonify({'success': False, 'message': 'Not implemented yet'}), 501
+    # Redirect to editor user management panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#user-management')
+    else:
+        flash('Please log in to access user management.', 'error')
+        return redirect(url_for('auth.login'))
 
 # Comments management
 @main_bp.route('/comments')
-@require_permission('manage_comments')
 def comments_management():
-    return render_template('comments_management.html')
+    # Redirect to editor comments management panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#comments-management')
+    else:
+        flash('Please log in to access comments management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @main_bp.route('/comments/<int:comment_id>/resolve', methods=['POST'])
-@require_permission('manage_comments')
 def resolve_comment(comment_id):
-    # Implementation will be moved to services
-    return jsonify({'success': False, 'message': 'Not implemented yet'}), 501
+    # Redirect to editor comments management panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#comments-management')
+    else:
+        flash('Please log in to access comments management.', 'error')
+        return redirect(url_for('auth.login'))
 
 # Clergy modal routes
 @main_bp.route('/clergy/modal/add')

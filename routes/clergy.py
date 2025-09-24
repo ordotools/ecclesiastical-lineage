@@ -8,35 +8,39 @@ clergy_bp = Blueprint('clergy', __name__)
 
 @clergy_bp.route('/clergy')
 def clergy_list():
-    return clergy_service.clergy_list_handler()
+    # Redirect to editor clergy list panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#clergy-list')
+    else:
+        flash('Please log in to access clergy management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @clergy_bp.route('/clergy/add', methods=['GET', 'POST'])
-@audit_log(
-    action='create',
-    entity_type='clergy',
-    get_entity_id=lambda clergy: clergy.id if clergy else None,
-    get_entity_name=lambda clergy: clergy.name if clergy else None,
-    get_details=lambda clergy: {
-        'rank': clergy.rank,
-        'organization': clergy.organization,
-        'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
-        'ordinations_count': len(clergy.ordinations),
-        'consecrations_count': len(clergy.consecrations),
-        'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None
-    } if clergy else None
-)
-@require_permission('add_clergy')
 def add_clergy():
-    return clergy_service.add_clergy_handler()
+    # Redirect to editor clergy form panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#clergy-form')
+    else:
+        flash('Please log in to access clergy management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @clergy_bp.route('/clergy/<int:clergy_id>')
 def view_clergy(clergy_id):
-    return clergy_service.view_clergy_handler(clergy_id)
+    # Redirect to editor clergy form panel with specific clergy
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + f'#clergy-form/{clergy_id}')
+    else:
+        flash('Please log in to access clergy management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @clergy_bp.route('/clergy/<int:clergy_id>/edit', methods=['GET', 'POST'])
-@require_permission('edit_clergy')
 def edit_clergy(clergy_id):
-    return clergy_service.edit_clergy_handler(clergy_id)
+    # Redirect to editor clergy form panel with specific clergy
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + f'#clergy-form/{clergy_id}')
+    else:
+        flash('Please log in to access clergy management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @clergy_bp.route('/clergy/filter_partial')
 def clergy_filter_partial():

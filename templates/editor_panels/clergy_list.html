@@ -67,7 +67,7 @@
              data-is-deleted="{{ clergy.is_deleted|lower }}"
              data-has-ordinations="{{ (clergy.ordinations|length > 0)|lower }}"
              data-has-consecrations="{{ (clergy.consecrations|length > 0)|lower }}"
-             onclick="selectClergy({{ clergy.id }})"
+             onclick="selectClergyFromList({{ clergy.id }})"
              style="display: flex; align-items: center; padding: 0.75em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; cursor: pointer; transition: all 0.2s ease; {% if clergy.is_deleted %}opacity: 0.6; border-left: 4px solid rgba(255, 0, 0, 0.5);{% endif %}"
              onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
              onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">
@@ -147,7 +147,7 @@
     <!-- Add New Button -->
     {% if user and user.can_edit_clergy() %}
     <div style="padding: 1em 0; border-top: 1px solid rgba(255, 255, 255, 0.1); margin-top: 1em;">
-        <button onclick="selectClergy(null)" 
+        <button onclick="selectClergyFromList(null)" 
                 style="width: 100%; padding: 0.75em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 6px; color: rgba(255, 255, 255, 0.9); cursor: pointer; font-size: 0.9em; transition: all 0.2s ease;"
                 onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'"
                 onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
@@ -174,11 +174,7 @@
             </button>
         </div>
         
-        <div class="clergy-tab-content active" id="clergy-audit-logs-content"
-             hx-get="/editor/audit-logs"
-             hx-trigger="load"
-             hx-target="this"
-             hx-swap="innerHTML">
+        <div class="clergy-tab-content active" id="clergy-audit-logs-content">
             <div class="loading-placeholder">
                 <div class="loading-spinner"></div>
                 Loading audit logs...
@@ -301,9 +297,9 @@ function applyFilters() {
     }
 }
 
-// Override the global selectClergy function to include HTMX updates
-function selectClergy(clergyId) {
-    console.log('Clergy selected:', clergyId);
+// Clergy list specific selection function
+function selectClergyFromList(clergyId) {
+    console.log('Clergy selected from list:', clergyId);
     
     // Update visual selection
     document.querySelectorAll('.clergy-item').forEach(item => {
@@ -312,27 +308,30 @@ function selectClergy(clergyId) {
     });
     
     if (clergyId) {
-        const selectedItem = document.querySelector(`[onclick="selectClergy(${clergyId})"]`);
+        const selectedItem = document.querySelector(`[onclick="selectClergyFromList(${clergyId})"]`);
         if (selectedItem) {
             selectedItem.style.background = 'rgba(255, 255, 255, 0.15)';
             selectedItem.style.borderColor = 'rgba(255, 255, 255, 0.3)';
         }
-        
-        // Load clergy form for editing instantly
-        htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
-            target: '.right-panel .panel-content',
-            swap: 'innerHTML'
-        });
-    } else {
-        // Load empty form for adding new clergy instantly
-        htmx.ajax('GET', '/editor/clergy-form', {
-            target: '.right-panel .panel-content',
-            swap: 'innerHTML'
-        });
     }
     
-    // Refresh visualization to highlight selected clergy
-    // You could add visualization update logic here
+    // Call the global selectClergy function to handle the form loading
+    if (typeof window.selectClergy === 'function') {
+        window.selectClergy(clergyId);
+    } else {
+        // Fallback: load form directly
+        if (clergyId) {
+            htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
+                target: '.right-panel .panel-content',
+                swap: 'innerHTML'
+            });
+        } else {
+            htmx.ajax('GET', '/editor/clergy-form', {
+                target: '.right-panel .panel-content',
+                swap: 'innerHTML'
+            });
+        }
+    }
 }
 
 // Bulk selection functions
@@ -454,6 +453,28 @@ function initializeClergyList() {
     // Initialize clergy data
     initializeClergyData();
     console.log('Clergy data initialized:', allClergyData.length, 'items');
+    
+    // Debug: Check if audit logs tab exists
+    const auditLogsTab = document.getElementById('clergy-audit-logs-content');
+    console.log('🔍 Audit logs tab exists:', !!auditLogsTab);
+    if (auditLogsTab) {
+        console.log('🔍 Audit logs tab content:', auditLogsTab.innerHTML.substring(0, 100) + '...');
+        
+        // Try to load audit logs content manually
+        console.log('🔍 Attempting to load audit logs content manually...');
+        try {
+            htmx.ajax('GET', '/editor/audit-logs', {
+                target: auditLogsTab,
+                swap: 'innerHTML'
+            }).then(() => {
+                console.log('✅ Manual audit logs load successful');
+            }).catch(error => {
+                console.error('❌ Manual audit logs load failed:', error);
+            });
+        } catch (error) {
+            console.error('❌ Error in manual audit logs load:', error);
+        }
+    }
     
     // Set up search input event listener
     const searchInput = document.getElementById('clergySearchInput');
@@ -597,12 +618,73 @@ document.addEventListener('DOMContentLoaded', function() {
             const targetContent = document.getElementById('clergy-' + targetTab + '-content');
             if (targetContent) {
                 targetContent.classList.add('active');
-                // Trigger HTMX load if not loaded yet
-                if (targetContent.getAttribute('hx-trigger') === 'revealed') {
-                    htmx.trigger(targetContent, 'revealed');
+                
+                // Handle audit logs tab specially - load content manually and initialize updater
+                if (targetTab === 'audit-logs') {
+                    loadAuditLogsContent();
+                } else {
+                    // Trigger HTMX load if not loaded yet
+                    if (targetContent.getAttribute('hx-trigger') === 'revealed') {
+                        htmx.trigger(targetContent, 'revealed');
+                    }
                 }
             }
         });
     });
+    
+    // Load audit logs content initially since it's the active tab
+    console.log('🔍 Clergy list initialization complete, calling loadAuditLogsContent...');
+    try {
+        loadAuditLogsContent();
+        console.log('🔍 loadAuditLogsContent() call completed');
+    } catch (error) {
+        console.error('❌ Error calling loadAuditLogsContent():', error);
+    }
 });
+
+// Function to load audit logs content manually
+function loadAuditLogsContent() {
+    console.log('🔍 loadAuditLogsContent() function called');
+    const auditLogsContent = document.getElementById('clergy-audit-logs-content');
+    console.log('🔍 Loading audit logs content...', auditLogsContent);
+    
+    if (!auditLogsContent) {
+        console.log('❌ Audit logs content element not found');
+        console.log('🔍 Available elements with "audit" in ID:', 
+            Array.from(document.querySelectorAll('[id*="audit"]')).map(el => el.id));
+        console.log('🔍 Available elements with "clergy" in ID:', 
+            Array.from(document.querySelectorAll('[id*="clergy"]')).map(el => el.id));
+        return;
+    }
+    
+    // Check if content is still in loading state (more flexible check)
+    const hasLoadingSpinner = auditLogsContent.querySelector('.loading-spinner');
+    const hasAuditLogsList = auditLogsContent.querySelector('#audit-logs-list');
+    
+    if (!hasLoadingSpinner || hasAuditLogsList) {
+        console.log('⏭️ Audit logs already loaded or not in loading state');
+        return;
+    }
+    
+    console.log('✅ Loading audit logs content via HTMX...');
+    
+    // Load audit logs content via HTMX
+    htmx.ajax('GET', '/editor/audit-logs', {
+        target: auditLogsContent,
+        swap: 'innerHTML'
+    }).then(() => {
+        console.log('✅ Audit logs content loaded, initializing smart updater...');
+        // Initialize the smart updater after content is loaded
+        setTimeout(() => {
+            if (!window.auditLogsUpdater && window.AuditLogsUpdater) {
+                console.log('🚀 Creating new AuditLogsUpdater instance...');
+                window.auditLogsUpdater = new window.AuditLogsUpdater();
+            } else {
+                console.log('♻️ AuditLogsUpdater already exists, skipping creation');
+            }
+        }, 100);
+    }).catch(error => {
+        console.error('❌ Error loading audit logs content:', error);
+    });
+}
 </script>

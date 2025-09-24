@@ -1,90 +1,218 @@
 <!-- Audit Logs Panel Content -->
-<div style="padding: 1em;">
-    <div style="margin-bottom: 1em; display: flex; justify-content: between; align-items: center;">
-        <h6 style="margin: 0; color: rgba(255, 255, 255, 0.9); font-size: 0.95em;">Recent Activity</h6>
-        <div style="font-size: 0.8em; color: rgba(255, 255, 255, 0.6);">
-            Showing {{ logs.items | length }} of {{ logs.total }} entries
-        </div>
-    </div>
+<div style="padding: 0.25em;">
+    <!-- <div style="margin-bottom: 0.25em; display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: rgba(255, 255, 255, 0.8); font-size: 0.8em; font-weight: 500;">Activity</span>
+        <span style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5);">{{ logs.items | length }}/{{ logs.total }}</span>
+    </div> -->
 
     {% if logs.items %}
-    <div style="max-height: 200px; overflow-y: auto;">
+    <div id="audit-logs-list" style="height: 100%; overflow-y: auto; font-size: 0.75em; line-height: 1.3;">
         {% for log in logs.items %}
-        <div style="display: flex; align-items: start; padding: 0.75em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 4px; font-size: 0.85em;">
-            <!-- Icon based on action -->
-            <div style="margin-right: 0.75em; flex-shrink: 0; margin-top: 0.1em;">
-                {% if log.action == 'create' %}
-                    <i class="fas fa-plus" style="color: #2ecc71; font-size: 0.9em;"></i>
-                {% elif log.action == 'update' %}
-                    <i class="fas fa-edit" style="color: #f39c12; font-size: 0.9em;"></i>
-                {% elif log.action == 'delete' %}
-                    <i class="fas fa-trash" style="color: #e74c3c; font-size: 0.9em;"></i>
-                {% elif log.action == 'login' %}
-                    <i class="fas fa-sign-in-alt" style="color: #3498db; font-size: 0.9em;"></i>
-                {% else %}
-                    <i class="fas fa-circle" style="color: rgba(255, 255, 255, 0.4); font-size: 0.6em;"></i>
-                {% endif %}
-            </div>
-            
-            <!-- Log Details -->
-            <div style="flex: 1; min-width: 0;">
-                <div style="color: rgba(255, 255, 255, 0.9); margin-bottom: 0.25em;">
-                    {% if log.entity_name %}
-                        <strong>{{ log.action.title() }}</strong> {{ log.entity_type or 'record' }}: 
-                        <span style="color: rgba(255, 255, 255, 0.8);">{{ log.entity_name }}</span>
-                    {% else %}
-                        <strong>{{ log.action.title() }}</strong> {{ log.entity_type or 'action' }}
-                    {% endif %}
-                </div>
-                
-                <div style="color: rgba(255, 255, 255, 0.5); font-size: 0.8em;">
-                    by {{ log.user.username if log.user else 'System' }} • 
-                    <span title="{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}">
-                        {{ log.created_at.strftime('%m/%d %H:%M') }}
-                    </span>
-                </div>
-                
-                {% if log.details %}
-                <div style="margin-top: 0.5em; padding: 0.5em; background: rgba(255, 255, 255, 0.02); border-radius: 3px; font-size: 0.75em; color: rgba(255, 255, 255, 0.6);">
-                    {{ log.details[:100] }}{% if log.details|length > 100 %}...{% endif %}
-                </div>
-                {% endif %}
-            </div>
+        <div class="audit-log-entry" data-log-id="{{ log.id }}" style="margin-bottom: 0.25em; padding: 0.1em 0; color: rgba(255, 255, 255, 0.7);">
+            <span style="color: rgba(255, 255, 255, 0.9);">
+                {% if log.action == 'create' %}+{% elif log.action == 'update' %}~{% elif log.action == 'delete' %}−{% else %}•{% endif %}
+                {{ log.action.title() }}{% if log.entity_name %}: {{ log.entity_name }}{% endif %}
+            </span>
+            <span style="color: rgba(255, 255, 255, 0.5); font-size: 0.7em;">
+                • {{ log.user.username if log.user else 'System' }} • {{ log.created_at.strftime('%H:%M') }}
+            </span>
         </div>
         {% endfor %}
     </div>
 
-    <!-- Pagination -->
-    {% if logs.pages > 1 %}
-    <div style="margin-top: 1em; padding-top: 0.75em; border-top: 1px solid rgba(255, 255, 255, 0.1); display: flex; justify-content: center; gap: 0.5em;">
-        {% if logs.has_prev %}
-        <button hx-get="/editor/audit-logs?page={{ logs.prev_num }}" 
-                hx-target="#audit-logs-content" 
-                hx-swap="innerHTML"
-                style="padding: 0.25em 0.5em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.8); cursor: pointer; font-size: 0.8em;">
-            Previous
-        </button>
-        {% endif %}
-        
-        <span style="color: rgba(255, 255, 255, 0.6); font-size: 0.8em; padding: 0.25em 0.5em;">
-            Page {{ logs.page }} of {{ logs.pages }}
-        </span>
-        
-        {% if logs.has_next %}
-        <button hx-get="/editor/audit-logs?page={{ logs.next_num }}" 
-                hx-target="#audit-logs-content" 
-                hx-swap="innerHTML"
-                style="padding: 0.25em 0.5em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.8); cursor: pointer; font-size: 0.8em;">
-            Next
-        </button>
-        {% endif %}
-    </div>
-    {% endif %}
-
     {% else %}
-    <div style="text-align: center; padding: 2em; color: rgba(255, 255, 255, 0.5);">
-        <i class="fas fa-history" style="font-size: 2em; opacity: 0.3; margin-bottom: 0.5em;"></i>
-        <div>No audit logs found</div>
+    <div style="text-align: center; padding: 0.5em; color: rgba(255, 255, 255, 0.5); font-size: 0.75em;">
+        No activity
     </div>
     {% endif %}
 </div>
+
+<script>
+// Smart audit logs updater - checks for new logs without full refresh
+if (!window.AuditLogsUpdater) {
+window.AuditLogsUpdater = class AuditLogsUpdater {
+    constructor() {
+        console.log('🔧 AuditLogsUpdater constructor called');
+        this.latestLogId = this.getLatestLogId();
+        this.updateInterval = null;
+        this.isActive = false;
+        this.init();
+        console.log('🔧 AuditLogsUpdater initialized with latestLogId:', this.latestLogId);
+    }
+
+    init() {
+        const auditLogsContent = document.getElementById('clergy-audit-logs-content');
+        console.log('🔧 AuditLogsUpdater init - auditLogsContent found:', !!auditLogsContent);
+        if (!auditLogsContent) {
+            console.log('❌ AuditLogsUpdater init failed - no auditLogsContent element');
+            return;
+        }
+
+        // Start checking for updates when tab becomes active
+        console.log('🔧 AuditLogsUpdater setting up tab activation observer...');
+        this.observeTabActivation(auditLogsContent);
+    }
+
+    getLatestLogId() {
+        const latestEntry = document.querySelector('.audit-log-entry');
+        return latestEntry ? parseInt(latestEntry.dataset.logId) : 0;
+    }
+
+    observeTabActivation(auditLogsContent) {
+        console.log('🔧 AuditLogsUpdater setting up MutationObserver for tab activation');
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    const isActive = auditLogsContent.classList.contains('active');
+                    console.log('🔧 AuditLogsUpdater tab activation changed - isActive:', isActive, 'this.isActive:', this.isActive);
+                    if (isActive && !this.isActive) {
+                        console.log('🔧 AuditLogsUpdater starting updates...');
+                        this.startUpdating();
+                    } else if (!isActive && this.isActive) {
+                        console.log('🔧 AuditLogsUpdater stopping updates...');
+                        this.stopUpdating();
+                    }
+                }
+            });
+        });
+
+        observer.observe(auditLogsContent, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+        
+        // Check initial state
+        const isInitiallyActive = auditLogsContent.classList.contains('active');
+        console.log('🔧 AuditLogsUpdater initial tab state - isActive:', isInitiallyActive);
+        if (isInitiallyActive) {
+            console.log('🔧 AuditLogsUpdater starting updates immediately (tab is active)...');
+            this.startUpdating();
+        }
+    }
+
+    startUpdating() {
+        console.log('🔧 AuditLogsUpdater startUpdating called');
+        this.isActive = true;
+        this.updateInterval = setInterval(() => {
+            this.checkForNewLogs();
+        }, 2000); // Check every 2 seconds for faster updates
+        console.log('🔧 AuditLogsUpdater update interval started (every 2 seconds)');
+    }
+
+    stopUpdating() {
+        this.isActive = false;
+        if (this.updateInterval) {
+            clearInterval(this.updateInterval);
+            this.updateInterval = null;
+        }
+    }
+
+    async checkForNewLogs() {
+        try {
+            console.log('🔍 AuditLogsUpdater checking for new logs since ID:', this.latestLogId);
+            const response = await fetch(`/editor/audit-logs-check?since=${this.latestLogId}`);
+            const data = await response.json();
+            
+            console.log('🔍 AuditLogsUpdater received response:', data);
+            if (data.new_logs && data.new_logs.length > 0) {
+                console.log('🔍 AuditLogsUpdater found', data.new_logs.length, 'new logs, inserting...');
+                this.insertNewLogs(data.new_logs);
+                this.latestLogId = Math.max(...data.new_logs.map(log => log.id));
+                console.log('🔍 AuditLogsUpdater updated latestLogId to:', this.latestLogId);
+            } else {
+                console.log('🔍 AuditLogsUpdater no new logs found');
+            }
+        } catch (error) {
+            console.error('❌ Error checking for new audit logs:', error);
+        }
+    }
+
+    insertNewLogs(newLogs) {
+        const logsList = document.getElementById('audit-logs-list');
+        if (!logsList) return;
+
+        // Insert new logs at the top with smooth animation
+        newLogs.forEach(log => {
+            const logElement = this.createLogElement(log);
+            
+            // Add fade-in animation
+            logElement.style.opacity = '0';
+            logElement.style.transform = 'translateY(-10px)';
+            logElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            
+            logsList.insertBefore(logElement, logsList.firstChild);
+            
+            // Trigger animation
+            requestAnimationFrame(() => {
+                logElement.style.opacity = '1';
+                logElement.style.transform = 'translateY(0)';
+            });
+
+            // Remove animation classes after animation completes
+            setTimeout(() => {
+                logElement.style.transition = '';
+                logElement.style.transform = '';
+            }, 300);
+        });
+
+        // Limit to last 50 entries to prevent memory issues
+        const entries = logsList.querySelectorAll('.audit-log-entry');
+        if (entries.length > 50) {
+            for (let i = 50; i < entries.length; i++) {
+                entries[i].remove();
+            }
+        }
+    }
+
+    createLogElement(log) {
+        const div = document.createElement('div');
+        div.className = 'audit-log-entry';
+        div.dataset.logId = log.id;
+        div.style.cssText = 'margin-bottom: 0.25em; padding: 0.1em 0; color: rgba(255, 255, 255, 0.7);';
+        
+        const actionSymbol = this.getActionSymbol(log.action);
+        const entityName = log.entity_name ? `: ${log.entity_name}` : '';
+        const userName = log.user ? log.user.username : 'System';
+        const timeStr = new Date(log.created_at).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false 
+        });
+        
+        div.innerHTML = `
+            <span style="color: rgba(255, 255, 255, 0.9);">
+                ${actionSymbol} ${log.action.charAt(0).toUpperCase() + log.action.slice(1)}${entityName}
+            </span>
+            <span style="color: rgba(255, 255, 255, 0.5); font-size: 0.7em;">
+                • ${userName} • ${timeStr}
+            </span>
+        `;
+        
+        return div;
+    }
+
+    getActionSymbol(action) {
+        switch(action) {
+            case 'create': return '+';
+            case 'update': return '~';
+            case 'delete': return '−';
+            default: return '•';
+        }
+    }
+}
+}
+
+// Initialize the updater when DOM is ready, but only once
+if (!window.auditLogsUpdater) {
+    document.addEventListener('DOMContentLoaded', function() {
+        if (!window.auditLogsUpdater && window.AuditLogsUpdater) {
+            window.auditLogsUpdater = new window.AuditLogsUpdater();
+        }
+    });
+    
+    // Also try to initialize immediately if DOM is already ready
+    if (document.readyState !== 'loading' && !window.auditLogsUpdater && window.AuditLogsUpdater) {
+        window.auditLogsUpdater = new window.AuditLogsUpdater();
+    }
+}
+</script>

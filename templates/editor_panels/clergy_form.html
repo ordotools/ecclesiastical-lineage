@@ -322,7 +322,7 @@ if (!window.clergyFormHandlerAttached) {
                         // Update button text for final submission
                         submitBtn.textContent = 'Submitting form...';
                         // Submit the form after bishops are created
-                        submitFormWithData(form, formData);
+                        submitFormWithData(form, formData, submitBtn, originalText);
                     })
                     .catch(error => {
                         console.error('🔄 Error creating bishops:', error);
@@ -332,7 +332,7 @@ if (!window.clergyFormHandlerAttached) {
             } else {
                 console.log('🔄 No bishops to create, submitting form directly');
                 // No bishops to check, submit directly
-                submitFormWithData(form, formData);
+                submitFormWithData(form, formData, submitBtn, originalText);
             }
         }
     });
@@ -489,7 +489,7 @@ function resetSubmitButton(button, originalText) {
     button.disabled = false;
 }
 
-function submitFormWithData(form, formData) {
+function submitFormWithData(form, formData, submitBtn, originalText) {
     // Submit via fetch
     fetch(form.action, {
         method: 'POST',
@@ -521,17 +521,21 @@ function submitFormWithData(form, formData) {
                 // Instant visualization refresh (will be done after specific actions)
                 console.log('Refreshing visualization after form save...');
                 console.log('HTMX available:', typeof htmx !== 'undefined');
-                const visualizationTarget = document.querySelector('.center-panel .panel-content');
+                const visualizationTarget = document.getElementById('visualization-panel-content');
                 console.log('Visualization target found:', !!visualizationTarget);
                 if (visualizationTarget && typeof htmx !== 'undefined') {
-                    htmx.ajax('GET', '/editor/visualization', {
-                        target: '.center-panel .panel-content',
-                        swap: 'innerHTML'
-                    }).then(() => {
-                        console.log('Visualization refresh completed');
-                    }).catch(error => {
-                        console.error('Visualization refresh failed:', error);
-                    });
+                    // Use the specific visualization panel ID
+                    const specificTarget = document.getElementById('visualization-panel-content');
+                    if (specificTarget) {
+                        htmx.ajax('GET', '/editor/visualization', {
+                            target: specificTarget,
+                            swap: 'innerHTML'
+                        }).then(() => {
+                            console.log('Visualization refresh completed');
+                        }).catch(error => {
+                            console.error('Visualization refresh failed:', error);
+                        });
+                    }
                 } else {
                     console.error('Visualization target not found or HTMX not available!', {
                         target: !!visualizationTarget,
@@ -554,18 +558,22 @@ function submitFormWithData(form, formData) {
                     // Additional visualization refresh specifically for deletion
                     console.log('Additional visualization refresh for deletion...');
                     setTimeout(() => {
-                        const visualizationTarget = document.querySelector('.center-panel .panel-content');
+                        const visualizationTarget = document.getElementById('visualization-panel-content');
                         console.log('Deletion visualization target found:', !!visualizationTarget);
                         console.log('HTMX available for deletion refresh:', typeof htmx !== 'undefined');
                         if (visualizationTarget && typeof htmx !== 'undefined') {
-                            htmx.ajax('GET', '/editor/visualization', {
-                                target: '.center-panel .panel-content',
-                                swap: 'innerHTML'
-                            }).then(() => {
-                                console.log('Deletion visualization refresh completed');
-                            }).catch(error => {
-                                console.error('Deletion visualization refresh failed:', error);
-                            });
+                            // Use the specific visualization panel ID
+                            const specificTarget = document.getElementById('visualization-panel-content');
+                            if (specificTarget) {
+                                htmx.ajax('GET', '/editor/visualization', {
+                                    target: specificTarget,
+                                    swap: 'innerHTML'
+                                }).then(() => {
+                                    console.log('Deletion visualization refresh completed');
+                                }).catch(error => {
+                                    console.error('Deletion visualization refresh failed:', error);
+                                });
+                            }
                         } else {
                             console.error('Deletion visualization target not found or HTMX not available!', {
                                 target: !!visualizationTarget,
@@ -615,9 +623,11 @@ function submitFormWithData(form, formData) {
             }
         })
         .finally(() => {
-            // Reset button
-            submitBtn.textContent = originalText;
-            submitBtn.disabled = false;
+            // Reset button - check if submitBtn exists
+            if (submitBtn) {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
         });
 }
 
@@ -753,17 +763,21 @@ window.testClearFormForNewEntry = function() {
 window.testVisualizationRefresh = function() {
     console.log('Testing visualization refresh...');
     console.log('HTMX available:', typeof htmx !== 'undefined');
-    const visualizationTarget = document.querySelector('.center-panel .panel-content');
+    const visualizationTarget = document.getElementById('visualization-panel-content');
     console.log('Visualization target found:', !!visualizationTarget);
     if (visualizationTarget && typeof htmx !== 'undefined') {
-        htmx.ajax('GET', '/editor/visualization', {
-            target: '.center-panel .panel-content',
-            swap: 'innerHTML'
-        }).then(() => {
-            console.log('Test visualization refresh completed');
-        }).catch(error => {
-            console.error('Test visualization refresh failed:', error);
-        });
+        // Use the specific visualization panel ID
+        const specificTarget = document.getElementById('visualization-panel-content');
+        if (specificTarget) {
+            htmx.ajax('GET', '/editor/visualization', {
+                target: specificTarget,
+                swap: 'innerHTML'
+            }).then(() => {
+                console.log('Test visualization refresh completed');
+            }).catch(error => {
+                console.error('Test visualization refresh failed:', error);
+            });
+        }
     } else {
         console.error('Test visualization target not found or HTMX not available!', {
             target: !!visualizationTarget,

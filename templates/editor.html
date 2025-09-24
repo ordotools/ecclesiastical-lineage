@@ -473,7 +473,7 @@
                 <i class="fas fa-sitemap"></i>
                 Lineage Visualization
             </div>
-            <div class="panel-content"
+            <div id="visualization-panel-content" class="panel-content"
                  hx-get="/editor/visualization"
                  hx-trigger="load"
                  hx-target="this"
@@ -586,22 +586,52 @@
             // Also check for clergy form content updates
             const isClergyFormContentUpdate = target.closest('.right-panel') && target.querySelector('form[id="clergyForm"]');
             
-            if (isClergyListUpdate || isClergyFormUpdate || isClergyFormContentUpdate || isClergyAPI) {
-                console.log('Clergy-related update detected, refreshing visualization...');
+            // Check if this is just a clergy selection (not an actual update)
+            const isClergySelection = evt.detail.xhr && evt.detail.xhr.responseURL && 
+                (evt.detail.xhr.responseURL.includes('/editor/clergy-form/') || 
+                 evt.detail.xhr.responseURL.includes('/editor/clergy-form-content/') ||
+                 evt.detail.xhr.responseURL === window.location.origin + '/editor/clergy-form' ||
+                 evt.detail.xhr.responseURL === window.location.origin + '/editor/clergy-form-content') && 
+                !evt.detail.xhr.responseURL.includes('/clergy/add') &&
+                !evt.detail.xhr.responseURL.includes('/clergy/edit') &&
+                !evt.detail.xhr.responseURL.includes('/clergy/delete');
+            
+            // Debug logging
+            if (evt.detail.xhr && evt.detail.xhr.responseURL) {
+                console.log('=== HTMX REQUEST DEBUG ===');
+                console.log('HTMX request URL:', evt.detail.xhr.responseURL);
+                console.log('Target element:', evt.target);
+                console.log('Is clergy selection:', isClergySelection);
+                console.log('Is clergy list update:', isClergyListUpdate);
+                console.log('Is clergy form update:', isClergyFormUpdate);
+                console.log('Is clergy form content update:', isClergyFormContentUpdate);
+                console.log('Is clergy API:', isClergyAPI);
+                console.log('Will refresh visualization:', !isClergySelection && (isClergyListUpdate || isClergyFormUpdate || isClergyFormContentUpdate || isClergyAPI));
+                console.log('========================');
+            }
+            
+            // Only refresh visualization for actual updates, not selections
+            // Be more restrictive - only refresh for actual API calls that modify data
+            if (!isClergySelection && isClergyAPI) {
+                console.log('Clergy API update detected, refreshing visualization...');
                 
                 // Soft refresh of visualization panel
-                const visualizationTarget = document.querySelector('.center-panel .panel-content');
+                const visualizationTarget = document.getElementById('visualization-panel-content');
                 if (visualizationTarget && typeof htmx !== 'undefined') {
                     // Add a small delay to ensure the DOM is stable
                     setTimeout(() => {
-                        htmx.ajax('GET', '/editor/visualization', {
-                            target: '.center-panel .panel-content',
-                            swap: 'innerHTML'
-                        }).then(() => {
-                            console.log('Global visualization refresh completed');
-                        }).catch(error => {
-                            console.error('Global visualization refresh failed:', error);
-                        });
+                        // Use the specific visualization panel ID
+                        const specificTarget = document.getElementById('visualization-panel-content');
+                        if (specificTarget) {
+                            htmx.ajax('GET', '/editor/visualization', {
+                                target: specificTarget,
+                                swap: 'innerHTML'
+                            }).then(() => {
+                                console.log('Global visualization refresh completed');
+                            }).catch(error => {
+                                console.error('Global visualization refresh failed:', error);
+                            });
+                        }
                     }, 100);
                 } else {
                     console.warn('Visualization target not found or HTMX not available:', {
@@ -609,6 +639,8 @@
                         htmx: typeof htmx !== 'undefined'
                     });
                 }
+            } else if (isClergySelection) {
+                console.log('Clergy selection detected, skipping visualization refresh');
             }
         });
 
@@ -628,30 +660,55 @@
         document.body.addEventListener('clergyUpdated', function(evt) {
             console.log('Clergy update event received:', evt.detail);
             
-            // Refresh visualization panel with delay and error handling
-            setTimeout(() => {
-                const visualizationTarget = document.querySelector('.center-panel .panel-content');
-                if (visualizationTarget && typeof htmx !== 'undefined') {
-                    htmx.ajax('GET', '/editor/visualization', {
-                        target: '.center-panel .panel-content',
-                        swap: 'innerHTML'
-                    }).then(() => {
-                        console.log('Visualization refreshed after clergy update');
-                    }).catch(error => {
-                        console.error('Visualization refresh failed after clergy update:', error);
-                    });
-                } else {
-                    console.warn('Visualization target not found for clergy update refresh:', {
-                        target: !!visualizationTarget,
-                        htmx: typeof htmx !== 'undefined'
-                    });
-                }
-            }, 150);
+            // Only refresh visualization for actual updates, not selections
+            if (evt.detail && evt.detail.action && (evt.detail.action === 'updated' || evt.detail.action === 'created' || evt.detail.action === 'deleted')) {
+                // Refresh visualization panel with delay and error handling
+                setTimeout(() => {
+                    const visualizationTarget = document.getElementById('visualization-panel-content');
+                    if (visualizationTarget && typeof htmx !== 'undefined') {
+                        // Use the specific visualization panel ID
+                        const specificTarget = document.getElementById('visualization-panel-content');
+                        if (specificTarget) {
+                            htmx.ajax('GET', '/editor/visualization', {
+                                target: specificTarget,
+                                swap: 'innerHTML'
+                            }).then(() => {
+                                console.log('Visualization refreshed after clergy update');
+                            }).catch(error => {
+                                console.error('Visualization refresh failed after clergy update:', error);
+                            });
+                        }
+                    } else {
+                        console.warn('Visualization target not found for clergy update refresh:', {
+                            target: !!visualizationTarget,
+                            htmx: typeof htmx !== 'undefined'
+                        });
+                    }
+                }, 150);
+            } else {
+                console.log('Clergy selection event received, skipping visualization refresh');
+            }
         });
 
         // Custom event for when a clergy member is selected
         function selectClergy(clergyId) {
-            // Dispatch custom event
+            console.log('Global selectClergy called with:', clergyId);
+            
+            // Load clergy form for editing
+            if (clergyId) {
+                htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
+                    target: '.right-panel .panel-content',
+                    swap: 'innerHTML'
+                });
+            } else {
+                // Load empty form for adding new clergy
+                htmx.ajax('GET', '/editor/clergy-form', {
+                    target: '.right-panel .panel-content',
+                    swap: 'innerHTML'
+                });
+            }
+            
+            // Dispatch custom event for any other listeners
             document.body.dispatchEvent(new CustomEvent('clergySeleced', {
                 detail: { clergyId: clergyId }
             }));

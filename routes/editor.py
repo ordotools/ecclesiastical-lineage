@@ -218,6 +218,36 @@ def audit_logs_panel():
     
     return render_template('editor_panels/audit_logs.html', logs=logs)
 
+@editor_bp.route('/editor/audit-logs-check')
+@require_permission('view_audit_logs')
+def audit_logs_check():
+    """API endpoint to check for new audit logs since a given ID"""
+    since_id = request.args.get('since', 0, type=int)
+    
+    # Get new logs since the given ID
+    new_logs = AuditLog.query.filter(
+        AuditLog.id > since_id
+    ).order_by(AuditLog.created_at.desc()).limit(10).all()
+    
+    # Convert to JSON-serializable format
+    logs_data = []
+    for log in new_logs:
+        logs_data.append({
+            'id': log.id,
+            'action': log.action,
+            'entity_name': log.entity_name,
+            'entity_type': log.entity_type,
+            'created_at': log.created_at.isoformat(),
+            'user': {
+                'username': log.user.username if log.user else None
+            } if log.user else None
+        })
+    
+    return jsonify({
+        'new_logs': logs_data,
+        'count': len(logs_data)
+    })
+
 @editor_bp.route('/editor/metadata')
 @require_permission('manage_metadata')
 def metadata_panel():

@@ -982,6 +982,81 @@ def edit_organization(org_id):
     
     return jsonify(result)
 
+# Status Bar API Endpoints
+
+@editor_bp.route('/api/stats/clergy-count')
+@require_permission('edit_clergy')
+def api_clergy_count():
+    """API endpoint for clergy count in status bar"""
+    try:
+        count = Clergy.query.count()
+        return jsonify({'count': count})
+    except Exception as e:
+        current_app.logger.error(f"Error getting clergy count: {str(e)}")
+        return jsonify({'count': 0, 'error': str(e)}), 500
+
+@editor_bp.route('/api/stats/records-count')
+@require_permission('edit_clergy')
+def api_records_count():
+    """API endpoint for total records count in status bar"""
+    try:
+        # Count all records across different tables
+        clergy_count = Clergy.query.count()
+        ordination_count = Ordination.query.count()
+        consecration_count = Consecration.query.count()
+        comment_count = ClergyComment.query.count()
+        
+        total_records = clergy_count + ordination_count + consecration_count + comment_count
+        return jsonify({'count': total_records})
+    except Exception as e:
+        current_app.logger.error(f"Error getting records count: {str(e)}")
+        return jsonify({'count': 0, 'error': str(e)}), 500
+
+@editor_bp.route('/api/stats/db-status')
+@require_permission('edit_clergy')
+def api_db_status():
+    """API endpoint for database connection status in status bar"""
+    try:
+        # Test database connection with a simple query
+        start_time = datetime.now()
+        db.session.execute('SELECT 1')
+        db.session.commit()
+        response_time = (datetime.now() - start_time).total_seconds() * 1000
+        
+        # Check if we can query clergy table specifically
+        clergy_count = Clergy.query.count()
+        ordination_count = Ordination.query.count()
+        consecration_count = Consecration.query.count()
+        
+        # Get database info
+        db_info = {
+            'status': 'connected',
+            'details': f'Response time: {response_time:.1f}ms, {clergy_count} clergy, {ordination_count + consecration_count} events',
+            'response_time': f'{response_time:.1f}ms',
+            'clergy_count': clergy_count,
+            'ordination_count': ordination_count,
+            'consecration_count': consecration_count
+        }
+        
+        return jsonify(db_info)
+    except Exception as e:
+        current_app.logger.error(f"Database connection error: {str(e)}")
+        
+        # Check if it's a connection error vs other error
+        error_str = str(e).lower()
+        if 'connection' in error_str or 'timeout' in error_str or 'refused' in error_str:
+            return jsonify({
+                'status': 'error',
+                'details': f'Connection failed: {str(e)[:50]}...',
+                'error': str(e)
+            })
+        else:
+            return jsonify({
+                'status': 'warning',
+                'details': f'Query error: {str(e)[:50]}...',
+                'error': str(e)
+            })
+
 @editor_bp.route('/editor/metadata/organization/<int:org_id>/delete', methods=['DELETE', 'POST'])
 def delete_organization(org_id):
     """HTMX endpoint for deleting an organization"""

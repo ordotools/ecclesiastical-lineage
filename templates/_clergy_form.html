@@ -57,7 +57,7 @@
                     <!-- Photo Section (col 1, 3 rows, starting row 3) -->
                     <div id="photoField" style="grid-column: 1; grid-row: 3 / 6; display: flex; flex-direction: column;">
                         <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Photo</label>
-                        <div style="border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 1em; flex: 1; display: flex; align-items: center; justify-content: center;">
+                        <div id="photoContainer" class="drag-drop-container" style="border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 1em; flex: 1; display: flex; align-items: center; justify-content: center;">
                             <div id="imagePreview" style="text-align: center;">
                                 {% if edit_mode and clergy and clergy.image_data %}
                                     {% set image_data = clergy.image_data | from_json %}
@@ -71,8 +71,10 @@
                                 {% elif edit_mode and clergy and clergy.image_url %}
                                     <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage" style="max-width: 100px; max-height: 100px; border-radius: 4px;">
                                 {% else %}
-                                    <div style="color: rgba(255, 255, 255, 0.6); font-size: 0.9em;">
-                                        [User Icon]
+                                    <div id="noPhotoPlaceholder" style="color: rgba(255, 255, 255, 0.6); font-size: 0.9em; padding: 1em; border: 1px dashed rgba(255, 255, 255, 0.3); border-radius: 4px;">
+                                        <i class="fas fa-user" style="font-size: 1.5em; margin-bottom: 0.5em; display: block; opacity: 0.6;"></i>
+                                        <div>No Photo</div>
+                                        <div style="font-size: 0.8em; margin-top: 0.5em; opacity: 0.7;">Click or drag & drop to upload</div>
                                     </div>
                                 {% endif %}
                                 <!-- Hover overlay with image tools -->
@@ -1568,6 +1570,113 @@ document.addEventListener('DOMContentLoaded', function() {
     function resetSubmitButton(button, originalText) {
         button.textContent = originalText;
         button.disabled = false;
+    }
+
+    // Initialize drag and drop functionality for photo upload
+    if (!window.clergyFormEmbeddedDragDropInitialized) {
+        function initEmbeddedDragDrop() {
+            console.log('Initializing drag and drop for embedded clergy form...');
+            const photoContainer = document.getElementById('photoContainer');
+            const fileInput = document.getElementById('clergyImage');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            console.log('Embedded elements found:', { photoContainer, fileInput, uploadBtn });
+            
+            if (photoContainer && fileInput) {
+                console.log('Setting up direct embedded drag and drop handlers...');
+                
+                // Direct drag and drop handlers
+                photoContainer.addEventListener('dragenter', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Embedded direct dragenter');
+                    this.classList.add('drag-over');
+                }, true);
+                
+                photoContainer.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.dataTransfer.dropEffect = 'copy';
+                    console.log('Embedded direct dragover');
+                }, true);
+                
+                photoContainer.addEventListener('dragleave', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Embedded direct dragleave');
+                    this.classList.remove('drag-over');
+                }, true);
+                
+                photoContainer.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Embedded direct drop event');
+                    this.classList.remove('drag-over');
+                    
+                    const files = e.dataTransfer.files;
+                    console.log('Embedded files dropped:', files.length);
+                    
+                    if (files.length > 0) {
+                        const file = files[0];
+                        console.log('Embedded processing file:', file.name, file.type, file.size);
+                        
+                        if (file.type.startsWith('image/')) {
+                            // Set the file in the input
+                            try {
+                                const dataTransfer = new DataTransfer();
+                                dataTransfer.items.add(file);
+                                fileInput.files = dataTransfer.files;
+                                console.log('Embedded file set in input element');
+                                
+                                // Trigger the image editor if available
+                                if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
+                                    console.log('Using image editor for embedded...');
+                                    const syntheticEvent = {
+                                        target: fileInput,
+                                        preventDefault: function() {},
+                                        stopPropagation: function() {}
+                                    };
+                                    window.imageEditor.handleFormImageUpload(syntheticEvent);
+                                } else {
+                                    console.log('Using fallback preview for embedded...');
+                                    const reader = new FileReader();
+                                    reader.onload = function(e) {
+                                        const imagePreview = document.getElementById('imagePreview');
+                                        if (imagePreview) {
+                                            imagePreview.innerHTML = `
+                                                <img src="${e.target.result}" alt="Preview" id="previewImage" 
+                                                     style="max-width: 100px; max-height: 100px; border-radius: 4px; object-fit: cover;">
+                                            `;
+                                        }
+                                    };
+                                    reader.readAsDataURL(file);
+                                }
+                            } catch (error) {
+                                console.error('Embedded error processing file:', error);
+                            }
+                        } else {
+                            console.log('Embedded not an image file');
+                            alert('Please select an image file.');
+                        }
+                    }
+                }, true);
+                
+                console.log('Embedded direct drag and drop handlers set up successfully');
+            } else {
+                console.log('Embedded drag and drop initialization failed - missing elements');
+            }
+        }
+        
+        // Try to initialize immediately
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initEmbeddedDragDrop);
+        } else {
+            // Use setTimeout to ensure other scripts have loaded
+            setTimeout(initEmbeddedDragDrop, 100);
+        }
+        
+        // Mark that drag drop has been initialized
+        window.clergyFormEmbeddedDragDropInitialized = true;
     }
 })();
 </script>

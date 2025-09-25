@@ -66,7 +66,7 @@
                     <!-- Rows 4-6, Col 1: Photo Section (spans 3 rows) -->
                     <div id="photoField" class="photo-section" style="grid-column: 1; grid-row: 4 / 7; display: flex; flex-direction: column;">
                         <label style="display: block; margin-bottom: 0.5em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.85em;">Photo</label>
-                        <div class="photo-container" style="border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; background: rgba(255, 255, 255, 0.04); padding: 1em; flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; min-height: 200px;">
+                        <div id="photoContainer" class="photo-container drag-drop-container" style="border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; background: rgba(255, 255, 255, 0.04); padding: 1em; flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; min-height: 200px; position: relative; z-index: 10;">
                             <div id="imagePreview" style="text-align: center; width: 100%;">
                                 {% if edit_mode and clergy and clergy.image_data %}
                                     {% set image_data = clergy.image_data | from_json %}
@@ -80,9 +80,10 @@
                                 {% elif edit_mode and clergy and clergy.image_url %}
                                     <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage" style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;">
                                 {% else %}
-                                    <div style="color: rgba(255, 255, 255, 0.5); font-size: 0.9em; padding: 2em; border: 1px dashed rgba(255, 255, 255, 0.2); border-radius: 4px;">
+                                    <div id="noPhotoPlaceholder" style="color: rgba(255, 255, 255, 0.5); font-size: 0.9em; padding: 2em; border: 1px dashed rgba(255, 255, 255, 0.2); border-radius: 4px;">
                                         <i class="fas fa-user" style="font-size: 2em; margin-bottom: 0.5em; display: block; opacity: 0.6;"></i>
-                                        No Photo
+                                        <div>No Photo</div>
+                                        <div style="font-size: 0.8em; margin-top: 0.5em; opacity: 0.7;">Click or drag & drop to upload</div>
                                     </div>
                                 {% endif %}
                             </div>
@@ -841,6 +842,112 @@ if (!window.clergyFormEventListenersAttached) {
         
         // Mark that file handler has been attached
         window.clergyFormFileHandlerAttached = true;
+    }
+
+    // Initialize drag and drop functionality for photo upload
+    if (!window.clergyFormDragDropInitialized) {
+        function initDragDrop() {
+            console.log('Initializing drag and drop for clergy form...');
+            const photoContainer = document.getElementById('photoContainer');
+            const fileInput = document.getElementById('clergyImage');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            console.log('Elements found:', { photoContainer, fileInput, uploadBtn });
+            
+            if (photoContainer && fileInput) {
+                console.log('Setting up direct drag and drop handlers...');
+                
+                // Direct drag and drop handlers
+                photoContainer.addEventListener('dragenter', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Direct dragenter');
+                    this.classList.add('drag-over');
+                }, true);
+                
+                photoContainer.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.dataTransfer.dropEffect = 'copy';
+                    console.log('Direct dragover');
+                }, true);
+                
+                photoContainer.addEventListener('dragleave', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Direct dragleave');
+                    this.classList.remove('drag-over');
+                }, true);
+                
+                photoContainer.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Direct drop event');
+                    this.classList.remove('drag-over');
+                    
+                    const files = e.dataTransfer.files;
+                    console.log('Files dropped:', files.length);
+                    
+                    if (files.length > 0) {
+                        const file = files[0];
+                        console.log('Processing file:', file.name, file.type, file.size);
+                        
+                        if (file.type.startsWith('image/')) {
+                            // Set the file in the input
+                            try {
+                                const dataTransfer = new DataTransfer();
+                                dataTransfer.items.add(file);
+                                fileInput.files = dataTransfer.files;
+                                console.log('File set in input element');
+                                
+                                // Trigger the image editor if available
+                                if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
+                                    console.log('Using image editor...');
+                                    const syntheticEvent = {
+                                        target: fileInput,
+                                        preventDefault: function() {},
+                                        stopPropagation: function() {}
+                                    };
+                                    window.imageEditor.handleFormImageUpload(syntheticEvent);
+                                } else {
+                                    console.log('Using fallback preview...');
+                                    const reader = new FileReader();
+                                    reader.onload = function(e) {
+                                        const imagePreview = document.getElementById('imagePreview');
+                                        if (imagePreview) {
+                                            imagePreview.innerHTML = `
+                                                <img src="${e.target.result}" alt="Preview" id="previewImage" 
+                                                     style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;">
+                                            `;
+                                        }
+                                    };
+                                    reader.readAsDataURL(file);
+                                }
+                            } catch (error) {
+                                console.error('Error processing file:', error);
+                            }
+                        } else {
+                            console.log('Not an image file');
+                            alert('Please select an image file.');
+                        }
+                    }
+                }, true);
+                
+                console.log('Direct drag and drop handlers set up successfully');
+            } else {
+                console.log('Drag and drop initialization failed - missing elements');
+            }
+        }
+        
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initDragDrop);
+        } else {
+            setTimeout(initDragDrop, 100);
+        }
+        
+        // Mark that drag drop has been initialized
+        window.clergyFormDragDropInitialized = true;
     }
 
     // Make functions globally available

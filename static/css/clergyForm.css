@@ -546,6 +546,104 @@
     margin-bottom: 0;
 }
 
+/* ===== DRAG AND DROP UPLOAD STYLES ===== */
+.drag-drop-container {
+    position: relative;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.drag-drop-container.drag-drop-hover:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.drag-drop-container.drag-over {
+    background-color: rgba(0, 123, 255, 0.1);
+    border-color: #007bff;
+    border-style: dashed;
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(0, 123, 255, 0.3);
+}
+
+.drag-drop-container.drag-over::before {
+    content: "Drop image here";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 123, 255, 0.9);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    z-index: 10;
+    pointer-events: none;
+    animation: dragOverPulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes dragOverPulse {
+    0% {
+        opacity: 0.8;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.05);
+    }
+}
+
+/* Drag and drop visual feedback for different themes */
+.drag-drop-container.drag-over .photo-controls {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.drag-drop-container.drag-over #imagePreview {
+    opacity: 0.3;
+}
+
+/* Dark theme adjustments */
+.dark-theme .drag-drop-container.drag-over {
+    background-color: rgba(0, 123, 255, 0.15);
+    border-color: #4dabf7;
+    box-shadow: 0 0 20px rgba(0, 123, 255, 0.4);
+}
+
+.dark-theme .drag-drop-container.drag-over::before {
+    background: rgba(77, 171, 247, 0.95);
+}
+
+/* Light theme adjustments */
+.light-theme .drag-drop-container.drag-over {
+    background-color: rgba(0, 123, 255, 0.08);
+    border-color: #0056b3;
+    box-shadow: 0 0 15px rgba(0, 123, 255, 0.25);
+}
+
+.light-theme .drag-drop-container.drag-over::before {
+    background: rgba(0, 86, 179, 0.95);
+}
+
+/* Accessibility improvements */
+.drag-drop-container:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+.drag-drop-container:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .drag-drop-container.drag-over::before {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+    }
+}
+
 /* Form Fields Grid */
 .form-fields-grid {
     display: grid;

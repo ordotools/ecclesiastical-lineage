@@ -11,6 +11,48 @@
     <script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
     <script src="{{ url_for('static', filename='js/resizable-panes.js') }}"></script>
     <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
+    <script>
+        // Make notification function globally available
+        window.showNotification = function(message, type = 'info') {
+            // Create notification container if it doesn't exist
+            let notificationContainer = document.getElementById('notification-container');
+            if (!notificationContainer) {
+                notificationContainer = document.createElement('div');
+                notificationContainer.id = 'notification-container';
+                notificationContainer.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    z-index: 1200;
+                    max-width: 400px;
+                `;
+                document.body.appendChild(notificationContainer);
+            }
+
+            // Create notification element
+            const notification = document.createElement('div');
+            const alertClass = type === 'error' ? 'alert-danger' : type === 'success' ? 'alert-success' : type === 'warning' ? 'alert-warning' : 'alert-info';
+            notification.className = `alert ${alertClass} alert-dismissible fade show`;
+            notification.style.cssText = `
+                margin-bottom: 10px;
+                padding: 12px 20px;
+                border-radius: 6px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            `;
+            notification.innerHTML = `
+                <strong>${type.charAt(0).toUpperCase() + type.slice(1)}:</strong> ${message}
+                <button type="button" class="btn-close" onclick="this.parentElement.remove()" style="float: right; background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>
+            `;
+            notificationContainer.appendChild(notification);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        };
+    </script>
     <style>
         * {
             margin: 0;
@@ -24,6 +66,54 @@
             min-height: 100vh;
             color: white;
             overflow: hidden;
+        }
+
+        /* Alert notification styles */
+        .alert {
+            padding: 12px 20px;
+            margin-bottom: 10px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .alert-info {
+            color: #0c5460;
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+        }
+
+        .alert-success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+
+        .alert-warning {
+            color: #856404;
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+        }
+
+        .alert-danger {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+
+        .btn-close {
+            float: right;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: inherit;
+            opacity: 0.7;
+        }
+
+        .btn-close:hover {
+            opacity: 1;
         }
 
         .editor-container {
@@ -1034,7 +1124,7 @@
             document.getElementById('user-management-modal').style.display = 'none';
         }
 
-        function openMetadataManagementModal() {
+        window.openMetadataManagementModal = function() {
             const modal = document.getElementById('metadata-management-modal');
             const content = document.getElementById('metadata-management-content');
 

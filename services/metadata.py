@@ -1,6 +1,27 @@
 from models import db, Rank, Organization, Clergy
 from flask import flash
 
+def add_rank_service(data, user):
+    if not user or not getattr(user, 'is_admin', False):
+        return {'success': False, 'message': 'Permission denied'}
+    rank_name = data.get('name', '').strip()
+    description = data.get('description', '').strip()
+    color = data.get('color', '#000000').strip() or '#000000'
+    is_bishop = data.get('is_bishop', False)
+    if not rank_name:
+        return {'success': False, 'message': 'Rank name is required'}
+    existing_rank = Rank.query.filter_by(name=rank_name).first()
+    if existing_rank:
+        return {'success': False, 'message': 'Rank name already exists'}
+    try:
+        new_rank = Rank(name=rank_name, description=description, color=color, is_bishop=is_bishop)
+        db.session.add(new_rank)
+        db.session.commit()
+        return {'success': True, 'message': f'Rank "{rank_name}" added successfully', 'rank': {'id': new_rank.id, 'name': new_rank.name, 'description': new_rank.description, 'color': new_rank.color, 'is_bishop': new_rank.is_bishop}}
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'message': 'Error adding rank'}
+
 def edit_rank_service(rank_id, data, user):
     if not user or not getattr(user, 'is_admin', False):
         return {'success': False, 'message': 'Permission denied'}

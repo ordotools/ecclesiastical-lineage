@@ -747,6 +747,276 @@ def comments_management_modal():
     return render_template('editor_panels/comments_management.html', 
                          comments=comments)
 
+# Metadata Management HTMX Endpoints
+
+@editor_bp.route('/editor/metadata/rank/add', methods=['POST'])
+def add_rank():
+    """HTMX endpoint for adding a new rank"""
+    from services.metadata import add_rank_service
+    from utils import log_audit_event
+    
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'You must be logged in to manage metadata.'})
+    
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_active:
+        return jsonify({'success': False, 'message': 'User not found or inactive.'})
+    
+    if not user.has_permission('manage_metadata'):
+        return jsonify({'success': False, 'message': 'You do not have permission to manage metadata.'})
+    
+    data = request.get_json() or request.form.to_dict()
+    
+    # Convert checkbox value to boolean
+    if 'is_bishop' in data:
+        data['is_bishop'] = data['is_bishop'] in ['true', 'on', '1', True]
+    
+    result = add_rank_service(data, user)
+    
+    if result['success']:
+        # Log audit event
+        log_audit_event(
+            user_id=session['user_id'],
+            action='create',
+            entity_type='rank',
+            entity_id=result['rank']['id'],
+            entity_name=result['rank']['name'],
+            details=f'Added rank "{result["rank"]["name"]}"'
+        )
+    
+    return jsonify(result)
+
+@editor_bp.route('/editor/metadata/rank/<int:rank_id>/edit', methods=['PUT', 'POST'])
+def edit_rank(rank_id):
+    """HTMX endpoint for editing a rank"""
+    from services.metadata import edit_rank_service
+    from utils import log_audit_event
+    
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'You must be logged in to manage metadata.'})
+    
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_active:
+        return jsonify({'success': False, 'message': 'User not found or inactive.'})
+    
+    if not user.has_permission('manage_metadata'):
+        return jsonify({'success': False, 'message': 'You do not have permission to manage metadata.'})
+    
+    data = request.get_json() or request.form.to_dict()
+    
+    # Convert checkbox value to boolean
+    if 'is_bishop' in data:
+        data['is_bishop'] = data['is_bishop'] in ['true', 'on', '1', True]
+    
+    result = edit_rank_service(rank_id, data, user)
+    
+    if result['success']:
+        # Log audit event
+        log_audit_event(
+            user_id=session['user_id'],
+            action='update',
+            entity_type='rank',
+            entity_id=rank_id,
+            entity_name=result['rank']['name'],
+            details=f'Updated rank to "{result["rank"]["name"]}"'
+        )
+    
+    return jsonify(result)
+
+@editor_bp.route('/editor/metadata/rank/<int:rank_id>/delete', methods=['DELETE', 'POST'])
+def delete_rank(rank_id):
+    """HTMX endpoint for deleting a rank"""
+    from services.metadata import delete_rank_service
+    from utils import log_audit_event
+    
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'You must be logged in to manage metadata.'})
+    
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_active:
+        return jsonify({'success': False, 'message': 'User not found or inactive.'})
+    
+    if not user.has_permission('manage_metadata'):
+        return jsonify({'success': False, 'message': 'You do not have permission to manage metadata.'})
+    
+    # Get rank name before deletion for audit log
+    rank = Rank.query.get(rank_id)
+    rank_name = rank.name if rank else f"ID {rank_id}"
+    
+    result = delete_rank_service(rank_id, user)
+    
+    if result['success']:
+        # Log audit event
+        log_audit_event(
+            user_id=session['user_id'],
+            action='delete',
+            entity_type='rank',
+            entity_id=rank_id,
+            entity_name=rank_name,
+            details=f'Deleted rank "{rank_name}"'
+        )
+    
+    return jsonify(result)
+
+@editor_bp.route('/editor/metadata/rank/<int:rank_id>')
+@require_permission('manage_metadata')
+def get_rank(rank_id):
+    """HTMX endpoint for getting a single rank"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'You must be logged in to manage metadata.'})
+    
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_active:
+        return jsonify({'success': False, 'message': 'User not found or inactive.'})
+    
+    if not user.has_permission('manage_metadata'):
+        return jsonify({'success': False, 'message': 'You do not have permission to manage metadata.'})
+    
+    rank = Rank.query.get(rank_id)
+    if not rank:
+        return jsonify({'success': False, 'message': 'Rank not found'})
+    
+    return jsonify({
+        'success': True,
+        'rank': {
+            'id': rank.id,
+            'name': rank.name,
+            'description': rank.description,
+            'color': rank.color,
+            'is_bishop': rank.is_bishop
+        }
+    })
+
+@editor_bp.route('/editor/metadata/organization/<int:org_id>')
+@require_permission('manage_metadata')
+def get_organization(org_id):
+    """HTMX endpoint for getting a single organization"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'You must be logged in to manage metadata.'})
+    
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_active:
+        return jsonify({'success': False, 'message': 'User not found or inactive.'})
+    
+    if not user.has_permission('manage_metadata'):
+        return jsonify({'success': False, 'message': 'You do not have permission to manage metadata.'})
+    
+    org = Organization.query.get(org_id)
+    if not org:
+        return jsonify({'success': False, 'message': 'Organization not found'})
+    
+    return jsonify({
+        'success': True,
+        'organization': {
+            'id': org.id,
+            'name': org.name,
+            'abbreviation': org.abbreviation,
+            'description': org.description,
+            'color': org.color
+        }
+    })
+
+@editor_bp.route('/editor/metadata/organization/add', methods=['POST'])
+def add_organization():
+    """HTMX endpoint for adding a new organization"""
+    from services.metadata import add_organization_service
+    from utils import log_audit_event
+    
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'You must be logged in to manage metadata.'})
+    
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_active:
+        return jsonify({'success': False, 'message': 'User not found or inactive.'})
+    
+    if not user.has_permission('manage_metadata'):
+        return jsonify({'success': False, 'message': 'You do not have permission to manage metadata.'})
+    
+    data = request.get_json() or request.form.to_dict()
+    
+    result = add_organization_service(data, user)
+    
+    if result['success']:
+        # Log audit event
+        log_audit_event(
+            user_id=session['user_id'],
+            action='create',
+            entity_type='organization',
+            entity_id=result['organization']['id'],
+            entity_name=result['organization']['name'],
+            details=f'Added organization "{result["organization"]["name"]}"'
+        )
+    
+    return jsonify(result)
+
+@editor_bp.route('/editor/metadata/organization/<int:org_id>/edit', methods=['PUT', 'POST'])
+def edit_organization(org_id):
+    """HTMX endpoint for editing an organization"""
+    from services.metadata import edit_organization_service
+    from utils import log_audit_event
+    
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'You must be logged in to manage metadata.'})
+    
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_active:
+        return jsonify({'success': False, 'message': 'User not found or inactive.'})
+    
+    if not user.has_permission('manage_metadata'):
+        return jsonify({'success': False, 'message': 'You do not have permission to manage metadata.'})
+    
+    data = request.get_json() or request.form.to_dict()
+    
+    result = edit_organization_service(org_id, data, user)
+    
+    if result['success']:
+        # Log audit event
+        log_audit_event(
+            user_id=session['user_id'],
+            action='update',
+            entity_type='organization',
+            entity_id=org_id,
+            entity_name=result['organization']['name'],
+            details=f'Updated organization to "{result["organization"]["name"]}"'
+        )
+    
+    return jsonify(result)
+
+@editor_bp.route('/editor/metadata/organization/<int:org_id>/delete', methods=['DELETE', 'POST'])
+def delete_organization(org_id):
+    """HTMX endpoint for deleting an organization"""
+    from services.metadata import delete_organization_service
+    from utils import log_audit_event
+    
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'You must be logged in to manage metadata.'})
+    
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_active:
+        return jsonify({'success': False, 'message': 'User not found or inactive.'})
+    
+    if not user.has_permission('manage_metadata'):
+        return jsonify({'success': False, 'message': 'You do not have permission to manage metadata.'})
+    
+    # Get organization name before deletion for audit log
+    org = Organization.query.get(org_id)
+    org_name = org.name if org else f"ID {org_id}"
+    
+    result = delete_organization_service(org_id, user)
+    
+    if result['success']:
+        # Log audit event
+        log_audit_event(
+            user_id=session['user_id'],
+            action='delete',
+            entity_type='organization',
+            entity_id=org_id,
+            entity_name=org_name,
+            details=f'Deleted organization "{org_name}"'
+        )
+    
+    return jsonify(result)
+
 @editor_bp.route('/editor/audit-logs-management')
 @require_permission('view_audit_logs')
 def audit_logs_management_modal():

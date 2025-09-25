@@ -2,14 +2,14 @@
 <div class="clergy-panel-container">
     <!-- Top Section: Clergy List -->
     <div class="clergy-list-section">
-        <div style="padding: 1em;">
+        <div style="padding: 0.75em; background: #2B2E32; height: 100%;">
     <!-- Search and Filter -->
     <div style="margin-bottom: 1em;">
         <div style="margin-bottom: 0.75em;">
             <div style="position: relative;">
                 <input type="text" id="clergySearchInput" value="{{ search or '' }}" 
                        placeholder="Search clergy..." 
-                       style="width: 100%; padding: 0.5em 2em 0.5em 0.75em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; font-size: 0.9em;">
+                       style="width: 100%; padding: 0.5em 2em 0.5em 0.75em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); color: white; font-size: 0.8em;">
                 <button type="button" id="clearSearchBtn" style="position: absolute; right: 0.5em; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255, 255, 255, 0.6); cursor: pointer; display: none;">
                     <i class="fas fa-times"></i>
                 </button>
@@ -68,7 +68,7 @@
              data-has-ordinations="{{ (clergy.ordinations|length > 0)|lower }}"
              data-has-consecrations="{{ (clergy.consecrations|length > 0)|lower }}"
              onclick="selectClergyFromList({{ clergy.id }})"
-             style="display: flex; align-items: center; padding: 0.75em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; cursor: pointer; transition: all 0.2s ease; {% if clergy.is_deleted %}opacity: 0.6; border-left: 4px solid rgba(255, 0, 0, 0.5);{% endif %}"
+             style="display: flex; align-items: center; padding: 0.75em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 3px; cursor: pointer; transition: all 0.2s ease; {% if clergy.is_deleted %}opacity: 0.6; border-left: 4px solid rgba(255, 0, 0, 0.5);{% endif %}"
              onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
              onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">
             
@@ -94,13 +94,13 @@
             
             <!-- Clergy Info -->
             <div style="flex: 1; min-width: 0;">
-                <div style="font-weight: 500; color: rgba(255, 255, 255, 0.95); font-size: 0.9em; margin-bottom: 0.25em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 0.8em; margin-bottom: 0.25em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                     {{ clergy.name }}
                     {% if clergy.is_deleted %}
                     <span style="color: rgba(255, 0, 0, 0.8); font-size: 0.8em; margin-left: 0.5em;">[DELETED]</span>
                     {% endif %}
                 </div>
-                <div style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6);">
+                <div style="font-size: 0.8em; color: rgba(255, 255, 255, 0.6);">
                     {{ clergy.rank }}{% if clergy.organization %} · {{ clergy.organization }}{% endif %}
                 </div>
                 {% if clergy.date_of_birth or clergy.date_of_death %}
@@ -148,7 +148,7 @@
     {% if user and user.can_edit_clergy() %}
     <div style="padding: 1em 0; border-top: 1px solid rgba(255, 255, 255, 0.1); margin-top: 1em;">
         <button onclick="selectClergyFromList(null)" 
-                style="width: 100%; padding: 0.75em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 6px; color: rgba(255, 255, 255, 0.9); cursor: pointer; font-size: 0.9em; transition: all 0.2s ease;"
+                style="width: 100%; padding: 0.75em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.9); cursor: pointer; font-size: 0.8em; transition: all 0.2s ease;"
                 onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'"
                 onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
             <i class="fas fa-plus" style="margin-right: 0.5em;"></i>Add New Clergy
@@ -162,7 +162,7 @@
     <div class="internal-resize-handle" id="clergy-internal-resizer"></div>
     
     <!-- Bottom Section: Tabs -->
-    <div class="clergy-tabs-section">
+    <div class="clergy-tabs-section" style="background: #2B2E32;">
         <div class="clergy-tabs">
             <button class="clergy-tab active" data-tab="audit-logs">
                 <i class="fas fa-history"></i>

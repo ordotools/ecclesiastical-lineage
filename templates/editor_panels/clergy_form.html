@@ -164,6 +164,14 @@
 .right-panel .photo-container {
     min-height: 220px !important;
     padding: 0.75em !important;
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.right-panel .photo-container.drag-over {
+    border-color: rgba(255, 255, 255, 0.8);
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 .right-panel .photo-controls button {
@@ -282,6 +290,55 @@
 // Simple form handling - instant updates like clergy list
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Editor clergy form panel initialized');
+    
+    // Initialize drag and drop and cancel button immediately
+    console.log('🔄 DOMContentLoaded: Initializing form handlers immediately');
+    initializeDragDropForHTMX();
+    initializeCancelButtonHandler();
+    
+    // Set up mutation observer to watch for form content changes
+    console.log('🔄 DOMContentLoaded: Setting up mutation observer');
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'childList') {
+                // Check if clergy form was added
+                const addedNodes = Array.from(mutation.addedNodes);
+                const hasClergyForm = addedNodes.some(node => 
+                    node.nodeType === Node.ELEMENT_NODE && 
+                    (node.id === 'clergyForm' || node.querySelector('#clergyForm'))
+                );
+                
+                if (hasClergyForm) {
+                    console.log('🔄 MutationObserver: Clergy form detected, initializing handlers');
+                    setTimeout(() => {
+                        initializeDragDropForHTMX();
+                        initializeCancelButtonHandler();
+                    }, 100);
+                }
+            }
+        });
+    });
+    
+    // Start observing
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    console.log('🔄 DOMContentLoaded: Mutation observer set up');
+    
+    // Also set up a periodic check as a fallback
+    console.log('🔄 DOMContentLoaded: Setting up periodic form check');
+    setInterval(() => {
+        const clergyForm = document.querySelector('#clergyForm');
+        const photoContainer = document.querySelector('#photoContainer');
+        
+        if (clergyForm && photoContainer && !photoContainer.hasAttribute('data-drag-drop-initialized')) {
+            console.log('🔄 Periodic check: Found uninitialized clergy form, initializing...');
+            initializeDragDropForHTMX();
+            initializeCancelButtonHandler();
+        }
+    }, 1000); // Check every second
 });
 
 // Use event delegation for HTMX-loaded form content
@@ -633,7 +690,29 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
 
 // HTMX event handling with form initialization
 document.body.addEventListener('htmx:afterSwap', function(evt) {
-    if (evt.target.closest('#clergyFormContainer')) {
+    console.log('🔄 HTMX: afterSwap event fired for target:', evt.target);
+    console.log('🔄 HTMX: Target classes:', evt.target.className);
+    console.log('🔄 HTMX: Target ID:', evt.target.id);
+    console.log('🔄 HTMX: Target closest to clergyFormContainer:', evt.target.closest('#clergyFormContainer'));
+    console.log('🔄 HTMX: Target has form-content-loader class:', evt.target.classList.contains('form-content-loader'));
+    console.log('🔄 HTMX: Target contains clergyForm:', !!evt.target.querySelector('#clergyForm'));
+    console.log('🔄 HTMX: Target is clergyForm:', evt.target.id === 'clergyForm');
+    
+    // Check if this is a clergy form related HTMX event
+    const isClergyFormContainer = evt.target.closest('#clergyFormContainer');
+    const isFormContentLoader = evt.target.classList.contains('form-content-loader');
+    const containsClergyForm = evt.target.querySelector('#clergyForm');
+    const isClergyForm = evt.target.id === 'clergyForm';
+    const isPanelContent = evt.target.classList.contains('panel-content');
+    
+    if (isClergyFormContainer || isFormContentLoader || containsClergyForm || isClergyForm || isPanelContent) {
+        // Double-check that we actually have a clergy form before initializing
+        const clergyForm = evt.target.querySelector('#clergyForm') || (evt.target.id === 'clergyForm' ? evt.target : null);
+        if (!clergyForm) {
+            console.log('🔄 HTMX: No clergy form found in target, skipping initialization');
+            return;
+        }
+        
         console.log('🔄 HTMX: Clergy form content loaded instantly');
         
         // Initialize the form after HTMX loads it - immediate execution
@@ -688,9 +767,264 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
                     }
                 });
             }
+            
+            // Re-initialize drag and drop functionality for HTMX-loaded content
+            console.log('🔄 HTMX: Re-initializing drag and drop...');
+            initializeDragDropForHTMX();
+            
+            // Initialize cancel button handler for HTMX-loaded content
+            console.log('🔄 HTMX: Initializing cancel button handler...');
+            initializeCancelButtonHandler();
         }, 200);
     }
 });
+
+// Additional HTMX event handler for afterRequest
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+    console.log('🔄 HTMX: afterRequest event fired for target:', evt.target);
+    console.log('🔄 HTMX: Request URL:', evt.detail.xhr ? evt.detail.xhr.responseURL : 'unknown');
+    
+    // Check if this was a clergy form content request
+    const isClergyFormContentRequest = evt.detail.xhr && evt.detail.xhr.responseURL && 
+        (evt.detail.xhr.responseURL.includes('/editor/clergy-form-content') || 
+         evt.detail.xhr.responseURL.includes('/editor/clergy-form/'));
+    
+    if (isClergyFormContentRequest) {
+        console.log('🔄 HTMX: Clergy form content request detected, initializing...');
+        
+        // Wait a bit for the content to be swapped
+        setTimeout(() => {
+            const clergyForm = document.querySelector('#clergyForm');
+            if (clergyForm) {
+                console.log('🔄 HTMX: Clergy form found after request, initializing handlers...');
+                initializeDragDropForHTMX();
+                initializeCancelButtonHandler();
+            } else {
+                console.log('🔄 HTMX: No clergy form found after request');
+            }
+        }, 100);
+    }
+});
+
+// Initialize cancel button handler for HTMX-loaded content
+function initializeCancelButtonHandler() {
+    console.log('🔄 HTMX: Initializing cancel button handler...');
+    const cancelBtn = document.getElementById('cancel-btn');
+    
+    if (cancelBtn) {
+        // Check if already initialized
+        if (cancelBtn.hasAttribute('data-cancel-initialized')) {
+            console.log('🔄 HTMX: Cancel button already initialized, skipping');
+            return;
+        }
+        
+        console.log('🔄 HTMX: Setting up cancel button handler...');
+        
+        // Mark as initialized
+        cancelBtn.setAttribute('data-cancel-initialized', 'true');
+        
+        cancelBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔄 HTMX: Cancel button clicked - clearing form');
+            
+            // Clear the form and switch to add mode
+            clearFormForNewEntry();
+        });
+        
+        console.log('🔄 HTMX: Cancel button handler set up successfully');
+    } else {
+        console.log('🔄 HTMX: Cancel button not found');
+    }
+}
+
+// Initialize drag and drop functionality for HTMX-loaded content
+function initializeDragDropForHTMX() {
+    console.log('🔄 HTMX: Initializing drag and drop for HTMX-loaded form...');
+    const photoContainer = document.getElementById('photoContainer');
+    const fileInput = document.getElementById('clergyImage');
+    
+    console.log('🔄 HTMX: Drag drop elements found:', { photoContainer, fileInput });
+    
+    if (photoContainer && fileInput) {
+        // Check if drag and drop is already initialized
+        if (photoContainer.hasAttribute('data-drag-drop-initialized')) {
+            console.log('🔄 HTMX: Drag and drop already initialized, skipping');
+            return;
+        }
+        
+        console.log('🔄 HTMX: Setting up drag and drop handlers for HTMX content...');
+        
+        // Mark as initialized
+        photoContainer.setAttribute('data-drag-drop-initialized', 'true');
+        
+        // Handle existing image in edit mode - make it not interfere with drag events
+        const existingImage = photoContainer.querySelector('#previewImage');
+        if (existingImage) {
+            console.log('🔄 HTMX: Found existing image, ensuring it doesn\'t block drag events');
+            existingImage.style.pointerEvents = 'none';
+            
+            // Also add drag event handlers to the image itself as a fallback
+            existingImage.addEventListener('dragenter', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔄 HTMX: Drag enter on image');
+                photoContainer.classList.add('drag-over');
+            }, true);
+            
+            existingImage.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'copy';
+                console.log('🔄 HTMX: Drag over on image');
+            }, true);
+            
+            existingImage.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔄 HTMX: Drag leave on image');
+                photoContainer.classList.remove('drag-over');
+            }, true);
+            
+            existingImage.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔄 HTMX: Drop on image');
+                photoContainer.classList.remove('drag-over');
+                
+                const files = e.dataTransfer.files;
+                console.log('🔄 HTMX: Files dropped on image:', files.length);
+                
+                if (files.length > 0) {
+                    const file = files[0];
+                    console.log('🔄 HTMX: Processing file from image drop:', file.name, file.type, file.size);
+                    
+                    if (file.type.startsWith('image/')) {
+                        // Set the file in the input
+                        try {
+                            const dataTransfer = new DataTransfer();
+                            dataTransfer.items.add(file);
+                            fileInput.files = dataTransfer.files;
+                            console.log('🔄 HTMX: File set in input element from image drop');
+                            
+                            // Trigger the image editor if available
+                            if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
+                                console.log('🔄 HTMX: Using image editor for image drop...');
+                                const syntheticEvent = {
+                                    target: fileInput,
+                                    preventDefault: function() {},
+                                    stopPropagation: function() {}
+                                };
+                                window.imageEditor.handleFormImageUpload(syntheticEvent);
+                            } else {
+                                // Fallback to simple preview
+                                const reader = new FileReader();
+                                reader.onload = function(e) {
+                                    const imagePreview = document.getElementById('imagePreview');
+                                    if (imagePreview) {
+                                        imagePreview.innerHTML = `
+                                            <img src="${e.target.result}" alt="Preview" id="previewImage" 
+                                                 style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;">
+                                        `;
+                                    }
+                                };
+                                reader.readAsDataURL(file);
+                            }
+                        } catch (error) {
+                            console.error('🔄 HTMX: Error processing file from image drop:', error);
+                        }
+                    } else {
+                        console.log('🔄 HTMX: Not an image file from image drop');
+                        alert('Please select an image file.');
+                    }
+                }
+            }, true);
+        }
+        
+        // Direct drag and drop handlers with event delegation for child elements
+        photoContainer.addEventListener('dragenter', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔄 HTMX: Drag enter on container or child');
+            this.classList.add('drag-over');
+        }, true);
+        
+        photoContainer.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+            console.log('🔄 HTMX: Drag over on container or child');
+        }, true);
+        
+        photoContainer.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔄 HTMX: Drag leave on container or child');
+            // Only remove drag-over if we're actually leaving the container
+            if (!this.contains(e.relatedTarget)) {
+                this.classList.remove('drag-over');
+            }
+        }, true);
+        
+        photoContainer.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔄 HTMX: Drop event on container or child');
+            this.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            console.log('🔄 HTMX: Files dropped:', files.length);
+            
+            if (files.length > 0) {
+                const file = files[0];
+                console.log('🔄 HTMX: Processing file:', file.name, file.type, file.size);
+                
+                if (file.type.startsWith('image/')) {
+                    // Set the file in the input
+                    try {
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        fileInput.files = dataTransfer.files;
+                        console.log('🔄 HTMX: File set in input element');
+                        
+                        // Trigger the image editor if available
+                        if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
+                            console.log('🔄 HTMX: Using image editor...');
+                            const syntheticEvent = {
+                                target: fileInput,
+                                preventDefault: function() {},
+                                stopPropagation: function() {}
+                            };
+                            window.imageEditor.handleFormImageUpload(syntheticEvent);
+                        } else {
+                            // Fallback to simple preview
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                const imagePreview = document.getElementById('imagePreview');
+                                if (imagePreview) {
+                                    imagePreview.innerHTML = `
+                                        <img src="${e.target.result}" alt="Preview" id="previewImage" 
+                                             style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;">
+                                    `;
+                                }
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                    } catch (error) {
+                        console.error('🔄 HTMX: Error processing file:', error);
+                    }
+                } else {
+                    console.log('🔄 HTMX: Not an image file');
+                    alert('Please select an image file.');
+                }
+            }
+        }, true);
+        
+        console.log('🔄 HTMX: Drag and drop handlers set up successfully for HTMX content');
+    } else {
+        console.log('🔄 HTMX: Drag and drop initialization failed - missing elements');
+    }
+}
 
 // Switch form to edit mode after saving a new clergy record
 function switchToEditMode(clergyId) {
@@ -748,6 +1082,8 @@ function refreshClergyForm(clergyId = null) {
 window.refreshClergyFormSmooth = refreshClergyForm;
 window.switchToEditMode = switchToEditMode;
 window.clearFormForNewEntry = clearFormForNewEntry;
+window.initializeDragDropForHTMX = initializeDragDropForHTMX;
+window.initializeCancelButtonHandler = initializeCancelButtonHandler;
 
 // Add test functions for debugging
 window.testSwitchToEditMode = function() {
@@ -786,10 +1122,46 @@ window.testVisualizationRefresh = function() {
     }
 };
 
+window.testDragDropInit = function() {
+    console.log('Testing drag and drop initialization...');
+    initializeDragDropForHTMX();
+};
+
+window.testCancelButtonInit = function() {
+    console.log('Testing cancel button initialization...');
+    initializeCancelButtonHandler();
+};
+
+window.testDragDropDebug = function() {
+    console.log('=== DRAG DROP DEBUG ===');
+    const photoContainer = document.getElementById('photoContainer');
+    const fileInput = document.getElementById('clergyImage');
+    const existingImage = photoContainer ? photoContainer.querySelector('#previewImage') : null;
+    
+    console.log('Photo container found:', !!photoContainer);
+    console.log('File input found:', !!fileInput);
+    console.log('Existing image found:', !!existingImage);
+    
+    if (photoContainer) {
+        console.log('Photo container classes:', photoContainer.className);
+        console.log('Photo container has drag-drop-initialized:', photoContainer.hasAttribute('data-drag-drop-initialized'));
+        console.log('Photo container children:', photoContainer.children.length);
+        
+        if (existingImage) {
+            console.log('Existing image pointer-events:', existingImage.style.pointerEvents);
+            console.log('Existing image src:', existingImage.src);
+        }
+    }
+    
+    console.log('=== END DEBUG ===');
+};
+
 console.log('Form functions available:', {
     refreshClergyFormSmooth: typeof window.refreshClergyFormSmooth,
     switchToEditMode: typeof window.switchToEditMode,
-    clearFormForNewEntry: typeof window.clearFormForNewEntry
+    clearFormForNewEntry: typeof window.clearFormForNewEntry,
+    initializeDragDropForHTMX: typeof window.initializeDragDropForHTMX,
+    initializeCancelButtonHandler: typeof window.initializeCancelButtonHandler
 });
 
 // Direct autocomplete initialization as fallback

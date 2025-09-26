@@ -1,0 +1,46 @@
+<!-- Visualization Panel Content -->
+{% if error_message %}
+<div style="padding: 2em; text-align: center; color: rgba(255, 100, 100, 0.9); background: #1a1a1a;">
+    <i class="fas fa-exclamation-triangle" style="font-size: 2em; margin-bottom: 0.5em;"></i>
+    <div>{{ error_message }}</div>
+</div>
+{% else %}
+<div id="editor-graph-container" style="width: 100%; height: 100%; position: relative; overflow: hidden; background: #1a1a1a;">
+    <!-- Graph will be rendered here by D3.js -->
+</div>
+
+<script src="{{ url_for('static', filename='js/editor-visualization.js') }}"></script>
+<script>
+(function() {
+    console.log('Visualization template script starting...');
+    
+    // Data from the server
+    const nodesData = {{ nodes_json | safe }};
+    const linksData = {{ links_json | safe }};
+    
+    console.log('Nodes data:', nodesData.length, 'Links data:', linksData.length);
+    
+    // Wait for the script to load and then initialize
+    function waitForScriptAndInitialize() {
+        if (typeof initializeEditorVisualization === 'function') {
+            console.log('Script loaded, initializing visualization...');
+            
+            // Cleanup existing visualization on panel reload
+            if (typeof cleanupEditorVisualization === 'function') {
+                console.log('Cleaning up existing visualization...');
+                cleanupEditorVisualization();
+            }
+            
+            // Initialize the visualization
+            initializeEditorVisualization(nodesData, linksData);
+        } else {
+            console.log('Script not yet loaded, retrying...');
+            setTimeout(waitForScriptAndInitialize, 100);
+        }
+    }
+    
+    // Start waiting for the script
+    waitForScriptAndInitialize();
+})();
+</script>
+{% endif %}

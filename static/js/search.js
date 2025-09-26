@@ -240,15 +240,15 @@ function highlightNode(node) {
   if (!nodeElements.empty()) {
     // Add highlight styling
     nodeElements.select('circle:first-child')
-      .transition()
-      .duration(200)
       .attr('stroke-width', 6)
-      .attr('stroke', '#ffc107')
-      .transition()
-      .delay(2000)
-      .duration(500)
-      .attr('stroke-width', 3)
-      .attr('stroke', d => d.rank_color);
+      .attr('stroke', '#ffc107');
+    
+    // Remove highlight after delay
+    setTimeout(() => {
+      nodeElements.select('circle:first-child')
+        .attr('stroke-width', 3)
+        .attr('stroke', d => d.rank_color);
+    }, 2000);
   }
   
   // Also trigger the click handler to show clergy info

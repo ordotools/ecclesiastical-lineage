@@ -1,0 +1,770 @@
+<!-- Metadata Management Modal Content -->
+<div class="metadata-management-content">
+  <div class="management-header">
+    <h4>Metadata Management</h4>
+    <p>Manage ranks, organizations, and other metadata</p>
+  </div>
+
+  <!-- Ranks Management -->
+  <div class="metadata-section">
+    <div class="section-header">
+      <h5>Ranks</h5>
+      <button class="btn btn-primary btn-sm" onclick="showAddRankForm()">
+        <i class="fas fa-plus"></i> Add Rank
+      </button>
+    </div>
+    
+    <div class="metadata-table-container">
+      <table class="metadata-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Color</th>
+            <th>Is Bishop</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rank in ranks %}
+          <tr>
+            <td>{{ rank.name }}</td>
+            <td>{{ rank.description or '-' }}</td>
+            <td>
+              <div class="color-preview" style="background-color: {{ rank.color }}"></div>
+              {{ rank.color }}
+            </td>
+            <td>
+              <span class="status-badge {{ 'active' if rank.is_bishop else 'inactive' }}">
+                {{ 'Yes' if rank.is_bishop else 'No' }}
+              </span>
+            </td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn btn-sm btn-outline-primary" onclick="editRank({{ rank.id }})">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteRank({{ rank.id }})">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Organizations Management -->
+  <div class="metadata-section">
+    <div class="section-header">
+      <h5>Organizations</h5>
+      <button class="btn btn-primary btn-sm" onclick="showAddOrganizationForm()">
+        <i class="fas fa-plus"></i> Add Organization
+      </button>
+    </div>
+    
+    <div class="metadata-table-container">
+      <table class="metadata-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Color</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for org in organizations %}
+          <tr>
+            <td>{{ org.name }}</td>
+            <td>{{ org.description or '-' }}</td>
+            <td>
+              <div class="color-preview" style="background-color: {{ org.color }}"></div>
+              {{ org.color }}
+            </td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn btn-sm btn-outline-primary" onclick="editOrganization({{ org.id }})">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteOrganization({{ org.id }})">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Add/Edit Forms (Hidden by default) -->
+  <div id="rank-form-section" class="form-section" style="display: none;">
+    <div class="section-header">
+      <h5 id="rank-form-title">Add New Rank</h5>
+      <button class="btn btn-outline-secondary btn-sm" onclick="hideRankForm()">
+        <i class="fas fa-times"></i> Cancel
+      </button>
+    </div>
+    
+    <form id="rank-form" class="metadata-form">
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label for="rank_name">Name</label>
+          <input type="text" id="rank_name" name="name" required>
+        </div>
+        <div class="form-group" style="flex: 0 0 auto; width: auto;">
+          <label for="rank_color">Color</label>
+          <input type="color" id="rank_color" name="color" value="#000000" class="color-picker">
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="rank_description">Description</label>
+        <textarea id="rank_description" name="description" rows="3"></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="rank_is_bishop" name="is_bishop">
+          <span class="checkmark"></span>
+          Is Bishop Rank
+        </label>
+      </div>
+      
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save"></i> Save Rank
+        </button>
+        <button type="button" class="btn btn-outline-secondary" onclick="hideRankForm()">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div id="organization-form-section" class="form-section" style="display: none;">
+    <div class="section-header">
+      <h5 id="organization-form-title">Add New Organization</h5>
+      <button class="btn btn-outline-secondary btn-sm" onclick="hideOrganizationForm()">
+        <i class="fas fa-times"></i> Cancel
+      </button>
+    </div>
+    
+    <form id="organization-form" class="metadata-form">
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label for="org_name">Name</label>
+          <input type="text" id="org_name" name="name" required>
+        </div>
+        <div class="form-group" style="flex: 0 0 120px;">
+          <label for="org_abbreviation">Abbreviation</label>
+          <input type="text" id="org_abbreviation" name="abbreviation" placeholder="e.g., RC, ECUSA">
+        </div>
+        <div class="form-group" style="flex: 0 0 auto; width: auto;">
+          <label for="org_color">Color</label>
+          <input type="color" id="org_color" name="color" value="#27ae60" class="color-picker">
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="org_description">Description</label>
+        <textarea id="org_description" name="description" rows="3"></textarea>
+      </div>
+      
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save"></i> Save Organization
+        </button>
+        <button type="button" class="btn btn-outline-secondary" onclick="hideOrganizationForm()">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .metadata-management-content {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .management-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .management-header h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.2em;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .management-header p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9em;
+  }
+
+  .metadata-section {
+    margin-bottom: 2rem;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .section-header h5 {
+    margin: 0;
+    font-size: 1em;
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .metadata-table-container {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .metadata-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .metadata-table th,
+  .metadata-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .metadata-table th {
+    background: rgba(255, 255, 255, 0.1);
+    font-weight: 600;
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .metadata-table td {
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .metadata-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .color-preview {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    margin-right: 0.5rem;
+    vertical-align: middle;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 500;
+  }
+
+  .status-badge.active {
+    background: rgba(34, 197, 94, 0.2);
+    color: rgba(34, 197, 94, 1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  .status-badge.inactive {
+    background: rgba(239, 68, 68, 0.2);
+    color: rgba(239, 68, 68, 1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.75rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+
+  .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75em;
+  }
+
+  .btn-primary {
+    background: rgba(59, 130, 246, 0.8);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: rgba(59, 130, 246, 1);
+  }
+
+  .btn-outline-primary {
+    background: transparent;
+    color: rgba(59, 130, 246, 1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+
+  .btn-outline-primary:hover {
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  .btn-outline-secondary {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .btn-outline-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .btn-outline-danger {
+    background: transparent;
+    color: rgba(239, 68, 68, 1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .btn-outline-danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  .form-section {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .metadata-form {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 1.5rem;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+  }
+
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    width: 100%;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.9em;
+  }
+
+  .form-group input:focus,
+  .form-group textarea:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  }
+
+  .color-picker {
+    width: 2.5rem; /* Square button */
+    height: 2.5rem; /* Same height as text inputs */
+    padding: 0;
+    margin: 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px; /* Slightly rounded for button appearance */
+    background: transparent;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .color-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .color-picker::-webkit-color-swatch {
+    border: none;
+    border-radius: 4px;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Firefox color picker styling */
+  .color-picker::-moz-color-swatch {
+    border: none;
+    border-radius: 4px;
+    width: 100%;
+    height: 100%;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  @media (max-width: 768px) {
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+    
+    .metadata-table-container {
+      overflow-x: auto;
+    }
+    
+    .action-buttons {
+      flex-direction: column;
+    }
+  }
+</style>
+
+<script>
+  function showAddRankForm() {
+    const formSection = document.getElementById('rank-form-section');
+    const formTitle = document.getElementById('rank-form-title');
+    const form = document.getElementById('rank-form');
+    
+    formTitle.textContent = 'Add New Rank';
+    form.reset();
+    delete form.dataset.editId; // Clear edit mode
+    formSection.style.display = 'block';
+    document.getElementById('organization-form-section').style.display = 'none';
+  }
+
+  function hideRankForm() {
+    document.getElementById('rank-form-section').style.display = 'none';
+  }
+
+  function showAddOrganizationForm() {
+    const formSection = document.getElementById('organization-form-section');
+    const formTitle = document.getElementById('organization-form-title');
+    const form = document.getElementById('organization-form');
+    
+    formTitle.textContent = 'Add New Organization';
+    form.reset();
+    delete form.dataset.editId; // Clear edit mode
+    formSection.style.display = 'block';
+    document.getElementById('rank-form-section').style.display = 'none';
+  }
+
+  function hideOrganizationForm() {
+    document.getElementById('organization-form-section').style.display = 'none';
+  }
+
+  function editRank(rankId) {
+    console.log('editRank called with ID:', rankId);
+    
+    // First, make sure the form is visible
+    showAddRankForm();
+    
+    // Fetch rank data and populate the form
+    fetch(`/editor/metadata/rank/${rankId}`)
+      .then(response => response.json())
+      .then(data => {
+        console.log('Rank data received:', data);
+        if (data.success) {
+          const rank = data.rank;
+          
+          // Wait a bit for the form to be visible, then populate
+          setTimeout(() => {
+            const nameField = document.getElementById('rank_name');
+            const descField = document.getElementById('rank_description');
+            const colorField = document.getElementById('rank_color');
+            const bishopField = document.getElementById('rank_is_bishop');
+            const titleField = document.getElementById('rank-form-title');
+            const form = document.getElementById('rank-form');
+            
+            if (nameField && descField && colorField && bishopField && titleField && form) {
+              // Populate the form
+              nameField.value = rank.name;
+              descField.value = rank.description || '';
+              colorField.value = rank.color;
+              bishopField.checked = rank.is_bishop;
+              
+              // Show the form and update the title
+              titleField.textContent = 'Edit Rank';
+              
+              // Change form action to edit
+              form.dataset.editId = rankId;
+              
+              console.log('Form populated successfully');
+            } else {
+              console.error('Form elements not found:', {
+                nameField: !!nameField,
+                descField: !!descField,
+                colorField: !!colorField,
+                bishopField: !!bishopField,
+                titleField: !!titleField,
+                form: !!form
+              });
+              showNotification('Error: Form elements not found. Please try again.', 'error');
+            }
+          }, 100);
+        } else {
+          showNotification(data.message, 'error');
+        }
+      })
+      .catch(error => {
+        showNotification('Error loading rank data. Please try again.', 'error');
+        console.error('Error:', error);
+      });
+  }
+
+  // Global wrapper function for editing ranks from main panel
+  window.editRankFromModal = function(rankId) {
+    editRank(rankId);
+  };
+
+  function deleteRank(rankId) {
+    if (confirm('Are you sure you want to delete this rank?')) {
+      fetch(`/editor/metadata/rank/${rankId}/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showNotification(data.message, 'success');
+          // Reload both the modal content and the main metadata panel
+          htmx.ajax('GET', '/editor/metadata-management', {target: '#metadata-management-content'});
+          htmx.ajax('GET', '/editor/metadata', {target: '#metadata-content'});
+        } else {
+          showNotification(data.message, 'error');
+        }
+      })
+      .catch(error => {
+        showNotification('Error deleting rank. Please try again.', 'error');
+        console.error('Error:', error);
+      });
+    }
+  }
+
+  function editOrganization(orgId) {
+    console.log('editOrganization called with ID:', orgId);
+    
+    // First, make sure the form is visible
+    showAddOrganizationForm();
+    
+    // Fetch organization data and populate the form
+    fetch(`/editor/metadata/organization/${orgId}`)
+      .then(response => response.json())
+      .then(data => {
+        console.log('Organization data received:', data);
+        if (data.success) {
+          const org = data.organization;
+          
+          // Wait a bit for the form to be visible, then populate
+          setTimeout(() => {
+            const nameField = document.getElementById('org_name');
+            const abbrField = document.getElementById('org_abbreviation');
+            const descField = document.getElementById('org_description');
+            const colorField = document.getElementById('org_color');
+            const titleField = document.getElementById('organization-form-title');
+            const form = document.getElementById('organization-form');
+            
+            if (nameField && abbrField && descField && colorField && titleField && form) {
+              // Populate the form
+              nameField.value = org.name;
+              abbrField.value = org.abbreviation || '';
+              descField.value = org.description || '';
+              colorField.value = org.color;
+              
+              // Show the form and update the title
+              titleField.textContent = 'Edit Organization';
+              
+              // Change form action to edit
+              form.dataset.editId = orgId;
+              
+              console.log('Form populated successfully');
+            } else {
+              console.error('Form elements not found:', {
+                nameField: !!nameField,
+                abbrField: !!abbrField,
+                descField: !!descField,
+                colorField: !!colorField,
+                titleField: !!titleField,
+                form: !!form
+              });
+              showNotification('Error: Form elements not found. Please try again.', 'error');
+            }
+          }, 100);
+        } else {
+          showNotification(data.message, 'error');
+        }
+      })
+      .catch(error => {
+        showNotification('Error loading organization data. Please try again.', 'error');
+        console.error('Error:', error);
+      });
+  }
+
+  // Global wrapper function for editing organizations from main panel
+  window.editOrganizationFromModal = function(orgId) {
+    editOrganization(orgId);
+  };
+
+  function deleteOrganization(orgId) {
+    if (confirm('Are you sure you want to delete this organization?')) {
+      fetch(`/editor/metadata/organization/${orgId}/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showNotification(data.message, 'success');
+          // Reload both the modal content and the main metadata panel
+          htmx.ajax('GET', '/editor/metadata-management', {target: '#metadata-management-content'});
+          htmx.ajax('GET', '/editor/metadata', {target: '#metadata-content'});
+        } else {
+          showNotification(data.message, 'error');
+        }
+      })
+      .catch(error => {
+        showNotification('Error deleting organization. Please try again.', 'error');
+        console.error('Error:', error);
+      });
+    }
+  }
+
+  // Handle form submissions
+  document.getElementById('rank-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData.entries());
+    
+    // Check if this is an edit operation
+    const editId = this.dataset.editId;
+    const url = editId ? `/editor/metadata/rank/${editId}/edit` : '/editor/metadata/rank/add';
+    const method = editId ? 'PUT' : 'POST';
+    
+    fetch(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showNotification(data.message, 'success');
+        hideRankForm();
+        // Reload both the modal content and the main metadata panel
+        htmx.ajax('GET', '/editor/metadata-management', {target: '#metadata-management-content'});
+        htmx.ajax('GET', '/editor/metadata', {target: '#metadata-content'});
+      } else {
+        showNotification(data.message, 'error');
+      }
+    })
+    .catch(error => {
+      showNotification('Error adding rank. Please try again.', 'error');
+      console.error('Error:', error);
+    });
+  });
+
+  document.getElementById('organization-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData.entries());
+    
+    // Check if this is an edit operation
+    const editId = this.dataset.editId;
+    const url = editId ? `/editor/metadata/organization/${editId}/edit` : '/editor/metadata/organization/add';
+    const method = editId ? 'PUT' : 'POST';
+    
+    fetch(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showNotification(data.message, 'success');
+        hideOrganizationForm();
+        // Reload both the modal content and the main metadata panel
+        htmx.ajax('GET', '/editor/metadata-management', {target: '#metadata-management-content'});
+        htmx.ajax('GET', '/editor/metadata', {target: '#metadata-content'});
+      } else {
+        showNotification(data.message, 'error');
+      }
+    })
+    .catch(error => {
+      showNotification('Error adding organization. Please try again.', 'error');
+      console.error('Error:', error);
+    });
+  });
+</script>

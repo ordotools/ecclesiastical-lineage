@@ -15,57 +15,49 @@ def get_current_user():
 # Edit Rank
 @metadata_bp.route('/metadata/rank/<int:rank_id>/edit', methods=['PUT', 'POST'])
 def edit_rank(rank_id):
-    user = get_current_user()
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
-    data = request.get_json() if is_ajax else request.form
-    result = edit_rank_service(rank_id, data, user)
-    if is_ajax:
-        return jsonify(result), (200 if result.get('success') else 400)
-    flash(result['message'], 'success' if result.get('success') else 'error')
-    return redirect(url_for('settings.metadata'))
+    # Redirect to editor metadata panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#metadata')
+    else:
+        flash('Please log in to access metadata management.', 'error')
+        return redirect(url_for('auth.login'))
 
 # Delete Rank
 @metadata_bp.route('/metadata/rank/<int:rank_id>/delete', methods=['DELETE', 'POST'])
 def delete_rank(rank_id):
-    user = get_current_user()
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
-    result = delete_rank_service(rank_id, user)
-    if is_ajax:
-        return jsonify(result), (200 if result.get('success') else 400)
-    flash(result['message'], 'success' if result.get('success') else 'error')
-    return redirect(url_for('settings.metadata'))
+    # Redirect to editor metadata panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#metadata')
+    else:
+        flash('Please log in to access metadata management.', 'error')
+        return redirect(url_for('auth.login'))
 
 # Add Organization
 @metadata_bp.route('/metadata/organization/add', methods=['POST'])
 def add_organization():
-    user = get_current_user()
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
-    data = request.get_json() if is_ajax else request.form
-    result = add_organization_service(data, user)
-    if is_ajax:
-        return jsonify(result), (200 if result.get('success') else 400)
-    flash(result['message'], 'success' if result.get('success') else 'error')
-    return redirect(url_for('settings.metadata'))
+    # Redirect to editor metadata panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#metadata')
+    else:
+        flash('Please log in to access metadata management.', 'error')
+        return redirect(url_for('auth.login'))
 
 # Edit Organization
 @metadata_bp.route('/metadata/organization/<int:org_id>/edit', methods=['PUT', 'POST'])
 def edit_organization(org_id):
-    user = get_current_user()
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
-    data = request.get_json() if is_ajax else request.form
-    result = edit_organization_service(org_id, data, user)
-    if is_ajax:
-        return jsonify(result), (200 if result.get('success') else 400)
-    flash(result['message'], 'success' if result.get('success') else 'error')
-    return redirect(url_for('settings.metadata'))
+    # Redirect to editor metadata panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#metadata')
+    else:
+        flash('Please log in to access metadata management.', 'error')
+        return redirect(url_for('auth.login'))
 
 # Delete Organization
 @metadata_bp.route('/metadata/organization/<int:org_id>/delete', methods=['DELETE', 'POST'])
 def delete_organization(org_id):
-    user = get_current_user()
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
-    result = delete_organization_service(org_id, user)
-    if is_ajax:
-        return jsonify(result), (200 if result.get('success') else 400)
-    flash(result['message'], 'success' if result.get('success') else 'error')
-    return redirect(url_for('settings.metadata')) 
+    # Redirect to editor metadata panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#metadata')
+    else:
+        flash('Please log in to access metadata management.', 'error')
+        return redirect(url_for('auth.login')) 

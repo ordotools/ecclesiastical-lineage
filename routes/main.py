@@ -1,9 +1,10 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, Response
 from services import clergy as clergy_service
-from utils import audit_log, require_permission, log_audit_event
+from utils import audit_log, require_permission, require_permission_api, log_audit_event
 from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration
 import json
 import base64
+import requests
 
 main_bp = Blueprint('main', __name__)
 
@@ -18,6 +19,11 @@ def index():
 @main_bp.route('/lineage_visualization')
 def lineage_visualization():
     current_app.logger.info("=== LINEAGE_VISUALIZATION ROUTE CALLED ===")
+    
+    # Check if user is logged in - redirect to editor if they are
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor'))
+    
     try:
         # Check if we have any ordination/consecration data
         ordination_count = Ordination.query.count()
@@ -52,8 +58,19 @@ def lineage_visualization():
             org_color = organizations.get(clergy.organization) or '#2c3e50'
             rank_color = ranks.get(clergy.rank) or '#888888'
             
-            # Use actual image if available, otherwise use placeholder
-            image_url = clergy.image_url if clergy.image_url else placeholder_data_url
+            # Get image URL - prefer lineage size for visualization, fallback to original
+            image_url = placeholder_data_url
+            if clergy.image_data:
+                try:
+                    image_data = json.loads(clergy.image_data)
+                    # Use lineage size (48x48) for visualization performance
+                    image_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+            
+            # Fallback to clergy.image_url if no image_data or parsing failed
+            if not image_url or image_url == placeholder_data_url:
+                image_url = clergy.image_url if clergy.image_url else placeholder_data_url
             
             # Get high-resolution image URL from image_data if available
             high_res_image_url = None
@@ -150,6 +167,10 @@ def lineage_visualization():
 @main_bp.route('/clergy/lineage-data')
 def get_lineage_data():
     """API endpoint to get lineage data as JSON for AJAX requests"""
+    # Check if user is logged in - redirect to editor if they are
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor'))
+    
     try:
         # Check if we have any ordination/consecration data
         ordination_count = Ordination.query.count()
@@ -245,8 +266,19 @@ def get_lineage_data():
             org_color = organizations.get(clergy.organization) or '#2c3e50'
             rank_color = ranks.get(clergy.rank) or '#888888'
             
-            # Use actual image if available, otherwise use placeholder
-            image_url = clergy.image_url if clergy.image_url else placeholder_data_url
+            # Get image URL - prefer lineage size for visualization, fallback to original
+            image_url = placeholder_data_url
+            if clergy.image_data:
+                try:
+                    image_data = json.loads(clergy.image_data)
+                    # Use lineage size (48x48) for visualization performance
+                    image_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+            
+            # Fallback to clergy.image_url if no image_data or parsing failed
+            if not image_url or image_url == placeholder_data_url:
+                image_url = clergy.image_url if clergy.image_url else placeholder_data_url
             
             # Get high-resolution image URL from image_data if available
             high_res_image_url = None
@@ -422,39 +454,59 @@ def force_migrate_lineage():
 
 # User management routes
 @main_bp.route('/users')
-@require_permission('manage_users')
 def user_management():
-    return render_template('user_management.html')
+    # Redirect to editor user management panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#user-management')
+    else:
+        flash('Please log in to access user management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @main_bp.route('/users/add', methods=['POST'])
-@require_permission('manage_users')
 def add_user():
-    # Implementation will be moved to services
-    return jsonify({'success': False, 'message': 'Not implemented yet'}), 501
+    # Redirect to editor user management panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#user-management')
+    else:
+        flash('Please log in to access user management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @main_bp.route('/users/<int:user_id>/edit', methods=['PUT'])
-@require_permission('manage_users')
 def edit_user(user_id):
-    # Implementation will be moved to services
-    return jsonify({'success': False, 'message': 'Not implemented yet'}), 501
+    # Redirect to editor user management panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#user-management')
+    else:
+        flash('Please log in to access user management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @main_bp.route('/users/<int:user_id>/delete', methods=['DELETE'])
-@require_permission('manage_users')
 def delete_user(user_id):
-    # Implementation will be moved to services
-    return jsonify({'success': False, 'message': 'Not implemented yet'}), 501
+    # Redirect to editor user management panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#user-management')
+    else:
+        flash('Please log in to access user management.', 'error')
+        return redirect(url_for('auth.login'))
 
 # Comments management
 @main_bp.route('/comments')
-@require_permission('manage_comments')
 def comments_management():
-    return render_template('comments_management.html')
+    # Redirect to editor comments management panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#comments-management')
+    else:
+        flash('Please log in to access comments management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @main_bp.route('/comments/<int:comment_id>/resolve', methods=['POST'])
-@require_permission('manage_comments')
 def resolve_comment(comment_id):
-    # Implementation will be moved to services
-    return jsonify({'success': False, 'message': 'Not implemented yet'}), 501
+    # Redirect to editor comments management panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#comments-management')
+    else:
+        flash('Please log in to access comments management.', 'error')
+        return redirect(url_for('auth.login'))
 
 # Clergy modal routes
 @main_bp.route('/clergy/modal/add')
@@ -1046,3 +1098,86 @@ def init_db():
         return 'Not available in production', 404
     # Implementation will be moved to services
     return jsonify({'success': False, 'message': 'Not implemented yet'}), 501
+
+@main_bp.route('/api/process-cropped-image', methods=['POST'])
+@require_permission_api('edit_clergy')
+def process_cropped_image():
+    """
+    Process a cropped image and generate small (lineage) and large (detail) versions
+    """
+    try:
+        current_app.logger.info("=== PROCESS_CROPPED_IMAGE ENDPOINT CALLED ===")
+        
+        data = request.get_json()
+        if not data:
+            current_app.logger.error("No data provided in request")
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        cropped_image_data = data.get('cropped_image_data')
+        clergy_id = data.get('clergy_id')
+        original_object_key = data.get('original_object_key')
+        
+        if not cropped_image_data or not clergy_id:
+            current_app.logger.error(f"Missing required parameters - cropped_image_data: {bool(cropped_image_data)}, clergy_id: {clergy_id}")
+            return jsonify({'success': False, 'error': 'Missing required parameters'}), 400
+        
+        # Get the image upload service
+        from services.image_upload import get_image_upload_service
+        image_upload_service = get_image_upload_service()
+        
+        # Process the cropped image
+        result = image_upload_service.process_cropped_image(
+            cropped_image_data, 
+            clergy_id, 
+            original_object_key
+        )
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'image_data': result['urls']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result['error']
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Error processing cropped image: {e}")
+        import traceback
+        current_app.logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@main_bp.route('/proxy-image')
+def proxy_image():
+    """
+    Proxy images from Backblaze B2 to avoid CORS issues
+    Usage: /proxy-image?url=<encoded_backblaze_url>
+    """
+    image_url = request.args.get('url')
+    if not image_url:
+        return 'Missing URL parameter', 400
+    
+    try:
+        # Fetch the image from Backblaze B2
+        response = requests.get(image_url, timeout=30)
+        response.raise_for_status()
+        
+        # Return the image with proper headers
+        return Response(
+            response.content,
+            mimetype=response.headers.get('content-type', 'image/jpeg'),
+            headers={
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Cache-Control': 'public, max-age=3600'  # Cache for 1 hour
+            }
+        )
+    except requests.RequestException as e:
+        current_app.logger.error(f"Error proxying image {image_url}: {e}")
+        return 'Error fetching image', 500

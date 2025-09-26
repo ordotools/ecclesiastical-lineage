@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Drag and Drop Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .drop-zone {
+            width: 300px;
+            height: 200px;
+            border: 3px dashed #ccc;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: #fafafa;
+            margin: 20px auto;
+            transition: all 0.3s ease;
+        }
+        .drop-zone.drag-over {
+            border-color: #007bff;
+            background: rgba(0, 123, 255, 0.1);
+            transform: scale(1.02);
+        }
+        .drop-zone.drag-over::before {
+            content: "Drop image here";
+            position: absolute;
+            background: rgba(0, 123, 255, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: 500;
+            z-index: 10;
+        }
+        .preview-image {
+            max-width: 150px;
+            max-height: 150px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+        .log {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Simple Drag and Drop Test</h1>
+        <p>This is a minimal test to verify drag and drop works in Chrome.</p>
+        
+        <div id="dropZone" class="drop-zone">
+            <div id="dropContent">
+                <i class="fas fa-user" style="font-size: 2em; margin-bottom: 10px; opacity: 0.6;"></i>
+                <div>Drag and drop an image here</div>
+                <div style="font-size: 0.8em; margin-top: 5px; opacity: 0.7;">or click to select</div>
+            </div>
+        </div>
+        
+        <div class="log" id="log">
+            <div>Console log will appear here...</div>
+        </div>
+    </div>
+
+    <!-- Include Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const dropContent = document.getElementById('dropContent');
+        const log = document.getElementById('log');
+        
+        function addLog(message) {
+            const div = document.createElement('div');
+            div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+            console.log(message);
+        }
+        
+        // Prevent default drag behaviors
+        document.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            addLog('Document dragover prevented');
+            return false;
+        });
+        
+        document.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            addLog('Document drop prevented');
+            return false;
+        });
+        
+        // Drop zone events
+        dropZone.addEventListener('dragenter', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            addLog('Drop zone dragenter');
+            this.classList.add('drag-over');
+            return false;
+        });
+        
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+            addLog('Drop zone dragover');
+            return false;
+        });
+        
+        dropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            addLog('Drop zone dragleave');
+            this.classList.remove('drag-over');
+            return false;
+        });
+        
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            addLog('Drop zone drop event');
+            this.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            addLog('Files dropped: ' + files.length);
+            
+            if (files.length > 0) {
+                const file = files[0];
+                addLog('File: ' + file.name + ' (' + file.type + ', ' + file.size + ' bytes)');
+                
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        dropContent.innerHTML = '<img src="' + e.target.result + '" class="preview-image" alt="Preview">';
+                        addLog('Image preview loaded');
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    addLog('Not an image file');
+                }
+            }
+            
+            return false;
+        });
+        
+        // Click to select file
+        dropZone.addEventListener('click', function() {
+            addLog('Drop zone clicked');
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    addLog('File selected: ' + file.name);
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            dropContent.innerHTML = '<img src="' + e.target.result + '" class="preview-image" alt="Preview">';
+                            addLog('Image preview loaded from file selection');
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                }
+            };
+            input.click();
+        });
+        
+        addLog('Simple drag and drop test initialized');
+    </script>
+</body>
+</html>

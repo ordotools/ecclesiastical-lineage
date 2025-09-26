@@ -285,8 +285,8 @@ export function initializeAside() {
       // If we get here, it's an outside click and we should close the panel
       console.log('Outside click - closing panel');
       clergyAside.classList.remove('expanded');
-      // Reset to default view distance when closing clergy info panel
-      resetToDefaultViewDistance();
+      // Center the graph when closing the panel
+      centerGraphOnPanelClose();
     });
     
     // Add keyboard event handler to prevent closing on keypress when modal is open
@@ -310,7 +310,7 @@ export function initializeAside() {
         // Close the panel
         console.log('Escape key - closing panel');
         clergyAside.classList.remove('expanded');
-        resetToDefaultViewDistance();
+        centerGraphOnPanelClose();
       }
     });
   }
@@ -356,20 +356,55 @@ export function centerNodeInViewport(node) {
     
     // Calculate the transform needed to center the node
     const currentTransform = d3.zoomTransform(svg.node());
-    const scale = currentTransform.k;
+    const scale = currentTransform.k; // Keep the current zoom level
     
     // Calculate the translation needed to center the node
     const translateX = targetX - (nodeX * scale);
     const translateY = targetY - (nodeY * scale);
     
-    // Create the new transform
+    // Create the new transform - only translate, don't change zoom
     const newTransform = d3.zoomIdentity
       .translate(translateX, translateY)
       .scale(scale);
     
-    // Apply the transform with smooth animation using the stored zoom behavior
+    // Apply the transform with smooth animation to coordinate with panel slide
     svg.transition()
-      .duration(750)
+      .duration(300)
+      .call(zoom.transform, newTransform);
+  }
+}
+
+// Function to center the graph when the aside panel is closed
+function centerGraphOnPanelClose() {
+  // Get the SVG and zoom behavior
+  const svg = d3.select('#graph-container svg');
+  const zoom = window.currentZoom;
+  
+  if (!svg.empty() && zoom) {
+    // Get current viewport dimensions
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight - 76; // Account for navbar height
+    
+    // Center in the full viewport
+    const targetX = viewportWidth / 2;
+    const targetY = viewportHeight / 2;
+    
+    // Get current transform to preserve zoom level
+    const currentTransform = d3.zoomTransform(svg.node());
+    const scale = currentTransform.k;
+    
+    // Calculate the translation needed to center the graph
+    const translateX = targetX - (viewportWidth / 2);
+    const translateY = targetY - (viewportHeight / 2);
+    
+    // Create the new transform - only translate, don't change zoom
+    const newTransform = d3.zoomIdentity
+      .translate(translateX, translateY)
+      .scale(scale);
+    
+    // Apply the transform with smooth animation
+    svg.transition()
+      .duration(300)
       .call(zoom.transform, newTransform);
   }
 }

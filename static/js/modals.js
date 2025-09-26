@@ -25,9 +25,6 @@ export function handleNodeClick(event, d) {
     // Always update content (this won't trigger transitions if panel is already open)
     updateClergyPanelContent(d);
     
-    // Set large view distance for clergy info panel view
-    setClergyInfoViewDistance();
-    
     // Center the selected node in the viewport with a small delay to ensure aside is expanded
     setTimeout(() => {
       centerNodeInViewport(d);
@@ -78,20 +75,20 @@ function centerNodeInViewport(node) {
     
     // Calculate the transform needed to center the node
     const currentTransform = d3.zoomTransform(svg.node());
-    const scale = currentTransform.k;
+    const scale = currentTransform.k; // Keep the current zoom level
     
     // Calculate the translation needed to center the node
     const translateX = targetX - (nodeX * scale);
     const translateY = targetY - (nodeY * scale);
     
-    // Create the new transform
+    // Create the new transform - only translate, don't change zoom
     const newTransform = d3.zoomIdentity
       .translate(translateX, translateY)
       .scale(scale);
     
-    // Apply the transform with smooth animation using the stored zoom behavior
+    // Apply the transform with smooth animation to coordinate with panel slide
     svg.transition()
-      .duration(750)
+      .duration(300)
       .call(zoom.transform, newTransform);
   }
 }
@@ -441,6 +438,14 @@ function openEditClergyModal(clergyId) {
           // Manually build form data since FormData constructor seems to have issues
           const formData = new FormData();
           const requiredFields = ['name', 'rank', 'organization']; // Fields that must be preserved even if empty
+          
+          // Check for globally stored dropped file
+          if (window.droppedFile) {
+            console.log('Adding globally stored file to FormData:', window.droppedFile);
+            formData.append('clergy_image', window.droppedFile);
+            // Clear the global file after adding to form data
+            delete window.droppedFile;
+          }
           
           // Get all form inputs and manually add them to FormData
           const formInputs = form.querySelectorAll('input, select, textarea');
@@ -903,7 +908,7 @@ function attachImageEditorEventListeners(container, imageEditor) {
     // Clone the element to remove all event listeners
     const newCropBtn = cropBtn.cloneNode(true);
     cropBtn.parentNode.replaceChild(newCropBtn, cropBtn);
-    newCropBtn.addEventListener('click', () => imageEditor.editExistingImage());
+    newCropBtn.addEventListener('click', async () => await imageEditor.editExistingImage());
     console.log('Crop button event listener attached');
   }
   

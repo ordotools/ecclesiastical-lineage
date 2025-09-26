@@ -3,6 +3,7 @@ from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordinati
 from utils import log_audit_event
 from datetime import datetime
 import json
+from .image_upload import get_image_upload_service
 
 def set_clergy_display_name(clergy):
     """Set the display name for a clergy member based on their rank and papal name."""
@@ -27,6 +28,16 @@ def set_clergy_display_name(clergy):
         clergy.display_name = clergy.name
 
 def create_clergy_from_form(form):
+    # Debug: Log form data
+    print(f"=== FORM DATA DEBUG ===")
+    print(f"Form keys: {list(form.keys())}")
+    for key, value in form.items():
+        if hasattr(value, 'filename'):
+            print(f"  {key}: File({value.filename}, {getattr(value, 'content_length', 'unknown')} bytes)")
+        else:
+            print(f"  {key}: {value}")
+    print(f"=== END FORM DATA DEBUG ===")
+    
     clergy = Clergy()
     clergy.name = form.get('name')
     clergy.rank = form.get('rank')
@@ -40,67 +51,72 @@ def create_clergy_from_form(form):
     if date_of_death:
         clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
     
-    # Handle image upload for new clergy
-    # New comprehensive image system: 64x64 for lineage, 320x320 for detail views
+    # Handle image upload for new clergy using Backblaze B2
+    # We'll process images after getting the clergy ID
     image_data_json = form.get('image_data_json')
-    if image_data_json:
-        try:
-            import json
-            image_data = json.loads(image_data_json)
-            
-            # Store the lineage image (48x48) as the main image_url for lineage visualization
-            clergy.image_url = image_data.get('lineage', '')
-            
-            # Store the comprehensive image data as a JSON field for future use
-            clergy.image_data = image_data_json
-            
-            # Log the image data received
-            lineage_image = image_data.get('lineage', '')
-            detail_image = image_data.get('detail', '')
-            cropped_image = image_data.get('cropped', '')
-            original_image = image_data.get('original', '')
-            
-            print(f"Comprehensive image data received for new clergy:")
-            print(f"  - Lineage (48x48): {len(lineage_image or '')} chars")
-            print(f"  - Detail (320x320): {len(detail_image or '')} chars")
-            print(f"  - Cropped: {len(cropped_image or '')} chars")
-            print(f"  - Original: {len(original_image or '')} chars")
-            
-            # Store metadata if available
-            if 'metadata' in image_data:
-                metadata = image_data['metadata']
-                print(f"  - Original file size: {metadata.get('originalSize', 0)} bytes")
-                print(f"  - Quality setting: {metadata.get('quality', 'unknown')}")
-                print(f"  - Cropped quality: {metadata.get('croppedQuality', 'unknown')}")
-                print(f"  - Crop dimensions: {metadata.get('cropDimensions', {})}")
-                
-        except json.JSONDecodeError as e:
-            print(f"Error parsing image data JSON: {e}")
-            # Fallback to processed_image_data if available
-            processed_image_data = form.get('processed_image_data')
-            if processed_image_data:
-                clergy.image_url = processed_image_data
-                print(f"Processed image data received for new clergy: {len(processed_image_data)} characters")
-    elif form.get('processed_image_data'):
-        processed_image_data = form.get('processed_image_data')
-        clergy.image_url = processed_image_data
-        print(f"Processed image data received for new clergy: {len(processed_image_data)} characters")
+    processed_image_data = form.get('processed_image_data')
+    file_upload = None
     
-    # Also handle file uploads for new clergy (fallback)
+    # Check for file upload
     if 'clergy_image' in form and hasattr(form['clergy_image'], 'filename') and form['clergy_image'].filename:
-        file = form['clergy_image']
-        if file and file.filename:
-            # Store the actual file content as base64
-            import base64
-            file_content = file.read()
-            file.seek(0)  # Reset file pointer
-            base64_data = base64.b64encode(file_content).decode('utf-8')
-            mime_type = file.content_type or 'image/jpeg'
-            clergy.image_url = f"data:{mime_type};base64,{base64_data}"
-            print(f"File converted to base64 for new clergy: {len(base64_data)} characters")
+        file_upload = form['clergy_image']
+        print(f"File upload detected: {file_upload.filename}, size: {getattr(file_upload, 'content_length', 'unknown')}")
     
     db.session.add(clergy)
     db.session.flush()  # Get the ID without committing
+    
+    # Process images with Backblaze B2 now that we have the clergy ID
+    try:
+        image_upload_service = get_image_upload_service()
+        
+        if image_data_json:
+            # Process comprehensive image data (NEW WORKFLOW - server-processed)
+            print(f"Processing server-processed image data for clergy {clergy.id}")
+            try:
+                image_data = json.loads(image_data_json)
+                
+                # Store the processed image data directly
+                # Always use the original image URL for clergy.image_url
+                clergy.image_url = image_data.get('original', image_data.get('detail', image_data.get('lineage', '')))
+                clergy.image_data = json.dumps(image_data)
+                
+                print(f"Stored server-processed images for clergy {clergy.id}:")
+                for size, url in image_data.items():
+                    if size != 'metadata':
+                        print(f"  - {size}: {url}")
+            except json.JSONDecodeError as e:
+                print(f"Failed to parse image data JSON: {e}")
+                
+        elif file_upload:
+            # Upload original image with size validation (NEW WORKFLOW)
+            print(f"Uploading original image for clergy {clergy.id}")
+            result = image_upload_service.upload_original_image(file_upload, clergy.id)
+            
+            if result['success']:
+                # Store original image URL and image data
+                clergy.image_url = result['url']
+                clergy.image_data = json.dumps(result['image_data'])
+                print(f"Uploaded original image for clergy {clergy.id}: {result['url']}")
+            else:
+                print(f"Failed to upload original image for clergy {clergy.id}: {result['error']}")
+                # Don't fail the entire form submission, just log the error
+                
+        elif processed_image_data:
+            # Process single image (fallback)
+            print(f"Processing single image for clergy {clergy.id}")
+            image_url = image_upload_service.upload_image_from_base64(processed_image_data, clergy.id, 'original')
+            
+            if image_url:
+                clergy.image_url = image_url
+                print(f"Uploaded single image for clergy {clergy.id}: {image_url}")
+            else:
+                print(f"Failed to upload single image for clergy {clergy.id}")
+                
+    except Exception as e:
+        print(f"Error processing images for clergy {clergy.id}: {e}")
+        import traceback
+        traceback.print_exc()
+        # Continue without images rather than failing the entire operation
     
     # Handle new ordination and consecration data
     create_ordinations_from_form(clergy, form)
@@ -333,7 +349,10 @@ def add_clergy_handler():
         return None, redirect(url_for('auth.login'))
     if request.method == 'POST':
         try:
-            clergy = create_clergy_from_form(request.form)
+            # Create a combined form data that includes both form fields and files
+            form_data = request.form.copy()
+            form_data.update(request.files)
+            clergy = create_clergy_from_form(form_data)
             
             # Check if this is an HTMX request
             is_htmx = request.headers.get('HX-Request') == 'true'
@@ -351,7 +370,7 @@ def add_clergy_handler():
                 request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
             )
             if is_ajax:
-                return clergy, jsonify({'success': True, 'message': 'Clergy record added successfully!'})
+                return clergy, jsonify({'success': True, 'message': 'Clergy record added successfully!', 'clergy_id': clergy.id})
             
             flash('Clergy record added successfully!', 'success')
             return clergy, redirect(url_for('clergy.clergy_list'))
@@ -485,69 +504,79 @@ def edit_clergy_handler(clergy_id):
                 date_of_death = request.form.get('date_of_death')
                 clergy.notes = request.form.get('notes')
                 
-                # Handle image upload or removal
+                # Handle image upload or removal using Backblaze B2
                 image_removed = request.form.get('image_removed') == 'true'
                 if image_removed:
+                    # Delete existing images from Backblaze B2 and clear database
+                    try:
+                        image_upload_service = get_image_upload_service()
+                        image_upload_service.delete_clergy_images(clergy.id)
+                    except Exception as e:
+                        print(f"Error deleting images for clergy {clergy.id}: {e}")
+                    
                     # Clear image data when image is removed
                     clergy.image_url = None
                     clergy.image_data = None
                     print(f"Image removed for clergy {clergy.name}")
                 else:
-                    image_data_json = request.form.get('image_data_json')
-                    if image_data_json:
-                        try:
-                            import json
-                            image_data = json.loads(image_data_json)
-                            
-                            # Store the lineage image (64x64) as the main image_url for lineage visualization
-                            clergy.image_url = image_data.get('lineage', '')
-                            
-                            # Store the comprehensive image data as a JSON field for future use
-                            clergy.image_data = image_data_json
-                            
-                            # Log the image data received
-                            lineage_image = image_data.get('lineage', '')
-                            detail_image = image_data.get('detail', '')
-                            cropped_image = image_data.get('cropped', '')
-                            original_image = image_data.get('original', '')
-                            
-                            print(f"Comprehensive image data received for clergy {clergy.name}:")
-                            print(f"  - Lineage (48x48): {len(lineage_image or '')} chars")
-                            print(f"  - Detail (320x320): {len(detail_image or '')} chars")
-                            print(f"  - Cropped: {len(cropped_image or '')} chars")
-                            print(f"  - Original: {len(original_image or '')} chars")
-                            
-                            # Store metadata if available
-                            if 'metadata' in image_data:
-                                metadata = image_data['metadata']
-                                print(f"  - Original file size: {metadata.get('originalSize', 0)} bytes")
-                                print(f"  - Quality setting: {metadata.get('quality', 'unknown')}")
-                                print(f"  - Cropped quality: {metadata.get('croppedQuality', 'unknown')}")
-                                print(f"  - Crop dimensions: {metadata.get('cropDimensions', {})}")
-                                
-                        except json.JSONDecodeError as e:
-                            print(f"Error parsing image data JSON: {e}")
-                            # Fallback to processed_image_data if available
-                            processed_image_data = request.form.get('processed_image_data')
-                            if processed_image_data:
-                                clergy.image_url = processed_image_data
-                                print(f"Processed image data received for clergy {clergy.name}: {len(processed_image_data or '')} characters")
-                    elif request.form.get('processed_image_data'):
+                    # Process new image uploads
+                    try:
+                        image_upload_service = get_image_upload_service()
+                        
+                        image_data_json = request.form.get('image_data_json')
                         processed_image_data = request.form.get('processed_image_data')
-                        clergy.image_url = processed_image_data
-                        print(f"Processed image data received for clergy {clergy.name}: {len(processed_image_data or '')} characters")
-                    elif 'clergy_image' in request.files and request.files['clergy_image'].filename:
-                        # Fallback to file upload if no processed data
-                        file = request.files['clergy_image']
-                        if file and file.filename:
-                            # Store the actual file content as base64
-                            import base64
-                            file_content = file.read()
-                            file.seek(0)  # Reset file pointer for potential future reads
-                            base64_data = base64.b64encode(file_content).decode('utf-8')
-                            mime_type = file.content_type or 'image/jpeg'
-                            clergy.image_url = f"data:{mime_type};base64,{base64_data}"
-                            print(f"File converted to base64 for clergy {clergy.name}: {len(base64_data)} characters")
+                        file_upload = None
+                        
+                        # Check for file upload
+                        if 'clergy_image' in request.files and request.files['clergy_image'].filename:
+                            file_upload = request.files['clergy_image']
+                        
+                        if image_data_json:
+                            # Process comprehensive image data (NEW WORKFLOW - server-processed)
+                            print(f"Processing server-processed image data for clergy {clergy.id}")
+                            try:
+                                image_data = json.loads(image_data_json)
+                                
+                                # Store the processed image data directly
+                                # Always use the original image URL for clergy.image_url
+                                clergy.image_url = image_data.get('original', image_data.get('detail', image_data.get('lineage', '')))
+                                clergy.image_data = json.dumps(image_data)
+                                
+                                print(f"Stored server-processed images for clergy {clergy.id}:")
+                                for size, url in image_data.items():
+                                    if size != 'metadata':
+                                        print(f"  - {size}: {url}")
+                            except json.JSONDecodeError as e:
+                                print(f"Failed to parse image data JSON: {e}")
+                                
+                        elif file_upload:
+                            # Upload original image with size validation (NEW WORKFLOW)
+                            print(f"Uploading original image for clergy {clergy.id}")
+                            result = image_upload_service.upload_original_image(file_upload, clergy.id)
+                            
+                            if result['success']:
+                                # Store original image URL and image data
+                                clergy.image_url = result['url']
+                                clergy.image_data = json.dumps(result['image_data'])
+                                print(f"Uploaded original image for clergy {clergy.id}: {result['url']}")
+                            else:
+                                print(f"Failed to upload original image for clergy {clergy.id}: {result['error']}")
+                                # Don't fail the entire form submission, just log the error
+                                
+                        elif processed_image_data:
+                            # Process single image (fallback)
+                            print(f"Processing single image for clergy {clergy.id}")
+                            image_url = image_upload_service.upload_image_from_base64(processed_image_data, clergy.id, 'original')
+                            
+                            if image_url:
+                                clergy.image_url = image_url
+                                print(f"Uploaded single image for clergy {clergy.id}: {image_url}")
+                            else:
+                                print(f"Failed to upload single image for clergy {clergy.id}")
+                                
+                    except Exception as e:
+                        print(f"Error processing images for clergy {clergy.id}: {e}")
+                        # Continue without images rather than failing the entire operation
                 if date_of_birth:
                     clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
                 else:
@@ -597,7 +626,7 @@ def edit_clergy_handler(clergy_id):
                     return response
                 else:
                     # For regular AJAX requests, return JSON
-                    return jsonify({'success': True, 'message': 'Clergy record updated successfully!'})
+                    return jsonify({'success': True, 'message': 'Clergy record updated successfully!', 'clergy_id': clergy.id})
             except Exception as e:
                 db.session.rollback()
                 return jsonify({'success': False, 'message': str(e)}), 400
@@ -806,6 +835,97 @@ def soft_delete_clergy_handler(clergy_id, user=None):
     clergy.deleted_at = datetime.utcnow()
     db.session.commit()
     return {'success': True, 'message': 'Clergy record soft-deleted successfully!'} 
+
+def permanently_delete_clergy_handler(clergy_ids, user=None):
+    """Permanently delete clergy records and all related data"""
+    from models import Clergy, Ordination, Consecration, db
+    from utils import log_audit_event
+    from datetime import datetime
+    
+    if not clergy_ids:
+        return {'success': False, 'message': 'No clergy IDs provided'}
+    
+    try:
+        deleted_count = 0
+        deleted_names = []
+        
+        for clergy_id in clergy_ids:
+            clergy = Clergy.query.get(clergy_id)
+            if not clergy:
+                continue
+            
+            # Store clergy data for logging before any modifications
+            clergy_name = clergy.name
+            clergy_rank = clergy.rank
+            clergy_organization = clergy.organization
+            clergy_dob = clergy.date_of_birth.isoformat() if clergy.date_of_birth else None
+            clergy_dod = clergy.date_of_death.isoformat() if clergy.date_of_death else None
+            was_deleted = clergy.is_deleted
+            deleted_at = clergy.deleted_at.isoformat() if clergy.deleted_at else None
+                
+            # Log the deletion before deleting
+            log_audit_event(
+                action='permanent_delete',
+                entity_type='clergy',
+                entity_id=clergy_id,
+                entity_name=clergy_name,
+                details={
+                    'rank': clergy_rank,
+                    'organization': clergy_organization,
+                    'date_of_birth': clergy_dob,
+                    'date_of_death': clergy_dod,
+                    'was_deleted': was_deleted,
+                    'deleted_at': deleted_at
+                }
+            )
+            
+            # Clean up all related data using clergy_id instead of clergy object
+            # IMPORTANT: Delete in the correct order to avoid foreign key violations
+            
+            # 1. First, remove all co-consecrator relationships (both where clergy was co-consecrator and where clergy was involved in consecrations)
+            from sqlalchemy import text
+            db.session.execute(text("""
+                DELETE FROM co_consecrators 
+                WHERE co_consecrator_id = :clergy_id 
+                OR consecration_id IN (
+                    SELECT id FROM consecration 
+                    WHERE clergy_id = :clergy_id OR consecrator_id = :clergy_id
+                )
+            """), {'clergy_id': clergy_id})
+            
+            # 2. Remove ordinations where this clergy was the ordaining bishop
+            Ordination.query.filter(Ordination.ordaining_bishop_id == clergy_id).delete()
+            
+            # 3. Remove ordinations where this clergy was ordained
+            Ordination.query.filter(Ordination.clergy_id == clergy_id).delete()
+            
+            # 4. Remove consecrations where this clergy was the consecrator
+            Consecration.query.filter(Consecration.consecrator_id == clergy_id).delete()
+            
+            # 5. Remove consecrations where this clergy was consecrated
+            Consecration.query.filter(Consecration.clergy_id == clergy_id).delete()
+            
+            # 6. Remove any comments associated with this clergy
+            from models import ClergyComment
+            ClergyComment.query.filter(ClergyComment.clergy_id == clergy_id).delete()
+            
+            # Finally delete the clergy record
+            db.session.delete(clergy)
+            deleted_count += 1
+            deleted_names.append(clergy_name)
+        
+        db.session.commit()
+        
+        return {
+            'success': True, 
+            'message': f'Successfully permanently deleted {deleted_count} clergy record(s)',
+            'deleted_count': deleted_count,
+            'deleted_names': deleted_names
+        }
+        
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'message': f'Error permanently deleting clergy: {str(e)}'}
 
 def get_filtered_bishops_handler():
     """Get bishops filtered by temporal logic for AJAX requests."""

@@ -1,5 +1,7 @@
-// Global clergy data
-window.allClergyData = window.allClergyData || [];
+// Global clergy data - prevent duplicate declarations
+if (typeof window.allClergyData === 'undefined') {
+    window.allClergyData = [];
+}
 
 function attachClergyRowClickHandlers() {
     document.querySelectorAll('.clergy-row').forEach(row => {

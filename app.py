@@ -4,6 +4,7 @@ from models import db, User, Role
 from routes.auth import auth_bp
 from routes.clergy import clergy_bp
 from routes.main import main_bp
+from routes.editor import editor_bp
 from migrations import run_database_migration, initialize_roles_and_permissions
 import os
 from dotenv import load_dotenv
@@ -13,6 +14,7 @@ from routes.metadata import metadata_bp
 from flask_migrate import Migrate
 from sqlalchemy import inspect
 from urllib.parse import urlparse, urlunparse
+from services.backblaze_config import init_backblaze_config
 
 load_dotenv()
 
@@ -158,6 +160,7 @@ ensure_database_schema()
 app.register_blueprint(auth_bp)
 app.register_blueprint(clergy_bp)
 app.register_blueprint(main_bp)
+app.register_blueprint(editor_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(metadata_bp)
 
@@ -177,6 +180,13 @@ with app.app_context():
     #     run_database_migration(app)
     print("🔧 Running fallback migration...")
     run_database_migration(app)
+    
+    # Initialize Backblaze B2 configuration
+    print("🔧 Initializing Backblaze B2...")
+    if init_backblaze_config():
+        print("✅ Backblaze B2 initialized successfully")
+    else:
+        print("⚠️  Backblaze B2 initialization failed - image uploads will not work")
     
     # Ensure admin user exists
     ensure_admin_user()

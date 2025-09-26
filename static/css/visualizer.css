@@ -39,7 +39,7 @@
 /* Side Menu Toggle Button - Positioned on the right side */
 .side-menu-toggle-btn {
   position: absolute !important;
-  right: -60px !important;
+  right: -70px !important;
   top: 0;
   background: rgba(255, 255, 255, 0.8) !important;
   backdrop-filter: blur(20px) saturate(180%);

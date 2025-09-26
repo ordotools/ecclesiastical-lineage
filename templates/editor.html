@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Editor - Episcopal Lineage{% endblock %}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/imageEditor.css') }}" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
+    <script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
+    <script src="{{ url_for('static', filename='js/resizable-panes.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/imageEditor.js') }}"></script>
+    <script>
+        // Make notification function globally available
+        window.showNotification = function(message, type = 'info') {
+            // Create notification container if it doesn't exist
+            let notificationContainer = document.getElementById('notification-container');
+            if (!notificationContainer) {
+                notificationContainer = document.createElement('div');
+                notificationContainer.id = 'notification-container';
+                notificationContainer.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    z-index: 1200;
+                    max-width: 400px;
+                `;
+                document.body.appendChild(notificationContainer);
+            }
+
+            // Create notification element
+            const notification = document.createElement('div');
+            const alertClass = type === 'error' ? 'alert-danger' : type === 'success' ? 'alert-success' : type === 'warning' ? 'alert-warning' : 'alert-info';
+            notification.className = `alert ${alertClass} alert-dismissible fade show`;
+            notification.style.cssText = `
+                margin-bottom: 0.5em;
+                padding: 0.5em 1em;
+                border-radius: 3px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            `;
+            notification.innerHTML = `
+                <strong>${type.charAt(0).toUpperCase() + type.slice(1)}:</strong> ${message}
+                <button type="button" class="btn-close" onclick="this.parentElement.remove()" style="float: right; background: none; border: none; font-size: 0.8em; cursor: pointer;">&times;</button>
+            `;
+            notificationContainer.appendChild(notification);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        };
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #2B2E32;
+            min-height: 100vh;
+            color: white;
+            overflow: hidden;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        /* Alert notification styles */
+        .alert {
+            padding: 0.5em 1em;
+            margin-bottom: 0.5em;
+            border: 1px solid transparent;
+            border-radius: 3px;
+            font-size: 0.8em;
+            line-height: 1.3;
+        }
+
+        .alert-info {
+            color: #0c5460;
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+        }
+
+        .alert-success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+
+        .alert-warning {
+            color: #856404;
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+        }
+
+        .alert-danger {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+
+        .btn-close {
+            float: right;
+            background: none;
+            border: none;
+            font-size: 0.8em;
+            cursor: pointer;
+            color: inherit;
+            opacity: 0.7;
+        }
+
+        .btn-close:hover {
+            opacity: 1;
+        }
+
+        .editor-container {
+            display: grid;
+            grid-template-columns: minmax(200px, 400px) 1fr minmax(250px, 500px);
+            grid-template-rows: 1fr minmax(200px, 500px);
+            grid-template-areas:
+                "left-panel center-panel right-panel"
+                "left-panel bottom-panel bottom-panel";
+            height: calc(100vh - 32px);
+            gap: 1px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .panel {
+            background: #2B2E32;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .left-panel {
+            grid-area: left-panel;
+        }
+
+        .center-panel {
+            grid-area: center-panel;
+            position: relative;
+        }
+
+        .right-panel {
+            grid-area: right-panel;
+        }
+
+        .bottom-panel {
+            grid-area: bottom-panel;
+        }
+
+        .panel-header {
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.5em 0.75em;
+            font-weight: 500;
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            flex-shrink: 0;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0;
+        }
+
+        /* Scrollbar styling */
+        .panel-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .panel-content::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .panel-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        .panel-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Graph container styling for center panel */
+        #graph-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* Resize handles */
+        .resize-handle {
+            position: absolute;
+            z-index: 10;
+            transition: background-color 0.2s ease;
+        }
+
+        .vertical-resize {
+            width: 4px;
+            height: 100%;
+            cursor: col-resize;
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .horizontal-resize {
+            width: 100%;
+            height: 4px;
+            cursor: row-resize;
+            background: rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .resize-handle:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Position resize handles - initial positions, JavaScript will update these */
+        #left-resizer {
+            top: 0;
+            left: 300px;
+            margin-left: -2px;
+            height: calc(100vh - 300px);
+        }
+
+        #right-resizer {
+            top: 0;
+            right: 350px;
+            margin-right: -2px;
+            height: calc(100vh - 300px);
+        }
+
+        #bottom-resizer {
+            margin-bottom: -2px;
+        }
+
+        /* Bottom panel tabs */
+        .bottom-tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .bottom-tab {
+            padding: 0.5em 1em;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border-bottom: 2px solid transparent;
+        }
+
+        .bottom-tab:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .bottom-tab.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-bottom-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .bottom-tab-content {
+            display: none;
+            flex: 1;
+            padding: 0.75em;
+            overflow-y: auto;
+        }
+
+        .bottom-tab-content.active {
+            display: block;
+        }
+
+        /* Loading states */
+        .loading-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            flex-direction: column;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.8em;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 0.5em;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Override form styles for the right panel */
+        .right-panel .panel-content {
+            padding: 0.75em;
+        }
+
+        /* Make the clergy form fit nicely in the right panel */
+        .right-panel .panel-content > div {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            max-width: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Responsive design */
+        @media (max-width: 1400px) {
+            .editor-container {
+                grid-template-columns: minmax(180px, 350px) 1fr minmax(220px, 450px);
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .editor-container {
+                grid-template-columns: minmax(150px, 300px) 1fr minmax(200px, 400px);
+                grid-template-rows: 1fr minmax(150px, 400px);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .editor-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 200px 1fr 300px 200px;
+                grid-template-areas:
+                    "center-panel"
+                    "left-panel"
+                    "right-panel"
+                    "bottom-panel";
+            }
+        }
+
+        /* Style overrides for nested content */
+        .panel-content h1, .panel-content h2, .panel-content h3, 
+        .panel-content h4, .panel-content h5, .panel-content h6 {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .panel-content .text-muted {
+            color: rgba(255, 255, 255, 0.6) !important;
+        }
+
+        .panel-content .btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .panel-content .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* D3 visualization CSS variables for colors */
+        :root {
+            --lineage-green: #27ae60;
+            --lineage-black: #000000;
+        }
+
+        /* Autocomplete dropdown styling */
+        .autocomplete-dropdown {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            border-radius: 3px !important;
+            max-height: 200px !important;
+            overflow-y: auto !important;
+            z-index: 20 !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        }
+
+        .autocomplete-dropdown .bishop-search-result {
+            padding: 0.4em 0.6em !important;
+            cursor: pointer !important;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+            font-size: 0.75em !important;
+            color: #333 !important;
+            transition: background-color 0.2s ease !important;
+            line-height: 1.3 !important;
+        }
+
+        .autocomplete-dropdown .bishop-search-result:hover {
+            background-color: rgba(0, 123, 255, 0.1) !important;
+        }
+
+        .autocomplete-dropdown .bishop-search-result:last-child {
+            border-bottom: none !important;
+        }
+
+        .autocomplete-dropdown .bishop-search-result strong {
+            font-size: 0.75em !important;
+            color: #333 !important;
+            font-weight: 500 !important;
+        }
+
+        .autocomplete-dropdown .bishop-search-result small {
+            font-size: 0.7em !important;
+            color: #666 !important;
+        }
+
+        .autocomplete-dropdown .dropdown-item {
+            padding: 0.4em 0.6em !important;
+            font-size: 0.75em !important;
+            color: #666 !important;
+        }
+
+        /* Clergy Panel Internal Layout */
+        .clergy-panel-container {
+            display: grid;
+            grid-template-rows: 2fr 4px 1fr;
+            height: 100%;
+            gap: 0;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .clergy-list-section {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .clergy-tabs-section {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .internal-resize-handle {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: row-resize;
+            transition: background-color 0.2s ease;
+            flex-shrink: 0;
+            margin-top: -2px;
+            margin-bottom: -2px;
+        }
+
+        .internal-resize-handle:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Clergy Panel Tabs */
+        .clergy-tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+
+        .clergy-tab {
+            padding: 0.5em 1em;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border-bottom: 2px solid transparent;
+            flex: 1;
+        }
+
+        .clergy-tab:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .clergy-tab.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-bottom-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .clergy-tab-content {
+            display: none;
+            flex: 1;
+            padding: 0.75em;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .clergy-tab-content.active {
+            display: block;
+        }
+
+        /* Clergy tab scrollbar styling - unified with panel-content */
+        .clergy-tab-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .clergy-tab-content::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .clergy-tab-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        .clergy-tab-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Status Bar Styling */
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 32px;
+            background: #2B2E32;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 0.75em;
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.8);
+            z-index: 1000;
+        }
+
+        .status-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .status-right {
+            display: flex;
+            align-items: center;
+            gap: 0.75em;
+        }
+
+        .status-title {
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .status-stats {
+            display: flex;
+            align-items: center;
+            gap: 0.75em;
+        }
+
+        .status-stat {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.8em;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .status-dot.green {
+            background: #27ae60;
+            box-shadow: 0 0 6px rgba(39, 174, 96, 0.5);
+        }
+
+        .status-dot.orange {
+            background: #f39c12;
+            box-shadow: 0 0 6px rgba(243, 156, 18, 0.5);
+        }
+
+        .status-dot.red {
+            background: #e74c3c;
+            box-shadow: 0 0 6px rgba(231, 76, 60, 0.5);
+        }
+
+        /* Database status tooltip */
+        .db-status-container {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .db-status-tooltip {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            background: #2B2E32;
+            color: rgba(255, 255, 255, 0.9);
+            text-align: center;
+            border-radius: 3px;
+            padding: 0.5em 0.75em;
+            font-size: 0.8em;
+            line-height: 1.3;
+            white-space: nowrap;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1001;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            min-width: 120px;
+        }
+
+        .db-status-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #2B2E32 transparent transparent transparent;
+        }
+
+        .db-status-container:hover .db-status-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .db-status-details {
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 2px;
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-size: 0.8em;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+
+        .logout-btn i {
+            font-size: 0.8em;
+        }
+
+        .user-info {
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Allow text selection in form inputs and text areas */
+        input, textarea, select, [contenteditable="true"] {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+        }
+
+        /* Allow text selection in specific content areas that might need it */
+        .panel-content input,
+        .panel-content textarea,
+        .panel-content select,
+        .panel-content [contenteditable="true"],
+        .modal-body input,
+        .modal-body textarea,
+        .modal-body select,
+        .modal-body [contenteditable="true"] {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+        }
+
+        /* Ensure draggable elements and interactive components don't allow text selection */
+        .panel,
+        .panel-header,
+        .panel-content,
+        .resize-handle,
+        .bottom-tab,
+        .clergy-tab,
+        .btn,
+        .logout-btn,
+        .status-bar,
+        .status-stat,
+        .db-status-container {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+
+        /* Responsive status bar */
+        @media (max-width: 768px) {
+            .status-bar {
+                padding: 0 0.5em;
+                font-size: 0.8em;
+            }
+            
+            .status-left {
+                gap: 0.75em;
+            }
+            
+            .status-stats {
+                gap: 0.5em;
+            }
+            
+            .status-stat {
+                font-size: 0.8em;
+            }
+            
+            .logout-btn span {
+                display: none; /* Hide "Logout" text on mobile, keep only icon */
+            }
+        }
+
+        @media (max-width: 480px) {
+            .status-stats {
+                display: none; /* Hide stats on very small screens */
+            }
+            
+            .db-status-tooltip {
+                font-size: 0.8em;
+                padding: 0.5em 0.75em;
+                min-width: 100px;
+            }
+        }
+    </style>
+    {% block extra_styles %}{% endblock %}
+</head>
+<body>
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-left">
+            <div class="status-title">Episcopal Lineage Editor</div>
+            <div class="status-stats">
+                <div class="status-stat">
+                    <div class="db-status-container">
+                        <div class="status-dot green" id="db-status-dot"></div>
+                        <span id="db-status-text">Connected</span>
+                        <div class="db-status-tooltip" id="db-status-tooltip">
+                            <div id="db-status-title">Database Connected</div>
+                            <div class="db-status-details" id="db-status-details">All systems operational</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="status-stat">
+                    <i class="fas fa-users"></i>
+                    <span id="clergy-count">-</span>
+                </div>
+                <div class="status-stat">
+                    <i class="fas fa-database"></i>
+                    <span id="records-count">-</span>
+                </div>
+            </div>
+        </div>
+        <div class="status-right">
+            {% if user %}
+                <span class="user-info">{{ user.username }}</span>
+            {% endif %}
+            <a href="{{ url_for('auth.logout') }}" class="logout-btn" title="Logout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="editor-container">
+        <!-- Left Panel: Clergy List -->
+        <div class="panel left-panel">
+            <div class="panel-header">
+                <i class="fas fa-users"></i>
+                Clergy List
+            </div>
+            <div class="panel-content" 
+                 hx-get="/editor/clergy-list"
+                 hx-trigger="load"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading clergy list...
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Panel: Lineage Visualization -->
+        <div class="panel center-panel">
+            <div class="panel-header">
+                <i class="fas fa-sitemap"></i>
+                Lineage Visualization
+            </div>
+            <div id="visualization-panel-content" class="panel-content"
+                 hx-get="/editor/visualization"
+                 hx-trigger="load"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading visualization...
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Clergy Form -->
+        <div class="panel right-panel">
+            <div class="panel-header">
+                <i class="fas fa-edit"></i>
+                Clergy Form
+            </div>
+            <div class="panel-content"
+                 hx-get="/editor/clergy-form"
+                 hx-trigger="load"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Select a clergy member to edit...
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Panel: Metadata and Statistics -->
+        <div class="panel bottom-panel">
+            <div class="bottom-tabs">
+                <button class="bottom-tab active" data-tab="metadata">
+                    <i class="fas fa-cogs"></i>
+                    Metadata
+                </button>
+                <button class="bottom-tab" data-tab="statistics">
+                    <i class="fas fa-chart-bar"></i>
+                    Statistics
+                </button>
+                <button class="bottom-tab" data-tab="settings">
+                    <i class="fas fa-user-cog"></i>
+                    Settings
+                </button>
+            </div>
+            
+            <div class="bottom-tab-content active" id="metadata-content"
+                 hx-get="/editor/metadata"
+                 hx-trigger="load"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading metadata...
+                </div>
+            </div>
+            
+            <div class="bottom-tab-content" id="statistics-content"
+                 hx-get="/editor/statistics"
+                 hx-trigger="revealed"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading statistics...
+                </div>
+            </div>
+            
+            <div class="bottom-tab-content" id="settings-content"
+                 hx-get="/editor/settings"
+                 hx-trigger="revealed"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading settings...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Bottom panel tab switching functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const bottomTabs = document.querySelectorAll('.bottom-tab');
+            const bottomTabContents = document.querySelectorAll('.bottom-tab-content');
+
+            bottomTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const targetTab = this.dataset.tab;
+
+                    // Remove active class from all tabs and contents
+                    bottomTabs.forEach(t => t.classList.remove('active'));
+                    bottomTabContents.forEach(content => content.classList.remove('active'));
+
+                    // Add active class to clicked tab and corresponding content
+                    this.classList.add('active');
+                    const targetContent = document.getElementById(targetTab + '-content');
+                    if (targetContent) {
+                        targetContent.classList.add('active');
+                        // Trigger HTMX load if not loaded yet
+                        if (targetContent.getAttribute('hx-trigger') === 'revealed') {
+                            htmx.trigger(targetContent, 'revealed');
+                        }
+                    }
+                });
+            });
+        });
+
+        // Global event listeners for panel updates
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            console.log('HTMX request completed for:', evt.target);
+            
+            // Check if this was a clergy-related operation that should refresh visualization
+            const target = evt.target;
+            const isClergyListUpdate = target.closest('.left-panel') && target.querySelector('.clergy-item');
+            const isClergyFormUpdate = target.closest('.right-panel') && target.querySelector('#clergyForm');
+            const isClergyAPI = evt.detail.xhr && evt.detail.xhr.responseURL && (
+                evt.detail.xhr.responseURL.includes('/clergy/add') ||
+                evt.detail.xhr.responseURL.includes('/clergy/edit') ||
+                evt.detail.xhr.responseURL.includes('/clergy/delete') ||
+                evt.detail.xhr.responseURL.includes('/clergy/27/edit')
+            );
+            
+            // Also check for clergy form content updates
+            const isClergyFormContentUpdate = target.closest('.right-panel') && target.querySelector('form[id="clergyForm"]');
+            
+            // Check if this is just a clergy selection (not an actual update)
+            const isClergySelection = evt.detail.xhr && evt.detail.xhr.responseURL && 
+                (evt.detail.xhr.responseURL.includes('/editor/clergy-form/') || 
+                 evt.detail.xhr.responseURL.includes('/editor/clergy-form-content/') ||
+                 evt.detail.xhr.responseURL === window.location.origin + '/editor/clergy-form' ||
+                 evt.detail.xhr.responseURL === window.location.origin + '/editor/clergy-form-content') && 
+                !evt.detail.xhr.responseURL.includes('/clergy/add') &&
+                !evt.detail.xhr.responseURL.includes('/clergy/edit') &&
+                !evt.detail.xhr.responseURL.includes('/clergy/delete');
+            
+            // Debug logging
+            if (evt.detail.xhr && evt.detail.xhr.responseURL) {
+                console.log('=== HTMX REQUEST DEBUG ===');
+                console.log('HTMX request URL:', evt.detail.xhr.responseURL);
+                console.log('Target element:', evt.target);
+                console.log('Is clergy selection:', isClergySelection);
+                console.log('Is clergy list update:', isClergyListUpdate);
+                console.log('Is clergy form update:', isClergyFormUpdate);
+                console.log('Is clergy form content update:', isClergyFormContentUpdate);
+                console.log('Is clergy API:', isClergyAPI);
+                console.log('Will refresh visualization:', !isClergySelection && (isClergyListUpdate || isClergyFormUpdate || isClergyFormContentUpdate || isClergyAPI));
+                console.log('========================');
+            }
+            
+            // Only refresh visualization for actual updates, not selections
+            // Be more restrictive - only refresh for actual API calls that modify data
+            if (!isClergySelection && isClergyAPI) {
+                console.log('Clergy API update detected, refreshing visualization...');
+                
+                // Soft refresh of visualization panel
+                const visualizationTarget = document.getElementById('visualization-panel-content');
+                if (visualizationTarget && typeof htmx !== 'undefined') {
+                    // Add a small delay to ensure the DOM is stable
+                    setTimeout(() => {
+                        // Use the specific visualization panel ID
+                        const specificTarget = document.getElementById('visualization-panel-content');
+                        if (specificTarget) {
+                            htmx.ajax('GET', '/editor/visualization', {
+                                target: specificTarget,
+                                swap: 'innerHTML'
+                            }).then(() => {
+                                console.log('Global visualization refresh completed');
+                            }).catch(error => {
+                                console.error('Global visualization refresh failed:', error);
+                            });
+                        }
+                    }, 100);
+                } else {
+                    console.warn('Visualization target not found or HTMX not available:', {
+                        target: !!visualizationTarget,
+                        htmx: typeof htmx !== 'undefined'
+                    });
+                }
+            } else if (isClergySelection) {
+                console.log('Clergy selection detected, skipping visualization refresh');
+            }
+        });
+
+        // Listen for clergy selection events to update the form panel
+        document.body.addEventListener('clergySeleced', function(evt) {
+            const clergyId = evt.detail.clergyId;
+            if (clergyId) {
+                // Update the clergy form panel
+                htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
+                    target: '.right-panel .panel-content',
+                    swap: 'innerHTML'
+                });
+            }
+        });
+
+        // Listen for clergy update events to refresh visualization
+        document.body.addEventListener('clergyUpdated', function(evt) {
+            console.log('Clergy update event received:', evt.detail);
+            
+            // Only refresh visualization for actual updates, not selections
+            if (evt.detail && evt.detail.action && (evt.detail.action === 'updated' || evt.detail.action === 'created' || evt.detail.action === 'deleted')) {
+                // Refresh visualization panel with delay and error handling
+                setTimeout(() => {
+                    const visualizationTarget = document.getElementById('visualization-panel-content');
+                    if (visualizationTarget && typeof htmx !== 'undefined') {
+                        // Use the specific visualization panel ID
+                        const specificTarget = document.getElementById('visualization-panel-content');
+                        if (specificTarget) {
+                            htmx.ajax('GET', '/editor/visualization', {
+                                target: specificTarget,
+                                swap: 'innerHTML'
+                            }).then(() => {
+                                console.log('Visualization refreshed after clergy update');
+                            }).catch(error => {
+                                console.error('Visualization refresh failed after clergy update:', error);
+                            });
+                        }
+                    } else {
+                        console.warn('Visualization target not found for clergy update refresh:', {
+                            target: !!visualizationTarget,
+                            htmx: typeof htmx !== 'undefined'
+                        });
+                    }
+                }, 150);
+            } else {
+                console.log('Clergy selection event received, skipping visualization refresh');
+            }
+        });
+
+        // Custom event for when a clergy member is selected
+        function selectClergy(clergyId) {
+            console.log('Global selectClergy called with:', clergyId);
+            
+            // Load clergy form for editing
+            if (clergyId) {
+                htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
+                    target: '.right-panel .panel-content',
+                    swap: 'innerHTML'
+                });
+            } else {
+                // Load empty form for adding new clergy
+                htmx.ajax('GET', '/editor/clergy-form', {
+                    target: '.right-panel .panel-content',
+                    swap: 'innerHTML'
+                });
+            }
+            
+            // Dispatch custom event for any other listeners
+            document.body.dispatchEvent(new CustomEvent('clergySeleced', {
+                detail: { clergyId: clergyId }
+            }));
+        }
+
+        // Make selectClergy globally available
+        window.selectClergy = selectClergy;
+
+        // Status bar functionality
+        function updateStatusBar() {
+            // Update clergy count
+            fetch('/api/stats/clergy-count')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('clergy-count').textContent = data.count || 0;
+                })
+                .catch(error => {
+                    console.error('Failed to fetch clergy count:', error);
+                    document.getElementById('clergy-count').textContent = '-';
+                });
+
+            // Update records count
+            fetch('/api/stats/records-count')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('records-count').textContent = data.count || 0;
+                })
+                .catch(error => {
+                    console.error('Failed to fetch records count:', error);
+                    document.getElementById('records-count').textContent = '-';
+                });
+
+            // Update database status
+            fetch('/api/stats/db-status')
+                .then(response => response.json())
+                .then(data => {
+                    const statusDot = document.getElementById('db-status-dot');
+                    const statusText = document.getElementById('db-status-text');
+                    const statusTitle = document.getElementById('db-status-title');
+                    const statusDetails = document.getElementById('db-status-details');
+                    
+                    if (data.status === 'connected') {
+                        statusDot.className = 'status-dot green';
+                        statusText.textContent = 'Connected';
+                        statusTitle.textContent = 'Database Connected';
+                        statusDetails.textContent = data.details || 'All systems operational';
+                    } else if (data.status === 'warning') {
+                        statusDot.className = 'status-dot orange';
+                        statusText.textContent = 'Warning';
+                        statusTitle.textContent = 'Database Warning';
+                        statusDetails.textContent = data.details || 'Connection issues detected';
+                    } else {
+                        statusDot.className = 'status-dot red';
+                        statusText.textContent = 'Error';
+                        statusTitle.textContent = 'Database Error';
+                        statusDetails.textContent = data.details || 'Connection failed';
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to fetch database status:', error);
+                    const statusDot = document.getElementById('db-status-dot');
+                    const statusText = document.getElementById('db-status-text');
+                    const statusTitle = document.getElementById('db-status-title');
+                    const statusDetails = document.getElementById('db-status-details');
+                    statusDot.className = 'status-dot red';
+                    statusText.textContent = 'Error';
+                    statusTitle.textContent = 'Database Error';
+                    statusDetails.textContent = 'Failed to check status';
+                });
+        }
+
+        // Update status bar on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatusBar();
+            
+            // Update status bar every 30 seconds
+            setInterval(updateStatusBar, 30000);
+        });
+
+        // Update status bar when clergy data changes
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            // Check if this was a clergy-related operation
+            const isClergyAPI = evt.detail.xhr && evt.detail.xhr.responseURL && (
+                evt.detail.xhr.responseURL.includes('/clergy/add') ||
+                evt.detail.xhr.responseURL.includes('/clergy/edit') ||
+                evt.detail.xhr.responseURL.includes('/clergy/delete')
+            );
+            
+            if (isClergyAPI) {
+                // Update clergy count after clergy changes
+                setTimeout(() => {
+                    fetch('/api/stats/clergy-count')
+                        .then(response => response.json())
+                        .then(data => {
+                            document.getElementById('clergy-count').textContent = data.count || 0;
+                        })
+                        .catch(error => {
+                            console.error('Failed to update clergy count:', error);
+                        });
+                }, 500);
+            }
+        });
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+
+    <!-- Management Modals -->
+    <div id="user-management-modal" class="management-modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeUserManagementModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-users"></i> User Management</h3>
+                <button class="modal-close" onclick="closeUserManagementModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="user-management-content">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading user management...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="metadata-management-modal" class="management-modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeMetadataManagementModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-cogs"></i> Metadata Management</h3>
+                <button class="modal-close" onclick="closeMetadataManagementModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="metadata-management-content">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading metadata management...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="comments-management-modal" class="management-modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeCommentsManagementModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-comments"></i> Comments Management</h3>
+                <button class="modal-close" onclick="closeCommentsManagementModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="comments-management-content">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading comments management...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="audit-logs-modal" class="management-modal" style="display: none;">
+        <div class="modal-overlay" onclick="closeAuditLogsModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-history"></i> Audit Logs</h3>
+                <button class="modal-close" onclick="closeAuditLogsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="audit-logs-content">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading audit logs...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Management Modals */
+        .management-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .modal-content {
+            position: relative;
+            background: #2B2E32;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            width: 95vw;
+            max-width: 1400px;
+            height: 90vh;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75em 1em;
+            background: rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9em;
+            cursor: pointer;
+            padding: 0.5em;
+            border-radius: 3px;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .modal-body {
+            padding: 0.75em;
+            height: calc(90vh - 80px);
+            overflow-y: auto;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Modal scrollbar styling - unified with panel-content */
+        .modal-body::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Modal loading states use the same as main loading states */
+    </style>
+
+    <script>
+        // Modal management functions
+        function openUserManagementModal() {
+            const modal = document.getElementById('user-management-modal');
+            const content = document.getElementById('user-management-content');
+
+            modal.style.display = 'flex';
+            content.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading user management...</div>';
+
+            // Load user management content via HTMX
+            htmx.ajax('GET', '/editor/user-management', {
+                target: content,
+                swap: 'innerHTML'
+            });
+        }
+
+        function closeUserManagementModal() {
+            document.getElementById('user-management-modal').style.display = 'none';
+        }
+
+        window.openMetadataManagementModal = function() {
+            const modal = document.getElementById('metadata-management-modal');
+            const content = document.getElementById('metadata-management-content');
+
+            modal.style.display = 'flex';
+            content.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading metadata management...</div>';
+
+            // Load metadata management content via HTMX
+            htmx.ajax('GET', '/editor/metadata-management', {
+                target: content,
+                swap: 'innerHTML'
+            });
+        }
+
+        function closeMetadataManagementModal() {
+            document.getElementById('metadata-management-modal').style.display = 'none';
+        }
+
+        function openCommentsManagementModal() {
+            const modal = document.getElementById('comments-management-modal');
+            const content = document.getElementById('comments-management-content');
+
+            modal.style.display = 'flex';
+            content.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading comments management...</div>';
+
+            // Load comments management content via HTMX
+            htmx.ajax('GET', '/editor/comments-management', {
+                target: content,
+                swap: 'innerHTML'
+            });
+        }
+
+        function closeCommentsManagementModal() {
+            document.getElementById('comments-management-modal').style.display = 'none';
+        }
+
+        function openAuditLogsModal() {
+            const modal = document.getElementById('audit-logs-modal');
+            const content = document.getElementById('audit-logs-content');
+
+            modal.style.display = 'flex';
+            content.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading audit logs...</div>';
+
+            // Load audit logs content via HTMX
+            htmx.ajax('GET', '/editor/audit-logs-management', {
+                target: content,
+                swap: 'innerHTML'
+            });
+        }
+
+        function closeAuditLogsModal() {
+            document.getElementById('audit-logs-modal').style.display = 'none';
+        }
+
+        // Close modals with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeUserManagementModal();
+                closeMetadataManagementModal();
+                closeCommentsManagementModal();
+                closeAuditLogsModal();
+            }
+        });
+    </script>
+</body>
+</html>

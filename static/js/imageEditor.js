@@ -22,6 +22,28 @@ class ImageEditor {
     }
     
     /**
+     * Convert Backblaze B2 URL to proxy URL to avoid CORS issues
+     */
+    getProxyUrl(originalUrl) {
+        if (!originalUrl) return originalUrl;
+        
+        // Check if it's already a proxy URL
+        if (originalUrl.includes('/proxy-image')) {
+            return originalUrl;
+        }
+        
+        // Check if it's a Backblaze B2 URL
+        if (originalUrl.includes('backblazeb2.com') || originalUrl.includes('s3.us-east-005.backblazeb2.com')) {
+            // Encode the URL for use as a query parameter
+            const encodedUrl = encodeURIComponent(originalUrl);
+            return `/proxy-image?url=${encodedUrl}`;
+        }
+        
+        // Return original URL if it's not a Backblaze URL (e.g., data URLs, local URLs)
+        return originalUrl;
+    }
+    
+    /**
      * Initialize all event listeners
      */
     initializeEventListeners() {
@@ -50,6 +72,28 @@ class ImageEditor {
                 console.log('Image editor modal closed, cleaned up resources');
             });
         }
+        
+        // Cancel button event listener
+        const cancelBtn = document.querySelector('#imageEditorModal .btn-secondary[data-bs-dismiss="modal"]');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                // Clean up any backdrop that might be left behind
+                setTimeout(() => {
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => backdrop.remove());
+                    document.body.classList.remove('modal-open');
+                    document.body.style.paddingRight = '';
+                    
+                    // Ensure the parent modal is still accessible
+                    const parentModal = document.getElementById('clergyFormModal');
+                    if (parentModal) {
+                        // Re-enable the parent modal if it exists
+                        parentModal.style.pointerEvents = 'auto';
+                        parentModal.style.zIndex = '1055';
+                    }
+                }, 100);
+            });
+        }
     }
     
     /**
@@ -65,8 +109,9 @@ class ImageEditor {
     /**
      * Open the image editor with an image
      */
-    openEditor(imageData, originalFile = null) {
+    async openEditor(imageData, originalFile = null) {
         console.log('Opening image editor with data length:', imageData ? imageData.length : 0);
+        console.log('Original file provided:', !!originalFile);
         
         // Clear any existing processed data to prevent conflicts
         this.clearProcessedData();
@@ -75,12 +120,31 @@ class ImageEditor {
         const timestamp = Date.now();
         this.sessionId = timestamp;
         
-        this.originalImageData = imageData;
-        this.originalImageFile = originalFile;
-        this.currentImageData = imageData;
-
-        // Store imageData for use in onload callback
-        this.currentEditorImageData = imageData;
+        // If we have an original file, use loadOriginalImage() for high-quality editing
+        if (originalFile) {
+            console.log('Using loadOriginalImage() for high-quality editing from file');
+            try {
+                const originalImageData = await this.loadOriginalImage(originalFile);
+                this.originalImageData = originalImageData;
+                this.originalImageFile = originalFile;
+                this.currentImageData = originalImageData;
+                this.currentEditorImageData = originalImageData;
+                console.log('Original image loaded successfully via loadOriginalImage()');
+            } catch (error) {
+                console.error('Error loading original image from file:', error);
+                // Fallback to provided imageData
+                this.originalImageData = imageData;
+                this.originalImageFile = originalFile;
+                this.currentImageData = imageData;
+                this.currentEditorImageData = imageData;
+            }
+        } else {
+            // No original file, use provided imageData
+            this.originalImageData = imageData;
+            this.originalImageFile = originalFile;
+            this.currentImageData = imageData;
+            this.currentEditorImageData = imageData;
+        }
 
         // Check if modal is already open
         const existingModal = bootstrap.Modal.getInstance(document.getElementById('imageEditorModal'));
@@ -110,6 +174,14 @@ class ImageEditor {
         const editorImage = document.getElementById('editorImage');
         if (!editorImage) return;
         
+        // If we already have the original image loaded, don't override it
+        if (editorImage.src && editorImage.src.includes('original_')) {
+            console.log('Original image already loaded, skipping source override');
+            // Just initialize the cropper with the existing image
+            this.initializeCropper();
+            return;
+        }
+        
         // Validate and prepare image source
         let imageSrc = this.currentImageData;
         
@@ -128,20 +200,26 @@ class ImageEditor {
             imageSrc += `?t=${this.sessionId || Date.now()}`;
         }
         
-        // Set image source
-        console.log('Setting image source:', imageSrc.substring(0, 100) + '...');
-        editorImage.src = imageSrc;
+        // Set image source using proxy URL to avoid CORS issues
+        const proxyUrl = this.getProxyUrl(imageSrc);
+        console.log('Setting image source:', proxyUrl.substring(0, 100) + '...');
+        editorImage.src = proxyUrl;
         
         // Wait for image to load
         editorImage.onload = () => {
             console.log('Editor image loaded with dimensions:', editorImage.naturalWidth, '×', editorImage.naturalHeight);
             console.log('Image source type check:', this.currentEditorImageData.substring(0, 50));
             console.log('Session ID:', this.sessionId);
+            console.log('Image src attribute:', editorImage.src);
+            console.log('Image currentSrc:', editorImage.currentSrc);
 
             // Additional validation
             if (editorImage.naturalWidth <= 48 || editorImage.naturalHeight <= 48) {
                 console.warn('WARNING: Image dimensions are very small! This might be the 48x48 lineage image instead of full resolution.');
                 console.warn('Image source starts with:', this.currentEditorImageData.substring(0, 100));
+            } else if (editorImage.naturalWidth <= 320 && editorImage.naturalHeight <= 320) {
+                console.warn('WARNING: Image dimensions are 320x320 or smaller! This might be the detail image instead of the original.');
+                console.warn('Expected original image to be larger than 320x320');
             } else {
                 console.log('SUCCESS: Full resolution image loaded correctly!');
             }
@@ -177,10 +255,10 @@ class ImageEditor {
             this.cropper.destroy();
         }
         
-        // Initialize new cropper
-        console.log('Creating new cropper instance');
+        // Initialize new cropper - ENFORCE SQUARE CROPPING ONLY
+        console.log('Creating new cropper instance with square-only cropping');
         this.cropper = new Cropper(editorImage, {
-            aspectRatio: 1, // Lock to square
+            aspectRatio: 1, // LOCKED to square - cannot be changed
             viewMode: 2, // Ensure the entire image is visible
             dragMode: 'crop',
             autoCropArea: 0.7, // Smaller initial crop area
@@ -200,6 +278,10 @@ class ImageEditor {
             minCropBoxHeight: 50,
             maxCropBoxWidth: 400, // Limit maximum crop box size
             maxCropBoxHeight: 400,
+            // Force square aspect ratio - disable aspect ratio changes
+            aspectRatio: 1,
+            cropBoxResizable: true,
+            cropBoxMovable: true,
             ready: () => {
                 console.log('Cropper ready callback triggered');
                 this.updateCropDimensions();
@@ -424,13 +506,13 @@ class ImageEditor {
     }
     
     /**
-     * Apply changes and process images
+     * Apply changes and process images - NEW WORKFLOW
+     * Only creates small (lineage) and large (detail) versions from cropped image
      */
     async applyChanges() {
-        console.log('Apply changes called');
+        console.log('Apply changes called - NEW WORKFLOW');
         console.log('Cropper instance:', !!this.cropper);
         console.log('Is processing:', this.isProcessing);
-        console.log('Current session ID:', this.sessionId);
         
         if (!this.cropper || this.isProcessing) {
             console.warn('Cannot apply changes: cropper not available or already processing');
@@ -439,17 +521,17 @@ class ImageEditor {
         }
         
         // Validate that we have valid image data
-        if (!this.originalImageData || !this.currentImageData) {
-            console.error('No valid image data available for processing');
-            this.showNotification('No valid image data available. Please try uploading again.', 'error');
+        if (!this.originalImageData) {
+            console.error('No valid original image data available for processing');
+            this.showNotification('No valid original image data available. Please try uploading again.', 'error');
             return;
         }
         
         this.isProcessing = true;
-        this.showProcessingStatus('Processing image...', 10);
+        this.showProcessingStatus('Processing cropped image...', 10);
         
         try {
-            // Get cropped canvas
+            // Get cropped canvas - MUST BE SQUARE
             const croppedCanvas = this.cropper.getCroppedCanvas({
                 imageSmoothingEnabled: true,
                 imageSmoothingQuality: 'high'
@@ -459,41 +541,79 @@ class ImageEditor {
                 throw new Error('Failed to create cropped canvas');
             }
             
-            this.showProcessingStatus('Creating output sizes...', 30);
-            
-            // Process images based on selected sizes
-            const processedImages = {};
-            
-            if (this.outputSizes.lineage) {
-                this.showProcessingStatus('Creating lineage size...', 50);
-                processedImages.lineage = await this.createResizedImage(croppedCanvas, 48, 48, this.quality / 100);
+            // Validate that the crop is square
+            if (croppedCanvas.width !== croppedCanvas.height) {
+                throw new Error('Cropped image must be square');
             }
             
-            if (this.outputSizes.detail) {
-                this.showProcessingStatus('Creating detail size...', 70);
-                processedImages.detail = await this.createResizedImage(croppedCanvas, 320, 320, this.quality / 100);
+            this.showProcessingStatus('Creating small version (lineage)...', 30);
+            
+            // Create small version (lineage) - as small as possible for quick loading
+            const lineageCanvas = await this.createResizedImage(croppedCanvas, 48, 48, 0.95);
+            
+            this.showProcessingStatus('Creating large version (detail)...', 60);
+            
+            // Create large version (detail) - full resolution of the crop
+            const detailCanvas = await this.createResizedImage(croppedCanvas, 320, 320, 0.95);
+            
+            this.showProcessingStatus('Uploading to server...', 80);
+            
+            // Send cropped image to server for processing
+            const croppedImageData = croppedCanvas.toDataURL('image/jpeg', 0.98);
+            
+            // Final validation: Ensure we have a clergy ID
+            if (!this.clergyId) {
+                throw new Error('Clergy ID is required for image processing');
             }
             
-            if (this.outputSizes.original) {
-                this.showProcessingStatus('Processing original size...', 90);
-                // Use higher quality (98%) for the cropped version to preserve maximum quality
-                processedImages.cropped = croppedCanvas.toDataURL('image/jpeg', 0.98);
+            console.log('Sending cropped image to server:', {
+                clergy_id: this.clergyId,
+                original_object_key: this.originalObjectKey,
+                cropped_image_data_length: croppedImageData.length
+            });
+            
+            const response = await fetch('/api/process-cropped-image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    cropped_image_data: croppedImageData,
+                    clergy_id: this.clergyId,
+                    original_object_key: this.originalObjectKey
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
             }
             
-            // Add metadata
-            processedImages.original = this.originalImageData;
-            processedImages.metadata = {
-                originalSize: this.originalImageFile ? this.originalImageFile.size : 0,
-                originalType: this.originalImageFile ? this.originalImageFile.type : '',
-                quality: this.quality,
-                croppedQuality: 98, // Higher quality used for cropped version
-                timestamp: new Date().toISOString(),
-                outputSizes: this.outputSizes
-            };
+            const result = await response.json();
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to process image on server');
+            }
             
             this.showProcessingStatus('Finalizing...', 100);
             
-            // Store processed images
+            // Store the server-processed images
+            const processedImages = {
+                ...result.image_data,
+                cropped: croppedImageData, // Keep local cropped version for preview
+                original: this.originalImageData, // Keep reference to original
+                metadata: {
+                    originalSize: this.originalImageFile ? this.originalImageFile.size : 0,
+                    originalType: this.originalImageFile ? this.originalImageFile.type : '',
+                    croppedDimensions: `${croppedCanvas.width}x${croppedCanvas.height}`,
+                    quality: 95,
+                    timestamp: new Date().toISOString(),
+                    workflow: 'new_square_crop_only',
+                    server_processed: true
+                }
+            };
+            
+            // Store processed images for form submission
             this.storeProcessedImages(processedImages);
             
             // Close modal
@@ -524,13 +644,16 @@ class ImageEditor {
             this.isProcessing = false;
             
             // Show success message
-            this.showNotification('Images processed successfully!', 'success');
+            this.showNotification('Square cropped image processed successfully!', 'success');
+            
+            // Refresh visualization to show the updated image
+            this.refreshVisualization();
             
         } catch (error) {
-            console.error('Error processing images:', error);
+            console.error('Error processing cropped image:', error);
             this.hideProcessingStatus();
             this.isProcessing = false;
-            this.showNotification('Error processing images. Please try again.', 'error');
+            this.showNotification('Error processing image: ' + error.message, 'error');
         }
     }
     
@@ -567,6 +690,170 @@ class ImageEditor {
         });
     }
     
+    /**
+     * Extract clergy ID from current form or URL
+     */
+    extractClergyId() {
+        console.log('Extracting clergy ID...');
+        console.log('Current URL:', window.location.pathname);
+        console.log('Current URL search:', window.location.search);
+        console.log('Current URL hash:', window.location.hash);
+        
+        // Try multiple URL patterns
+        let urlMatch = window.location.pathname.match(/\/editor\/clergy-form-content\/(\d+)/);
+        if (urlMatch) {
+            this.clergyId = urlMatch[1];
+            console.log('Extracted clergy ID from URL:', this.clergyId);
+            return;
+        }
+        
+        // Try other patterns
+        urlMatch = window.location.pathname.match(/\/editor\/clergy-form\/(\d+)/);
+        if (urlMatch) {
+            this.clergyId = urlMatch[1];
+            console.log('Extracted clergy ID from clergy-form URL:', this.clergyId);
+            return;
+        }
+        
+        // Try to get from the form action URL
+        const form = document.getElementById('clergyForm');
+        if (form && form.action) {
+            console.log('Form action:', form.action);
+            const actionMatch = form.action.match(/\/clergy\/(\d+)/);
+            if (actionMatch) {
+                this.clergyId = actionMatch[1];
+                console.log('Extracted clergy ID from form action:', this.clergyId);
+                return;
+            }
+        }
+        
+        // If still no clergy ID found, try to extract from any URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const clergyIdParam = urlParams.get('clergy_id') || urlParams.get('id');
+        if (clergyIdParam) {
+            this.clergyId = clergyIdParam;
+            console.log('Extracted clergy ID from URL parameter:', this.clergyId);
+            return;
+        }
+        
+        // Try to get from HTMX data attributes or global variables
+        const htmxData = document.querySelector('[hx-get*="clergy-form"]');
+        if (htmxData) {
+            console.log('HTMX element found:', htmxData);
+            const htmxUrl = htmxData.getAttribute('hx-get');
+            console.log('HTMX URL:', htmxUrl);
+            if (htmxUrl) {
+                const htmxMatch = htmxUrl.match(/\/clergy-form\/(\d+)/);
+                if (htmxMatch) {
+                    this.clergyId = htmxMatch[1];
+                    console.log('Extracted clergy ID from HTMX URL:', this.clergyId);
+                    return;
+                }
+            }
+        }
+        
+        // Try to get from any data attributes on the body or main container
+        const body = document.body;
+        const clergyIdFromData = body.getAttribute('data-clergy-id') || 
+                                body.querySelector('[data-clergy-id]')?.getAttribute('data-clergy-id');
+        if (clergyIdFromData) {
+            this.clergyId = clergyIdFromData;
+            console.log('Extracted clergy ID from data attribute:', this.clergyId);
+            return;
+        }
+        
+        console.warn('Could not extract clergy ID from URL or form');
+        console.log('Available form elements:', document.querySelectorAll('form'));
+        console.log('Available HTMX elements:', document.querySelectorAll('[hx-get]'));
+    }
+
+    /**
+     * Load original image for editing - always works from original
+     */
+    async loadOriginalImageForEditing(imageUrl, clergyId) {
+        console.log('Loading original image for editing:', imageUrl);
+        console.log('Clergy ID received:', clergyId);
+        
+        // Reset any existing data
+        this.clearProcessedData();
+        
+        // Store the original image URL and clergy ID
+        this.originalImageUrl = imageUrl;
+        this.clergyId = clergyId;
+        
+        // Fallback: Extract clergy ID from URL if not provided
+        if (!this.clergyId) {
+            console.log('Clergy ID not provided, extracting from URL...');
+            this.extractClergyId();
+        }
+        
+        console.log('Final stored clergy ID:', this.clergyId);
+        
+        try {
+            // Fetch the original image as a blob to maintain full quality
+            console.log('Fetching original image as blob for high-quality editing...');
+            const response = await fetch(imageUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+            }
+            
+            const blob = await response.blob();
+            console.log('Original image blob size:', blob.size, 'bytes');
+            
+            // Create a File object from the blob
+            const file = new File([blob], 'original_image.jpg', { type: blob.type });
+            console.log('Created file object from blob:', file.name, file.size, 'bytes');
+            
+            // Use the loadOriginalImage function to load the file
+            console.log('Using loadOriginalImage() to load the original file...');
+            const imageData = await this.loadOriginalImage(file);
+            console.log('Original image loaded successfully via loadOriginalImage()');
+            
+            // Store the original file and image data
+            this.originalImageFile = file;
+            this.originalImageData = imageData;
+            this.currentImageData = imageData;
+            this.currentEditorImageData = imageData;
+            
+            // Set the editor image source
+            const editorImage = document.getElementById('editorImage');
+            if (editorImage) {
+                editorImage.src = imageData;
+                
+                // Initialize the editor after image loads
+                editorImage.onload = () => {
+                    console.log('Original image loaded for editing with full resolution');
+                    this.initializeEditor();
+                };
+            }
+            
+        } catch (error) {
+            console.error('Error loading original image:', error);
+            // Fallback to proxy URL loading if blob loading fails
+            console.log('Falling back to proxy URL loading...');
+            const editorImage = document.getElementById('editorImage');
+            if (editorImage) {
+                // Use proxy URL to avoid CORS issues
+                const proxyUrl = this.getProxyUrl(imageUrl);
+                console.log('Using proxy URL for fallback:', proxyUrl);
+                editorImage.src = proxyUrl;
+                
+                // Initialize the editor after image loads
+                editorImage.onload = () => {
+                    console.log('Original image loaded for editing (fallback method via proxy)');
+                    console.log('Fallback image dimensions:', editorImage.naturalWidth, '×', editorImage.naturalHeight);
+                    console.log('Fallback image src:', editorImage.src);
+                    
+                    // Update the current image data to reflect the original image
+                    this.currentImageData = editorImage.src;
+                    this.currentEditorImageData = editorImage.src;
+                    
+                    this.initializeEditor();
+                };
+            }
+        }
+    }
+
     /**
      * Store processed images for form submission
      */
@@ -652,7 +939,7 @@ class ImageEditor {
             // Remove any existing click listeners
             const newCropBtnClone = newCropBtn.cloneNode(true);
             newCropBtn.parentNode.replaceChild(newCropBtnClone, newCropBtn);
-            newCropBtnClone.addEventListener('click', () => this.editExistingImage());
+            newCropBtnClone.addEventListener('click', async () => await this.editExistingImage());
         }
         
         if (newRemoveBtn) {
@@ -739,6 +1026,30 @@ class ImageEditor {
             newCheckbox.addEventListener('click', (e) => this.updateOutputSizes('original', e.target.checked));
         }
         
+        // Reattach cancel button event listener
+        const cancelBtn = document.querySelector('#imageEditorModal .btn-secondary[data-bs-dismiss="modal"]');
+        if (cancelBtn) {
+            const newCancelBtn = cancelBtn.cloneNode(true);
+            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+            newCancelBtn.addEventListener('click', () => {
+                // Clean up any backdrop that might be left behind
+                setTimeout(() => {
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => backdrop.remove());
+                    document.body.classList.remove('modal-open');
+                    document.body.style.paddingRight = '';
+                    
+                    // Ensure the parent modal is still accessible
+                    const parentModal = document.getElementById('clergyFormModal');
+                    if (parentModal) {
+                        // Re-enable the parent modal if it exists
+                        parentModal.style.pointerEvents = 'auto';
+                        parentModal.style.zIndex = '1055';
+                    }
+                }, 100);
+            });
+        }
+        
         console.log('Modal event listeners reattached successfully');
     }
     
@@ -782,9 +1093,12 @@ class ImageEditor {
 
             this.showNotification('Loading image into editor...', 'info');
             
+            // Extract clergy ID from the current form or URL
+            this.extractClergyId();
+            
             // Load original file directly without compression for high-res cropping
             const originalDataUrl = await this.loadOriginalImage(processedFile);
-            this.openEditor(originalDataUrl, processedFile);
+            await this.openEditor(originalDataUrl, processedFile);
             
             this.showNotification('Image loaded successfully!', 'success');
         } catch (error) {
@@ -796,7 +1110,7 @@ class ImageEditor {
     /**
      * Edit existing image
      */
-    editExistingImage() {
+    async editExistingImage() {
         const previewImage = document.getElementById('previewImage');
         
         if (!previewImage || !previewImage.src) {
@@ -814,7 +1128,7 @@ class ImageEditor {
         const processedData = window.processedImageData;
         if (processedData && processedData.original) {
             console.log('Using current session processed data');
-            this.openEditor(processedData.original);
+            await this.openEditor(processedData.original);
             return;
         }
 
@@ -838,15 +1152,15 @@ class ImageEditor {
 
                 if (imageData.cropped) {
                     console.log('Using cropped image data');
-                    this.openEditor(imageData.cropped);
+                    await this.openEditor(imageData.cropped);
                     return;
                 } else if (imageData.detail) {
                     console.log('Using detail image data as fallback');
-                    this.openEditor(imageData.detail);
+                    await this.openEditor(imageData.detail);
                     return;
                 } else if (imageData.original) {
                     console.log('Using original image data as fallback');
-                    this.openEditor(imageData.original);
+                    await this.openEditor(imageData.original);
                     return;
                 }
             } catch (e) {
@@ -856,7 +1170,7 @@ class ImageEditor {
 
         // Priority 3: Fallback to preview image (48x48 lineage image)
         console.log('Using preview image as fallback');
-        this.openEditor(previewImage.src);
+        await this.openEditor(previewImage.src);
     }
     
     /**
@@ -1042,6 +1356,28 @@ class ImageEditor {
         }
     }
     
+    /**
+     * Refresh the visualization to show updated images
+     */
+    refreshVisualization() {
+        console.log('Refreshing visualization after image processing...');
+        
+        // Try to refresh the visualization panel
+        const visualizationTarget = document.getElementById('visualization-panel-content');
+        if (visualizationTarget && typeof htmx !== 'undefined') {
+            htmx.ajax('GET', '/editor/visualization', {
+                target: visualizationTarget,
+                swap: 'innerHTML'
+            }).then(() => {
+                console.log('Visualization refreshed after image processing');
+            }).catch(error => {
+                console.error('Visualization refresh failed after image processing:', error);
+            });
+        } else {
+            console.warn('Visualization target not found or HTMX not available for refresh');
+        }
+    }
+
     /**
      * Clear processed image data to prevent conflicts
      */

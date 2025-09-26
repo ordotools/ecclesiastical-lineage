@@ -78,7 +78,7 @@
             </div>
           </div>
           
-          <form id="change-password-form" method="post" action="{{ url_for('settings.change_password') }}">
+          <form id="change-password-form" method="post" action="{{ url_for('editor.editor') }}#settings">
             <div class="mb-3">
               <label for="current_password" class="form-label">Current Password</label>
               <input type="password" class="form-control" id="current_password" name="current_password" required>
@@ -125,7 +125,7 @@
           </div>
           
           <p class="text-muted mb-3">Add, edit, and manage user accounts with different permission levels.</p>
-          <a href="{{ url_for('settings.user_management') }}" class="btn btn-info">
+          <a href="{{ url_for('editor.editor') }}#user-management" class="btn btn-info">
             <i class="fas fa-users me-2"></i>Manage Users
           </a>
         </div>
@@ -148,7 +148,7 @@
             </div>
           </div>
           
-          <form id="invite-admin-form" method="post" action="{{ url_for('settings.generate_admin_invite') }}">
+          <form id="invite-admin-form" method="post" action="{{ url_for('editor.editor') }}#settings">
             <div class="mb-3">
               <label for="role_id" class="form-label">Access Level</label>
               <select class="form-select" id="role_id" name="role_id" required>

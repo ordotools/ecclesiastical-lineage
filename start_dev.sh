@@ -78,7 +78,7 @@ createdb "$LOCAL_DB_NAME"
 
 # Export from remote and import to local
 echo "📤 Exporting data from remote PostgreSQL..."
-pg_dump --clean --if-exists --no-owner --no-privileges "$REMOTE_DATABASE_URL" > /tmp/remote_dump.sql
+pg_dump --clean --if-exists --no-owner --no-privileges --inserts "$REMOTE_DATABASE_URL" > /tmp/remote_dump.sql
 
 echo "📥 Importing data to local PostgreSQL..."
 psql "$LOCAL_PG_URL" < /tmp/remote_dump.sql

@@ -11,29 +11,6 @@
                 Loading form for {{ clergy.name }}...
             </div>
         </div>
-        <script>
-        console.log('🔄 HTMX: Should load form content for clergy ID {{ clergy.id }}');
-        console.log('🔄 HTMX: URL: {{ url_for("editor.clergy_form_content", clergy_id=clergy.id) }}');
-        
-        // Test if HTMX is working at all
-        setTimeout(() => {
-            const loader = document.querySelector('.form-content-loader');
-            if (loader) {
-                console.log('🔄 HTMX: Form loader element found:', loader);
-                console.log('🔄 HTMX: Has hx-get attribute:', loader.hasAttribute('hx-get'));
-                console.log('🔄 HTMX: hx-get value:', loader.getAttribute('hx-get'));
-            } else {
-                console.log('🔄 HTMX: Form loader element NOT found');
-            }
-        }, 1000);
-        
-        // Immediate initialization test
-        console.log('🔄 HTMX: Immediate initialization test...');
-        if (typeof window.debugFormInit === 'function') {
-            console.log('🔄 HTMX: Calling debugFormInit()');
-            window.debugFormInit();
-        }
-        </script>
     {% elif not edit_mode %}
         <!-- Load form content via HTMX for add mode -->
         <div hx-get="{{ url_for('editor.clergy_form_content') }}" 
@@ -45,10 +22,6 @@
                 Loading new clergy form...
             </div>
         </div>
-        <script>
-        console.log('🔄 HTMX: Should load form content for new clergy');
-        console.log('🔄 HTMX: URL: {{ url_for("editor.clergy_form_content") }}');
-        </script>
     {% else %}
         <!-- Default state - no clergy selected -->
         <div style="padding: 2em; text-align: center; color: rgba(255, 255, 255, 0.6);">
@@ -289,15 +262,11 @@
 <script>
 // Simple form handling - instant updates like clergy list
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Editor clergy form panel initialized');
-    
     // Initialize drag and drop and cancel button immediately
-    console.log('🔄 DOMContentLoaded: Initializing form handlers immediately');
     initializeDragDropForHTMX();
     initializeCancelButtonHandler();
     
     // Set up mutation observer to watch for form content changes
-    console.log('🔄 DOMContentLoaded: Setting up mutation observer');
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             if (mutation.type === 'childList') {
@@ -309,7 +278,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 );
                 
                 if (hasClergyForm) {
-                    console.log('🔄 MutationObserver: Clergy form detected, initializing handlers');
                     setTimeout(() => {
                         initializeDragDropForHTMX();
                         initializeCancelButtonHandler();
@@ -325,16 +293,12 @@ document.addEventListener('DOMContentLoaded', function() {
         subtree: true
     });
     
-    console.log('🔄 DOMContentLoaded: Mutation observer set up');
-    
     // Also set up a periodic check as a fallback
-    console.log('🔄 DOMContentLoaded: Setting up periodic form check');
     setInterval(() => {
         const clergyForm = document.querySelector('#clergyForm');
         const photoContainer = document.querySelector('#photoContainer');
         
         if (clergyForm && photoContainer && !photoContainer.hasAttribute('data-drag-drop-initialized')) {
-            console.log('🔄 Periodic check: Found uninitialized clergy form, initializing...');
             initializeDragDropForHTMX();
             initializeCancelButtonHandler();
         }
@@ -345,17 +309,12 @@ document.addEventListener('DOMContentLoaded', function() {
 // Prevent duplicate event listeners
 if (!window.clergyFormHandlerAttached) {
     window.clergyFormHandlerAttached = true;
-    console.log('Attaching form submit event listener to document.body');
     document.body.addEventListener('submit', function(e) {
-        console.log('Form submit event detected:', e.target);
         // Check if this is our clergy form (loaded via HTMX)
         if (e.target && e.target.id === 'clergyForm') {
             e.preventDefault();
-            console.log('HTMX-loaded clergy form submitted - preventing default');
         
             const form = e.target;
-            console.log('Form action URL:', form.action);
-            console.log('Form method:', form.method);
             const formData = new FormData(form);
             const submitBtn = form.querySelector('button[type="submit"]');
             const originalText = submitBtn.textContent;
@@ -368,26 +327,23 @@ if (!window.clergyFormHandlerAttached) {
             const bishopNames = collectBishopNames(form);
             
             if (bishopNames.length > 0) {
-                console.log('🔄 Found bishops to create:', bishopNames);
                 // Show user feedback about bishop creation
                 submitBtn.textContent = `Creating ${bishopNames.length} bishop record${bishopNames.length > 1 ? 's' : ''}...`;
                 
                 // Check and create missing bishops
                 checkAndCreateBishops(bishopNames)
                     .then(() => {
-                        console.log('🔄 Bishop creation successful, proceeding with form submission');
                         // Update button text for final submission
                         submitBtn.textContent = 'Submitting form...';
                         // Submit the form after bishops are created
                         submitFormWithData(form, formData, submitBtn, originalText);
                     })
                     .catch(error => {
-                        console.error('🔄 Error creating bishops:', error);
+                        console.error('Error creating bishops:', error);
                         showNotification(`Error creating missing bishops: ${error.message}`, 'error');
                         resetSubmitButton(submitBtn, originalText);
                     });
             } else {
-                console.log('🔄 No bishops to create, submitting form directly');
                 // No bishops to check, submit directly
                 submitFormWithData(form, formData, submitBtn, originalText);
             }
@@ -399,57 +355,43 @@ if (!window.clergyFormHandlerAttached) {
 function collectBishopNames(form) {
     const bishopNames = new Set();
     
-    console.log('Collecting bishop names...');
-    
     // Collect ordaining bishops
     const ordainingBishopInputs = form.querySelectorAll('input[name*="ordaining_bishop_input"]');
-    console.log('Found ordaining bishop inputs:', ordainingBishopInputs.length);
     ordainingBishopInputs.forEach(input => {
         const name = input.value.trim();
         const idInput = input.parentElement.querySelector('input[name*="ordaining_bishop_id"]');
         const id = idInput ? idInput.value : '';
-        console.log(`Ordaining bishop: "${name}", ID: "${id}"`);
         if (name && !id) {
             bishopNames.add(name);
-            console.log(`Added to bishop names: "${name}"`);
         }
     });
     
     // Collect consecrators
     const consecratorInputs = form.querySelectorAll('input[name*="consecrator_input"]');
-    console.log('Found consecrator inputs:', consecratorInputs.length);
     consecratorInputs.forEach(input => {
         const name = input.value.trim();
         const idInput = input.parentElement.querySelector('input[name*="consecrator_id"]');
         const id = idInput ? idInput.value : '';
-        console.log(`Consecrator: "${name}", ID: "${id}"`);
         if (name && !id) {
             bishopNames.add(name);
-            console.log(`Added to bishop names: "${name}"`);
         }
     });
     
     // Collect co-consecrators
     const coConsecratorInputs = form.querySelectorAll('input[name*="co_consecrators"][name*="input"]');
-    console.log('Found co-consecrator inputs:', coConsecratorInputs.length);
     coConsecratorInputs.forEach(input => {
         const name = input.value.trim();
         const idInput = input.parentElement.querySelector('input[name*="id"]');
         const id = idInput ? idInput.value : '';
-        console.log(`Co-consecrator: "${name}", ID: "${id}"`);
         if (name && !id) {
             bishopNames.add(name);
-            console.log(`Added to bishop names: "${name}"`);
         }
     });
     
-    const result = Array.from(bishopNames);
-    console.log('Final bishop names to check:', result);
-    return result;
+    return Array.from(bishopNames);
 }
 
 function checkAndCreateBishops(bishopNames) {
-    console.log('🔄 Creating missing bishops:', bishopNames);
     return new Promise((resolve, reject) => {
         // Send AJAX request to check and create bishops
         fetch('/api/check-and-create-bishops', {
@@ -463,16 +405,13 @@ function checkAndCreateBishops(bishopNames) {
             })
         })
         .then(response => {
-            console.log('🔄 Bishop creation response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            console.log('🔄 Bishop creation response:', data);
             if (data.success) {
-                console.log('🔄 Successfully created bishops, updating form with IDs');
                 // Update form with the created bishop IDs
                 updateFormWithBishopIds(data.bishop_mapping);
                 resolve();
@@ -481,7 +420,7 @@ function checkAndCreateBishops(bishopNames) {
             }
         })
         .catch(error => {
-            console.error('🔄 Error creating bishops:', error);
+            console.error('Error creating bishops:', error);
             reject(error);
         });
     });
@@ -491,8 +430,6 @@ function updateFormWithBishopIds(bishopMapping) {
     const form = document.getElementById('clergyForm');
     if (!form) return;
     
-    console.log('🔄 Updating form with bishop IDs:', bishopMapping);
-    
     // Update ordaining bishops
     const ordainingBishopInputs = form.querySelectorAll('input[name*="ordaining_bishop_input"]');
     ordainingBishopInputs.forEach(input => {
@@ -501,9 +438,6 @@ function updateFormWithBishopIds(bishopMapping) {
             const idInput = input.parentElement.querySelector('input[name*="ordaining_bishop_id"]');
             if (idInput) {
                 idInput.value = bishopMapping[name];
-                console.log(`🔄 Updated ordaining bishop "${name}" with ID: ${bishopMapping[name]}`);
-            } else {
-                console.warn(`🔄 No ID input found for ordaining bishop "${name}"`);
             }
         }
     });
@@ -516,9 +450,6 @@ function updateFormWithBishopIds(bishopMapping) {
             const idInput = input.parentElement.querySelector('input[name*="consecrator_id"]');
             if (idInput) {
                 idInput.value = bishopMapping[name];
-                console.log(`🔄 Updated consecrator "${name}" with ID: ${bishopMapping[name]}`);
-            } else {
-                console.warn(`🔄 No ID input found for consecrator "${name}"`);
             }
         }
     });
@@ -531,14 +462,9 @@ function updateFormWithBishopIds(bishopMapping) {
             const idInput = input.parentElement.querySelector('input[name*="id"]');
             if (idInput) {
                 idInput.value = bishopMapping[name];
-                console.log(`🔄 Updated co-consecrator "${name}" with ID: ${bishopMapping[name]}`);
-            } else {
-                console.warn(`🔄 No ID input found for co-consecrator "${name}"`);
             }
         }
     });
-    
-    console.log('🔄 Form update with bishop IDs complete');
 }
 
 function resetSubmitButton(button, originalText) {
@@ -556,18 +482,14 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
         }
     })
         .then(response => {
-            console.log('Raw response status:', response.status);
-            console.log('Raw response headers:', response.headers);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            console.log('Form save response:', data);
             if (data.success) {
                 // Success - refresh panels smoothly
-                console.log('Form saved successfully');
                 
                 // Instant refresh - no transitions like clergy list
                 htmx.ajax('GET', '/editor/clergy-list', {
@@ -576,10 +498,7 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
                 });
                 
                 // Instant visualization refresh (will be done after specific actions)
-                console.log('Refreshing visualization after form save...');
-                console.log('HTMX available:', typeof htmx !== 'undefined');
                 const visualizationTarget = document.getElementById('visualization-panel-content');
-                console.log('Visualization target found:', !!visualizationTarget);
                 if (visualizationTarget && typeof htmx !== 'undefined') {
                     // Use the specific visualization panel ID
                     const specificTarget = document.getElementById('visualization-panel-content');
@@ -588,36 +507,26 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
                             target: specificTarget,
                             swap: 'innerHTML'
                         }).then(() => {
-                            console.log('Visualization refresh completed');
+                            // Visualization refresh completed
                         }).catch(error => {
                             console.error('Visualization refresh failed:', error);
                         });
                     }
                 } else {
-                    console.error('Visualization target not found or HTMX not available!', {
-                        target: !!visualizationTarget,
-                        htmx: typeof htmx !== 'undefined'
-                    });
+                    console.error('Visualization target not found or HTMX not available!');
                 }
                 
                 // Check if the record was marked for deletion
                 const markDeletedCheckbox = form.querySelector('input[name="mark_deleted"]');
                 const wasMarkedDeleted = markDeletedCheckbox && markDeletedCheckbox.checked;
-                console.log('Deletion checkbox found:', !!markDeletedCheckbox);
-                console.log('Deletion checkbox checked:', wasMarkedDeleted);
-                console.log('Response clergy_id:', data.clergy_id);
                 
                 if (wasMarkedDeleted) {
                     // Record was marked for deletion - clear form and switch to add mode
-                    console.log('Record was marked for deletion, clearing form for new entry');
                     clearFormForNewEntry();
                     
                     // Additional visualization refresh specifically for deletion
-                    console.log('Additional visualization refresh for deletion...');
                     setTimeout(() => {
                         const visualizationTarget = document.getElementById('visualization-panel-content');
-                        console.log('Deletion visualization target found:', !!visualizationTarget);
-                        console.log('HTMX available for deletion refresh:', typeof htmx !== 'undefined');
                         if (visualizationTarget && typeof htmx !== 'undefined') {
                             // Use the specific visualization panel ID
                             const specificTarget = document.getElementById('visualization-panel-content');
@@ -626,23 +535,19 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
                                     target: specificTarget,
                                     swap: 'innerHTML'
                                 }).then(() => {
-                                    console.log('Deletion visualization refresh completed');
+                                    // Deletion visualization refresh completed
                                 }).catch(error => {
                                     console.error('Deletion visualization refresh failed:', error);
                                 });
                             }
                         } else {
-                            console.error('Deletion visualization target not found or HTMX not available!', {
-                                target: !!visualizationTarget,
-                                htmx: typeof htmx !== 'undefined'
-                            });
+                            console.error('Deletion visualization target not found or HTMX not available!');
                         }
                     }, 500); // Small delay to ensure the deletion is processed
                     
                     showNotification('Record marked for deletion. Form cleared for new entry.', 'info');
-                } else                 if (data.clergy_id) {
+                } else if (data.clergy_id) {
                     // Normal save - switch to edit mode and refresh the form
-                    console.log('Switching to edit mode for clergy ID:', data.clergy_id);
                     switchToEditMode(data.clergy_id);
                     showNotification('Clergy record saved successfully!', 'success');
                     
@@ -655,7 +560,6 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
                     }));
                 } else {
                     // Fallback - just show success message
-                    console.log('No clergy_id in response, showing generic success message');
                     showNotification('Clergy record saved successfully!', 'success');
                     
                     // Dispatch custom event for clergy creation
@@ -690,14 +594,6 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
 
 // HTMX event handling with form initialization
 document.body.addEventListener('htmx:afterSwap', function(evt) {
-    console.log('🔄 HTMX: afterSwap event fired for target:', evt.target);
-    console.log('🔄 HTMX: Target classes:', evt.target.className);
-    console.log('🔄 HTMX: Target ID:', evt.target.id);
-    console.log('🔄 HTMX: Target closest to clergyFormContainer:', evt.target.closest('#clergyFormContainer'));
-    console.log('🔄 HTMX: Target has form-content-loader class:', evt.target.classList.contains('form-content-loader'));
-    console.log('🔄 HTMX: Target contains clergyForm:', !!evt.target.querySelector('#clergyForm'));
-    console.log('🔄 HTMX: Target is clergyForm:', evt.target.id === 'clergyForm');
-    
     // Check if this is a clergy form related HTMX event
     const isClergyFormContainer = evt.target.closest('#clergyFormContainer');
     const isFormContentLoader = evt.target.classList.contains('form-content-loader');
@@ -709,59 +605,40 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
         // Double-check that we actually have a clergy form before initializing
         const clergyForm = evt.target.querySelector('#clergyForm') || (evt.target.id === 'clergyForm' ? evt.target : null);
         if (!clergyForm) {
-            console.log('🔄 HTMX: No clergy form found in target, skipping initialization');
             return;
         }
         
-        console.log('🔄 HTMX: Clergy form content loaded instantly');
-        
         // Initialize the form after HTMX loads it - immediate execution
-        console.log('🔄 HTMX: Checking for initialization function...');
         
         // Check if we have initialization functions available
         if (typeof window.initializeFormFromRank === 'function') {
-            console.log('🔄 HTMX: Calling window.initializeFormFromRank()');
             window.initializeFormFromRank();
         } else {
-            console.log('🔄 HTMX: initializeFormFromRank not available, triggering rank change event');
             // Initialize directly if the functions are in the loaded content
             const rankSelect = document.getElementById('rank');
             if (rankSelect && rankSelect.value) {
-                console.log('🔄 HTMX: Triggering change event on rank select');
                 rankSelect.dispatchEvent(new Event('change'));
             }
         }
         
         // Initialize clergy autocomplete for HTMX-loaded content
-        console.log('🔄 HTMX: Initializing clergy autocomplete...');
         
         // Wait a bit for the embedded form script to load
         setTimeout(() => {
-            console.log('🔄 HTMX: Checking for autocomplete functions after delay...');
-            console.log('🔄 HTMX: initializeClergyAutocomplete available:', typeof window.initializeClergyAutocomplete);
-            console.log('🔄 HTMX: initializeSingleClergyAutocomplete available:', typeof window.initializeSingleClergyAutocomplete);
-            
             if (typeof window.initializeClergyAutocomplete === 'function') {
-                console.log('🔄 HTMX: Calling window.initializeClergyAutocomplete()');
                 window.initializeClergyAutocomplete();
             } else if (typeof window.initializeSingleClergyAutocomplete === 'function') {
-                console.log('🔄 HTMX: Using fallback with initializeSingleClergyAutocomplete');
                 const clergyInputs = document.querySelectorAll('input[name*="ordaining_bishop_input"], input[name*="consecrator_input"], input[name*="co_consecrators"][name*="input"]');
-                console.log('🔄 HTMX: Found clergy inputs:', clergyInputs.length);
                 clergyInputs.forEach(input => {
                     if (!input.hasAttribute('data-autocomplete-initialized')) {
-                        console.log('🔄 HTMX: Initializing input:', input.name);
                         window.initializeSingleClergyAutocomplete(input);
                     }
                 });
             } else {
-                console.log('🔄 HTMX: No autocomplete functions available, trying direct initialization');
                 // Direct initialization as last resort
                 const clergyInputs = document.querySelectorAll('input[name*="ordaining_bishop_input"], input[name*="consecrator_input"], input[name*="co_consecrators"][name*="input"]');
-                console.log('🔄 HTMX: Found clergy inputs for direct init:', clergyInputs.length);
                 clergyInputs.forEach(input => {
                     if (!input.hasAttribute('data-autocomplete-initialized')) {
-                        console.log('🔄 HTMX: Direct initializing input:', input.name);
                         // Direct initialization logic here
                         initializeClergyAutocompleteDirect(input);
                     }
@@ -769,11 +646,9 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
             }
             
             // Re-initialize drag and drop functionality for HTMX-loaded content
-            console.log('🔄 HTMX: Re-initializing drag and drop...');
             initializeDragDropForHTMX();
             
             // Initialize cancel button handler for HTMX-loaded content
-            console.log('🔄 HTMX: Initializing cancel button handler...');
             initializeCancelButtonHandler();
         }, 200);
     }
@@ -781,26 +656,18 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
 
 // Additional HTMX event handler for afterRequest
 document.body.addEventListener('htmx:afterRequest', function(evt) {
-    console.log('🔄 HTMX: afterRequest event fired for target:', evt.target);
-    console.log('🔄 HTMX: Request URL:', evt.detail.xhr ? evt.detail.xhr.responseURL : 'unknown');
-    
     // Check if this was a clergy form content request
     const isClergyFormContentRequest = evt.detail.xhr && evt.detail.xhr.responseURL && 
         (evt.detail.xhr.responseURL.includes('/editor/clergy-form-content') || 
          evt.detail.xhr.responseURL.includes('/editor/clergy-form/'));
     
     if (isClergyFormContentRequest) {
-        console.log('🔄 HTMX: Clergy form content request detected, initializing...');
-        
         // Wait a bit for the content to be swapped
         setTimeout(() => {
             const clergyForm = document.querySelector('#clergyForm');
             if (clergyForm) {
-                console.log('🔄 HTMX: Clergy form found after request, initializing handlers...');
                 initializeDragDropForHTMX();
                 initializeCancelButtonHandler();
-            } else {
-                console.log('🔄 HTMX: No clergy form found after request');
             }
         }, 100);
     }
@@ -808,17 +675,13 @@ document.body.addEventListener('htmx:afterRequest', function(evt) {
 
 // Initialize cancel button handler for HTMX-loaded content
 function initializeCancelButtonHandler() {
-    console.log('🔄 HTMX: Initializing cancel button handler...');
     const cancelBtn = document.getElementById('cancel-btn');
     
     if (cancelBtn) {
         // Check if already initialized
         if (cancelBtn.hasAttribute('data-cancel-initialized')) {
-            console.log('🔄 HTMX: Cancel button already initialized, skipping');
             return;
         }
-        
-        console.log('🔄 HTMX: Setting up cancel button handler...');
         
         // Mark as initialized
         cancelBtn.setAttribute('data-cancel-initialized', 'true');
@@ -826,34 +689,23 @@ function initializeCancelButtonHandler() {
         cancelBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔄 HTMX: Cancel button clicked - clearing form');
             
             // Clear the form and switch to add mode
             clearFormForNewEntry();
         });
-        
-        console.log('🔄 HTMX: Cancel button handler set up successfully');
-    } else {
-        console.log('🔄 HTMX: Cancel button not found');
     }
 }
 
 // Initialize drag and drop functionality for HTMX-loaded content
 function initializeDragDropForHTMX() {
-    console.log('🔄 HTMX: Initializing drag and drop for HTMX-loaded form...');
     const photoContainer = document.getElementById('photoContainer');
     const fileInput = document.getElementById('clergyImage');
-    
-    console.log('🔄 HTMX: Drag drop elements found:', { photoContainer, fileInput });
     
     if (photoContainer && fileInput) {
         // Check if drag and drop is already initialized
         if (photoContainer.hasAttribute('data-drag-drop-initialized')) {
-            console.log('🔄 HTMX: Drag and drop already initialized, skipping');
             return;
         }
-        
-        console.log('🔄 HTMX: Setting up drag and drop handlers for HTMX content...');
         
         // Mark as initialized
         photoContainer.setAttribute('data-drag-drop-initialized', 'true');
@@ -861,14 +713,12 @@ function initializeDragDropForHTMX() {
         // Handle existing image in edit mode - make it not interfere with drag events
         const existingImage = photoContainer.querySelector('#previewImage');
         if (existingImage) {
-            console.log('🔄 HTMX: Found existing image, ensuring it doesn\'t block drag events');
             existingImage.style.pointerEvents = 'none';
             
             // Also add drag event handlers to the image itself as a fallback
             existingImage.addEventListener('dragenter', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('🔄 HTMX: Drag enter on image');
                 photoContainer.classList.add('drag-over');
             }, true);
             
@@ -876,28 +726,23 @@ function initializeDragDropForHTMX() {
                 e.preventDefault();
                 e.stopPropagation();
                 e.dataTransfer.dropEffect = 'copy';
-                console.log('🔄 HTMX: Drag over on image');
             }, true);
             
             existingImage.addEventListener('dragleave', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('🔄 HTMX: Drag leave on image');
                 photoContainer.classList.remove('drag-over');
             }, true);
             
             existingImage.addEventListener('drop', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('🔄 HTMX: Drop on image');
                 photoContainer.classList.remove('drag-over');
                 
                 const files = e.dataTransfer.files;
-                console.log('🔄 HTMX: Files dropped on image:', files.length);
                 
                 if (files.length > 0) {
                     const file = files[0];
-                    console.log('🔄 HTMX: Processing file from image drop:', file.name, file.type, file.size);
                     
                     if (file.type.startsWith('image/')) {
                         // Set the file in the input
@@ -905,11 +750,9 @@ function initializeDragDropForHTMX() {
                             const dataTransfer = new DataTransfer();
                             dataTransfer.items.add(file);
                             fileInput.files = dataTransfer.files;
-                            console.log('🔄 HTMX: File set in input element from image drop');
                             
                             // Trigger the image editor if available
                             if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
-                                console.log('🔄 HTMX: Using image editor for image drop...');
                                 const syntheticEvent = {
                                     target: fileInput,
                                     preventDefault: function() {},
@@ -931,10 +774,9 @@ function initializeDragDropForHTMX() {
                                 reader.readAsDataURL(file);
                             }
                         } catch (error) {
-                            console.error('🔄 HTMX: Error processing file from image drop:', error);
+                            console.error('Error processing file from image drop:', error);
                         }
                     } else {
-                        console.log('🔄 HTMX: Not an image file from image drop');
                         alert('Please select an image file.');
                     }
                 }
@@ -945,7 +787,6 @@ function initializeDragDropForHTMX() {
         photoContainer.addEventListener('dragenter', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔄 HTMX: Drag enter on container or child');
             this.classList.add('drag-over');
         }, true);
         
@@ -953,13 +794,11 @@ function initializeDragDropForHTMX() {
             e.preventDefault();
             e.stopPropagation();
             e.dataTransfer.dropEffect = 'copy';
-            console.log('🔄 HTMX: Drag over on container or child');
         }, true);
         
         photoContainer.addEventListener('dragleave', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔄 HTMX: Drag leave on container or child');
             // Only remove drag-over if we're actually leaving the container
             if (!this.contains(e.relatedTarget)) {
                 this.classList.remove('drag-over');
@@ -969,15 +808,12 @@ function initializeDragDropForHTMX() {
         photoContainer.addEventListener('drop', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔄 HTMX: Drop event on container or child');
             this.classList.remove('drag-over');
             
             const files = e.dataTransfer.files;
-            console.log('🔄 HTMX: Files dropped:', files.length);
             
             if (files.length > 0) {
                 const file = files[0];
-                console.log('🔄 HTMX: Processing file:', file.name, file.type, file.size);
                 
                 if (file.type.startsWith('image/')) {
                     // Set the file in the input
@@ -985,11 +821,9 @@ function initializeDragDropForHTMX() {
                         const dataTransfer = new DataTransfer();
                         dataTransfer.items.add(file);
                         fileInput.files = dataTransfer.files;
-                        console.log('🔄 HTMX: File set in input element');
                         
                         // Trigger the image editor if available
                         if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
-                            console.log('🔄 HTMX: Using image editor...');
                             const syntheticEvent = {
                                 target: fileInput,
                                 preventDefault: function() {},
@@ -1011,31 +845,24 @@ function initializeDragDropForHTMX() {
                             reader.readAsDataURL(file);
                         }
                     } catch (error) {
-                        console.error('🔄 HTMX: Error processing file:', error);
+                        console.error('Error processing file:', error);
                     }
                 } else {
-                    console.log('🔄 HTMX: Not an image file');
                     alert('Please select an image file.');
                 }
             }
         }, true);
-        
-        console.log('🔄 HTMX: Drag and drop handlers set up successfully for HTMX content');
-    } else {
-        console.log('🔄 HTMX: Drag and drop initialization failed - missing elements');
     }
 }
 
 // Switch form to edit mode after saving a new clergy record
 function switchToEditMode(clergyId) {
-    console.log('🔄 switchToEditMode called with clergy ID:', clergyId);
-    
     // Use the same mechanism as selecting a clergy member for editing
     // This will trigger the proper HTMX request to load the edit form
     if (typeof selectClergy === 'function') {
         selectClergy(clergyId);
     } else {
-        console.error('🔄 selectClergy function not found, falling back to manual approach');
+        console.error('selectClergy function not found, falling back to manual approach');
         // Fallback: manually trigger the HTMX request
         htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
             target: '.right-panel .panel-content',
@@ -1046,14 +873,12 @@ function switchToEditMode(clergyId) {
 
 // Clear form and switch to add mode after deletion
 function clearFormForNewEntry() {
-    console.log('🔄 clearFormForNewEntry called - triggering selectClergy(null)');
-    
     // Use the same mechanism as the "Add New Clergy" button
     // This will trigger the proper HTMX request to load the empty form
     if (typeof selectClergy === 'function') {
         selectClergy(null);
     } else {
-        console.error('🔄 selectClergy function not found, falling back to manual approach');
+        console.error('selectClergy function not found, falling back to manual approach');
         // Fallback: manually trigger the HTMX request
         htmx.ajax('GET', '/editor/clergy-form', {
             target: '.right-panel .panel-content',
@@ -1085,85 +910,6 @@ window.clearFormForNewEntry = clearFormForNewEntry;
 window.initializeDragDropForHTMX = initializeDragDropForHTMX;
 window.initializeCancelButtonHandler = initializeCancelButtonHandler;
 
-// Add test functions for debugging
-window.testSwitchToEditMode = function() {
-    console.log('Testing switchToEditMode with ID 1');
-    switchToEditMode(1);
-};
-
-window.testClearFormForNewEntry = function() {
-    console.log('Testing clearFormForNewEntry');
-    clearFormForNewEntry();
-};
-
-window.testVisualizationRefresh = function() {
-    console.log('Testing visualization refresh...');
-    console.log('HTMX available:', typeof htmx !== 'undefined');
-    const visualizationTarget = document.getElementById('visualization-panel-content');
-    console.log('Visualization target found:', !!visualizationTarget);
-    if (visualizationTarget && typeof htmx !== 'undefined') {
-        // Use the specific visualization panel ID
-        const specificTarget = document.getElementById('visualization-panel-content');
-        if (specificTarget) {
-            htmx.ajax('GET', '/editor/visualization', {
-                target: specificTarget,
-                swap: 'innerHTML'
-            }).then(() => {
-                console.log('Test visualization refresh completed');
-            }).catch(error => {
-                console.error('Test visualization refresh failed:', error);
-            });
-        }
-    } else {
-        console.error('Test visualization target not found or HTMX not available!', {
-            target: !!visualizationTarget,
-            htmx: typeof htmx !== 'undefined'
-        });
-    }
-};
-
-window.testDragDropInit = function() {
-    console.log('Testing drag and drop initialization...');
-    initializeDragDropForHTMX();
-};
-
-window.testCancelButtonInit = function() {
-    console.log('Testing cancel button initialization...');
-    initializeCancelButtonHandler();
-};
-
-window.testDragDropDebug = function() {
-    console.log('=== DRAG DROP DEBUG ===');
-    const photoContainer = document.getElementById('photoContainer');
-    const fileInput = document.getElementById('clergyImage');
-    const existingImage = photoContainer ? photoContainer.querySelector('#previewImage') : null;
-    
-    console.log('Photo container found:', !!photoContainer);
-    console.log('File input found:', !!fileInput);
-    console.log('Existing image found:', !!existingImage);
-    
-    if (photoContainer) {
-        console.log('Photo container classes:', photoContainer.className);
-        console.log('Photo container has drag-drop-initialized:', photoContainer.hasAttribute('data-drag-drop-initialized'));
-        console.log('Photo container children:', photoContainer.children.length);
-        
-        if (existingImage) {
-            console.log('Existing image pointer-events:', existingImage.style.pointerEvents);
-            console.log('Existing image src:', existingImage.src);
-        }
-    }
-    
-    console.log('=== END DEBUG ===');
-};
-
-console.log('Form functions available:', {
-    refreshClergyFormSmooth: typeof window.refreshClergyFormSmooth,
-    switchToEditMode: typeof window.switchToEditMode,
-    clearFormForNewEntry: typeof window.clearFormForNewEntry,
-    initializeDragDropForHTMX: typeof window.initializeDragDropForHTMX,
-    initializeCancelButtonHandler: typeof window.initializeCancelButtonHandler
-});
-
 // Direct autocomplete initialization as fallback
 function initializeClergyAutocompleteDirect(input) {
     if (input.hasAttribute('data-autocomplete-initialized')) {
@@ -1172,16 +918,13 @@ function initializeClergyAutocompleteDirect(input) {
     
     const dropdown = input.parentElement.querySelector('.autocomplete-dropdown');
     if (!dropdown) {
-        console.log('No dropdown found for direct init:', input.name);
         return;
     }
     
-    console.log('Direct initializing autocomplete for:', input.name);
     input.setAttribute('data-autocomplete-initialized', 'true');
     
     input.addEventListener('input', function() {
         const query = this.value.trim();
-        console.log('Direct input event for', this.name, 'query:', query);
         
         if (query.length < 2) {
             dropdown.style.display = 'none';
@@ -1232,9 +975,6 @@ function initializeClergyAutocompleteDirect(input) {
 
 // Simple instant notification system
 function showNotification(message, type = 'info') {
-    // Just log to console - no visual distraction
-    console.log(`${type.toUpperCase()}: ${message}`);
-    
     // Optionally show a very brief, instant alert that auto-closes
     const notification = document.createElement('div');
     notification.style.cssText = `

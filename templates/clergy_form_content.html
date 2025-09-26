@@ -893,12 +893,25 @@ if (!window.clergyFormEventListenersAttached) {
                         console.log('Processing file:', file.name, file.type, file.size);
                         
                         if (file.type.startsWith('image/')) {
-                            // Set the file in the input
+                            // Store the file globally for form submission
+                            window.droppedFile = file;
+                            console.log('File stored globally:', file.name, file.size, file.type);
+                            
+                            // Try to set the file in the input element
                             try {
-                                const dataTransfer = new DataTransfer();
-                                dataTransfer.items.add(file);
-                                fileInput.files = dataTransfer.files;
-                                console.log('File set in input element');
+                                // Try the modern DataTransfer approach first
+                                if (typeof DataTransfer !== 'undefined' && DataTransfer.prototype.items) {
+                                    const dataTransfer = new DataTransfer();
+                                    dataTransfer.items.add(file);
+                                    fileInput.files = dataTransfer.files;
+                                    console.log('File set in input element using DataTransfer');
+                                } else {
+                                    console.log('DataTransfer not supported, file stored globally for manual handling');
+                                }
+                            } catch (error) {
+                                console.error('Error setting file in input:', error);
+                                console.log('File will be handled manually during form submission');
+                            }
                                 
                                 // Trigger the image editor if available
                                 if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
@@ -922,6 +935,16 @@ if (!window.clergyFormEventListenersAttached) {
                                         }
                                     };
                                     reader.readAsDataURL(file);
+                                }
+                                
+                                // Debug: Check if file is properly set in input
+                                console.log('File input after setting:', fileInput.files);
+                                console.log('File input files length:', fileInput.files.length);
+                                if (fileInput.files.length > 0) {
+                                    console.log('First file:', fileInput.files[0]);
+                                    console.log('File name:', fileInput.files[0].name);
+                                    console.log('File size:', fileInput.files[0].size);
+                                    console.log('File type:', fileInput.files[0].type);
                                 }
                             } catch (error) {
                                 console.error('Error processing file:', error);

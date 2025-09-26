@@ -8,13 +8,25 @@
 console.log('Editor visualization script loaded');
 
 // Visualization constants - matching lineage visualization exactly
-const LINK_DISTANCE = 80; // Clustering distance for force layout
-const CHARGE_STRENGTH = -200; // Clustering charge strength
-const COLLISION_RADIUS = 60; // Node collision radius
-const OUTER_RADIUS = 30; // Organization ring
-const INNER_RADIUS = 24; // Rank ring
-const IMAGE_SIZE = 48; // Clergy image size
-const LABEL_DY = 35; // Label position offset
+// Prevent duplicate declarations when HTMX loads content
+if (typeof window.LINK_DISTANCE === 'undefined') {
+    window.LINK_DISTANCE = 80; // Clustering distance for force layout
+    window.CHARGE_STRENGTH = -200; // Clustering charge strength
+    window.COLLISION_RADIUS = 60; // Node collision radius
+    window.OUTER_RADIUS = 30; // Organization ring
+    window.INNER_RADIUS = 24; // Rank ring
+    window.IMAGE_SIZE = 48; // Clergy image size
+    window.LABEL_DY = 35; // Label position offset
+}
+
+// Use window variables to prevent const redeclaration errors
+const LINK_DISTANCE = window.LINK_DISTANCE;
+const CHARGE_STRENGTH = window.CHARGE_STRENGTH;
+const COLLISION_RADIUS = window.COLLISION_RADIUS;
+const OUTER_RADIUS = window.OUTER_RADIUS;
+const INNER_RADIUS = window.INNER_RADIUS;
+const IMAGE_SIZE = window.IMAGE_SIZE;
+const LABEL_DY = window.LABEL_DY;
 
 // Get color constants from CSS variables
 const GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim() || '#27ae60';

@@ -126,6 +126,14 @@ window.submitForm = function() {
     
     // Create FormData from the form
     const formData = new FormData(form);
+    
+    // Check for globally stored dropped file
+    if (window.droppedFile) {
+        console.log('Adding globally stored file to FormData:', window.droppedFile);
+        formData.append('clergy_image', window.droppedFile);
+        // Clear the global file after adding to form data
+        delete window.droppedFile;
+    }
         
         // Submit the form
         fetch(form.action, {

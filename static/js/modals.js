@@ -442,6 +442,14 @@ function openEditClergyModal(clergyId) {
           const formData = new FormData();
           const requiredFields = ['name', 'rank', 'organization']; // Fields that must be preserved even if empty
           
+          // Check for globally stored dropped file
+          if (window.droppedFile) {
+            console.log('Adding globally stored file to FormData:', window.droppedFile);
+            formData.append('clergy_image', window.droppedFile);
+            // Clear the global file after adding to form data
+            delete window.droppedFile;
+          }
+          
           // Get all form inputs and manually add them to FormData
           const formInputs = form.querySelectorAll('input, select, textarea');
           console.log('=== MANUALLY BUILDING FORM DATA ===');

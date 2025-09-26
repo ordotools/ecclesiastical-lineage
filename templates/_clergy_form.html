@@ -1620,12 +1620,21 @@ document.addEventListener('DOMContentLoaded', function() {
                         const file = files[0];
                         console.log('Embedded processing file:', file.name, file.type, file.size);
                         
-                        if (file.type.startsWith('image/')) {
-                            // Set the file in the input
-                            try {
-                                const dataTransfer = new DataTransfer();
-                                dataTransfer.items.add(file);
-                                fileInput.files = dataTransfer.files;
+                    if (file.type.startsWith('image/')) {
+                        // Store the file globally for form submission
+                        window.droppedFile = file;
+                        console.log('File stored globally:', file.name, file.size, file.type);
+                        
+                        // Try to set the file in the input element
+                        try {
+                            const dataTransfer = new DataTransfer();
+                            dataTransfer.items.add(file);
+                            fileInput.files = dataTransfer.files;
+                            console.log('File set in input element using DataTransfer');
+                        } catch (error) {
+                            console.error('Error setting file in input:', error);
+                            console.log('File will be handled manually during form submission');
+                        }
                                 console.log('Embedded file set in input element');
                                 
                                 // Trigger the image editor if available

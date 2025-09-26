@@ -187,6 +187,14 @@
             e.preventDefault();
             const formData = new FormData(form);
             
+            // Check for globally stored dropped file
+            if (window.droppedFile) {
+                console.log('Adding globally stored file to FormData:', window.droppedFile);
+                formData.append('clergy_image', window.droppedFile);
+                // Clear the global file after adding to form data
+                delete window.droppedFile;
+            }
+            
             // Debug logging
             console.log('Form submission - ordaining_bishop_input:', formData.get('ordaining_bishop_input'));
             console.log('Form submission - ordaining_bishop_id:', formData.get('ordaining_bishop_id'));

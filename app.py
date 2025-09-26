@@ -14,6 +14,7 @@ from routes.metadata import metadata_bp
 from flask_migrate import Migrate
 from sqlalchemy import inspect
 from urllib.parse import urlparse, urlunparse
+from services.backblaze_config import init_backblaze_config
 
 load_dotenv()
 
@@ -179,6 +180,13 @@ with app.app_context():
     #     run_database_migration(app)
     print("🔧 Running fallback migration...")
     run_database_migration(app)
+    
+    # Initialize Backblaze B2 configuration
+    print("🔧 Initializing Backblaze B2...")
+    if init_backblaze_config():
+        print("✅ Backblaze B2 initialized successfully")
+    else:
+        print("⚠️  Backblaze B2 initialization failed - image uploads will not work")
     
     # Ensure admin user exists
     ensure_admin_user()

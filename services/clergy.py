@@ -3,6 +3,7 @@ from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordinati
 from utils import log_audit_event
 from datetime import datetime
 import json
+from .image_upload import get_image_upload_service
 
 def set_clergy_display_name(clergy):
     """Set the display name for a clergy member based on their rank and papal name."""
@@ -27,6 +28,16 @@ def set_clergy_display_name(clergy):
         clergy.display_name = clergy.name
 
 def create_clergy_from_form(form):
+    # Debug: Log form data
+    print(f"=== FORM DATA DEBUG ===")
+    print(f"Form keys: {list(form.keys())}")
+    for key, value in form.items():
+        if hasattr(value, 'filename'):
+            print(f"  {key}: File({value.filename}, {getattr(value, 'content_length', 'unknown')} bytes)")
+        else:
+            print(f"  {key}: {value}")
+    print(f"=== END FORM DATA DEBUG ===")
+    
     clergy = Clergy()
     clergy.name = form.get('name')
     clergy.rank = form.get('rank')
@@ -40,67 +51,70 @@ def create_clergy_from_form(form):
     if date_of_death:
         clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
     
-    # Handle image upload for new clergy
-    # New comprehensive image system: 64x64 for lineage, 320x320 for detail views
+    # Handle image upload for new clergy using Backblaze B2
+    # We'll process images after getting the clergy ID
     image_data_json = form.get('image_data_json')
-    if image_data_json:
-        try:
-            import json
-            image_data = json.loads(image_data_json)
-            
-            # Store the lineage image (48x48) as the main image_url for lineage visualization
-            clergy.image_url = image_data.get('lineage', '')
-            
-            # Store the comprehensive image data as a JSON field for future use
-            clergy.image_data = image_data_json
-            
-            # Log the image data received
-            lineage_image = image_data.get('lineage', '')
-            detail_image = image_data.get('detail', '')
-            cropped_image = image_data.get('cropped', '')
-            original_image = image_data.get('original', '')
-            
-            print(f"Comprehensive image data received for new clergy:")
-            print(f"  - Lineage (48x48): {len(lineage_image or '')} chars")
-            print(f"  - Detail (320x320): {len(detail_image or '')} chars")
-            print(f"  - Cropped: {len(cropped_image or '')} chars")
-            print(f"  - Original: {len(original_image or '')} chars")
-            
-            # Store metadata if available
-            if 'metadata' in image_data:
-                metadata = image_data['metadata']
-                print(f"  - Original file size: {metadata.get('originalSize', 0)} bytes")
-                print(f"  - Quality setting: {metadata.get('quality', 'unknown')}")
-                print(f"  - Cropped quality: {metadata.get('croppedQuality', 'unknown')}")
-                print(f"  - Crop dimensions: {metadata.get('cropDimensions', {})}")
-                
-        except json.JSONDecodeError as e:
-            print(f"Error parsing image data JSON: {e}")
-            # Fallback to processed_image_data if available
-            processed_image_data = form.get('processed_image_data')
-            if processed_image_data:
-                clergy.image_url = processed_image_data
-                print(f"Processed image data received for new clergy: {len(processed_image_data)} characters")
-    elif form.get('processed_image_data'):
-        processed_image_data = form.get('processed_image_data')
-        clergy.image_url = processed_image_data
-        print(f"Processed image data received for new clergy: {len(processed_image_data)} characters")
+    processed_image_data = form.get('processed_image_data')
+    file_upload = None
     
-    # Also handle file uploads for new clergy (fallback)
+    # Check for file upload
     if 'clergy_image' in form and hasattr(form['clergy_image'], 'filename') and form['clergy_image'].filename:
-        file = form['clergy_image']
-        if file and file.filename:
-            # Store the actual file content as base64
-            import base64
-            file_content = file.read()
-            file.seek(0)  # Reset file pointer
-            base64_data = base64.b64encode(file_content).decode('utf-8')
-            mime_type = file.content_type or 'image/jpeg'
-            clergy.image_url = f"data:{mime_type};base64,{base64_data}"
-            print(f"File converted to base64 for new clergy: {len(base64_data)} characters")
+        file_upload = form['clergy_image']
+        print(f"File upload detected: {file_upload.filename}, size: {getattr(file_upload, 'content_length', 'unknown')}")
     
     db.session.add(clergy)
     db.session.flush()  # Get the ID without committing
+    
+    # Process images with Backblaze B2 now that we have the clergy ID
+    try:
+        image_upload_service = get_image_upload_service()
+        
+        if image_data_json:
+            # Process comprehensive image data (multiple sizes)
+            print(f"Processing comprehensive image data for clergy {clergy.id}")
+            image_urls = image_upload_service.process_and_upload_comprehensive_image(image_data_json, clergy.id)
+            
+            if image_urls:
+                # Store the lineage image URL as the main image_url for lineage visualization
+                clergy.image_url = image_urls.get('lineage', '')
+                
+                # Store the comprehensive image URLs as JSON
+                clergy.image_data = json.dumps(image_urls)
+                
+                print(f"Uploaded comprehensive images for clergy {clergy.id}:")
+                for size, url in image_urls.items():
+                    if size != 'metadata':
+                        print(f"  - {size}: {url}")
+            else:
+                print(f"Failed to upload comprehensive images for clergy {clergy.id}")
+                
+        elif processed_image_data:
+            # Process single image (fallback)
+            print(f"Processing single image for clergy {clergy.id}")
+            image_url = image_upload_service.upload_image_from_base64(processed_image_data, clergy.id, 'original')
+            
+            if image_url:
+                clergy.image_url = image_url
+                print(f"Uploaded single image for clergy {clergy.id}: {image_url}")
+            else:
+                print(f"Failed to upload single image for clergy {clergy.id}")
+                
+        elif file_upload:
+            # Process file upload (fallback)
+            print(f"Processing file upload for clergy {clergy.id}")
+            image_url = image_upload_service.upload_image_from_file(file_upload, clergy.id, 'original')
+            
+            if image_url:
+                clergy.image_url = image_url
+                print(f"Uploaded file for clergy {clergy.id}: {image_url}")
+            else:
+                print(f"Failed to upload file for clergy {clergy.id}")
+                
+    except Exception as e:
+        print(f"Error processing images for clergy {clergy.id}: {e}")
+        import traceback
+        traceback.print_exc()
+        # Continue without images rather than failing the entire operation
     
     # Handle new ordination and consecration data
     create_ordinations_from_form(clergy, form)
@@ -333,7 +347,10 @@ def add_clergy_handler():
         return None, redirect(url_for('auth.login'))
     if request.method == 'POST':
         try:
-            clergy = create_clergy_from_form(request.form)
+            # Create a combined form data that includes both form fields and files
+            form_data = request.form.copy()
+            form_data.update(request.files)
+            clergy = create_clergy_from_form(form_data)
             
             # Check if this is an HTMX request
             is_htmx = request.headers.get('HX-Request') == 'true'
@@ -485,69 +502,77 @@ def edit_clergy_handler(clergy_id):
                 date_of_death = request.form.get('date_of_death')
                 clergy.notes = request.form.get('notes')
                 
-                # Handle image upload or removal
+                # Handle image upload or removal using Backblaze B2
                 image_removed = request.form.get('image_removed') == 'true'
                 if image_removed:
+                    # Delete existing images from Backblaze B2 and clear database
+                    try:
+                        image_upload_service = get_image_upload_service()
+                        image_upload_service.delete_clergy_images(clergy.id)
+                    except Exception as e:
+                        print(f"Error deleting images for clergy {clergy.id}: {e}")
+                    
                     # Clear image data when image is removed
                     clergy.image_url = None
                     clergy.image_data = None
                     print(f"Image removed for clergy {clergy.name}")
                 else:
-                    image_data_json = request.form.get('image_data_json')
-                    if image_data_json:
-                        try:
-                            import json
-                            image_data = json.loads(image_data_json)
-                            
-                            # Store the lineage image (64x64) as the main image_url for lineage visualization
-                            clergy.image_url = image_data.get('lineage', '')
-                            
-                            # Store the comprehensive image data as a JSON field for future use
-                            clergy.image_data = image_data_json
-                            
-                            # Log the image data received
-                            lineage_image = image_data.get('lineage', '')
-                            detail_image = image_data.get('detail', '')
-                            cropped_image = image_data.get('cropped', '')
-                            original_image = image_data.get('original', '')
-                            
-                            print(f"Comprehensive image data received for clergy {clergy.name}:")
-                            print(f"  - Lineage (48x48): {len(lineage_image or '')} chars")
-                            print(f"  - Detail (320x320): {len(detail_image or '')} chars")
-                            print(f"  - Cropped: {len(cropped_image or '')} chars")
-                            print(f"  - Original: {len(original_image or '')} chars")
-                            
-                            # Store metadata if available
-                            if 'metadata' in image_data:
-                                metadata = image_data['metadata']
-                                print(f"  - Original file size: {metadata.get('originalSize', 0)} bytes")
-                                print(f"  - Quality setting: {metadata.get('quality', 'unknown')}")
-                                print(f"  - Cropped quality: {metadata.get('croppedQuality', 'unknown')}")
-                                print(f"  - Crop dimensions: {metadata.get('cropDimensions', {})}")
-                                
-                        except json.JSONDecodeError as e:
-                            print(f"Error parsing image data JSON: {e}")
-                            # Fallback to processed_image_data if available
-                            processed_image_data = request.form.get('processed_image_data')
-                            if processed_image_data:
-                                clergy.image_url = processed_image_data
-                                print(f"Processed image data received for clergy {clergy.name}: {len(processed_image_data or '')} characters")
-                    elif request.form.get('processed_image_data'):
+                    # Process new image uploads
+                    try:
+                        image_upload_service = get_image_upload_service()
+                        
+                        image_data_json = request.form.get('image_data_json')
                         processed_image_data = request.form.get('processed_image_data')
-                        clergy.image_url = processed_image_data
-                        print(f"Processed image data received for clergy {clergy.name}: {len(processed_image_data or '')} characters")
-                    elif 'clergy_image' in request.files and request.files['clergy_image'].filename:
-                        # Fallback to file upload if no processed data
-                        file = request.files['clergy_image']
-                        if file and file.filename:
-                            # Store the actual file content as base64
-                            import base64
-                            file_content = file.read()
-                            file.seek(0)  # Reset file pointer for potential future reads
-                            base64_data = base64.b64encode(file_content).decode('utf-8')
-                            mime_type = file.content_type or 'image/jpeg'
-                            clergy.image_url = f"data:{mime_type};base64,{base64_data}"
-                            print(f"File converted to base64 for clergy {clergy.name}: {len(base64_data)} characters")
+                        file_upload = None
+                        
+                        # Check for file upload
+                        if 'clergy_image' in request.files and request.files['clergy_image'].filename:
+                            file_upload = request.files['clergy_image']
+                        
+                        if image_data_json:
+                            # Process comprehensive image data (multiple sizes)
+                            print(f"Processing comprehensive image data for clergy {clergy.id}")
+                            image_urls = image_upload_service.process_and_upload_comprehensive_image(image_data_json, clergy.id)
+                            
+                            if image_urls:
+                                # Store the lineage image URL as the main image_url for lineage visualization
+                                clergy.image_url = image_urls.get('lineage', '')
+                                
+                                # Store the comprehensive image URLs as JSON
+                                clergy.image_data = json.dumps(image_urls)
+                                
+                                print(f"Uploaded comprehensive images for clergy {clergy.id}:")
+                                for size, url in image_urls.items():
+                                    if size != 'metadata':
+                                        print(f"  - {size}: {url}")
+                            else:
+                                print(f"Failed to upload comprehensive images for clergy {clergy.id}")
+                                
+                        elif processed_image_data:
+                            # Process single image (fallback)
+                            print(f"Processing single image for clergy {clergy.id}")
+                            image_url = image_upload_service.upload_image_from_base64(processed_image_data, clergy.id, 'original')
+                            
+                            if image_url:
+                                clergy.image_url = image_url
+                                print(f"Uploaded single image for clergy {clergy.id}: {image_url}")
+                            else:
+                                print(f"Failed to upload single image for clergy {clergy.id}")
+                                
+                        elif file_upload:
+                            # Process file upload (fallback)
+                            print(f"Processing file upload for clergy {clergy.id}")
+                            image_url = image_upload_service.upload_image_from_file(file_upload, clergy.id, 'original')
+                            
+                            if image_url:
+                                clergy.image_url = image_url
+                                print(f"Uploaded file for clergy {clergy.id}: {image_url}")
+                            else:
+                                print(f"Failed to upload file for clergy {clergy.id}")
+                                
+                    except Exception as e:
+                        print(f"Error processing images for clergy {clergy.id}: {e}")
+                        # Continue without images rather than failing the entire operation
                 if date_of_birth:
                     clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
                 else:

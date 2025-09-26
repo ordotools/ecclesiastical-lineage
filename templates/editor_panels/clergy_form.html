@@ -473,6 +473,45 @@ function resetSubmitButton(button, originalText) {
 }
 
 function submitFormWithData(form, formData, submitBtn, originalText) {
+    // Debug: Log form data contents
+    console.log('=== FORM SUBMISSION DEBUG ===');
+    console.log('Form action:', form.action);
+    console.log('Form method:', form.method);
+    console.log('Form enctype:', form.enctype);
+    
+    // Check file input
+    const fileInput = form.querySelector('input[name="clergy_image"]');
+    if (fileInput) {
+        console.log('File input found:', fileInput);
+        console.log('File input files:', fileInput.files);
+        console.log('File input files length:', fileInput.files.length);
+        if (fileInput.files.length > 0) {
+            console.log('File to upload:', fileInput.files[0]);
+        }
+    } else {
+        console.log('File input NOT found!');
+    }
+    
+    // Check for globally stored dropped file
+    if (window.droppedFile) {
+        console.log('Globally stored file found:', window.droppedFile);
+        console.log('Adding dropped file to FormData...');
+        formData.append('clergy_image', window.droppedFile);
+        // Clear the global file after adding to form data
+        delete window.droppedFile;
+    }
+    
+    // Log all form data entries
+    console.log('FormData entries:');
+    for (let [key, value] of formData.entries()) {
+        if (value instanceof File) {
+            console.log(`  ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
+        } else {
+            console.log(`  ${key}: ${value}`);
+        }
+    }
+    console.log('=== END FORM SUBMISSION DEBUG ===');
+    
     // Submit via fetch
     fetch(form.action, {
         method: 'POST',
@@ -745,11 +784,16 @@ function initializeDragDropForHTMX() {
                     const file = files[0];
                     
                     if (file.type.startsWith('image/')) {
-                        // Set the file in the input
                         try {
+                            // Store the file globally for form submission
+                            window.droppedFile = file;
+                            console.log('File stored globally:', file.name, file.size, file.type);
+                            
+                            // Try to set the file in the input element
                             const dataTransfer = new DataTransfer();
                             dataTransfer.items.add(file);
                             fileInput.files = dataTransfer.files;
+                            console.log('File set in input element using DataTransfer');
                             
                             // Trigger the image editor if available
                             if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
@@ -805,51 +849,51 @@ function initializeDragDropForHTMX() {
             }
         }, true);
         
-        photoContainer.addEventListener('drop', function(e) {
+        photoContainer.addEventListener('drop', async function(e) {
             e.preventDefault();
             e.stopPropagation();
             this.classList.remove('drag-over');
             
-            const files = e.dataTransfer.files;
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
             
-            if (files.length > 0) {
-                const file = files[0];
-                
-                if (file.type.startsWith('image/')) {
-                    // Set the file in the input
-                    try {
-                        const dataTransfer = new DataTransfer();
-                        dataTransfer.items.add(file);
-                        fileInput.files = dataTransfer.files;
-                        
-                        // Trigger the image editor if available
-                        if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
-                            const syntheticEvent = {
-                                target: fileInput,
-                                preventDefault: function() {},
-                                stopPropagation: function() {}
-                            };
-                            window.imageEditor.handleFormImageUpload(syntheticEvent);
-                        } else {
-                            // Fallback to simple preview
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                const imagePreview = document.getElementById('imagePreview');
-                                if (imagePreview) {
-                                    imagePreview.innerHTML = `
-                                        <img src="${e.target.result}" alt="Preview" id="previewImage" 
-                                             style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;">
-                                    `;
-                                }
-                            };
-                            reader.readAsDataURL(file);
-                        }
-                    } catch (error) {
-                        console.error('Error processing file:', error);
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file.');
+                return;
+            }
+
+            // Store file globally and in input
+            window.droppedFile = file;
+            
+            try {
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+            } catch (error) {
+                console.error('Error setting file in input:', error);
+            }
+
+            // Handle image preview/editing
+            if (window.imageEditor?.handleFormImageUpload) {
+                const syntheticEvent = {
+                    target: fileInput,
+                    preventDefault: () => {},
+                    stopPropagation: () => {}
+                };
+                window.imageEditor.handleFormImageUpload(syntheticEvent);
+            } else {
+                // Simple preview fallback
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imagePreview = document.getElementById('imagePreview');
+                    if (imagePreview) {
+                        imagePreview.innerHTML = `
+                            <img src="${e.target.result}" alt="Preview" id="previewImage" 
+                                 style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;">
+                        `;
                     }
-                } else {
-                    alert('Please select an image file.');
-                }
+                };
+                reader.readAsDataURL(file);
             }
         }, true);
     }

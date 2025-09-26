@@ -184,6 +184,14 @@ else
     print_warning "⚠️  Force lineage data migration failed"
 fi
 
+# Step 6.6: Force merge scraped data (one-time operation)
+print_status "🔄 Force merging scraped data..."
+if python3 run_force_merge_on_render.py; then
+    print_success "✅ Force merge of scraped data completed!"
+else
+    print_warning "⚠️  Force merge of scraped data failed"
+fi
+
 # Step 7: Verify migration was successful
 print_status "🔍 Verifying migration..."
 python3 -c "

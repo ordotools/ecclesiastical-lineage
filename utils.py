@@ -1,7 +1,7 @@
 from functools import wraps
 import re
 import json
-from flask import request, redirect, url_for, flash, session
+from flask import request, redirect, url_for, flash, session, jsonify
 from models import db, AuditLog, User
 
 
@@ -20,6 +20,23 @@ def require_permission(permission):
             if not user.has_permission(permission):
                 flash('You do not have permission to access this feature.', 'error')
                 return redirect(url_for('auth.dashboard'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+def require_permission_api(permission):
+    """API version of require_permission that returns JSON errors instead of redirects"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                return jsonify({'success': False, 'error': 'Authentication required'}), 401
+            user = User.query.get(session['user_id'])
+            if not user or not user.is_active:
+                session.clear()
+                return jsonify({'success': False, 'error': 'User not found or inactive'}), 401
+            if not user.has_permission(permission):
+                return jsonify({'success': False, 'error': 'Insufficient permissions'}), 403
             return f(*args, **kwargs)
         return decorated_function
     return decorator

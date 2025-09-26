@@ -504,6 +504,15 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
         delete window.droppedFile;
     }
     
+    // Check for processed image data from image editor
+    if (window.processedImageData) {
+        console.log('Processed image data found:', window.processedImageData);
+        console.log('Adding processed image data to FormData...');
+        formData.append('image_data_json', JSON.stringify(window.processedImageData));
+        // Clear the processed image data after adding to form data
+        delete window.processedImageData;
+    }
+    
     // Log all form data entries
     console.log('FormData entries:');
     for (let [key, value] of formData.entries()) {
@@ -847,6 +856,12 @@ function initializeDragDropForHTMX() {
                     const file = files[0];
                     
                     if (file.type.startsWith('image/')) {
+                        // Check file size (25MB limit)
+                        if (file.size > 25 * 1024 * 1024) {
+                            alert('File size exceeds 25MB limit. Please choose a smaller image.');
+                            return;
+                        }
+                        
                         try {
                             // Store the file globally for form submission
                             window.droppedFile = file;

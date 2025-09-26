@@ -70,23 +70,36 @@ def create_clergy_from_form(form):
         image_upload_service = get_image_upload_service()
         
         if image_data_json:
-            # Process comprehensive image data (multiple sizes)
-            print(f"Processing comprehensive image data for clergy {clergy.id}")
-            image_urls = image_upload_service.process_and_upload_comprehensive_image(image_data_json, clergy.id)
-            
-            if image_urls:
-                # Store the lineage image URL as the main image_url for lineage visualization
-                clergy.image_url = image_urls.get('lineage', '')
+            # Process comprehensive image data (NEW WORKFLOW - server-processed)
+            print(f"Processing server-processed image data for clergy {clergy.id}")
+            try:
+                image_data = json.loads(image_data_json)
                 
-                # Store the comprehensive image URLs as JSON
-                clergy.image_data = json.dumps(image_urls)
+                # Store the processed image data directly
+                # Always use the original image URL for clergy.image_url
+                clergy.image_url = image_data.get('original', image_data.get('detail', image_data.get('lineage', '')))
+                clergy.image_data = json.dumps(image_data)
                 
-                print(f"Uploaded comprehensive images for clergy {clergy.id}:")
-                for size, url in image_urls.items():
+                print(f"Stored server-processed images for clergy {clergy.id}:")
+                for size, url in image_data.items():
                     if size != 'metadata':
                         print(f"  - {size}: {url}")
+            except json.JSONDecodeError as e:
+                print(f"Failed to parse image data JSON: {e}")
+                
+        elif file_upload:
+            # Upload original image with size validation (NEW WORKFLOW)
+            print(f"Uploading original image for clergy {clergy.id}")
+            result = image_upload_service.upload_original_image(file_upload, clergy.id)
+            
+            if result['success']:
+                # Store original image URL and image data
+                clergy.image_url = result['url']
+                clergy.image_data = json.dumps(result['image_data'])
+                print(f"Uploaded original image for clergy {clergy.id}: {result['url']}")
             else:
-                print(f"Failed to upload comprehensive images for clergy {clergy.id}")
+                print(f"Failed to upload original image for clergy {clergy.id}: {result['error']}")
+                # Don't fail the entire form submission, just log the error
                 
         elif processed_image_data:
             # Process single image (fallback)
@@ -98,17 +111,6 @@ def create_clergy_from_form(form):
                 print(f"Uploaded single image for clergy {clergy.id}: {image_url}")
             else:
                 print(f"Failed to upload single image for clergy {clergy.id}")
-                
-        elif file_upload:
-            # Process file upload (fallback)
-            print(f"Processing file upload for clergy {clergy.id}")
-            image_url = image_upload_service.upload_image_from_file(file_upload, clergy.id, 'original')
-            
-            if image_url:
-                clergy.image_url = image_url
-                print(f"Uploaded file for clergy {clergy.id}: {image_url}")
-            else:
-                print(f"Failed to upload file for clergy {clergy.id}")
                 
     except Exception as e:
         print(f"Error processing images for clergy {clergy.id}: {e}")
@@ -530,23 +532,36 @@ def edit_clergy_handler(clergy_id):
                             file_upload = request.files['clergy_image']
                         
                         if image_data_json:
-                            # Process comprehensive image data (multiple sizes)
-                            print(f"Processing comprehensive image data for clergy {clergy.id}")
-                            image_urls = image_upload_service.process_and_upload_comprehensive_image(image_data_json, clergy.id)
-                            
-                            if image_urls:
-                                # Store the lineage image URL as the main image_url for lineage visualization
-                                clergy.image_url = image_urls.get('lineage', '')
+                            # Process comprehensive image data (NEW WORKFLOW - server-processed)
+                            print(f"Processing server-processed image data for clergy {clergy.id}")
+                            try:
+                                image_data = json.loads(image_data_json)
                                 
-                                # Store the comprehensive image URLs as JSON
-                                clergy.image_data = json.dumps(image_urls)
+                                # Store the processed image data directly
+                                # Always use the original image URL for clergy.image_url
+                                clergy.image_url = image_data.get('original', image_data.get('detail', image_data.get('lineage', '')))
+                                clergy.image_data = json.dumps(image_data)
                                 
-                                print(f"Uploaded comprehensive images for clergy {clergy.id}:")
-                                for size, url in image_urls.items():
+                                print(f"Stored server-processed images for clergy {clergy.id}:")
+                                for size, url in image_data.items():
                                     if size != 'metadata':
                                         print(f"  - {size}: {url}")
+                            except json.JSONDecodeError as e:
+                                print(f"Failed to parse image data JSON: {e}")
+                                
+                        elif file_upload:
+                            # Upload original image with size validation (NEW WORKFLOW)
+                            print(f"Uploading original image for clergy {clergy.id}")
+                            result = image_upload_service.upload_original_image(file_upload, clergy.id)
+                            
+                            if result['success']:
+                                # Store original image URL and image data
+                                clergy.image_url = result['url']
+                                clergy.image_data = json.dumps(result['image_data'])
+                                print(f"Uploaded original image for clergy {clergy.id}: {result['url']}")
                             else:
-                                print(f"Failed to upload comprehensive images for clergy {clergy.id}")
+                                print(f"Failed to upload original image for clergy {clergy.id}: {result['error']}")
+                                # Don't fail the entire form submission, just log the error
                                 
                         elif processed_image_data:
                             # Process single image (fallback)
@@ -558,17 +573,6 @@ def edit_clergy_handler(clergy_id):
                                 print(f"Uploaded single image for clergy {clergy.id}: {image_url}")
                             else:
                                 print(f"Failed to upload single image for clergy {clergy.id}")
-                                
-                        elif file_upload:
-                            # Process file upload (fallback)
-                            print(f"Processing file upload for clergy {clergy.id}")
-                            image_url = image_upload_service.upload_image_from_file(file_upload, clergy.id, 'original')
-                            
-                            if image_url:
-                                clergy.image_url = image_url
-                                print(f"Uploaded file for clergy {clergy.id}: {image_url}")
-                            else:
-                                print(f"Failed to upload file for clergy {clergy.id}")
                                 
                     except Exception as e:
                         print(f"Error processing images for clergy {clergy.id}: {e}")

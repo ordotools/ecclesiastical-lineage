@@ -2,162 +2,121 @@
 """
 Backblaze B2 Setup Script
 
-This script helps you set up Backblaze B2 Cloud Storage for your application.
-It will guide you through the process of creating a bucket and application key.
+This script helps you set up Backblaze B2 cloud storage for the ecclesiastical lineage application.
+It will create a .env file with the necessary environment variables.
+
+Usage:
+    python setup_backblaze.py
+
+You will need:
+1. A Backblaze B2 account (free tier available)
+2. A B2 bucket created in your account
+3. Application keys (Key ID and Secret Key) from your B2 account
 """
 
 import os
 import sys
-from dotenv import load_dotenv
+from pathlib import Path
 
 def main():
-    print("🚀 Backblaze B2 Setup for Ecclesiastical Lineage")
+    print("🔧 Backblaze B2 Setup for Ecclesiastical Lineage")
     print("=" * 50)
+    print()
     
-    # Load existing environment variables
-    load_dotenv()
-    
-    print("\n📋 Prerequisites:")
-    print("1. You need a Backblaze B2 Cloud Storage account")
-    print("2. You need to create a bucket")
-    print("3. You need to create an application key")
-    print("\nLet's get started!")
-    
-    # Check if already configured
-    if all([
-        os.getenv('BACKBLAZE_BUCKET_NAME'),
-        os.getenv('BACKBLAZE_ENDPOINT_URL'),
-        os.getenv('BACKBLAZE_ACCESS_KEY_ID'),
-        os.getenv('BACKBLAZE_SECRET_ACCESS_KEY')
-    ]):
-        print("\n✅ Backblaze B2 is already configured!")
-        print("Current configuration:")
-        print(f"  Bucket: {os.getenv('BACKBLAZE_BUCKET_NAME')}")
-        print(f"  Endpoint: {os.getenv('BACKBLAZE_ENDPOINT_URL')}")
-        print(f"  Access Key: {os.getenv('BACKBLAZE_ACCESS_KEY_ID')[:8]}...")
-        
-        reconfigure = input("\nDo you want to reconfigure? (y/N): ").lower().strip()
-        if reconfigure != 'y':
-            print("Configuration unchanged.")
+    # Check if .env already exists
+    env_file = Path('.env')
+    if env_file.exists():
+        print("⚠️  .env file already exists!")
+        response = input("Do you want to overwrite it? (y/N): ").strip().lower()
+        if response != 'y':
+            print("Setup cancelled.")
             return
     
-    print("\n🔧 Step 1: Create a Backblaze B2 Bucket")
-    print("1. Go to https://secure.backblaze.com/user_signin.htm")
-    print("2. Sign in to your Backblaze account")
-    print("3. Navigate to 'B2 Cloud Storage' in the left menu")
-    print("4. Click 'Create a Bucket'")
-    print("5. Choose a bucket name (must be globally unique)")
-    print("6. Select 'Public' for the privacy setting")
-    print("7. Click 'Create a Bucket'")
-    print("8. Copy the 'Endpoint' URL (it looks like: https://s3.us-west-004.backblazeb2.com)")
+    print("Please provide your Backblaze B2 configuration:")
+    print()
     
-    bucket_name = input("\nEnter your bucket name: ").strip()
-    endpoint_url = input("Enter your endpoint URL: ").strip()
-    
-    if not bucket_name or not endpoint_url:
-        print("❌ Bucket name and endpoint URL are required!")
+    # Get configuration from user
+    bucket_name = input("Bucket Name: ").strip()
+    if not bucket_name:
+        print("❌ Bucket name is required!")
         return
     
-    print("\n🔑 Step 2: Create an Application Key")
-    print("1. In the Backblaze B2 console, go to 'Application Keys'")
-    print("2. Click 'Add a New Application Key'")
-    print("3. Enter a name for your key (e.g., 'ecclesiastical-lineage')")
-    print("4. Select 'All' for bucket access")
-    print("5. Select 'Read and Write' for access type")
-    print("6. Click 'Create New Key'")
-    print("7. IMPORTANT: Copy both the 'keyID' and 'applicationKey' - you won't see the applicationKey again!")
-    
-    access_key_id = input("\nEnter your Access Key ID: ").strip()
-    secret_access_key = input("Enter your Secret Access Key: ").strip()
-    
-    if not access_key_id or not secret_access_key:
-        print("❌ Access Key ID and Secret Access Key are required!")
+    endpoint_url = input("Endpoint URL (e.g., https://s3.us-west-004.backblazeb2.com): ").strip()
+    if not endpoint_url:
+        print("❌ Endpoint URL is required!")
         return
     
-    # Determine region from endpoint
-    region = "us-west-004"  # Default
-    if "us-west-004" in endpoint_url:
-        region = "us-west-004"
-    elif "us-west-003" in endpoint_url:
-        region = "us-west-003"
-    elif "us-west-002" in endpoint_url:
-        region = "us-west-002"
-    elif "us-west-001" in endpoint_url:
-        region = "us-west-001"
-    elif "eu-central-003" in endpoint_url:
-        region = "eu-central-003"
-    elif "eu-central-002" in endpoint_url:
-        region = "eu-central-002"
-    elif "eu-central-001" in endpoint_url:
-        region = "eu-central-001"
-    elif "ap-southeast-002" in endpoint_url:
-        region = "ap-southeast-002"
-    elif "ap-southeast-001" in endpoint_url:
-        region = "ap-southeast-001"
+    access_key_id = input("Access Key ID: ").strip()
+    if not access_key_id:
+        print("❌ Access Key ID is required!")
+        return
     
-    print(f"\n🌍 Detected region: {region}")
+    secret_access_key = input("Secret Access Key: ").strip()
+    if not secret_access_key:
+        print("❌ Secret Access Key is required!")
+        return
     
-    # Update .env file
-    env_file = '.env'
-    if not os.path.exists(env_file):
-        print(f"\n📝 Creating {env_file} file...")
-        with open(env_file, 'w') as f:
-            f.write("# Environment Configuration\n")
-    else:
-        print(f"\n📝 Updating {env_file} file...")
+    region = input("Region (default: us-west-004): ").strip() or "us-west-004"
     
-    # Read existing .env content
-    env_content = []
-    if os.path.exists(env_file):
+    print()
+    print("📝 Creating .env file...")
+    
+    # Read existing .env content if it exists
+    existing_content = ""
+    if env_file.exists():
         with open(env_file, 'r') as f:
-            env_content = f.readlines()
+            existing_content = f.read()
     
-    # Remove existing Backblaze B2 entries
-    env_content = [line for line in env_content if not line.startswith('BACKBLAZE_')]
+    # Create new .env content
+    env_content = f"""# Environment Configuration
+# Generated by setup_backblaze.py
+
+# Flask Configuration
+SECRET_KEY=your-secret-key-here
+FLASK_ENV=development
+FLASK_DEBUG=True
+
+# Database Configuration
+DATABASE_URL=postgresql://localhost:5432/ecclesiastical_lineage_dev
+
+# Development Settings
+PORT=5001
+DEBUG=True
+
+# Backblaze B2 Cloud Storage Configuration
+BACKBLAZE_BUCKET_NAME={bucket_name}
+BACKBLAZE_ENDPOINT_URL={endpoint_url}
+BACKBLAZE_ACCESS_KEY_ID={access_key_id}
+BACKBLAZE_SECRET_ACCESS_KEY={secret_access_key}
+BACKBLAZE_REGION={region}
+"""
     
-    # Add new Backblaze B2 entries
-    backblaze_config = [
-        "\n# Backblaze B2 Cloud Storage Configuration\n",
-        f"BACKBLAZE_BUCKET_NAME={bucket_name}\n",
-        f"BACKBLAZE_ENDPOINT_URL={endpoint_url}\n",
-        f"BACKBLAZE_ACCESS_KEY_ID={access_key_id}\n",
-        f"BACKBLAZE_SECRET_ACCESS_KEY={secret_access_key}\n",
-        f"BACKBLAZE_REGION={region}\n"
-    ]
-    
-    env_content.extend(backblaze_config)
-    
-    # Write updated .env file
+    # Write .env file
     with open(env_file, 'w') as f:
-        f.writelines(env_content)
+        f.write(env_content)
     
-    print(f"✅ Configuration saved to {env_file}")
+    print("✅ .env file created successfully!")
+    print()
+    print("🔍 Testing Backblaze B2 connection...")
     
-    # Test the configuration
-    print("\n🧪 Testing Backblaze B2 configuration...")
+    # Test the connection
     try:
-        from services.backblaze_config import init_backblaze_config
-        if init_backblaze_config():
-            print("✅ Backblaze B2 configuration test successful!")
+        from services.backblaze_config import get_backblaze_config
+        config = get_backblaze_config()
+        if config.is_configured():
+            print("✅ Backblaze B2 connection successful!")
+            print(f"   Bucket: {config.get_bucket_name()}")
+            print(f"   Endpoint: {config.get_endpoint_url()}")
         else:
-            print("❌ Backblaze B2 configuration test failed!")
-            print("Please check your credentials and try again.")
-            return
+            print("❌ Backblaze B2 connection failed!")
+            print("   Please check your credentials and try again.")
     except Exception as e:
-        print(f"❌ Error testing configuration: {e}")
-        return
+        print(f"❌ Error testing connection: {e}")
+        print("   Please check your credentials and try again.")
     
-    print("\n🎉 Setup Complete!")
-    print("\nNext steps:")
-    print("1. Install dependencies: pip install -r requirements.txt")
-    print("2. Start your application: python app.py")
-    print("3. Test image uploads in the clergy form")
-    
-    print(f"\n📊 Your configuration:")
-    print(f"  Bucket: {bucket_name}")
-    print(f"  Endpoint: {endpoint_url}")
-    print(f"  Region: {region}")
-    print(f"  Access Key: {access_key_id[:8]}...")
+    print()
+    print("🎉 Setup complete!")
+    print("You can now run the application with: python app.py")
 
 if __name__ == "__main__":
     main()

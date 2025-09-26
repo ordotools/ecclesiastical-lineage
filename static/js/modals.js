@@ -911,7 +911,7 @@ function attachImageEditorEventListeners(container, imageEditor) {
     // Clone the element to remove all event listeners
     const newCropBtn = cropBtn.cloneNode(true);
     cropBtn.parentNode.replaceChild(newCropBtn, cropBtn);
-    newCropBtn.addEventListener('click', () => imageEditor.editExistingImage());
+    newCropBtn.addEventListener('click', async () => await imageEditor.editExistingImage());
     console.log('Crop button event listener attached');
   }
   

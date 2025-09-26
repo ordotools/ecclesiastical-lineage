@@ -72,13 +72,20 @@
                                     {% set image_data = clergy.image_data | from_json %}
                                     {% if image_data and image_data.detail %}
                                         <img src="{{ image_data.detail }}" alt="{{ clergy.name }}" id="previewImage" style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;"
-                                             data-full-image="{{ clergy.image_data|safe }}">
-                                    {% elif clergy.image_url %}
-                                        <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage" style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;"
-                                             data-full-image="{{ clergy.image_data|safe }}">
+                                             data-original-image="{{ image_data.original if image_data.original else (image_data.detail if image_data.detail else clergy.image_url) }}"
+                                             data-clergy-id="{{ clergy.id }}"
+                                             data-object-key="{{ image_data.metadata.object_key if image_data.metadata and image_data.metadata.object_key else '' }}">
+                                {% elif clergy.image_url %}
+                                    <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage" style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;"
+                                         data-original-image="{{ clergy.image_url }}"
+                                         data-clergy-id="{{ clergy.id }}"
+                                         data-object-key="">
                                     {% endif %}
                                 {% elif edit_mode and clergy and clergy.image_url %}
-                                    <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage" style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;">
+                                    <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage" style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;"
+                                         data-original-image="{{ clergy.image_url }}"
+                                         data-clergy-id="{{ clergy.id }}"
+                                         data-object-key="">
                                 {% else %}
                                     <div id="noPhotoPlaceholder" style="color: rgba(255, 255, 255, 0.5); font-size: 0.9em; padding: 2em; border: 1px dashed rgba(255, 255, 255, 0.2); border-radius: 4px;">
                                         <i class="fas fa-user" style="font-size: 2em; margin-bottom: 0.5em; display: block; opacity: 0.6;"></i>
@@ -946,10 +953,6 @@ if (!window.clergyFormEventListenersAttached) {
                                 } else {
                                     console.log('DataTransfer not supported, file stored globally for manual handling');
                                 }
-                            } catch (error) {
-                                console.error('Error setting file in input:', error);
-                                console.log('File will be handled manually during form submission');
-                            }
                                 
                                 // Trigger the image editor if available
                                 if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
@@ -974,18 +977,19 @@ if (!window.clergyFormEventListenersAttached) {
                                     };
                                     reader.readAsDataURL(file);
                                 }
-                                
-                                // Debug: Check if file is properly set in input
-                                console.log('File input after setting:', fileInput.files);
-                                console.log('File input files length:', fileInput.files.length);
-                                if (fileInput.files.length > 0) {
-                                    console.log('First file:', fileInput.files[0]);
-                                    console.log('File name:', fileInput.files[0].name);
-                                    console.log('File size:', fileInput.files[0].size);
-                                    console.log('File type:', fileInput.files[0].type);
-                                }
                             } catch (error) {
-                                console.error('Error processing file:', error);
+                                console.error('Error setting file in input:', error);
+                                console.log('File will be handled manually during form submission');
+                            }
+                            
+                            // Debug: Check if file is properly set in input
+                            console.log('File input after setting:', fileInput.files);
+                            console.log('File input files length:', fileInput.files.length);
+                            if (fileInput.files.length > 0) {
+                                console.log('First file:', fileInput.files[0]);
+                                console.log('File name:', fileInput.files[0].name);
+                                console.log('File size:', fileInput.files[0].size);
+                                console.log('File type:', fileInput.files[0].type);
                             }
                         } else {
                             console.log('Not an image file');
@@ -1114,9 +1118,83 @@ function initializeSingleClergyAutocomplete(input) {
     });
 }
 
-// Image editor functionality
+// Image editor functionality - NEW WORKFLOW
 function openImageEditor(imageSrc) {
-    console.log('Opening image editor with source:', imageSrc);
+    console.log('Opening image editor with source (NEW WORKFLOW):', imageSrc);
+    
+    // Get the preview image to extract metadata
+    const previewImage = document.getElementById('previewImage');
+    if (!previewImage) {
+        console.error('Preview image not found');
+        showNotification('Image not found for editing', 'error');
+        return;
+    }
+    
+    // Extract metadata from the preview image
+    const originalImageUrl = previewImage.getAttribute('data-original-image') || imageSrc;
+    let clergyId = previewImage.getAttribute('data-clergy-id');
+    const objectKey = previewImage.getAttribute('data-object-key');
+    
+    // Fallback: Extract clergy ID from URL if not found in data attributes
+    if (!clergyId) {
+        console.log('Clergy ID not found in data attributes, extracting from URL...');
+        console.log('Current URL:', window.location.pathname);
+        
+        // Try multiple URL patterns
+        let urlMatch = window.location.pathname.match(/\/editor\/clergy-form-content\/(\d+)/);
+        if (urlMatch) {
+            clergyId = urlMatch[1];
+            console.log('Extracted clergy ID from URL:', clergyId);
+        } else {
+            // Try other patterns
+            urlMatch = window.location.pathname.match(/\/editor\/clergy-form\/(\d+)/);
+            if (urlMatch) {
+                clergyId = urlMatch[1];
+                console.log('Extracted clergy ID from clergy-form URL:', clergyId);
+            } else {
+                // Try to get from the form action URL
+                const form = document.getElementById('clergyForm');
+                if (form && form.action) {
+                    console.log('Form action:', form.action);
+                    const actionMatch = form.action.match(/\/clergy\/(\d+)/);
+                    if (actionMatch) {
+                        clergyId = actionMatch[1];
+                        console.log('Extracted clergy ID from form action:', clergyId);
+                    }
+                }
+            }
+        }
+        
+        // If still no clergy ID found, try to extract from any URL parameter
+        if (!clergyId) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const clergyIdParam = urlParams.get('clergy_id') || urlParams.get('id');
+            if (clergyIdParam) {
+                clergyId = clergyIdParam;
+                console.log('Extracted clergy ID from URL parameter:', clergyId);
+            }
+        }
+    }
+    
+    console.log('Image editor metadata:', {
+        originalImageUrl,
+        clergyId,
+        objectKey
+    });
+    
+    // Debug: Check all data attributes
+    console.log('All data attributes:', {
+        'data-original-image': previewImage.getAttribute('data-original-image'),
+        'data-clergy-id': previewImage.getAttribute('data-clergy-id'),
+        'data-object-key': previewImage.getAttribute('data-object-key')
+    });
+    
+    // Validate that we have a clergy ID
+    if (!clergyId) {
+        console.error('No clergy ID found for image editing');
+        showNotification('Cannot edit image: clergy ID not found', 'error');
+        return;
+    }
     
     // Check if image editor modal exists
     const modal = document.getElementById('imageEditorModal');
@@ -1126,38 +1204,30 @@ function openImageEditor(imageSrc) {
         return;
     }
     
-    // Set the image source
+    // Set the image source to the ORIGINAL image (via proxy to avoid CORS)
     const editorImage = document.getElementById('editorImage');
     if (editorImage) {
-        editorImage.src = imageSrc;
+        // Use proxy URL to avoid CORS issues
+        const proxyUrl = `/proxy-image?url=${encodeURIComponent(originalImageUrl)}`;
+        editorImage.src = proxyUrl;
         
         // Show the modal
         const bootstrapModal = new bootstrap.Modal(modal);
         bootstrapModal.show();
         
         // Initialize the image editor after modal is shown
-        modal.addEventListener('shown.bs.modal', function() {
+        modal.addEventListener('shown.bs.modal', async function() {
             if (window.imageEditor) {
-                window.imageEditor.initializeEditor();
+                // Load the original image for editing
+                await window.imageEditor.loadOriginalImageForEditing(originalImageUrl, clergyId);
+                // Store the object key for deletion of previous edits
+                window.imageEditor.originalObjectKey = objectKey;
             } else {
                 console.error('Image editor not available');
                 showNotification('Image editor not initialized', 'error');
             }
         }, { once: true });
         
-        // Handle save from image editor
-        modal.addEventListener('htmx:afterRequest', function(event) {
-            if (event.detail.xhr && event.detail.xhr.responseURL.includes('/api/process-image')) {
-                const response = JSON.parse(event.detail.xhr.responseText);
-                if (response.success) {
-                    // Update the preview image with the processed image
-                    updatePreviewImage(response.image_data);
-                    showNotification('Image updated successfully', 'success');
-                } else {
-                    showNotification('Error processing image: ' + response.message, 'error');
-                }
-            }
-        });
     } else {
         console.error('Editor image element not found');
         showNotification('Image editor not properly configured', 'error');
@@ -1171,25 +1241,38 @@ function updatePreviewImage(imageData) {
     if (imagePreview) {
         // Parse the image data if it's a JSON string
         let imageSrc;
+        let originalImageUrl = '';
+        let clergyId = '';
+        let objectKey = '';
+        
         if (typeof imageData === 'string') {
             try {
                 const parsed = JSON.parse(imageData);
                 imageSrc = parsed.detail || parsed.original || imageData;
+                originalImageUrl = parsed.original || imageSrc;
+                clergyId = parsed.metadata?.clergy_id || '';
+                objectKey = parsed.metadata?.object_key || '';
             } catch (e) {
                 imageSrc = imageData;
+                originalImageUrl = imageData;
             }
         } else {
             imageSrc = imageData.detail || imageData.original || imageData;
+            originalImageUrl = imageData.original || imageSrc;
+            clergyId = imageData.metadata?.clergy_id || '';
+            objectKey = imageData.metadata?.object_key || '';
         }
         
         imagePreview.innerHTML = `
             <img src="${imageSrc}" alt="Preview" id="previewImage" 
                  style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;"
-                 data-full-image="${imageData}">
+                 data-original-image="${originalImageUrl}"
+                 data-clergy-id="${clergyId}"
+                 data-object-key="${objectKey}">
         `;
         
         // Store the processed image data globally for form submission
-        window.droppedFile = imageData;
+        window.processedImageData = imageData;
         
         // Clear the file input since we're using processed data
         if (fileInput) {

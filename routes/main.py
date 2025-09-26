@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, Response
 from services import clergy as clergy_service
-from utils import audit_log, require_permission, log_audit_event
+from utils import audit_log, require_permission, require_permission_api, log_audit_event
 from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration
 import json
 import base64
@@ -1094,6 +1094,59 @@ def init_db():
         return 'Not available in production', 404
     # Implementation will be moved to services
     return jsonify({'success': False, 'message': 'Not implemented yet'}), 501
+
+@main_bp.route('/api/process-cropped-image', methods=['POST'])
+@require_permission_api('edit_clergy')
+def process_cropped_image():
+    """
+    Process a cropped image and generate small (lineage) and large (detail) versions
+    """
+    try:
+        current_app.logger.info("=== PROCESS_CROPPED_IMAGE ENDPOINT CALLED ===")
+        
+        data = request.get_json()
+        if not data:
+            current_app.logger.error("No data provided in request")
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        cropped_image_data = data.get('cropped_image_data')
+        clergy_id = data.get('clergy_id')
+        original_object_key = data.get('original_object_key')
+        
+        if not cropped_image_data or not clergy_id:
+            current_app.logger.error(f"Missing required parameters - cropped_image_data: {bool(cropped_image_data)}, clergy_id: {clergy_id}")
+            return jsonify({'success': False, 'error': 'Missing required parameters'}), 400
+        
+        # Get the image upload service
+        from services.image_upload import get_image_upload_service
+        image_upload_service = get_image_upload_service()
+        
+        # Process the cropped image
+        result = image_upload_service.process_cropped_image(
+            cropped_image_data, 
+            clergy_id, 
+            original_object_key
+        )
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'image_data': result['urls']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result['error']
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Error processing cropped image: {e}")
+        import traceback
+        current_app.logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @main_bp.route('/proxy-image')
 def proxy_image():

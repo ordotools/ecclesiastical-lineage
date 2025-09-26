@@ -20,9 +20,18 @@ def main():
     """Run the force merge on Render."""
     print("🚀 Running force merge on Render...")
     
+    # Check if scraped data file exists
+    import os
+    if not os.path.exists('advanced_scraped_data.json'):
+        print("❌ advanced_scraped_data.json not found!")
+        sys.exit(1)
+    
+    print("✅ advanced_scraped_data.json found")
+    
     with app.app_context():
         try:
             # Load scraped data
+            print("📄 Loading scraped data...")
             with open('advanced_scraped_data.json', 'r') as f:
                 data = json.load(f)
             

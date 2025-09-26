@@ -20,6 +20,14 @@ else
     exit 1
 fi
 
+# Fix migration state if needed
+echo "🔧 Fixing migration state..."
+if python3 fix_migration_state.py; then
+    echo "✅ Migration state fixed successfully!"
+else
+    echo "⚠️  Migration state fix failed, but continuing..."
+fi
+
 # Start the application
 echo "🌐 Starting application..."
 gunicorn app:app 

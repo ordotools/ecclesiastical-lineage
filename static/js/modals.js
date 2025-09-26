@@ -25,9 +25,6 @@ export function handleNodeClick(event, d) {
     // Always update content (this won't trigger transitions if panel is already open)
     updateClergyPanelContent(d);
     
-    // Set large view distance for clergy info panel view
-    setClergyInfoViewDistance();
-    
     // Center the selected node in the viewport with a small delay to ensure aside is expanded
     setTimeout(() => {
       centerNodeInViewport(d);
@@ -78,20 +75,20 @@ function centerNodeInViewport(node) {
     
     // Calculate the transform needed to center the node
     const currentTransform = d3.zoomTransform(svg.node());
-    const scale = currentTransform.k;
+    const scale = currentTransform.k; // Keep the current zoom level
     
     // Calculate the translation needed to center the node
     const translateX = targetX - (nodeX * scale);
     const translateY = targetY - (nodeY * scale);
     
-    // Create the new transform
+    // Create the new transform - only translate, don't change zoom
     const newTransform = d3.zoomIdentity
       .translate(translateX, translateY)
       .scale(scale);
     
-    // Apply the transform with smooth animation using the stored zoom behavior
+    // Apply the transform with smooth animation to coordinate with panel slide
     svg.transition()
-      .duration(750)
+      .duration(300)
       .call(zoom.transform, newTransform);
   }
 }

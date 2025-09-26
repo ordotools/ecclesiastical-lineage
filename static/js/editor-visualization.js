@@ -305,7 +305,7 @@ class EditorVisualization {
         
         // Also center the view
         setTimeout(() => {
-            this.svg.transition().duration(750).call(
+            this.svg.call(
                 d3.zoom().transform,
                 d3.zoomIdentity
             );

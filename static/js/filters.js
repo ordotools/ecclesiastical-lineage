@@ -527,9 +527,7 @@ function addTimelineScrollHandlers() {
       .scale(1.0); // Keep scale fixed at 1.0
     
     // Apply the transform
-    svg.transition()
-      .duration(50)
-      .call(window.currentZoom.transform, newTransform);
+    svg.call(window.currentZoom.transform, newTransform);
   };
   
   // Add event listener

@@ -807,10 +807,7 @@ export async function initializeVisualization() {
 
   // Control button handlers
   document.getElementById('reset-zoom').addEventListener('click', () => {
-    svg.transition().duration(750).call(
-      zoom.transform,
-      d3.zoomIdentity
-    );
+    svg.call(zoom.transform, d3.zoomIdentity);
     updateTimelinePositions(d3.zoomIdentity);
   });
 
@@ -849,15 +846,12 @@ export async function initializeVisualization() {
             .translate(translateX, translateY)
             .scale(scale);
           
-          svg.transition().duration(750).call(zoom.transform, transform);
+          svg.call(zoom.transform, transform);
         }
       } else {
         console.warn('Cannot center graph: invalid node coordinates');
         // Fallback to reset zoom
-        svg.transition().duration(750).call(
-          zoom.transform,
-          d3.zoomIdentity
-        );
+        svg.call(zoom.transform, d3.zoomIdentity);
       }
     }
   });
@@ -896,10 +890,8 @@ export function setViewZoom(zoomLevel) {
       .translate(currentTransform.x, currentTransform.y)
       .scale(zoomLevel);
     
-    // Apply the transform with smooth animation
-    svg.transition()
-      .duration(750)
-      .call(zoom.transform, newTransform);
+    // Apply the transform
+    svg.call(zoom.transform, newTransform);
   }
 }
 

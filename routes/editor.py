@@ -66,8 +66,19 @@ def visualization_panel():
             elif clergy.rank and clergy.rank in ranks:
                 node_color = ranks[clergy.rank]
 
-            # Get image URL or use placeholder
-            image_url = clergy.image_url if clergy.image_url else placeholder_data_url
+            # Get image URL - prefer lineage size for visualization, fallback to original
+            image_url = placeholder_data_url
+            if clergy.image_data:
+                try:
+                    image_data = json.loads(clergy.image_data)
+                    # Use lineage size (48x48) for visualization performance
+                    image_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+            
+            # Fallback to clergy.image_url if no image_data or parsing failed
+            if not image_url or image_url == placeholder_data_url:
+                image_url = clergy.image_url if clergy.image_url else placeholder_data_url
             
             nodes.append({
                 'id': clergy.id,

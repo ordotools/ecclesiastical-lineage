@@ -113,8 +113,19 @@ def lineage_visualization():
             org_color = organizations.get(clergy.organization) or '#2c3e50'
             rank_color = ranks.get(clergy.rank) or '#888888'
             
-            # Use actual image if available, otherwise use placeholder
-            image_url = clergy.image_url if clergy.image_url else placeholder_data_url
+            # Get image URL - prefer lineage size for visualization, fallback to original
+            image_url = placeholder_data_url
+            if clergy.image_data:
+                try:
+                    image_data = json.loads(clergy.image_data)
+                    # Use lineage size (48x48) for visualization performance
+                    image_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+            
+            # Fallback to clergy.image_url if no image_data or parsing failed
+            if not image_url or image_url == placeholder_data_url:
+                image_url = clergy.image_url if clergy.image_url else placeholder_data_url
             
             # Get high-resolution image URL from image_data if available
             high_res_image_url = None
@@ -308,8 +319,19 @@ def get_lineage_data():
             org_color = organizations.get(clergy.organization) or '#2c3e50'
             rank_color = ranks.get(clergy.rank) or '#888888'
             
-            # Use actual image if available, otherwise use placeholder
-            image_url = clergy.image_url if clergy.image_url else placeholder_data_url
+            # Get image URL - prefer lineage size for visualization, fallback to original
+            image_url = placeholder_data_url
+            if clergy.image_data:
+                try:
+                    image_data = json.loads(clergy.image_data)
+                    # Use lineage size (48x48) for visualization performance
+                    image_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+            
+            # Fallback to clergy.image_url if no image_data or parsing failed
+            if not image_url or image_url == placeholder_data_url:
+                image_url = clergy.image_url if clergy.image_url else placeholder_data_url
             
             # Get high-resolution image URL from image_data if available
             high_res_image_url = None

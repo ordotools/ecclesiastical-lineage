@@ -1,9 +1,10 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, Response
 from services import clergy as clergy_service
 from utils import audit_log, require_permission, log_audit_event
 from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration
 import json
 import base64
+import requests
 
 main_bp = Blueprint('main', __name__)
 
@@ -1093,3 +1094,33 @@ def init_db():
         return 'Not available in production', 404
     # Implementation will be moved to services
     return jsonify({'success': False, 'message': 'Not implemented yet'}), 501
+
+@main_bp.route('/proxy-image')
+def proxy_image():
+    """
+    Proxy images from Backblaze B2 to avoid CORS issues
+    Usage: /proxy-image?url=<encoded_backblaze_url>
+    """
+    image_url = request.args.get('url')
+    if not image_url:
+        return 'Missing URL parameter', 400
+    
+    try:
+        # Fetch the image from Backblaze B2
+        response = requests.get(image_url, timeout=30)
+        response.raise_for_status()
+        
+        # Return the image with proper headers
+        return Response(
+            response.content,
+            mimetype=response.headers.get('content-type', 'image/jpeg'),
+            headers={
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Cache-Control': 'public, max-age=3600'  # Cache for 1 hour
+            }
+        )
+    except requests.RequestException as e:
+        current_app.logger.error(f"Error proxying image {image_url}: {e}")
+        return 'Error fetching image', 500

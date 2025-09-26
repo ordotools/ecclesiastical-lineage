@@ -265,6 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize drag and drop and cancel button immediately
     initializeDragDropForHTMX();
     initializeCancelButtonHandler();
+    initializePhotoControls();
     
     // Set up mutation observer to watch for form content changes
     const observer = new MutationObserver(function(mutations) {
@@ -281,6 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     setTimeout(() => {
                         initializeDragDropForHTMX();
                         initializeCancelButtonHandler();
+                        initializePhotoControls();
                     }, 100);
                 }
             }
@@ -301,6 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (clergyForm && photoContainer && !photoContainer.hasAttribute('data-drag-drop-initialized')) {
             initializeDragDropForHTMX();
             initializeCancelButtonHandler();
+            initializePhotoControls();
         }
     }, 1000); // Check every second
 });
@@ -660,6 +663,10 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
             }
         }
         
+        // Initialize photo controls
+        console.log('HTMX afterSwap: Initializing photo controls');
+        initializePhotoControls();
+        
         // Initialize clergy autocomplete for HTMX-loaded content
         
         // Wait a bit for the embedded form script to load
@@ -689,6 +696,10 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
             
             // Initialize cancel button handler for HTMX-loaded content
             initializeCancelButtonHandler();
+            
+            // Initialize photo controls
+            console.log('HTMX timeout: Initializing photo controls');
+            initializePhotoControls();
         }, 200);
     }
 });
@@ -707,6 +718,10 @@ document.body.addEventListener('htmx:afterRequest', function(evt) {
             if (clergyForm) {
                 initializeDragDropForHTMX();
                 initializeCancelButtonHandler();
+                
+                // Initialize photo controls
+                console.log('HTMX afterRequest: Initializing photo controls');
+                initializePhotoControls();
             }
         }, 100);
     }
@@ -733,6 +748,54 @@ function initializeCancelButtonHandler() {
             clearFormForNewEntry();
         });
     }
+}
+
+// Initialize photo control buttons for HTMX-loaded content
+function initializePhotoControls() {
+    console.log('=== initializePhotoControls START ===');
+    
+    // Check if required elements exist
+    const imageInput = document.getElementById('clergyImage');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const cropBtn = document.getElementById('cropExistingBtn');
+    const removeBtn = document.getElementById('removeImageBtn');
+    
+    console.log('Photo control elements found:', {
+        imageInput: !!imageInput,
+        uploadBtn: !!uploadBtn,
+        cropBtn: !!cropBtn,
+        removeBtn: !!removeBtn
+    });
+    
+    // Ensure image editor is available
+    if (!window.imageEditor && typeof ImageEditor !== 'undefined') {
+        console.log('Creating new ImageEditor instance for photo controls');
+        try {
+            window.imageEditor = new ImageEditor();
+            console.log('ImageEditor instance created successfully');
+        } catch (error) {
+            console.error('Error creating ImageEditor instance:', error);
+            return;
+        }
+    } else if (!window.imageEditor) {
+        console.warn('ImageEditor class not available');
+        return;
+    }
+    
+    // Reattach form event listeners for photo controls
+    if (window.imageEditor && typeof window.imageEditor.reattachFormEventListeners === 'function') {
+        console.log('Reattaching form event listeners for photo controls');
+        try {
+            window.imageEditor.reattachFormEventListeners();
+            console.log('Form event listeners reattached successfully');
+        } catch (error) {
+            console.error('Error reattaching form event listeners:', error);
+        }
+    } else {
+        console.warn('reattachFormEventListeners method not available');
+    }
+    
+    console.log('=== initializePhotoControls END ===');
 }
 
 // Initialize drag and drop functionality for HTMX-loaded content
@@ -953,6 +1016,7 @@ window.switchToEditMode = switchToEditMode;
 window.clearFormForNewEntry = clearFormForNewEntry;
 window.initializeDragDropForHTMX = initializeDragDropForHTMX;
 window.initializeCancelButtonHandler = initializeCancelButtonHandler;
+window.initializePhotoControls = initializePhotoControls;
 
 // Direct autocomplete initialization as fallback
 function initializeClergyAutocompleteDirect(input) {

@@ -6,11 +6,17 @@
     <title>{% block title %}Editor - Episcopal Lineage{% endblock %}</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/imageEditor.css') }}" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
     <script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
     <script src="{{ url_for('static', filename='js/resizable-panes.js') }}"></script>
     <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/imageEditor.js') }}"></script>
     <script>
         // Make notification function globally available
         window.showNotification = function(message, type = 'info') {

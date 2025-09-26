@@ -22,6 +22,28 @@ class ImageEditor {
     }
     
     /**
+     * Convert Backblaze B2 URL to proxy URL to avoid CORS issues
+     */
+    getProxyUrl(originalUrl) {
+        if (!originalUrl) return originalUrl;
+        
+        // Check if it's already a proxy URL
+        if (originalUrl.includes('/proxy-image')) {
+            return originalUrl;
+        }
+        
+        // Check if it's a Backblaze B2 URL
+        if (originalUrl.includes('backblazeb2.com') || originalUrl.includes('s3.us-east-005.backblazeb2.com')) {
+            // Encode the URL for use as a query parameter
+            const encodedUrl = encodeURIComponent(originalUrl);
+            return `/proxy-image?url=${encodedUrl}`;
+        }
+        
+        // Return original URL if it's not a Backblaze URL (e.g., data URLs, local URLs)
+        return originalUrl;
+    }
+    
+    /**
      * Initialize all event listeners
      */
     initializeEventListeners() {
@@ -128,9 +150,10 @@ class ImageEditor {
             imageSrc += `?t=${this.sessionId || Date.now()}`;
         }
         
-        // Set image source
-        console.log('Setting image source:', imageSrc.substring(0, 100) + '...');
-        editorImage.src = imageSrc;
+        // Set image source using proxy URL to avoid CORS issues
+        const proxyUrl = this.getProxyUrl(imageSrc);
+        console.log('Setting image source:', proxyUrl.substring(0, 100) + '...');
+        editorImage.src = proxyUrl;
         
         // Wait for image to load
         editorImage.onload = () => {

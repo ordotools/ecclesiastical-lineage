@@ -225,8 +225,11 @@
                     <i class="fas fa-save" style="margin-right: 0.5em;"></i>{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}
                 </button>
             </div>
-        </form>
-    </div>
+    </form>
+</div>
+
+<!-- Image Editor Modal -->
+{% include '_image_editor_modal.html' %}
 </div>
 
 <!-- JavaScript for form functionality -->
@@ -317,15 +320,15 @@ function populateExistingOrdinations() {
         // Populate date
         const dateInput = ordinationEntry.querySelector('input[name*="[date]"]');
         if (dateInput) {
-            dateInput.value = '{{ ordination.date.strftime('%Y-%m-%d') if ordination.date else '' }}';
+            dateInput.value = {{ ordination.date.strftime('%Y-%m-%d')|tojson if ordination.date else '""' }};
         }
         
         // Populate ordaining bishop
         const bishopInput = ordinationEntry.querySelector('input[name*="[ordaining_bishop_input]"]');
         const bishopIdInput = ordinationEntry.querySelector('input[name*="[ordaining_bishop_id]"]');
         {% if ordination.ordaining_bishop %}
-        if (bishopInput) bishopInput.value = '{{ ordination.ordaining_bishop.name }}';
-        if (bishopIdInput) bishopIdInput.value = '{{ ordination.ordaining_bishop.id }}';
+        if (bishopInput) bishopInput.value = {{ ordination.ordaining_bishop.name|tojson }};
+        if (bishopIdInput) bishopIdInput.value = {{ ordination.ordaining_bishop.id|tojson }};
         {% endif %}
         
         // Populate checkboxes
@@ -339,7 +342,7 @@ function populateExistingOrdinations() {
         
         // Populate notes
         const notesTextarea = ordinationEntry.querySelector('textarea[name*="[notes]"]');
-        if (notesTextarea) notesTextarea.value = '{{ ordination.notes|replace("'", "\\'") if ordination.notes else '' }}';
+        if (notesTextarea) notesTextarea.value = {{ ordination.notes|tojson if ordination.notes else '""' }};
     }
     {% endfor %}
     {% else %}
@@ -362,15 +365,15 @@ function populateExistingConsecrations() {
         // Populate date
         const dateInput = consecrationEntry.querySelector('input[name*="[date]"]');
         if (dateInput) {
-            dateInput.value = '{{ consecration.date.strftime('%Y-%m-%d') if consecration.date else '' }}';
+            dateInput.value = {{ consecration.date.strftime('%Y-%m-%d')|tojson if consecration.date else '""' }};
         }
         
         // Populate consecrator
         const consecratorInput = consecrationEntry.querySelector('input[name*="[consecrator_input]"]');
         const consecratorIdInput = consecrationEntry.querySelector('input[name*="[consecrator_id]"]');
         {% if consecration.consecrator %}
-        if (consecratorInput) consecratorInput.value = '{{ consecration.consecrator.name }}';
-        if (consecratorIdInput) consecratorIdInput.value = '{{ consecration.consecrator.id }}';
+        if (consecratorInput) consecratorInput.value = {{ consecration.consecrator.name|tojson }};
+        if (consecratorIdInput) consecratorIdInput.value = {{ consecration.consecrator.id|tojson }};
         {% endif %}
         
         // Populate first co-consecrator
@@ -378,17 +381,19 @@ function populateExistingConsecrations() {
         const coConsecratorIdInput = consecrationEntry.querySelector('input[name*="[co_consecrators][0][id]"]');
         {% if consecration.co_consecrators %}
         {% set first_co_consecrator = consecration.co_consecrators[0] %}
-        if (coConsecratorInput) coConsecratorInput.value = '{{ first_co_consecrator.name }}';
-        if (coConsecratorIdInput) coConsecratorIdInput.value = '{{ first_co_consecrator.id }}';
+        if (coConsecratorInput) coConsecratorInput.value = {{ first_co_consecrator.name|tojson }};
+        if (coConsecratorIdInput) coConsecratorIdInput.value = {{ first_co_consecrator.id|tojson }};
         
         // Add additional co-consecrators if they exist
         const coConsecratorsList = consecrationEntry.querySelector('.co-consecrators-list');
         {% for co_consecrator in consecration.co_consecrators[1:] %}
         if (coConsecratorsList) {
+            const coConsecratorName = {{ co_consecrator.name|tojson }};
+            const coConsecratorId = {{ co_consecrator.id|tojson }};
             const additionalCoConsecratorHtml = `
                 <div class="co-consecrator-item" style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
-                    <input type="text" name="consecrations[${consecrationCount-1}][co_consecrators][{{ loop.index }}][input]" value="{{ co_consecrator.name }}" style="flex: 1; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
-                    <input type="hidden" name="consecrations[${consecrationCount-1}][co_consecrators][{{ loop.index }}][id]" value="{{ co_consecrator.id }}">
+                    <input type="text" name="consecrations[${consecrationCount-1}][co_consecrators][{{ loop.index }}][input]" value="${coConsecratorName}" style="flex: 1; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                    <input type="hidden" name="consecrations[${consecrationCount-1}][co_consecrators][{{ loop.index }}][id]" value="${coConsecratorId}">
                     <button type="button" class="remove-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 100, 100, 0.4); background: rgba(255, 100, 100, 0.08); color: rgba(255, 150, 150, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.75em;">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -410,7 +415,7 @@ function populateExistingConsecrations() {
         
         // Populate notes
         const notesTextarea = consecrationEntry.querySelector('textarea[name*="[notes]"]');
-        if (notesTextarea) notesTextarea.value = '{{ consecration.notes|replace("'", "\\'") if consecration.notes else '' }}';
+        if (notesTextarea) notesTextarea.value = {{ consecration.notes|tojson if consecration.notes else '""' }};
     }
     {% endfor %}
     {% else %}
@@ -744,6 +749,7 @@ function addCoConsecrator(button) {
 // Use a single global event listener with proper delegation to avoid duplicates
 if (!window.clergyFormEventListenersAttached) {
     document.addEventListener('click', function(e) {
+        console.log('Click event detected:', e.target.id, e.target.className, e.target.tagName);
         // Only handle clicks within the clergy form to avoid conflicts
         if (!e.target.closest('#clergyForm')) return;
         
@@ -791,9 +797,35 @@ if (!window.clergyFormEventListenersAttached) {
         if (e.target && e.target.id === 'uploadBtn') {
             e.preventDefault();
             e.stopPropagation();
+            console.log('Upload button clicked');
             const fileInput = document.getElementById('clergyImage');
             if (fileInput) {
+                console.log('File input found, clicking...');
                 fileInput.click();
+            } else {
+                console.error('File input not found');
+            }
+        }
+        
+        // Image edit functionality
+        if (e.target && e.target.id === 'cropExistingBtn') {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Edit button clicked');
+            const previewImage = document.getElementById('previewImage');
+            if (previewImage) {
+                // Get the image source (either from data attribute or src)
+                const imageSrc = previewImage.dataset.fullImage || previewImage.src;
+                if (imageSrc) {
+                    // Open the image editor modal with the current image
+                    openImageEditor(imageSrc);
+                } else {
+                    console.error('No image source found for editing');
+                    showNotification('No image found to edit', 'error');
+                }
+            } else {
+                console.error('Preview image not found');
+                showNotification('No image found to edit', 'error');
             }
         }
         
@@ -801,6 +833,7 @@ if (!window.clergyFormEventListenersAttached) {
         if (e.target && e.target.id === 'removeImageBtn') {
             e.preventDefault();
             e.stopPropagation();
+            console.log('Remove button clicked');
             const imagePreview = document.getElementById('imagePreview');
             const fileInput = document.getElementById('clergyImage');
             if (imagePreview && fileInput) {
@@ -811,6 +844,11 @@ if (!window.clergyFormEventListenersAttached) {
                     </div>
                 `;
                 fileInput.value = '';
+                // Clear any globally stored dropped file
+                if (window.droppedFile) {
+                    delete window.droppedFile;
+                }
+                showNotification('Photo removed', 'info');
             }
         }
     });
@@ -1074,5 +1112,117 @@ function initializeSingleClergyAutocomplete(input) {
             this.dispatchEvent(new Event('input'));
         }
     });
+}
+
+// Image editor functionality
+function openImageEditor(imageSrc) {
+    console.log('Opening image editor with source:', imageSrc);
+    
+    // Check if image editor modal exists
+    const modal = document.getElementById('imageEditorModal');
+    if (!modal) {
+        console.error('Image editor modal not found');
+        showNotification('Image editor not available', 'error');
+        return;
+    }
+    
+    // Set the image source
+    const editorImage = document.getElementById('editorImage');
+    if (editorImage) {
+        editorImage.src = imageSrc;
+        
+        // Show the modal
+        const bootstrapModal = new bootstrap.Modal(modal);
+        bootstrapModal.show();
+        
+        // Initialize the image editor after modal is shown
+        modal.addEventListener('shown.bs.modal', function() {
+            if (window.imageEditor) {
+                window.imageEditor.initializeEditor();
+            } else {
+                console.error('Image editor not available');
+                showNotification('Image editor not initialized', 'error');
+            }
+        }, { once: true });
+        
+        // Handle save from image editor
+        modal.addEventListener('htmx:afterRequest', function(event) {
+            if (event.detail.xhr && event.detail.xhr.responseURL.includes('/api/process-image')) {
+                const response = JSON.parse(event.detail.xhr.responseText);
+                if (response.success) {
+                    // Update the preview image with the processed image
+                    updatePreviewImage(response.image_data);
+                    showNotification('Image updated successfully', 'success');
+                } else {
+                    showNotification('Error processing image: ' + response.message, 'error');
+                }
+            }
+        });
+    } else {
+        console.error('Editor image element not found');
+        showNotification('Image editor not properly configured', 'error');
+    }
+}
+
+function updatePreviewImage(imageData) {
+    const imagePreview = document.getElementById('imagePreview');
+    const fileInput = document.getElementById('clergyImage');
+    
+    if (imagePreview) {
+        // Parse the image data if it's a JSON string
+        let imageSrc;
+        if (typeof imageData === 'string') {
+            try {
+                const parsed = JSON.parse(imageData);
+                imageSrc = parsed.detail || parsed.original || imageData;
+            } catch (e) {
+                imageSrc = imageData;
+            }
+        } else {
+            imageSrc = imageData.detail || imageData.original || imageData;
+        }
+        
+        imagePreview.innerHTML = `
+            <img src="${imageSrc}" alt="Preview" id="previewImage" 
+                 style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;"
+                 data-full-image="${imageData}">
+        `;
+        
+        // Store the processed image data globally for form submission
+        window.droppedFile = imageData;
+        
+        // Clear the file input since we're using processed data
+        if (fileInput) {
+            fileInput.value = '';
+        }
+    }
+}
+
+// Simple instant notification system
+function showNotification(message, type = 'info') {
+    // Optionally show a very brief, instant alert that auto-closes
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? 'rgba(46, 160, 67, 0.9)' : type === 'error' ? 'rgba(231, 76, 60, 0.9)' : 'rgba(52, 152, 219, 0.9)'};
+        color: white;
+        padding: 0.5em 1em;
+        border-radius: 4px;
+        z-index: 9999;
+        font-size: 0.8em;
+        opacity: 1;
+    `;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove quickly
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 1500);
 }
 </script>

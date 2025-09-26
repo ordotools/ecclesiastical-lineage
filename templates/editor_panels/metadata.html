@@ -1,0 +1,69 @@
+<!-- Metadata Panel Content -->
+<div style="padding: 1em; height: 100%; display: flex; flex-direction: column;">
+    <!-- Header with Management Button -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;">
+        <h6 style="margin: 0; color: rgba(255, 255, 255, 0.9); font-size: 0.95em;">Metadata</h6>
+        <button onclick="openMetadataModal()" 
+                style="padding: 0.3em 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.8); cursor: pointer; font-size: 0.75em;">
+            <i class="fas fa-cog" style="margin-right: 0.25em;"></i>Management
+        </button>
+    </div>
+    
+    <!-- Content Grid -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5em; flex: 1; min-height: 0;">
+        <!-- Ranks Section -->
+        <div style="display: flex; flex-direction: column;">
+            <h6 style="margin: 0 0 0.75em 0; color: rgba(255, 255, 255, 0.9); font-size: 0.9em;">Clergy Ranks</h6>
+            
+            <div style="flex: 1; overflow-y: auto; min-height: 0;">
+                {% for rank in ranks %}
+                <div style="display: flex; align-items: center; padding: 0.5em; margin-bottom: 0.25em; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 3px; font-size: 0.85em;">
+                    <div style="width: 12px; height: 12px; background: {{ rank.color or '#3498db' }}; border-radius: 50%; margin-right: 0.5em; border: 1px solid rgba(255, 255, 255, 0.2); flex-shrink: 0;"></div>
+                    <span style="color: rgba(255, 255, 255, 0.9);">{{ rank.name }}</span>
+                    {% if rank.is_bishop %}
+                    <span style="margin-left: 0.5em; padding: 0.1em 0.4em; background: rgba(255, 255, 255, 0.1); border-radius: 2px; font-size: 0.7em; color: rgba(255, 255, 255, 0.7);">Bishop</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Organizations Section -->
+        <div style="display: flex; flex-direction: column;">
+            <h6 style="margin: 0 0 0.75em 0; color: rgba(255, 255, 255, 0.9); font-size: 0.9em;">Organizations</h6>
+            
+            <div style="flex: 1; overflow-y: auto; min-height: 0;">
+                {% for org in organizations %}
+                <div style="display: flex; align-items: center; padding: 0.5em; margin-bottom: 0.25em; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 3px; font-size: 0.85em;">
+                    <div style="width: 12px; height: 12px; background: {{ org.color or '#2ecc71' }}; border-radius: 50%; margin-right: 0.5em; border: 1px solid rgba(255, 255, 255, 0.2); flex-shrink: 0;"></div>
+                    <div style="min-width: 0; flex: 1;">
+                        <div style="color: rgba(255, 255, 255, 0.9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            {{ org.name }}
+                        </div>
+                        {% if org.abbreviation %}
+                        <div style="color: rgba(255, 255, 255, 0.6); font-size: 0.75em;">{{ org.abbreviation }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Simple function to open the metadata management modal
+function openMetadataModal() {
+    if (typeof window.openMetadataManagementModal === 'function') {
+        window.openMetadataManagementModal();
+    } else {
+        console.error('Metadata management modal function not available');
+        // Fallback notification
+        if (typeof window.showNotification === 'function') {
+            window.showNotification('Metadata management modal not available', 'error');
+        } else {
+            alert('Metadata management modal not available');
+        }
+    }
+}
+</script>

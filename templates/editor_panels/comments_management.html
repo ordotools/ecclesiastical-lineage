@@ -1,0 +1,372 @@
+<!-- Comments Management Modal Content -->
+<div class="comments-management-content">
+  <div class="management-header">
+    <h4>Comments Management</h4>
+    <p>Review and manage clergy comments</p>
+  </div>
+
+  <!-- Comments List -->
+  <div class="comments-section">
+    <div class="section-header">
+      <h5>All Comments</h5>
+      <div class="filter-controls">
+        <select id="status-filter" onchange="filterComments()">
+          <option value="">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="comments-list">
+      {% for comment in comments.items %}
+      <div class="comment-item" data-status="{{ comment.status or 'pending' }}">
+        <div class="comment-header">
+          <div class="comment-meta">
+            <span class="comment-author">{{ comment.author_name or 'Anonymous' }}</span>
+            <span class="comment-date">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            <span class="comment-clergy">on {{ comment.clergy.name if comment.clergy else 'Unknown Clergy' }}</span>
+          </div>
+          <div class="comment-status">
+            <span class="status-badge {{ comment.status or 'pending' }}">
+              {{ (comment.status or 'pending').title() }}
+            </span>
+          </div>
+        </div>
+        
+        <div class="comment-content">
+          <p>{{ comment.content }}</p>
+        </div>
+        
+        <div class="comment-actions">
+          <button class="btn btn-sm btn-outline-success" onclick="approveComment({{ comment.id }})">
+            <i class="fas fa-check"></i> Approve
+          </button>
+          <button class="btn btn-sm btn-outline-danger" onclick="rejectComment({{ comment.id }})">
+            <i class="fas fa-times"></i> Reject
+          </button>
+          <button class="btn btn-sm btn-outline-primary" onclick="editComment({{ comment.id }})">
+            <i class="fas fa-edit"></i> Edit
+          </button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteComment({{ comment.id }})">
+            <i class="fas fa-trash"></i> Delete
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if comments.pages > 1 %}
+    <div class="pagination">
+      {% if comments.has_prev %}
+        <button class="btn btn-outline-secondary btn-sm" onclick="loadCommentsPage({{ comments.prev_num }})">
+          <i class="fas fa-chevron-left"></i> Previous
+        </button>
+      {% endif %}
+      
+      <span class="pagination-info">
+        Page {{ comments.page }} of {{ comments.pages }}
+      </span>
+      
+      {% if comments.has_next %}
+        <button class="btn btn-outline-secondary btn-sm" onclick="loadCommentsPage({{ comments.next_num }})">
+          Next <i class="fas fa-chevron-right"></i>
+        </button>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+  .comments-management-content {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .management-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .management-header h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.2em;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .management-header p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9em;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .section-header h5 {
+    margin: 0;
+    font-size: 1em;
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .filter-controls select {
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.85em;
+  }
+
+  .comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .comment-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 1rem;
+    transition: all 0.2s ease;
+  }
+
+  .comment-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .comment-item[data-status="approved"] {
+    border-left: 4px solid rgba(34, 197, 94, 0.5);
+  }
+
+  .comment-item[data-status="rejected"] {
+    border-left: 4px solid rgba(239, 68, 68, 0.5);
+  }
+
+  .comment-item[data-status="pending"] {
+    border-left: 4px solid rgba(251, 191, 36, 0.5);
+  }
+
+  .comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+  }
+
+  .comment-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .comment-author {
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.9em;
+  }
+
+  .comment-date {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.8em;
+  }
+
+  .comment-clergy {
+    color: rgba(59, 130, 246, 1);
+    font-size: 0.8em;
+  }
+
+  .comment-status {
+    flex-shrink: 0;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  .status-badge.pending {
+    background: rgba(251, 191, 36, 0.2);
+    color: rgba(251, 191, 36, 1);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+  }
+
+  .status-badge.approved {
+    background: rgba(34, 197, 94, 0.2);
+    color: rgba(34, 197, 94, 1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  .status-badge.rejected {
+    background: rgba(239, 68, 68, 0.2);
+    color: rgba(239, 68, 68, 1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .comment-content {
+    margin-bottom: 1rem;
+  }
+
+  .comment-content p {
+    margin: 0;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .comment-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.75rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+
+  .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75em;
+  }
+
+  .btn-outline-success {
+    background: transparent;
+    color: rgba(34, 197, 94, 1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  .btn-outline-success:hover {
+    background: rgba(34, 197, 94, 0.1);
+  }
+
+  .btn-outline-danger {
+    background: transparent;
+    color: rgba(239, 68, 68, 1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .btn-outline-danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  .btn-outline-primary {
+    background: transparent;
+    color: rgba(59, 130, 246, 1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+
+  .btn-outline-primary:hover {
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  .btn-outline-secondary {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .btn-outline-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .pagination-info {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9em;
+  }
+
+  @media (max-width: 768px) {
+    .comment-header {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .comment-actions {
+      flex-direction: column;
+    }
+    
+    .pagination {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
+</style>
+
+<script>
+  function filterComments() {
+    const status = document.getElementById('status-filter').value;
+    const comments = document.querySelectorAll('.comment-item');
+    
+    comments.forEach(comment => {
+      if (!status || comment.dataset.status === status) {
+        comment.style.display = 'block';
+      } else {
+        comment.style.display = 'none';
+      }
+    });
+  }
+
+  function loadCommentsPage(page) {
+    // This would load the next page of comments
+    console.log('Load comments page:', page);
+    // Implementation would go here
+  }
+
+  function approveComment(commentId) {
+    if (confirm('Are you sure you want to approve this comment?')) {
+      console.log('Approve comment:', commentId);
+      // Implementation would go here
+    }
+  }
+
+  function rejectComment(commentId) {
+    if (confirm('Are you sure you want to reject this comment?')) {
+      console.log('Reject comment:', commentId);
+      // Implementation would go here
+    }
+  }
+
+  function editComment(commentId) {
+    console.log('Edit comment:', commentId);
+    // Implementation would go here
+  }
+
+  function deleteComment(commentId) {
+    if (confirm('Are you sure you want to delete this comment?')) {
+      console.log('Delete comment:', commentId);
+      // Implementation would go here
+    }
+  }
+</script>

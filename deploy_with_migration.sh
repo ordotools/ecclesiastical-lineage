@@ -184,6 +184,22 @@ else
     print_warning "⚠️  Force lineage data migration failed"
 fi
 
+# Step 6.6: Force merge scraped data (one-time operation)
+print_status "🔄 Force merging scraped data..."
+print_status "📄 Checking if advanced_scraped_data.json exists..."
+if [ -f "advanced_scraped_data.json" ]; then
+    print_success "✅ advanced_scraped_data.json found"
+    print_status "🚀 Running force merge script..."
+    if python3 run_force_merge_on_render.py; then
+        print_success "✅ Force merge of scraped data completed!"
+    else
+        print_error "❌ Force merge of scraped data failed!"
+        exit 1
+    fi
+else
+    print_warning "⚠️  advanced_scraped_data.json not found, skipping force merge"
+fi
+
 # Step 7: Verify migration was successful
 print_status "🔍 Verifying migration..."
 python3 -c "

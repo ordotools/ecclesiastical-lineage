@@ -1,0 +1,1126 @@
+<!-- Clergy Form Panel Content with HTMX Loading -->
+<div id="clergyFormContainer">
+    {% if clergy and edit_mode %}
+        <!-- Load form content via HTMX for edit mode -->
+        <div hx-get="{{ url_for('editor.clergy_form_content', clergy_id=clergy.id) }}" 
+             hx-trigger="load" 
+             hx-swap="innerHTML"
+             class="form-content-loader">
+            <!-- Minimal loading state -->
+            <div id="formLoadingIndicatorEdit" style="padding: 1em; text-align: center; color: rgba(255, 255, 255, 0.5); font-size: 0.8em;">
+                Loading form for {{ clergy.name }}...
+            </div>
+        </div>
+    {% elif not edit_mode %}
+        <!-- Load form content via HTMX for add mode -->
+        <div hx-get="{{ url_for('editor.clergy_form_content') }}" 
+             hx-trigger="load" 
+             hx-swap="innerHTML"
+             class="form-content-loader">
+            <!-- Minimal loading state -->
+            <div id="formLoadingIndicatorAdd" style="padding: 1em; text-align: center; color: rgba(255, 255, 255, 0.5); font-size: 0.8em;">
+                Loading new clergy form...
+            </div>
+        </div>
+    {% else %}
+        <!-- Default state - no clergy selected -->
+        <div style="padding: 2em; text-align: center; color: rgba(255, 255, 255, 0.6);">
+            <div style="margin-bottom: 1em;">
+                <i class="fas fa-edit" style="font-size: 3em; opacity: 0.3;"></i>
+            </div>
+            <h3 style="margin: 0 0 0.5em 0; font-weight: 500; color: rgba(255, 255, 255, 0.8);">No Clergy Selected</h3>
+            <p style="margin: 0; font-size: 0.9em;">Select a clergy member from the list to edit, or click "Add New Clergy" to create a new record.</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Enhanced form styles for editor panel with HTMX -->
+<style>
+/* Loading animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* No animations - instant updates like clergy list */
+
+/* Form container optimization for HTMX content */
+.right-panel .panel-content #clergyFormContainer {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+/* Smooth content loading */
+.right-panel .form-content-loader {
+    width: 100%;
+    min-height: 400px;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Loading placeholder styling */
+.right-panel .loading-placeholder {
+    padding: 3em 2em;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.6);
+    position: relative;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.right-panel .loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top: 3px solid rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1em;
+}
+
+.right-panel .loading-spinner-small {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-top: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 1em auto;
+}
+
+/* Instant loading - no animations or transitions */
+.right-panel .form-container {
+    opacity: 1;
+}
+
+/* Simple focus styles without animation */
+.right-panel input:focus,
+.right-panel select:focus,
+.right-panel textarea:focus {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Make the form completely seamless with the panel */
+.right-panel .panel-content > div > div {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+}
+
+/* Ensure full width for form container */
+.right-panel .panel-content #clergyFormContainer {
+    width: 100% !important;
+    padding: 1em !important;
+}
+
+/* Form Container Optimizations for new grid layout */
+.right-panel .form-container {
+    width: 100%;
+}
+
+.right-panel .form-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.75em !important;
+    grid-auto-rows: min-content;
+}
+
+/* Photo Section Styling */
+.right-panel .photo-section {
+    min-height: 280px;
+}
+
+.right-panel .photo-container {
+    min-height: 220px !important;
+    padding: 0.75em !important;
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.right-panel .photo-container.drag-over {
+    border-color: rgba(255, 255, 255, 0.8);
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.right-panel .photo-controls button {
+    padding: 0.4em 0.6em !important;
+    font-size: 0.75em !important;
+}
+
+/* Form Fields Styling */
+.right-panel .form-field {
+    margin-bottom: 0;
+}
+
+.right-panel .form-field label {
+    font-size: 0.8em !important;
+    margin-bottom: 0.2em !important;
+    font-weight: 500 !important;
+}
+
+/* Input and control styling */
+.right-panel .form-field input,
+.right-panel .form-field select,
+.right-panel .form-field textarea {
+    font-size: 0.85em !important;
+    padding: 0.4em !important;
+    border-radius: 3px !important;
+}
+
+.right-panel .form-field textarea {
+    min-height: 60px !important;
+}
+
+/* Section headers */
+.right-panel .form-section h5 {
+    font-size: 0.9em !important;
+    margin-bottom: 0.4em !important;
+}
+
+/* Section containers */
+.right-panel .form-section > div {
+    padding: 0.75em !important;
+}
+
+/* Dynamic entry styling */
+.right-panel .ordination-entry,
+.right-panel .consecration-entry {
+    padding: 0.6em !important;
+    margin-bottom: 0.6em !important;
+}
+
+.right-panel .ordination-entry input,
+.right-panel .ordination-entry textarea,
+.right-panel .ordination-entry select,
+.right-panel .consecration-entry input,
+.right-panel .consecration-entry textarea,
+.right-panel .consecration-entry select {
+    font-size: 0.75em !important;
+    padding: 0.3em !important;
+}
+
+.right-panel .ordination-entry label,
+.right-panel .consecration-entry label {
+    font-size: 0.75em !important;
+    margin-bottom: 0.2em !important;
+}
+
+/* Button styling - no animations */
+.right-panel button {
+    font-size: 0.8em !important;
+}
+
+.right-panel button:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Admin controls styling */
+.right-panel .admin-controls {
+    margin-top: 1em;
+    padding: 0.75em;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Submit buttons area */
+.right-panel .form-actions {
+    margin-top: 1em !important;
+    padding-top: 0.75em !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.right-panel .form-actions button,
+.right-panel .form-actions a {
+    font-size: 0.85em !important;
+    padding: 0.5em 1em !important;
+}
+
+
+/* Responsive adjustments for smaller panels */
+@media (max-width: 1200px) {
+    .right-panel .form-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.6em !important;
+    }
+    
+    .right-panel .photo-section {
+        min-height: 240px;
+    }
+    
+    .right-panel .photo-container {
+        min-height: 180px !important;
+    }
+}
+</style>
+
+<script>
+// Simple form handling - instant updates like clergy list
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize drag and drop and cancel button immediately
+    initializeDragDropForHTMX();
+    initializeCancelButtonHandler();
+    initializePhotoControls();
+    
+    // Set up mutation observer to watch for form content changes
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'childList') {
+                // Check if clergy form was added
+                const addedNodes = Array.from(mutation.addedNodes);
+                const hasClergyForm = addedNodes.some(node => 
+                    node.nodeType === Node.ELEMENT_NODE && 
+                    (node.id === 'clergyForm' || node.querySelector('#clergyForm'))
+                );
+                
+                if (hasClergyForm) {
+                    setTimeout(() => {
+                        initializeDragDropForHTMX();
+                        initializeCancelButtonHandler();
+                        initializePhotoControls();
+                    }, 100);
+                }
+            }
+        });
+    });
+    
+    // Start observing
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    // Also set up a periodic check as a fallback
+    setInterval(() => {
+        const clergyForm = document.querySelector('#clergyForm');
+        const photoContainer = document.querySelector('#photoContainer');
+        
+        if (clergyForm && photoContainer && !photoContainer.hasAttribute('data-drag-drop-initialized')) {
+            initializeDragDropForHTMX();
+            initializeCancelButtonHandler();
+            initializePhotoControls();
+        }
+    }, 1000); // Check every second
+});
+
+// Use event delegation for HTMX-loaded form content
+// Prevent duplicate event listeners
+if (!window.clergyFormHandlerAttached) {
+    window.clergyFormHandlerAttached = true;
+    document.body.addEventListener('submit', function(e) {
+        // Check if this is our clergy form (loaded via HTMX)
+        if (e.target && e.target.id === 'clergyForm') {
+            e.preventDefault();
+        
+            const form = e.target;
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            
+            // Show loading state
+            submitBtn.textContent = 'Saving...';
+            submitBtn.disabled = true;
+            
+            // Collect all bishop names that need to be checked
+            const bishopNames = collectBishopNames(form);
+            
+            if (bishopNames.length > 0) {
+                // Show user feedback about bishop creation
+                submitBtn.textContent = `Creating ${bishopNames.length} bishop record${bishopNames.length > 1 ? 's' : ''}...`;
+                
+                // Check and create missing bishops
+                checkAndCreateBishops(bishopNames)
+                    .then(() => {
+                        // Update button text for final submission
+                        submitBtn.textContent = 'Submitting form...';
+                        // Submit the form after bishops are created
+                        submitFormWithData(form, formData, submitBtn, originalText);
+                    })
+                    .catch(error => {
+                        console.error('Error creating bishops:', error);
+                        showNotification(`Error creating missing bishops: ${error.message}`, 'error');
+                        resetSubmitButton(submitBtn, originalText);
+                    });
+            } else {
+                // No bishops to check, submit directly
+                submitFormWithData(form, formData, submitBtn, originalText);
+            }
+        }
+    });
+}
+
+// Bishop creation functions for editor form
+function collectBishopNames(form) {
+    const bishopNames = new Set();
+    
+    // Collect ordaining bishops
+    const ordainingBishopInputs = form.querySelectorAll('input[name*="ordaining_bishop_input"]');
+    ordainingBishopInputs.forEach(input => {
+        const name = input.value.trim();
+        const idInput = input.parentElement.querySelector('input[name*="ordaining_bishop_id"]');
+        const id = idInput ? idInput.value : '';
+        if (name && !id) {
+            bishopNames.add(name);
+        }
+    });
+    
+    // Collect consecrators
+    const consecratorInputs = form.querySelectorAll('input[name*="consecrator_input"]');
+    consecratorInputs.forEach(input => {
+        const name = input.value.trim();
+        const idInput = input.parentElement.querySelector('input[name*="consecrator_id"]');
+        const id = idInput ? idInput.value : '';
+        if (name && !id) {
+            bishopNames.add(name);
+        }
+    });
+    
+    // Collect co-consecrators
+    const coConsecratorInputs = form.querySelectorAll('input[name*="co_consecrators"][name*="input"]');
+    coConsecratorInputs.forEach(input => {
+        const name = input.value.trim();
+        const idInput = input.parentElement.querySelector('input[name*="id"]');
+        const id = idInput ? idInput.value : '';
+        if (name && !id) {
+            bishopNames.add(name);
+        }
+    });
+    
+    return Array.from(bishopNames);
+}
+
+function checkAndCreateBishops(bishopNames) {
+    return new Promise((resolve, reject) => {
+        // Send AJAX request to check and create bishops
+        fetch('/api/check-and-create-bishops', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                bishop_names: bishopNames
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Update form with the created bishop IDs
+                updateFormWithBishopIds(data.bishop_mapping);
+                resolve();
+            } else {
+                reject(new Error(data.message || 'Failed to create bishops'));
+            }
+        })
+        .catch(error => {
+            console.error('Error creating bishops:', error);
+            reject(error);
+        });
+    });
+}
+
+function updateFormWithBishopIds(bishopMapping) {
+    const form = document.getElementById('clergyForm');
+    if (!form) return;
+    
+    // Update ordaining bishops
+    const ordainingBishopInputs = form.querySelectorAll('input[name*="ordaining_bishop_input"]');
+    ordainingBishopInputs.forEach(input => {
+        const name = input.value.trim();
+        if (bishopMapping[name]) {
+            const idInput = input.parentElement.querySelector('input[name*="ordaining_bishop_id"]');
+            if (idInput) {
+                idInput.value = bishopMapping[name];
+            }
+        }
+    });
+    
+    // Update consecrators
+    const consecratorInputs = form.querySelectorAll('input[name*="consecrator_input"]');
+    consecratorInputs.forEach(input => {
+        const name = input.value.trim();
+        if (bishopMapping[name]) {
+            const idInput = input.parentElement.querySelector('input[name*="consecrator_id"]');
+            if (idInput) {
+                idInput.value = bishopMapping[name];
+            }
+        }
+    });
+    
+    // Update co-consecrators
+    const coConsecratorInputs = form.querySelectorAll('input[name*="co_consecrators"][name*="input"]');
+    coConsecratorInputs.forEach(input => {
+        const name = input.value.trim();
+        if (bishopMapping[name]) {
+            const idInput = input.parentElement.querySelector('input[name*="id"]');
+            if (idInput) {
+                idInput.value = bishopMapping[name];
+            }
+        }
+    });
+}
+
+function resetSubmitButton(button, originalText) {
+    button.textContent = originalText;
+    button.disabled = false;
+}
+
+function submitFormWithData(form, formData, submitBtn, originalText) {
+    // Debug: Log form data contents
+    console.log('=== FORM SUBMISSION DEBUG ===');
+    console.log('Form action:', form.action);
+    console.log('Form method:', form.method);
+    console.log('Form enctype:', form.enctype);
+    
+    // Check file input
+    const fileInput = form.querySelector('input[name="clergy_image"]');
+    if (fileInput) {
+        console.log('File input found:', fileInput);
+        console.log('File input files:', fileInput.files);
+        console.log('File input files length:', fileInput.files.length);
+        if (fileInput.files.length > 0) {
+            console.log('File to upload:', fileInput.files[0]);
+        }
+    } else {
+        console.log('File input NOT found!');
+    }
+    
+    // Check for globally stored dropped file
+    if (window.droppedFile) {
+        console.log('Globally stored file found:', window.droppedFile);
+        console.log('Adding dropped file to FormData...');
+        formData.append('clergy_image', window.droppedFile);
+        // Clear the global file after adding to form data
+        delete window.droppedFile;
+    }
+    
+    // Check for processed image data from image editor
+    if (window.processedImageData) {
+        console.log('Processed image data found:', window.processedImageData);
+        console.log('Adding processed image data to FormData...');
+        formData.append('image_data_json', JSON.stringify(window.processedImageData));
+        // Clear the processed image data after adding to form data
+        delete window.processedImageData;
+    }
+    
+    // Log all form data entries
+    console.log('FormData entries:');
+    for (let [key, value] of formData.entries()) {
+        if (value instanceof File) {
+            console.log(`  ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
+        } else {
+            console.log(`  ${key}: ${value}`);
+        }
+    }
+    console.log('=== END FORM SUBMISSION DEBUG ===');
+    
+    // Submit via fetch
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Success - refresh panels smoothly
+                
+                // Instant refresh - no transitions like clergy list
+                htmx.ajax('GET', '/editor/clergy-list', {
+                    target: '.left-panel .panel-content',
+                    swap: 'innerHTML'
+                });
+                
+                // Instant visualization refresh (will be done after specific actions)
+                const visualizationTarget = document.getElementById('visualization-panel-content');
+                if (visualizationTarget && typeof htmx !== 'undefined') {
+                    // Use the specific visualization panel ID
+                    const specificTarget = document.getElementById('visualization-panel-content');
+                    if (specificTarget) {
+                        htmx.ajax('GET', '/editor/visualization', {
+                            target: specificTarget,
+                            swap: 'innerHTML'
+                        }).then(() => {
+                            // Visualization refresh completed
+                        }).catch(error => {
+                            console.error('Visualization refresh failed:', error);
+                        });
+                    }
+                } else {
+                    console.error('Visualization target not found or HTMX not available!');
+                }
+                
+                // Check if the record was marked for deletion
+                const markDeletedCheckbox = form.querySelector('input[name="mark_deleted"]');
+                const wasMarkedDeleted = markDeletedCheckbox && markDeletedCheckbox.checked;
+                
+                if (wasMarkedDeleted) {
+                    // Record was marked for deletion - clear form and switch to add mode
+                    clearFormForNewEntry();
+                    
+                    // Additional visualization refresh specifically for deletion
+                    setTimeout(() => {
+                        const visualizationTarget = document.getElementById('visualization-panel-content');
+                        if (visualizationTarget && typeof htmx !== 'undefined') {
+                            // Use the specific visualization panel ID
+                            const specificTarget = document.getElementById('visualization-panel-content');
+                            if (specificTarget) {
+                                htmx.ajax('GET', '/editor/visualization', {
+                                    target: specificTarget,
+                                    swap: 'innerHTML'
+                                }).then(() => {
+                                    // Deletion visualization refresh completed
+                                }).catch(error => {
+                                    console.error('Deletion visualization refresh failed:', error);
+                                });
+                            }
+                        } else {
+                            console.error('Deletion visualization target not found or HTMX not available!');
+                        }
+                    }, 500); // Small delay to ensure the deletion is processed
+                    
+                    showNotification('Record marked for deletion. Form cleared for new entry.', 'info');
+                } else if (data.clergy_id) {
+                    // Normal save - switch to edit mode and refresh the form
+                    switchToEditMode(data.clergy_id);
+                    showNotification('Clergy record saved successfully!', 'success');
+                    
+                    // Dispatch custom event for clergy update
+                    document.body.dispatchEvent(new CustomEvent('clergyUpdated', {
+                        detail: { 
+                            clergyId: data.clergy_id,
+                            action: 'updated'
+                        }
+                    }));
+                } else {
+                    // Fallback - just show success message
+                    showNotification('Clergy record saved successfully!', 'success');
+                    
+                    // Dispatch custom event for clergy creation
+                    document.body.dispatchEvent(new CustomEvent('clergyUpdated', {
+                        detail: { 
+                            action: 'created'
+                        }
+                    }));
+                }
+                
+            } else {
+                throw new Error(data.message || 'Failed to save clergy record');
+            }
+        })
+        .catch(error => {
+            console.error('Form submission error:', error);
+            if (error instanceof SyntaxError) {
+                console.error('JSON parsing error - response was not valid JSON');
+                showNotification('Error: Server returned invalid response', 'error');
+            } else {
+                showNotification('Error saving record: ' + error.message, 'error');
+            }
+        })
+        .finally(() => {
+            // Reset button - check if submitBtn exists
+            if (submitBtn) {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+}
+
+// HTMX event handling with form initialization
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    // Check if this is a clergy form related HTMX event
+    const isClergyFormContainer = evt.target.closest('#clergyFormContainer');
+    const isFormContentLoader = evt.target.classList.contains('form-content-loader');
+    const containsClergyForm = evt.target.querySelector('#clergyForm');
+    const isClergyForm = evt.target.id === 'clergyForm';
+    const isPanelContent = evt.target.classList.contains('panel-content');
+    
+    if (isClergyFormContainer || isFormContentLoader || containsClergyForm || isClergyForm || isPanelContent) {
+        // Double-check that we actually have a clergy form before initializing
+        const clergyForm = evt.target.querySelector('#clergyForm') || (evt.target.id === 'clergyForm' ? evt.target : null);
+        if (!clergyForm) {
+            return;
+        }
+        
+        // Initialize the form after HTMX loads it - immediate execution
+        
+        // Check if we have initialization functions available
+        if (typeof window.initializeFormFromRank === 'function') {
+            window.initializeFormFromRank();
+        } else {
+            // Initialize directly if the functions are in the loaded content
+            const rankSelect = document.getElementById('rank');
+            if (rankSelect && rankSelect.value) {
+                rankSelect.dispatchEvent(new Event('change'));
+            }
+        }
+        
+        // Initialize photo controls
+        console.log('HTMX afterSwap: Initializing photo controls');
+        initializePhotoControls();
+        
+        // Initialize clergy autocomplete for HTMX-loaded content
+        
+        // Wait a bit for the embedded form script to load
+        setTimeout(() => {
+            if (typeof window.initializeClergyAutocomplete === 'function') {
+                window.initializeClergyAutocomplete();
+            } else if (typeof window.initializeSingleClergyAutocomplete === 'function') {
+                const clergyInputs = document.querySelectorAll('input[name*="ordaining_bishop_input"], input[name*="consecrator_input"], input[name*="co_consecrators"][name*="input"]');
+                clergyInputs.forEach(input => {
+                    if (!input.hasAttribute('data-autocomplete-initialized')) {
+                        window.initializeSingleClergyAutocomplete(input);
+                    }
+                });
+            } else {
+                // Direct initialization as last resort
+                const clergyInputs = document.querySelectorAll('input[name*="ordaining_bishop_input"], input[name*="consecrator_input"], input[name*="co_consecrators"][name*="input"]');
+                clergyInputs.forEach(input => {
+                    if (!input.hasAttribute('data-autocomplete-initialized')) {
+                        // Direct initialization logic here
+                        initializeClergyAutocompleteDirect(input);
+                    }
+                });
+            }
+            
+            // Re-initialize drag and drop functionality for HTMX-loaded content
+            initializeDragDropForHTMX();
+            
+            // Initialize cancel button handler for HTMX-loaded content
+            initializeCancelButtonHandler();
+            
+            // Initialize photo controls
+            console.log('HTMX timeout: Initializing photo controls');
+            initializePhotoControls();
+        }, 200);
+    }
+});
+
+// Additional HTMX event handler for afterRequest
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+    // Check if this was a clergy form content request
+    const isClergyFormContentRequest = evt.detail.xhr && evt.detail.xhr.responseURL && 
+        (evt.detail.xhr.responseURL.includes('/editor/clergy-form-content') || 
+         evt.detail.xhr.responseURL.includes('/editor/clergy-form/'));
+    
+    if (isClergyFormContentRequest) {
+        // Wait a bit for the content to be swapped
+        setTimeout(() => {
+            const clergyForm = document.querySelector('#clergyForm');
+            if (clergyForm) {
+                initializeDragDropForHTMX();
+                initializeCancelButtonHandler();
+                
+                // Initialize photo controls
+                console.log('HTMX afterRequest: Initializing photo controls');
+                initializePhotoControls();
+            }
+        }, 100);
+    }
+});
+
+// Initialize cancel button handler for HTMX-loaded content
+function initializeCancelButtonHandler() {
+    const cancelBtn = document.getElementById('cancel-btn');
+    
+    if (cancelBtn) {
+        // Check if already initialized
+        if (cancelBtn.hasAttribute('data-cancel-initialized')) {
+            return;
+        }
+        
+        // Mark as initialized
+        cancelBtn.setAttribute('data-cancel-initialized', 'true');
+        
+        cancelBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Clear the form and switch to add mode
+            clearFormForNewEntry();
+        });
+    }
+}
+
+// Initialize photo control buttons for HTMX-loaded content
+function initializePhotoControls() {
+    console.log('=== initializePhotoControls START ===');
+    
+    // Check if required elements exist
+    const imageInput = document.getElementById('clergyImage');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const cropBtn = document.getElementById('cropExistingBtn');
+    const removeBtn = document.getElementById('removeImageBtn');
+    
+    console.log('Photo control elements found:', {
+        imageInput: !!imageInput,
+        uploadBtn: !!uploadBtn,
+        cropBtn: !!cropBtn,
+        removeBtn: !!removeBtn
+    });
+    
+    // Ensure image editor is available
+    if (!window.imageEditor && typeof ImageEditor !== 'undefined') {
+        console.log('Creating new ImageEditor instance for photo controls');
+        try {
+            window.imageEditor = new ImageEditor();
+            console.log('ImageEditor instance created successfully');
+        } catch (error) {
+            console.error('Error creating ImageEditor instance:', error);
+            return;
+        }
+    } else if (!window.imageEditor) {
+        console.warn('ImageEditor class not available');
+        return;
+    }
+    
+    // Reattach form event listeners for photo controls
+    if (window.imageEditor && typeof window.imageEditor.reattachFormEventListeners === 'function') {
+        console.log('Reattaching form event listeners for photo controls');
+        try {
+            window.imageEditor.reattachFormEventListeners();
+            console.log('Form event listeners reattached successfully');
+        } catch (error) {
+            console.error('Error reattaching form event listeners:', error);
+        }
+    } else {
+        console.warn('reattachFormEventListeners method not available');
+    }
+    
+    console.log('=== initializePhotoControls END ===');
+}
+
+// Initialize drag and drop functionality for HTMX-loaded content
+function initializeDragDropForHTMX() {
+    const photoContainer = document.getElementById('photoContainer');
+    const fileInput = document.getElementById('clergyImage');
+    
+    if (photoContainer && fileInput) {
+        // Check if drag and drop is already initialized
+        if (photoContainer.hasAttribute('data-drag-drop-initialized')) {
+            return;
+        }
+        
+        // Mark as initialized
+        photoContainer.setAttribute('data-drag-drop-initialized', 'true');
+        
+        // Handle existing image in edit mode - make it not interfere with drag events
+        const existingImage = photoContainer.querySelector('#previewImage');
+        if (existingImage) {
+            existingImage.style.pointerEvents = 'none';
+            
+            // Also add drag event handlers to the image itself as a fallback
+            existingImage.addEventListener('dragenter', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                photoContainer.classList.add('drag-over');
+            }, true);
+            
+            existingImage.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'copy';
+            }, true);
+            
+            existingImage.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                photoContainer.classList.remove('drag-over');
+            }, true);
+            
+            existingImage.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                photoContainer.classList.remove('drag-over');
+                
+                const files = e.dataTransfer.files;
+                
+                if (files.length > 0) {
+                    const file = files[0];
+                    
+                    if (file.type.startsWith('image/')) {
+                        // Check file size (25MB limit)
+                        if (file.size > 25 * 1024 * 1024) {
+                            alert('File size exceeds 25MB limit. Please choose a smaller image.');
+                            return;
+                        }
+                        
+                        try {
+                            // Store the file globally for form submission
+                            window.droppedFile = file;
+                            console.log('File stored globally:', file.name, file.size, file.type);
+                            
+                            // Try to set the file in the input element
+                            const dataTransfer = new DataTransfer();
+                            dataTransfer.items.add(file);
+                            fileInput.files = dataTransfer.files;
+                            console.log('File set in input element using DataTransfer');
+                            
+                            // Trigger the image editor if available
+                            if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
+                                const syntheticEvent = {
+                                    target: fileInput,
+                                    preventDefault: function() {},
+                                    stopPropagation: function() {}
+                                };
+                                window.imageEditor.handleFormImageUpload(syntheticEvent);
+                            } else {
+                                // Fallback to simple preview
+                                const reader = new FileReader();
+                                reader.onload = function(e) {
+                                    const imagePreview = document.getElementById('imagePreview');
+                                    if (imagePreview) {
+                                        imagePreview.innerHTML = `
+                                            <img src="${e.target.result}" alt="Preview" id="previewImage" 
+                                                 style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;">
+                                        `;
+                                    }
+                                };
+                                reader.readAsDataURL(file);
+                            }
+                        } catch (error) {
+                            console.error('Error processing file from image drop:', error);
+                        }
+                    } else {
+                        alert('Please select an image file.');
+                    }
+                }
+            }, true);
+        }
+        
+        // Direct drag and drop handlers with event delegation for child elements
+        photoContainer.addEventListener('dragenter', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.add('drag-over');
+        }, true);
+        
+        photoContainer.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+        }, true);
+        
+        photoContainer.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            // Only remove drag-over if we're actually leaving the container
+            if (!this.contains(e.relatedTarget)) {
+                this.classList.remove('drag-over');
+            }
+        }, true);
+        
+        photoContainer.addEventListener('drop', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.remove('drag-over');
+            
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file.');
+                return;
+            }
+
+            // Store file globally and in input
+            window.droppedFile = file;
+            
+            try {
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+            } catch (error) {
+                console.error('Error setting file in input:', error);
+            }
+
+            // Handle image preview/editing
+            if (window.imageEditor?.handleFormImageUpload) {
+                const syntheticEvent = {
+                    target: fileInput,
+                    preventDefault: () => {},
+                    stopPropagation: () => {}
+                };
+                window.imageEditor.handleFormImageUpload(syntheticEvent);
+            } else {
+                // Simple preview fallback
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imagePreview = document.getElementById('imagePreview');
+                    if (imagePreview) {
+                        imagePreview.innerHTML = `
+                            <img src="${e.target.result}" alt="Preview" id="previewImage" 
+                                 style="max-width: 150px; max-height: 150px; border-radius: 4px; object-fit: cover;">
+                        `;
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        }, true);
+    }
+}
+
+// Switch form to edit mode after saving a new clergy record
+function switchToEditMode(clergyId) {
+    // Use the same mechanism as selecting a clergy member for editing
+    // This will trigger the proper HTMX request to load the edit form
+    if (typeof selectClergy === 'function') {
+        selectClergy(clergyId);
+    } else {
+        console.error('selectClergy function not found, falling back to manual approach');
+        // Fallback: manually trigger the HTMX request
+        htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
+            target: '.right-panel .panel-content',
+            swap: 'innerHTML'
+        });
+    }
+}
+
+// Clear form and switch to add mode after deletion
+function clearFormForNewEntry() {
+    // Use the same mechanism as the "Add New Clergy" button
+    // This will trigger the proper HTMX request to load the empty form
+    if (typeof selectClergy === 'function') {
+        selectClergy(null);
+    } else {
+        console.error('selectClergy function not found, falling back to manual approach');
+        // Fallback: manually trigger the HTMX request
+        htmx.ajax('GET', '/editor/clergy-form', {
+            target: '.right-panel .panel-content',
+            swap: 'innerHTML'
+        });
+    }
+}
+
+// Simple instant refresh function
+function refreshClergyForm(clergyId = null) {
+    const container = document.querySelector('#clergyFormContainer .form-content-loader');
+    if (!container) return;
+    
+    const url = clergyId ? 
+        `/editor/clergy-form-content/${clergyId}` : 
+        '/editor/clergy-form-content';
+    
+    // Instant HTMX load - no transitions
+    htmx.ajax('GET', url, {
+        target: container,
+        swap: 'innerHTML'
+    });
+}
+
+// Make functions globally available
+window.refreshClergyFormSmooth = refreshClergyForm;
+window.switchToEditMode = switchToEditMode;
+window.clearFormForNewEntry = clearFormForNewEntry;
+window.initializeDragDropForHTMX = initializeDragDropForHTMX;
+window.initializeCancelButtonHandler = initializeCancelButtonHandler;
+window.initializePhotoControls = initializePhotoControls;
+
+// Direct autocomplete initialization as fallback
+function initializeClergyAutocompleteDirect(input) {
+    if (input.hasAttribute('data-autocomplete-initialized')) {
+        return;
+    }
+    
+    const dropdown = input.parentElement.querySelector('.autocomplete-dropdown');
+    if (!dropdown) {
+        return;
+    }
+    
+    input.setAttribute('data-autocomplete-initialized', 'true');
+    
+    input.addEventListener('input', function() {
+        const query = this.value.trim();
+        
+        if (query.length < 2) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        
+        // Use fetch for direct initialization
+        fetch(`/api/search_bishops?q=${encodeURIComponent(query)}`)
+            .then(response => response.text())
+            .then(html => {
+                dropdown.innerHTML = html;
+                dropdown.style.display = 'block';
+                
+                // Attach click handlers
+                const results = dropdown.querySelectorAll('.bishop-search-result');
+                results.forEach(result => {
+                    result.addEventListener('click', function() {
+                        const bishopId = this.dataset.id;
+                        const bishopName = this.dataset.displayName || this.dataset.name;
+                        
+                        input.value = bishopName;
+                        const hiddenInput = input.parentElement.querySelector('input[type="hidden"]');
+                        if (hiddenInput) {
+                            hiddenInput.value = bishopId;
+                        }
+                        
+                        dropdown.style.display = 'none';
+                    });
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching bishops:', error);
+            });
+    });
+    
+    input.addEventListener('blur', function() {
+        setTimeout(() => {
+            dropdown.style.display = 'none';
+        }, 200);
+    });
+    
+    input.addEventListener('focus', function() {
+        if (this.value.trim().length >= 2) {
+            this.dispatchEvent(new Event('input'));
+        }
+    });
+}
+
+// Simple instant notification system
+function showNotification(message, type = 'info') {
+    // Optionally show a very brief, instant alert that auto-closes
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? 'rgba(46, 160, 67, 0.9)' : 'rgba(231, 76, 60, 0.9)'};
+        color: white;
+        padding: 0.5em 1em;
+        border-radius: 4px;
+        z-index: 9999;
+        font-size: 0.8em;
+        opacity: 1;
+    `;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove quickly
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 1500);
+}
+</script>

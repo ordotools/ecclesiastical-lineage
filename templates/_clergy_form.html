@@ -43,13 +43,6 @@
                         <input type="text" id="name" name="name" 
                                value="{{ clergy.name if edit_mode and clergy else '' }}" required
                                style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
-                        {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" data-field="name" data-field-label="Name" 
-                                title="Add comment about this field"
-                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
-                            Comment
-                        </button>
-                        {% endif %}
                     </div>
 
                     <!-- Papal Name Field (only shown for popes) - Row 2, 2 columns -->
@@ -59,19 +52,12 @@
                                value="{{ clergy.papal_name if edit_mode and clergy else '' }}" 
                                placeholder="e.g., Pope Francis, Pope Benedict XVI"
                                style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
-                        {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" data-field="papal_name" data-field-label="Papal Name" 
-                                title="Add comment about this field"
-                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
-                            Comment
-                        </button>
-                        {% endif %}
                     </div>
 
                     <!-- Photo Section (col 1, 3 rows, starting row 3) -->
                     <div id="photoField" style="grid-column: 1; grid-row: 3 / 6; display: flex; flex-direction: column;">
                         <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Photo</label>
-                        <div style="border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 1em; flex: 1; display: flex; align-items: center; justify-content: center;">
+                        <div id="photoContainer" class="drag-drop-container" style="border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 1em; flex: 1; display: flex; align-items: center; justify-content: center;">
                             <div id="imagePreview" style="text-align: center;">
                                 {% if edit_mode and clergy and clergy.image_data %}
                                     {% set image_data = clergy.image_data | from_json %}
@@ -85,8 +71,10 @@
                                 {% elif edit_mode and clergy and clergy.image_url %}
                                     <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage" style="max-width: 100px; max-height: 100px; border-radius: 4px;">
                                 {% else %}
-                                    <div style="color: rgba(255, 255, 255, 0.6); font-size: 0.9em;">
-                                        [User Icon]
+                                    <div id="noPhotoPlaceholder" style="color: rgba(255, 255, 255, 0.6); font-size: 0.9em; padding: 1em; border: 1px dashed rgba(255, 255, 255, 0.3); border-radius: 4px;">
+                                        <i class="fas fa-user" style="font-size: 1.5em; margin-bottom: 0.5em; display: block; opacity: 0.6;"></i>
+                                        <div>No Photo</div>
+                                        <div style="font-size: 0.8em; margin-top: 0.5em; opacity: 0.7;">Click or drag & drop to upload</div>
                                     </div>
                                 {% endif %}
                                 <!-- Hover overlay with image tools -->
@@ -123,13 +111,6 @@
                             </option>
                             {% endfor %}
                         </select>
-                        {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" data-field="rank" data-field-label="Rank" 
-                                title="Add comment about this field"
-                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
-                            Comment
-                        </button>
-                        {% endif %}
                     </div>
 
                     <!-- Organization (2 columns) -->
@@ -150,12 +131,6 @@
                                 Add New
                             </button>
                         </div>
-                        {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" data-field="organization" data-field-label="Organization" 
-                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
-                            Comment
-                        </button>
-                        {% endif %}
                     </div>
 
                     <!-- Row 5: Date of Birth (col 2) -->
@@ -164,12 +139,6 @@
                         <input type="date" id="date_of_birth" name="date_of_birth" 
                                value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}"
                                style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
-                        {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" data-field="date_of_birth" data-field-label="Date of Birth"
-                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
-                            Comment
-                        </button>
-                        {% endif %}
                     </div>
 
 
@@ -179,12 +148,6 @@
                         <input type="date" id="date_of_death" name="date_of_death" 
                                value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}"
                                style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
-                        {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" data-field="date_of_death" data-field-label="Date of Death"
-                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
-                            Comment
-                        </button>
-                        {% endif %}
                     </div>
 
 
@@ -211,8 +174,11 @@
                                     </div>
                                     <div>
                                         <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Ordaining Bishop</label>
-                                        <input type="text" name="ordinations[0][ordaining_bishop_input]" placeholder="Search for bishop..." style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
-                                        <input type="hidden" name="ordinations[0][ordaining_bishop_id]">
+                                        <div style="position: relative;">
+                                            <input type="text" name="ordinations[0][ordaining_bishop_input]" placeholder="Search for bishop..." autocomplete="off" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                                            <input type="hidden" name="ordinations[0][ordaining_bishop_id]">
+                                            <div class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 20; display: none; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; max-height: 200px; overflow-y: auto;"></div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
@@ -272,15 +238,21 @@
                                     </div>
                                     <div>
                                         <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Consecrator</label>
-                                        <input type="text" name="consecrations[0][consecrator_input]" placeholder="Search for consecrator..." style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
-                                        <input type="hidden" name="consecrations[0][consecrator_id]">
+                                        <div style="position: relative;">
+                                            <input type="text" name="consecrations[0][consecrator_input]" placeholder="Search for consecrator..." autocomplete="off" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                                            <input type="hidden" name="consecrations[0][consecrator_id]">
+                                            <div class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 20; display: none; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; max-height: 200px; overflow-y: auto;"></div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div style="margin-bottom: 0.5em;">
                                     <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Co-Consecrators</label>
                                     <div style="display: flex; gap: 0.5em; margin-bottom: 0.5em;">
-                                        <input type="text" name="consecrations[0][co_consecrators][0][input]" placeholder="Search for co-consecrator..." style="flex: 1; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
-                                        <input type="hidden" name="consecrations[0][co_consecrators][0][id]">
+                                        <div style="position: relative; flex: 1;">
+                                            <input type="text" name="consecrations[0][co_consecrators][0][input]" placeholder="Search for co-consecrator..." autocomplete="off" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                                            <input type="hidden" name="consecrations[0][co_consecrators][0][id]">
+                                            <div class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 20; display: none; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; max-height: 200px; overflow-y: auto;"></div>
+                                        </div>
                                         <button type="button" class="add-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 3px; cursor: pointer; font-size: 0.75em;">
                                             Add
                                         </button>
@@ -327,12 +299,6 @@
                     <div style="grid-column: 1 / -1;">
                         <label for="notes" style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Notes</label>
                         <textarea id="notes" name="notes" rows="3" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s; resize: vertical;">{{ clergy.notes if edit_mode and clergy else '' }}</textarea>
-                        {% if edit_mode and user and user.can_comment() %}
-                        <button type="button" data-field="notes" data-field-label="Notes"
-                                style="margin-top: 0.25em; padding: 0.25em 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 3px; cursor: pointer; font-size: 0.75em; color: rgba(255, 255, 255, 0.7);">
-                            Comment
-                        </button>
-                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -650,8 +616,11 @@ function initializeEmbeddedFormScript() {
                     </div>
                     <div>
                         <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Ordaining Bishop</label>
-                        <input type="text" name="ordinations[${ordinationCount}][ordaining_bishop_input]" placeholder="Search for bishop..." style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
-                        <input type="hidden" name="ordinations[${ordinationCount}][ordaining_bishop_id]">
+                        <div style="position: relative;">
+                            <input type="text" name="ordinations[${ordinationCount}][ordaining_bishop_input]" placeholder="Search for bishop..." autocomplete="off" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                            <input type="hidden" name="ordinations[${ordinationCount}][ordaining_bishop_id]">
+                            <div class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 20; display: none; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; max-height: 200px; overflow-y: auto;"></div>
+                        </div>
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
@@ -682,6 +651,15 @@ function initializeEmbeddedFormScript() {
 
         container.insertAdjacentHTML('beforeend', ordinationHtml);
         ordinationCount++;
+        
+        // Initialize autocomplete for the new ordination fields
+        const newOrdinationEntry = container.lastElementChild;
+        if (newOrdinationEntry) {
+            const newInput = newOrdinationEntry.querySelector('input[name*="ordaining_bishop_input"]');
+            if (newInput) {
+                initializeSingleClergyAutocomplete(newInput);
+            }
+        }
     }
 
     // Add consecration functionality (for embedded template)
@@ -698,15 +676,21 @@ function initializeEmbeddedFormScript() {
                     </div>
                     <div>
                         <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Consecrator</label>
-                        <input type="text" name="consecrations[${consecrationCount}][consecrator_input]" placeholder="Search for consecrator..." style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
-                        <input type="hidden" name="consecrations[${consecrationCount}][consecrator_id]">
+                        <div style="position: relative;">
+                            <input type="text" name="consecrations[${consecrationCount}][consecrator_input]" placeholder="Search for consecrator..." autocomplete="off" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                            <input type="hidden" name="consecrations[${consecrationCount}][consecrator_id]">
+                            <div class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 20; display: none; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; max-height: 200px; overflow-y: auto;"></div>
+                        </div>
                     </div>
                 </div>
                 <div style="margin-bottom: 0.5em;">
                     <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.8em;">Co-Consecrators</label>
                     <div style="display: flex; gap: 0.5em; margin-bottom: 0.5em;">
-                        <input type="text" name="consecrations[${consecrationCount}][co_consecrators][0][input]" placeholder="Search for co-consecrator..." style="flex: 1; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
-                        <input type="hidden" name="consecrations[${consecrationCount}][co_consecrators][0][id]">
+                        <div style="position: relative; flex: 1;">
+                            <input type="text" name="consecrations[${consecrationCount}][co_consecrators][0][input]" placeholder="Search for co-consecrator..." autocomplete="off" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                            <input type="hidden" name="consecrations[${consecrationCount}][co_consecrators][0][id]">
+                            <div class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 20; display: none; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; max-height: 200px; overflow-y: auto;"></div>
+                        </div>
                         <button type="button" class="add-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 3px; cursor: pointer; font-size: 0.75em;">
                             Add
                         </button>
@@ -748,6 +732,17 @@ function initializeEmbeddedFormScript() {
         const newEntry = container.lastElementChild;
         if (newEntry) {
             updateAddCoConsecratorButton(newEntry);
+            
+            // Initialize autocomplete for the new consecration fields
+            const consecratorInput = newEntry.querySelector('input[name*="consecrator_input"]');
+            if (consecratorInput) {
+                initializeSingleClergyAutocomplete(consecratorInput);
+            }
+            
+            const coConsecratorInput = newEntry.querySelector('input[name*="co_consecrators"][name*="input"]');
+            if (coConsecratorInput) {
+                initializeSingleClergyAutocomplete(coConsecratorInput);
+            }
         }
     }
 
@@ -777,8 +772,11 @@ function initializeEmbeddedFormScript() {
         
         const coConsecratorHtml = `
             <div class="co-consecrator-item" style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
-                <input type="text" name="consecrations[${consecrationIndex}][co_consecrators][${coConsecratorCount}][input]" placeholder="Search for co-consecrator..." style="flex: 1; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
-                <input type="hidden" name="consecrations[${consecrationIndex}][co_consecrators][${coConsecratorCount}][id]">
+                <div style="position: relative; flex: 1;">
+                    <input type="text" name="consecrations[${consecrationIndex}][co_consecrators][${coConsecratorCount}][input]" placeholder="Search for co-consecrator..." autocomplete="off" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                    <input type="hidden" name="consecrations[${consecrationIndex}][co_consecrators][${coConsecratorCount}][id]">
+                    <div class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 20; display: none; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; max-height: 200px; overflow-y: auto;"></div>
+                </div>
                 <button type="button" class="remove-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 3px; cursor: pointer; font-size: 0.75em;">
                     Remove
                 </button>
@@ -787,6 +785,15 @@ function initializeEmbeddedFormScript() {
         
         coConsecratorsList.insertAdjacentHTML('beforeend', coConsecratorHtml);
         coConsecratorCount++;
+        
+        // Initialize autocomplete for the new co-consecrator field
+        const newCoConsecratorItem = coConsecratorsList.lastElementChild;
+        if (newCoConsecratorItem) {
+            const newInput = newCoConsecratorItem.querySelector('input[name*="co_consecrators"][name*="input"]');
+            if (newInput) {
+                initializeSingleClergyAutocomplete(newInput);
+            }
+        }
         
         // Update the "Add" button visibility
         updateAddCoConsecratorButton(consecrationEntry);
@@ -829,45 +836,66 @@ function initializeEmbeddedFormScript() {
     }
 
     // Event listeners for add/remove/undo buttons (for embedded template elements)
-    document.addEventListener('click', function(e) {
-        // Handle embedded template button clicks
-        if (e.target && e.target.id === 'addOrdinationBtn') {
-            addOrdination();
-        }
-        if (e.target && e.target.id === 'addConsecrationBtn') {
-            addConsecration();
-        }
-        if (e.target && e.target.classList.contains('remove-ordination')) {
-            const entry = e.target.closest('.ordination-entry');
-            if (entry) {
-                // Store for undo before removing
-                removedOrdinations.push(entry.outerHTML);
-                entry.remove();
+    // Use a single global event listener with proper delegation to avoid duplicates
+    if (!window.clergyFormEmbeddedEventListenersAttached) {
+        document.addEventListener('click', function(e) {
+            // Only handle clicks within clergy forms to avoid conflicts
+            if (!e.target.closest('form[id*="clergyForm"]') && !e.target.closest('#clergyFormContainer')) return;
+            
+            // Handle embedded template button clicks
+            if (e.target && e.target.id === 'addOrdinationBtn') {
+                e.preventDefault();
+                e.stopPropagation();
+                addOrdination();
             }
-        }
-        if (e.target && e.target.classList.contains('remove-consecration')) {
-            const entry = e.target.closest('.consecration-entry');
-            if (entry) {
-                // Store for undo before removing
-                removedConsecrations.push(entry.outerHTML);
-                entry.remove();
+            if (e.target && e.target.id === 'addConsecrationBtn') {
+                e.preventDefault();
+                e.stopPropagation();
+                addConsecration();
             }
-        }
-        if (e.target && e.target.classList.contains('add-co-consecrator')) {
-            addCoConsecrator(e.target);
-        }
-        if (e.target && e.target.classList.contains('remove-co-consecrator')) {
-            const coConsecratorItem = e.target.closest('.co-consecrator-item');
-            if (coConsecratorItem) {
-                coConsecratorItem.remove();
-                // Update the "Add" button visibility
-                const consecrationEntry = coConsecratorItem.closest('.consecration-entry');
-                if (consecrationEntry) {
-                    updateAddCoConsecratorButton(consecrationEntry);
+            if (e.target && e.target.classList.contains('remove-ordination')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const entry = e.target.closest('.ordination-entry');
+                if (entry) {
+                    // Store for undo before removing
+                    removedOrdinations.push(entry.outerHTML);
+                    entry.remove();
                 }
             }
-        }
-    });
+            if (e.target && e.target.classList.contains('remove-consecration')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const entry = e.target.closest('.consecration-entry');
+                if (entry) {
+                    // Store for undo before removing
+                    removedConsecrations.push(entry.outerHTML);
+                    entry.remove();
+                }
+            }
+            if (e.target && e.target.classList.contains('add-co-consecrator')) {
+                e.preventDefault();
+                e.stopPropagation();
+                addCoConsecrator(e.target);
+            }
+            if (e.target && e.target.classList.contains('remove-co-consecrator')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const coConsecratorItem = e.target.closest('.co-consecrator-item');
+                if (coConsecratorItem) {
+                    coConsecratorItem.remove();
+                    // Update the "Add" button visibility
+                    const consecrationEntry = coConsecratorItem.closest('.consecration-entry');
+                    if (consecrationEntry) {
+                        updateAddCoConsecratorButton(consecrationEntry);
+                    }
+                }
+            }
+        });
+        
+        // Mark that event listeners have been attached
+        window.clergyFormEmbeddedEventListenersAttached = true;
+    }
 
     // Add undo buttons to the sections
     function addUndoButtons() {
@@ -905,6 +933,9 @@ function initializeEmbeddedFormScript() {
         existingConsecrationEntries.forEach(entry => {
             updateAddCoConsecratorButton(entry);
         });
+        
+        // Initialize autocomplete for all clergy search fields
+        initializeClergyAutocomplete();
     });
     
     // Add focus styles for form inputs
@@ -920,6 +951,126 @@ function initializeEmbeddedFormScript() {
         });
     });
     
+    // Initialize clergy autocomplete functionality
+    function initializeClergyAutocomplete() {
+        console.log('Initializing clergy autocomplete...');
+        
+        // Find all clergy search input fields
+        const clergyInputs = document.querySelectorAll('input[name*="ordaining_bishop_input"], input[name*="consecrator_input"], input[name*="co_consecrators"][name*="input"]');
+        console.log('Found clergy inputs:', clergyInputs.length);
+        
+        clergyInputs.forEach((input, index) => {
+            console.log(`Initializing input ${index + 1}:`, input.name, input.placeholder);
+            initializeSingleClergyAutocomplete(input);
+        });
+        
+        // Set up observer for dynamically added fields
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === 1) { // Element node
+                        const newInputs = node.querySelectorAll ? node.querySelectorAll('input[name*="ordaining_bishop_input"], input[name*="consecrator_input"], input[name*="co_consecrators"][name*="input"]') : [];
+                        newInputs.forEach(input => {
+                            if (!input.hasAttribute('data-autocomplete-initialized')) {
+                                initializeSingleClergyAutocomplete(input);
+                            }
+                        });
+                    }
+                });
+            });
+        });
+        
+        // Observe the form container for new inputs
+        const formContainer = document.getElementById('clergyForm');
+        if (formContainer) {
+            observer.observe(formContainer, { childList: true, subtree: true });
+        }
+    }
+    
+    // Initialize autocomplete for a single input field
+    function initializeSingleClergyAutocomplete(input) {
+        if (input.hasAttribute('data-autocomplete-initialized')) {
+            console.log('Input already initialized:', input.name);
+            return; // Already initialized
+        }
+        
+        const dropdown = input.parentElement.querySelector('.autocomplete-dropdown');
+        if (!dropdown) {
+            console.log('No dropdown found for input:', input.name, input.parentElement);
+            return;
+        }
+        
+        console.log('Initializing autocomplete for:', input.name, 'with dropdown:', !!dropdown);
+        input.setAttribute('data-autocomplete-initialized', 'true');
+        
+        input.addEventListener('input', function() {
+            const query = this.value.trim();
+            console.log('Input event for', this.name, 'query:', query);
+            
+            if (query.length < 2) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            // Use HTMX to search for bishops
+            if (typeof htmx !== 'undefined') {
+                htmx.ajax('GET', `/api/search_bishops?q=${encodeURIComponent(query)}`, {
+                    target: dropdown,
+                    swap: 'innerHTML'
+                }).then(() => {
+                    // Attach click handlers after HTMX loads the content
+                    attachDropdownClickHandlers(input, dropdown);
+                });
+            } else {
+                // Fallback to fetch if HTMX not available
+                fetch(`/api/search_bishops?q=${encodeURIComponent(query)}`)
+                    .then(response => response.text())
+                    .then(html => {
+                        dropdown.innerHTML = html;
+                        dropdown.style.display = 'block';
+                        attachDropdownClickHandlers(input, dropdown);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching bishops:', error);
+                    });
+            }
+            
+            dropdown.style.display = 'block';
+        });
+        
+        input.addEventListener('blur', function() {
+            setTimeout(() => {
+                dropdown.style.display = 'none';
+            }, 200);
+        });
+        
+        input.addEventListener('focus', function() {
+            if (this.value.trim().length >= 2) {
+                this.dispatchEvent(new Event('input'));
+            }
+        });
+    }
+    
+    // Attach click handlers to dropdown items
+    function attachDropdownClickHandlers(input, dropdown) {
+        const results = dropdown.querySelectorAll('.bishop-search-result');
+        results.forEach(result => {
+            result.addEventListener('click', function() {
+                const bishopId = this.dataset.id;
+                const bishopName = this.dataset.displayName || this.dataset.name;
+                
+                // Set the input value and hidden field
+                input.value = bishopName;
+                const hiddenInput = input.parentElement.querySelector('input[type="hidden"]');
+                if (hiddenInput) {
+                    hiddenInput.value = bishopId;
+                }
+                
+                dropdown.style.display = 'none';
+            });
+        });
+    }
+
     // Add organization function (placeholder)
     window.addOrganization = function() {
         const name = document.getElementById('new-organization-name').value;
@@ -938,8 +1089,10 @@ function initializeEmbeddedFormScript() {
     };
 }
 
-// Make the function globally available
+// Make the functions globally available
 window.initializeEmbeddedFormScript = initializeEmbeddedFormScript;
+window.initializeClergyAutocomplete = initializeClergyAutocomplete;
+window.initializeSingleClergyAutocomplete = initializeSingleClergyAutocomplete;
 
 // Initialize on DOMContentLoaded as fallback
 document.addEventListener('DOMContentLoaded', function() {
@@ -1055,18 +1208,26 @@ document.addEventListener('DOMContentLoaded', function() {
             const bishopNames = collectBishopNames(form);
             
             if (bishopNames.length > 0) {
+                console.log('🔄 Found bishops to create:', bishopNames);
+                // Show user feedback about bishop creation
+                submitBtn.textContent = `Creating ${bishopNames.length} bishop record${bishopNames.length > 1 ? 's' : ''}...`;
+                
                 // Check and create missing bishops
                 checkAndCreateBishops(bishopNames)
                     .then(() => {
+                        console.log('🔄 Bishop creation successful, proceeding with form submission');
+                        // Update button text for final submission
+                        submitBtn.textContent = 'Submitting form...';
                         // Submit the form after bishops are created
                         submitForm(form);
                     })
                     .catch(error => {
-                        console.error('Error creating bishops:', error);
-                        alert('Error creating missing bishops: ' + error.message);
+                        console.error('🔄 Error creating bishops:', error);
+                        alert(`Error creating missing bishops: ${error.message}\n\nPlease ensure all bishop names are correct and try again.`);
                         resetSubmitButton(submitBtn, originalText);
                     });
             } else {
+                console.log('🔄 No bishops to create, submitting form directly');
                 // No bishops to check, submit directly
                 submitForm(form);
             }
@@ -1126,6 +1287,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function checkAndCreateBishops(bishopNames) {
+        console.log('🔄 Creating missing bishops:', bishopNames);
         return new Promise((resolve, reject) => {
             // Send AJAX request to check and create bishops
             fetch('/api/check-and-create-bishops', {
@@ -1138,9 +1300,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     bishop_names: bishopNames
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('🔄 Bishop creation response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('🔄 Bishop creation response:', data);
                 if (data.success) {
+                    console.log('🔄 Successfully created bishops, updating form with IDs');
                     // Update form with the created bishop IDs
                     updateFormWithBishopIds(data.bishop_mapping);
                     resolve();
@@ -1149,6 +1319,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
+                console.error('🔄 Error creating bishops:', error);
                 reject(error);
             });
         });
@@ -1158,13 +1329,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('clergyForm');
         if (!form) return;
         
+        console.log('🔄 Updating form with bishop IDs:', bishopMapping);
+        
         // Update ordaining bishops
         const ordainingBishopInputs = form.querySelectorAll('input[name*="ordaining_bishop_input"]');
         ordainingBishopInputs.forEach(input => {
             const name = input.value.trim();
             if (bishopMapping[name]) {
                 const idInput = input.parentElement.querySelector('input[name*="ordaining_bishop_id"]');
-                if (idInput) idInput.value = bishopMapping[name];
+                if (idInput) {
+                    idInput.value = bishopMapping[name];
+                    console.log(`🔄 Updated ordaining bishop "${name}" with ID: ${bishopMapping[name]}`);
+                } else {
+                    console.warn(`🔄 No ID input found for ordaining bishop "${name}"`);
+                }
             }
         });
         
@@ -1174,7 +1352,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const name = input.value.trim();
             if (bishopMapping[name]) {
                 const idInput = input.parentElement.querySelector('input[name*="consecrator_id"]');
-                if (idInput) idInput.value = bishopMapping[name];
+                if (idInput) {
+                    idInput.value = bishopMapping[name];
+                    console.log(`🔄 Updated consecrator "${name}" with ID: ${bishopMapping[name]}`);
+                } else {
+                    console.warn(`🔄 No ID input found for consecrator "${name}"`);
+                }
             }
         });
         
@@ -1184,9 +1367,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const name = input.value.trim();
             if (bishopMapping[name]) {
                 const idInput = input.parentElement.querySelector('input[name*="id"]');
-                if (idInput) idInput.value = bishopMapping[name];
+                if (idInput) {
+                    idInput.value = bishopMapping[name];
+                    console.log(`🔄 Updated co-consecrator "${name}" with ID: ${bishopMapping[name]}`);
+                } else {
+                    console.warn(`🔄 No ID input found for co-consecrator "${name}"`);
+                }
             }
         });
+        
+        console.log('🔄 Form update with bishop IDs complete');
     }
     
     function submitForm(form) {
@@ -1241,6 +1431,122 @@ document.addEventListener('DOMContentLoaded', function() {
     function resetSubmitButton(button, originalText) {
         button.textContent = originalText;
         button.disabled = false;
+    }
+
+    // Initialize drag and drop functionality for photo upload
+    if (!window.clergyFormEmbeddedDragDropInitialized) {
+        function initEmbeddedDragDrop() {
+            console.log('Initializing drag and drop for embedded clergy form...');
+            const photoContainer = document.getElementById('photoContainer');
+            const fileInput = document.getElementById('clergyImage');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            console.log('Embedded elements found:', { photoContainer, fileInput, uploadBtn });
+            
+            if (photoContainer && fileInput) {
+                console.log('Setting up direct embedded drag and drop handlers...');
+                
+                // Direct drag and drop handlers
+                photoContainer.addEventListener('dragenter', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Embedded direct dragenter');
+                    this.classList.add('drag-over');
+                }, true);
+                
+                photoContainer.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.dataTransfer.dropEffect = 'copy';
+                    console.log('Embedded direct dragover');
+                }, true);
+                
+                photoContainer.addEventListener('dragleave', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Embedded direct dragleave');
+                    this.classList.remove('drag-over');
+                }, true);
+                
+                photoContainer.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Embedded direct drop event');
+                    this.classList.remove('drag-over');
+                    
+                    const files = e.dataTransfer.files;
+                    console.log('Embedded files dropped:', files.length);
+                    
+                    if (files.length > 0) {
+                        const file = files[0];
+                        console.log('Embedded processing file:', file.name, file.type, file.size);
+                        
+                    if (file.type.startsWith('image/')) {
+                        // Store the file globally for form submission
+                        window.droppedFile = file;
+                        console.log('File stored globally:', file.name, file.size, file.type);
+                        
+                        // Try to set the file in the input element
+                        try {
+                            const dataTransfer = new DataTransfer();
+                            dataTransfer.items.add(file);
+                            fileInput.files = dataTransfer.files;
+                            console.log('File set in input element using DataTransfer');
+                        } catch (error) {
+                            console.error('Error setting file in input:', error);
+                            console.log('File will be handled manually during form submission');
+                        }
+                                console.log('Embedded file set in input element');
+                                
+                                // Trigger the image editor if available
+                                if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
+                                    console.log('Using image editor for embedded...');
+                                    const syntheticEvent = {
+                                        target: fileInput,
+                                        preventDefault: function() {},
+                                        stopPropagation: function() {}
+                                    };
+                                    window.imageEditor.handleFormImageUpload(syntheticEvent);
+                                } else {
+                                    console.log('Using fallback preview for embedded...');
+                                    const reader = new FileReader();
+                                    reader.onload = function(e) {
+                                        const imagePreview = document.getElementById('imagePreview');
+                                        if (imagePreview) {
+                                            imagePreview.innerHTML = `
+                                                <img src="${e.target.result}" alt="Preview" id="previewImage" 
+                                                     style="max-width: 100px; max-height: 100px; border-radius: 4px; object-fit: cover;">
+                                            `;
+                                        }
+                                    };
+                                    reader.readAsDataURL(file);
+                                }
+                            } catch (error) {
+                                console.error('Embedded error processing file:', error);
+                            }
+                        } else {
+                            console.log('Embedded not an image file');
+                            alert('Please select an image file.');
+                        }
+                    }
+                }, true);
+                
+                console.log('Embedded direct drag and drop handlers set up successfully');
+            } else {
+                console.log('Embedded drag and drop initialization failed - missing elements');
+            }
+        }
+        
+        // Try to initialize immediately
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initEmbeddedDragDrop);
+        } else {
+            // Use setTimeout to ensure other scripts have loaded
+            setTimeout(initEmbeddedDragDrop, 100);
+        }
+        
+        // Mark that drag drop has been initialized
+        window.clergyFormEmbeddedDragDropInitialized = true;
     }
 })();
 </script>

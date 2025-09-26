@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, make_response
 from services import clergy as clergy_service
 from services.clergy import soft_delete_clergy_handler
 from utils import audit_log, require_permission, log_audit_event
@@ -8,35 +8,93 @@ clergy_bp = Blueprint('clergy', __name__)
 
 @clergy_bp.route('/clergy')
 def clergy_list():
-    return clergy_service.clergy_list_handler()
+    # Redirect to editor clergy list panel
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + '#clergy-list')
+    else:
+        flash('Please log in to access clergy management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @clergy_bp.route('/clergy/add', methods=['GET', 'POST'])
-@audit_log(
-    action='create',
-    entity_type='clergy',
-    get_entity_id=lambda clergy: clergy.id if clergy else None,
-    get_entity_name=lambda clergy: clergy.name if clergy else None,
-    get_details=lambda clergy: {
-        'rank': clergy.rank,
-        'organization': clergy.organization,
-        'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
-        'ordinations_count': len(clergy.ordinations),
-        'consecrations_count': len(clergy.consecrations),
-        'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None
-    } if clergy else None
-)
-@require_permission('add_clergy')
 def add_clergy():
-    return clergy_service.add_clergy_handler()
+    if 'user_id' not in session:
+        flash('Please log in to access clergy management.', 'error')
+        return redirect(url_for('auth.login'))
+    
+    if request.method == 'POST':
+        # Handle form submission
+        try:
+            print(f"Processing clergy form submission with data: {dict(request.form)}")
+            clergy, response = clergy_service.add_clergy_handler()
+            print(f"Clergy created successfully: {clergy.name} (ID: {clergy.id})")
+            return response
+        except Exception as e:
+            print(f"Error in clergy form submission: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Check if this is an HTMX request
+            is_htmx = request.headers.get('HX-Request') == 'true'
+            if is_htmx:
+                response = make_response(f'<div class="alert alert-danger">Error: {str(e)}</div>')
+                return response, 400
+            
+            # Handle regular AJAX requests
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            if is_ajax:
+                return jsonify({'success': False, 'message': str(e)}), 400
+            
+            flash(f'Error adding clergy record: {str(e)}', 'error')
+            return redirect(url_for('editor.editor') + '#clergy-form')
+    else:
+        # GET request - redirect to editor clergy form panel
+        return redirect(url_for('editor.editor') + '#clergy-form')
 
 @clergy_bp.route('/clergy/<int:clergy_id>')
 def view_clergy(clergy_id):
-    return clergy_service.view_clergy_handler(clergy_id)
+    # Redirect to editor clergy form panel with specific clergy
+    if 'user_id' in session:
+        return redirect(url_for('editor.editor') + f'#clergy-form/{clergy_id}')
+    else:
+        flash('Please log in to access clergy management.', 'error')
+        return redirect(url_for('auth.login'))
 
 @clergy_bp.route('/clergy/<int:clergy_id>/edit', methods=['GET', 'POST'])
-@require_permission('edit_clergy')
 def edit_clergy(clergy_id):
-    return clergy_service.edit_clergy_handler(clergy_id)
+    if 'user_id' not in session:
+        flash('Please log in to access clergy management.', 'error')
+        return redirect(url_for('auth.login'))
+    
+    if request.method == 'POST':
+        # Handle form submission
+        try:
+            response = clergy_service.edit_clergy_handler(clergy_id)
+            return response
+        except Exception as e:
+            # Check if this is an HTMX request
+            is_htmx = request.headers.get('HX-Request') == 'true'
+            if is_htmx:
+                response = make_response(f'<div class="alert alert-danger">Error: {str(e)}</div>')
+                return response, 400
+            
+            # Handle regular AJAX requests
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            if is_ajax:
+                return jsonify({'success': False, 'message': str(e)}), 400
+            
+            flash(f'Error updating clergy record: {str(e)}', 'error')
+            return redirect(url_for('editor.editor') + f'#clergy-form/{clergy_id}')
+    else:
+        # GET request - redirect to editor clergy form panel with specific clergy
+        return redirect(url_for('editor.editor') + f'#clergy-form/{clergy_id}')
 
 @clergy_bp.route('/clergy/filter_partial')
 def clergy_filter_partial():

@@ -9,7 +9,7 @@
     <!-- Right Side Buttons -->
     <div class="d-flex align-items-center gap-2">
       {% if session.get('is_admin') %}
-        <a href="{{ url_for('settings.settings') }}" class="btn minimal-action-btn" title="Settings">
+        <a href="{{ url_for('editor.editor') }}#settings" class="btn minimal-action-btn" title="Settings">
           <i class="fas fa-cog"></i>
         </a>
       {% endif %}

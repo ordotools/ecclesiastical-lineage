@@ -343,6 +343,14 @@ function initFormHandlers() {
             
             const formData = new FormData(this);
             
+            // Check for globally stored dropped file
+            if (window.droppedFile) {
+                console.log('Adding globally stored file to FormData:', window.droppedFile);
+                formData.append('clergy_image', window.droppedFile);
+                // Clear the global file after adding to form data
+                delete window.droppedFile;
+            }
+            
             fetch(this.action, {
                 method: 'POST',
                 body: formData

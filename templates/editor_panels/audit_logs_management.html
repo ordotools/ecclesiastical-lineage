@@ -1,0 +1,565 @@
+<!-- Audit Logs Management Modal Content -->
+<div class="audit-logs-management-content">
+  <div class="management-header">
+    <h4>Audit Logs</h4>
+    <p>View system activity and audit trail</p>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-section">
+    <div class="filters-header">
+      <h5>Filters</h5>
+      <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">
+        <i class="fas fa-times"></i> Clear
+      </button>
+    </div>
+    
+    <form id="audit-filters" class="filters-form" hx-get="/editor/audit-logs-management" hx-target="#audit-logs-content" hx-swap="innerHTML">
+      <div class="filter-row">
+        <div class="filter-group">
+          <label for="action_filter">Action</label>
+          <select id="action_filter" name="action">
+            <option value="">All Actions</option>
+            <option value="create" {{ 'selected' if action_filter == 'create' else '' }}>Create</option>
+            <option value="update" {{ 'selected' if action_filter == 'update' else '' }}>Update</option>
+            <option value="delete" {{ 'selected' if action_filter == 'delete' else '' }}>Delete</option>
+            <option value="login" {{ 'selected' if action_filter == 'login' else '' }}>Login</option>
+            <option value="logout" {{ 'selected' if action_filter == 'logout' else '' }}>Logout</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label for="entity_type_filter">Entity Type</label>
+          <select id="entity_type_filter" name="entity_type">
+            <option value="">All Types</option>
+            <option value="clergy" {{ 'selected' if entity_type_filter == 'clergy' else '' }}>Clergy</option>
+            <option value="user" {{ 'selected' if entity_type_filter == 'user' else '' }}>User</option>
+            <option value="rank" {{ 'selected' if entity_type_filter == 'rank' else '' }}>Rank</option>
+            <option value="organization" {{ 'selected' if entity_type_filter == 'organization' else '' }}>Organization</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label for="user_filter">User</label>
+          <input type="text" id="user_filter" name="user" value="{{ user_filter }}" placeholder="Username">
+        </div>
+      </div>
+      
+      <div class="filter-row">
+        <div class="filter-group">
+          <label for="date_from">From Date</label>
+          <input type="date" id="date_from" name="date_from" value="{{ date_from }}">
+        </div>
+        
+        <div class="filter-group">
+          <label for="date_to">To Date</label>
+          <input type="date" id="date_to" name="date_to" value="{{ date_to }}">
+        </div>
+        
+        <div class="filter-group">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-search"></i> Apply Filters
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Audit Logs Table -->
+  <div class="logs-section">
+    <div class="section-header">
+      <h5>Audit Logs</h5>
+      <div class="logs-info">
+        <span class="logs-count">{{ audit_logs.total }} total entries</span>
+      </div>
+    </div>
+    
+    <div class="logs-table-container">
+      <table class="logs-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>User</th>
+            <th>Action</th>
+            <th>Entity Type</th>
+            <th>Entity Name</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in audit_logs.items %}
+          <tr>
+            <td>
+              <span class="log-timestamp">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+            </td>
+            <td>
+              <span class="log-user">{{ log.user.username if log.user else 'System' }}</span>
+            </td>
+            <td>
+              <span class="action-badge action-{{ log.action }}">
+                {{ log.action.title() }}
+              </span>
+            </td>
+            <td>
+              <span class="entity-type">{{ log.entity_type.title() if log.entity_type else '-' }}</span>
+            </td>
+            <td>
+              <span class="entity-name">{{ log.entity_name or '-' }}</span>
+            </td>
+            <td>
+              <button class="btn btn-sm btn-outline-primary" onclick="showLogDetails({{ log.id }})">
+                <i class="fas fa-eye"></i> View
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if audit_logs.pages > 1 %}
+    <div class="pagination">
+      {% if audit_logs.has_prev %}
+        <button class="btn btn-outline-secondary btn-sm" onclick="loadLogsPage({{ audit_logs.prev_num }})">
+          <i class="fas fa-chevron-left"></i> Previous
+        </button>
+      {% endif %}
+      
+      <span class="pagination-info">
+        Page {{ audit_logs.page }} of {{ audit_logs.pages }}
+      </span>
+      
+      {% if audit_logs.has_next %}
+        <button class="btn btn-outline-secondary btn-sm" onclick="loadLogsPage({{ audit_logs.next_num }})">
+          Next <i class="fas fa-chevron-right"></i>
+        </button>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Log Details Modal -->
+<div id="log-details-modal" class="log-details-modal" style="display: none;">
+  <div class="modal-overlay" onclick="closeLogDetails()"></div>
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><i class="fas fa-info-circle"></i> Log Details</h3>
+      <button class="modal-close" onclick="closeLogDetails()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body" id="log-details-content">
+      <!-- Details will be loaded here -->
+    </div>
+  </div>
+</div>
+
+<style>
+  .audit-logs-management-content {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .management-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .management-header h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.2em;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .management-header p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9em;
+  }
+
+  .filters-section {
+    margin-bottom: 2rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 1rem;
+  }
+
+  .filters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .filters-header h5 {
+    margin: 0;
+    font-size: 1em;
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .filters-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .filter-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    align-items: end;
+  }
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .filter-group label {
+    margin-bottom: 0.5rem;
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+  }
+
+  .filter-group input,
+  .filter-group select {
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.9em;
+  }
+
+  .filter-group input:focus,
+  .filter-group select:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .section-header h5 {
+    margin: 0;
+    font-size: 1em;
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .logs-info {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85em;
+  }
+
+  .logs-table-container {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .logs-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .logs-table th,
+  .logs-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .logs-table th {
+    background: rgba(255, 255, 255, 0.1);
+    font-weight: 600;
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .logs-table td {
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .logs-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .log-timestamp {
+    font-family: monospace;
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .log-user {
+    font-weight: 500;
+    color: rgba(59, 130, 246, 1);
+  }
+
+  .action-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  .action-create {
+    background: rgba(34, 197, 94, 0.2);
+    color: rgba(34, 197, 94, 1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  .action-update {
+    background: rgba(59, 130, 246, 0.2);
+    color: rgba(59, 130, 246, 1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+
+  .action-delete {
+    background: rgba(239, 68, 68, 0.2);
+    color: rgba(239, 68, 68, 1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .action-login {
+    background: rgba(34, 197, 94, 0.2);
+    color: rgba(34, 197, 94, 1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  .action-logout {
+    background: rgba(251, 191, 36, 0.2);
+    color: rgba(251, 191, 36, 1);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+  }
+
+  .entity-type {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85em;
+  }
+
+  .entity-name {
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.75rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+
+  .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75em;
+  }
+
+  .btn-primary {
+    background: rgba(59, 130, 246, 0.8);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: rgba(59, 130, 246, 1);
+  }
+
+  .btn-outline-primary {
+    background: transparent;
+    color: rgba(59, 130, 246, 1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+
+  .btn-outline-primary:hover {
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  .btn-outline-secondary {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .btn-outline-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .pagination-info {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9em;
+  }
+
+  .log-details-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .log-details-modal .modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .log-details-modal .modal-content {
+    position: relative;
+    background: rgba(0, 0, 0, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    width: 95vw;
+    max-width: 1200px;
+    height: 90vh;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
+  }
+
+  .log-details-modal .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .log-details-modal .modal-header h3 {
+    margin: 0;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .log-details-modal .modal-close {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+
+  .log-details-modal .modal-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .log-details-modal .modal-body {
+    padding: 1.5rem;
+    height: calc(90vh - 80px);
+    overflow-y: auto;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  @media (max-width: 768px) {
+    .filter-row {
+      grid-template-columns: 1fr;
+    }
+    
+    .logs-table-container {
+      overflow-x: auto;
+    }
+    
+    .pagination {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
+</style>
+
+<script>
+  function clearFilters() {
+    document.getElementById('audit-filters').reset();
+    htmx.trigger(document.getElementById('audit-filters'), 'submit');
+  }
+
+  function loadLogsPage(page) {
+    const form = document.getElementById('audit-filters');
+    const url = new URL(form.action);
+    url.searchParams.set('page', page);
+    
+    // Add current filter values to URL
+    const formData = new FormData(form);
+    for (const [key, value] of formData.entries()) {
+      if (value) url.searchParams.set(key, value);
+    }
+    
+    htmx.ajax('GET', url.toString(), {
+      target: '#audit-logs-content',
+      swap: 'innerHTML'
+    });
+  }
+
+  function showLogDetails(logId) {
+    const modal = document.getElementById('log-details-modal');
+    const content = document.getElementById('log-details-content');
+    
+    modal.style.display = 'flex';
+    content.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading log details...</div>';
+    
+    // Load log details via HTMX
+    htmx.ajax('GET', `/editor/audit-log-details/${logId}`, {
+      target: content,
+      swap: 'innerHTML'
+    });
+  }
+
+  function closeLogDetails() {
+    document.getElementById('log-details-modal').style.display = 'none';
+  }
+
+  // Close log details modal with Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeLogDetails();
+    }
+  });
+</script>

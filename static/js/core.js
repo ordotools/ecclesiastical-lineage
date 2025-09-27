@@ -909,10 +909,43 @@ export function setSmallViewDistance() {
 
 // Function to set view distance when clergy info panel is shown
 export function setClergyInfoViewDistance() {
-  setLargeViewDistance();
+  const svg = d3.select('#graph-container svg');
+  const zoom = window.currentZoom;
+  
+  if (!svg.empty() && zoom) {
+    // Get current transform to preserve visual position
+    const currentTransform = d3.zoomTransform(svg.node());
+    
+    // Calculate the center point of the current view
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight - 76; // Account for navbar height
+    const viewCenterX = viewportWidth / 2;
+    const viewCenterY = viewportHeight / 2;
+    
+    // Calculate what point in graph coordinates is currently at the center of the view
+    const currentScale = currentTransform.k;
+    const graphCenterX = (viewCenterX - currentTransform.x) / currentScale;
+    const graphCenterY = (viewCenterY - currentTransform.y) / currentScale;
+    
+    // Calculate the new translation to keep the same graph point at the center with the new scale
+    const newScale = ZOOM_LEVEL_LARGE;
+    const newTranslateX = viewCenterX - (graphCenterX * newScale);
+    const newTranslateY = viewCenterY - (graphCenterY * newScale);
+    
+    // Create new transform that preserves the visual position
+    const newTransform = d3.zoomIdentity
+      .translate(newTranslateX, newTranslateY)
+      .scale(newScale);
+    
+    // Apply the transform smoothly
+    svg.transition()
+      .duration(300)
+      .call(zoom.transform, newTransform);
+  }
 }
 
 // Function to reset to default view distance
 export function resetToDefaultViewDistance() {
-  setMediumViewDistance();
+  // Don't change zoom level when dismissing panel - just keep current zoom
+  // This prevents the graph from jumping/zooming when the panel is closed
 }

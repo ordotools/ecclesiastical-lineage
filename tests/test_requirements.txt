@@ -1,2 +1,0 @@
-# Test dependencies for clergy forms testing
-requests>=2.25.0

@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import the models from the current models file
-from models import db, Clergy, Rank, Organization, User, Role, Permission, AdminInvite, ClergyComment, AuditLog
+from models import db, Clergy, Rank, Organization, User, Role, Permission, AdminInvite, ClergyComment, AuditLog, Ordination, Consecration
 
 def get_database_url():
     """Get database URL from environment or use default"""
@@ -75,29 +75,11 @@ def populate_database():
             clergy_map = {}  # Map old IDs to new IDs
             
             for i, clergy_data in enumerate(data['clergy'], 1):
-                # Parse dates
-                ordination_date = None
-                consecration_date = None
-                
-                if clergy_data.get('ordination_date') and clergy_data['ordination_date'] != 'Date unknown':
-                    try:
-                        ordination_date = datetime.strptime(clergy_data['ordination_date'], '%Y-%m-%d').date()
-                    except:
-                        pass
-                
-                if clergy_data.get('consecration_date') and clergy_data['consecration_date'] != 'Date unknown':
-                    try:
-                        consecration_date = datetime.strptime(clergy_data['consecration_date'], '%Y-%m-%d').date()
-                    except:
-                        pass
-                
                 clergy = Clergy(
                     name=clergy_data['name'],
                     rank=clergy_data['rank'],
                     organization=clergy_data['organization'],
                     image_url=clergy_data.get('image_url'),
-                    date_of_ordination=ordination_date,
-                    date_of_consecration=consecration_date,
                     notes=clergy_data.get('bio')
                 )
                 
@@ -107,20 +89,50 @@ def populate_database():
             
             session.commit()
             
-            # Create relationships
-            print("Creating relationships...")
+            # Create ordination and consecration records
+            print("Creating ordination and consecration records...")
+            ordination_count = 0
+            consecration_count = 0
+            
             for rel_data in data['relationships']:
                 source_id = clergy_map.get(rel_data['source_id'])
                 target_id = clergy_map.get(rel_data['target_id'])
                 
                 if source_id and target_id:
-                    # Find the target clergy and update their ordaining/consecrating bishop
-                    target_clergy = session.query(Clergy).get(target_id)
-                    if target_clergy:
-                        if rel_data['type'] == 'ordination':
-                            target_clergy.ordaining_bishop_id = source_id
-                        elif rel_data['type'] == 'consecration':
-                            target_clergy.consecrator_id = source_id
+                    if rel_data['type'] == 'ordination':
+                        # Create ordination record
+                        ordination = Ordination(
+                            clergy_id=target_id,
+                            ordaining_bishop_id=source_id,
+                            date=datetime.now().date(),  # Use current date as fallback
+                            is_sub_conditione=False,
+                            is_doubtful=False,
+                            is_invalid=False,
+                            notes=f"Migrated from legacy data",
+                            created_at=datetime.now(),
+                            updated_at=datetime.now()
+                        )
+                        session.add(ordination)
+                        ordination_count += 1
+                        
+                    elif rel_data['type'] == 'consecration':
+                        # Create consecration record
+                        consecration = Consecration(
+                            clergy_id=target_id,
+                            consecrator_id=source_id,
+                            date=datetime.now().date(),  # Use current date as fallback
+                            is_sub_conditione=False,
+                            is_doubtful=False,
+                            is_invalid=False,
+                            notes=f"Migrated from legacy data",
+                            created_at=datetime.now(),
+                            updated_at=datetime.now()
+                        )
+                        session.add(consecration)
+                        consecration_count += 1
+            
+            print(f"Created {ordination_count} ordination records")
+            print(f"Created {consecration_count} consecration records")
             
             session.commit()
             
@@ -128,7 +140,8 @@ def populate_database():
             print(f"  - {len(data['clergy'])} clergy members")
             print(f"  - {len(data['ranks'])} ranks")
             print(f"  - {len(data['organizations'])} organizations")
-            print(f"  - {len(data['relationships'])} relationships")
+            print(f"  - {ordination_count} ordination records")
+            print(f"  - {consecration_count} consecration records")
             
         except Exception as e:
             print(f"Error during database population: {str(e)}")

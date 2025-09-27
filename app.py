@@ -168,18 +168,24 @@ app.jinja_env.globals['getContrastColor'] = getContrastColor
 app.jinja_env.globals['getBorderStyle'] = getBorderStyle
 app.jinja_env.filters['from_json'] = from_json
 
-# Run database migration on startup using Flask-Migrate
+# Initialize Flask-Migrate context (migrations disabled on startup)
 with app.app_context():
-    # Temporarily skip Flask-Migrate upgrade due to migration chain issue
-    # from flask_migrate import upgrade
-    # try:
-    #     upgrade()
-    #     print("✅ Flask-Migrate upgrade completed")
-    # except Exception as e:
-    #     print(f"⚠️  Flask-Migrate upgrade failed, running fallback migration: {e}")
-    #     run_database_migration(app)
-    print("🔧 Running fallback migration...")
-    run_database_migration(app)
+    # Check if automatic migrations are enabled via environment variable
+    auto_migrate = os.environ.get('AUTO_MIGRATE_ON_STARTUP', '').lower() in ('true', '1', 'yes')
+    
+    if auto_migrate:
+        print("🔧 AUTO_MIGRATE_ON_STARTUP enabled - Running database migration...")
+        try:
+            from flask_migrate import upgrade
+            upgrade()
+            print("✅ Flask-Migrate upgrade completed")
+        except Exception as e:
+            print(f"⚠️  Flask-Migrate upgrade failed, running fallback migration: {e}")
+            run_database_migration(app)
+    else:
+        print("📋 Automatic migrations disabled on startup")
+        print("   To run migrations manually, use: flask db upgrade")
+        print("   To enable auto-migration, set: AUTO_MIGRATE_ON_STARTUP=true")
     
     # Initialize Backblaze B2 configuration
     print("🔧 Initializing Backblaze B2...")

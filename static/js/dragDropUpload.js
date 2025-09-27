@@ -9,10 +9,10 @@
  *   container: '#photo-container',
  *   fileInput: '#clergyImage',
  *   uploadButton: '#uploadBtn',
- *   onFileSelect: (file) => { /* handle file selection */ },
- *   onDragEnter: () => { /* handle drag enter */ },
- *   onDragLeave: () => { /* handle drag leave */ },
- *   onDrop: (file) => { /* handle file drop */ }
+ *   onFileSelect: callbackFunction,
+ *   onDragEnter: dragEnterCallback,
+ *   onDragLeave: dragLeaveCallback,
+ *   onDrop: dropCallback
  * });
  */
 

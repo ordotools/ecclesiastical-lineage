@@ -135,7 +135,34 @@ else
     print_warning "⚠️  Legacy lineage data migration failed or not needed"
 fi
 
-# Step 7: Force migrate lineage data if needed
+# Step 7: Populate database with initial data if empty
+print_status "📊 Checking if database needs initial data..."
+python3 -c "
+from app import app, db
+from models import Clergy
+with app.app_context():
+    clergy_count = Clergy.query.count()
+    print(f'📊 Current clergy count: {clergy_count}')
+    if clergy_count == 0:
+        print('📊 Database is empty, will populate with initial data')
+        exit(0)
+    else:
+        print('📊 Database has data, skipping population')
+        exit(1)
+"
+
+if [ $? -eq 0 ]; then
+    print_status "📊 Populating database with initial data..."
+    if python3 populate_database.py; then
+        print_success "✅ Database population completed!"
+    else
+        print_warning "⚠️  Database population failed"
+    fi
+else
+    print_success "✅ Database already has data, skipping population"
+fi
+
+# Step 8: Force migrate lineage data if needed
 print_status "🔄 Force migrating lineage data..."
 if python3 force_migrate_lineage_data.py; then
     print_success "✅ Force lineage data migration completed!"
@@ -143,7 +170,7 @@ else
     print_warning "⚠️  Force lineage data migration failed"
 fi
 
-# Step 8: Verify migration was successful
+# Step 9: Verify migration was successful
 print_status "🔍 Verifying migration..."
 python3 -c "
 import os
@@ -180,7 +207,7 @@ else
     exit 1
 fi
 
-# Step 9: Start the application
+# Step 10: Start the application
 print_status "🌐 Starting PRODUCTION application..."
 print_success "✅ PRODUCTION deployment completed successfully!"
 echo ""

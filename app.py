@@ -168,38 +168,13 @@ app.jinja_env.globals['getContrastColor'] = getContrastColor
 app.jinja_env.globals['getBorderStyle'] = getBorderStyle
 app.jinja_env.filters['from_json'] = from_json
 
-# Run database migration on startup using Flask-Migrate
+# Initialize Flask-Migrate context (migrations disabled on startup)
 with app.app_context():
-    # Check if we should run the wipe and restore migration
-    should_wipe_restore = os.environ.get('WIPE_AND_RESTORE_PRODUCTION', '').lower() in ('true', '1', 'yes')
+    # Check if automatic migrations are enabled via environment variable
+    auto_migrate = os.environ.get('AUTO_MIGRATE_ON_STARTUP', '').lower() in ('true', '1', 'yes')
     
-    if should_wipe_restore:
-        print("🚨 WIPE AND RESTORE MODE ENABLED")
-        print("⚠️  This will completely wipe the production database and restore from staging!")
-        print("🔧 Running wipe and restore migration...")
-        
-        try:
-            from flask_migrate import upgrade
-            upgrade()
-            print("✅ Wipe and restore migration completed successfully!")
-        except Exception as e:
-            print(f"❌ Wipe and restore migration failed: {e}")
-            print("🔧 Falling back to manual sync...")
-            try:
-                import subprocess
-                result = subprocess.run(['python3', 'sync_staging_to_production.py'], 
-                                      capture_output=True, text=True, input='WIPE_PRODUCTION\n')
-                if result.returncode == 0:
-                    print("✅ Manual sync completed successfully!")
-                else:
-                    print(f"❌ Manual sync failed: {result.stderr}")
-                    raise Exception("Both migration and manual sync failed")
-            except Exception as sync_error:
-                print(f"❌ All wipe and restore methods failed: {sync_error}")
-                raise
-    else:
-        # Normal migration process
-        print("🔧 Running normal database migration...")
+    if auto_migrate:
+        print("🔧 AUTO_MIGRATE_ON_STARTUP enabled - Running database migration...")
         try:
             from flask_migrate import upgrade
             upgrade()
@@ -207,6 +182,10 @@ with app.app_context():
         except Exception as e:
             print(f"⚠️  Flask-Migrate upgrade failed, running fallback migration: {e}")
             run_database_migration(app)
+    else:
+        print("📋 Automatic migrations disabled on startup")
+        print("   To run migrations manually, use: flask db upgrade")
+        print("   To enable auto-migration, set: AUTO_MIGRATE_ON_STARTUP=true")
     
     # Initialize Backblaze B2 configuration
     print("🔧 Initializing Backblaze B2...")

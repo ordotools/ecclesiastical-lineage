@@ -43,30 +43,38 @@ def populate_database():
                 print("Skipping population as data already exists.")
                 return
             
-            # Create ranks
+            # Create ranks (only if they don't exist)
             print("Creating ranks...")
             rank_map = {}
             for rank_data in data['ranks']:
-                rank = Rank(
-                    name=rank_data['name'],
-                    is_bishop=rank_data['is_bishop'],
-                    color=rank_data['color']
-                )
-                session.add(rank)
-                session.flush()  # Get the ID
-                rank_map[rank_data['name']] = rank.id
+                existing_rank = session.query(Rank).filter_by(name=rank_data['name']).first()
+                if existing_rank:
+                    rank_map[rank_data['name']] = existing_rank.id
+                else:
+                    rank = Rank(
+                        name=rank_data['name'],
+                        is_bishop=rank_data['is_bishop'],
+                        color=rank_data['color']
+                    )
+                    session.add(rank)
+                    session.flush()  # Get the ID
+                    rank_map[rank_data['name']] = rank.id
             
-            # Create organizations
+            # Create organizations (only if they don't exist)
             print("Creating organizations...")
             org_map = {}
             for org_data in data['organizations']:
-                org = Organization(
-                    name=org_data['name'],
-                    color=org_data['color']
-                )
-                session.add(org)
-                session.flush()  # Get the ID
-                org_map[org_data['name']] = org.id
+                existing_org = session.query(Organization).filter_by(name=org_data['name']).first()
+                if existing_org:
+                    org_map[org_data['name']] = existing_org.id
+                else:
+                    org = Organization(
+                        name=org_data['name'],
+                        color=org_data['color']
+                    )
+                    session.add(org)
+                    session.flush()  # Get the ID
+                    org_map[org_data['name']] = org.id
             
             session.commit()
             

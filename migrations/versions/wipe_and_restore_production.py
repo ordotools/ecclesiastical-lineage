@@ -17,7 +17,7 @@ load_dotenv()
 
 # revision identifiers, used by Alembic.
 revision = 'wipe_restore_prod'
-down_revision = 'ffca03f86792'
+down_revision = 'rebuild_db_users'
 branch_labels = None
 depends_on = None
 

@@ -57,7 +57,7 @@ print_success "✅ DATABASE_URL is configured"
 
 # Step 4: Initialize database first (creates tables if they don't exist)
 print_status "🗄️  Initializing database tables..."
-if python3 init_postgres_db.py; then
+if python3 scripts/database/init_postgres_db.py; then
     print_success "✅ Database initialization completed successfully!"
 else
     print_warning "⚠️  Database initialization had warnings (admin user may already exist)"
@@ -186,40 +186,8 @@ else
     exit 1
 fi
 
-# Step 6: Migrate legacy lineage data
-print_status "🔄 Migrating legacy lineage data..."
-if python3 migrate_legacy_lineage_data.py; then
-    print_success "✅ Legacy lineage data migration completed!"
-else
-    print_warning "⚠️  Legacy lineage data migration failed or not needed"
-fi
-
-# Step 7: Force migrate lineage data if needed
-print_status "🔄 Force migrating lineage data..."
-if python3 force_migrate_lineage_data.py; then
-    print_success "✅ Force lineage data migration completed!"
-else
-    print_warning "⚠️  Force lineage data migration failed"
-fi
-
-# Step 7.5: Force merge scraped data (one-time operation)
-print_status "🔄 Force merging scraped data..."
-print_status "📄 Checking if advanced_scraped_data.json exists..."
-if [ -f "advanced_scraped_data.json" ]; then
-    print_success "✅ advanced_scraped_data.json found"
-    print_status "🚀 Running force merge script..."
-    if python3 run_force_merge_on_render.py; then
-        print_success "✅ Force merge of scraped data completed!"
-    else
-        print_error "❌ Force merge of scraped data failed!"
-        exit 1
-    fi
-else
-    print_warning "⚠️  advanced_scraped_data.json not found, skipping force merge"
-fi
-
-# Step 8: Verify migration was successful
-print_status "🔍 Verifying migration..."
+# Step 6: Verify database is ready
+print_status "🔍 Verifying database..."
 python3 -c "
 import os
 import sys
@@ -273,13 +241,13 @@ with app.app_context():
 "
 
 if [ $? -eq 0 ]; then
-    print_success "✅ Migration verification passed!"
+    print_success "✅ Database verification passed!"
 else
-    print_error "❌ Migration verification failed!"
+    print_error "❌ Database verification failed!"
     exit 1
 fi
 
-# Step 9: Start the application
+# Step 7: Start the application
 print_status "🌐 Starting STAGING application..."
 print_success "✅ STAGING deployment completed successfully!"
 echo ""

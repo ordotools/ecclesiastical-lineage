@@ -106,7 +106,7 @@
                                 style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
                             <option value="" style="background: #2c3e50; color: white;">Select Rank</option>
                             {% for rank in fields.ranks %}
-                            <option value="{{ rank.name }}" data-is-bishop="{{ rank.is_bishop|lower }}" style="background: #2c3e50; color: white;" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>
+                            <option value="{{ rank.name }}" data-is-bishop="{{ 'true' if rank.is_bishop else 'false' }}" style="background: #2c3e50; color: white;" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>
                                 {{ rank.name }}
                             </option>
                             {% endfor %}

@@ -562,7 +562,13 @@ def clergy_modal_add():
 def clergy_modal_edit(clergy_id):
     from models import Rank, Organization, Clergy, User
     
-    clergy = Clergy.query.get_or_404(clergy_id)
+    # Eagerly load ordination and consecration relationships
+    from sqlalchemy.orm import joinedload
+    clergy = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+        joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+    ).filter(Clergy.id == clergy_id).first_or_404()
     user = User.query.get(session.get('user_id'))
     
     # Get the same data that edit_clergy_handler provides
@@ -611,7 +617,13 @@ def edit_clergy_from_lineage(clergy_id):
     """Edit clergy from lineage visualization with modal context"""
     from models import Rank, Organization, Clergy, User
     
-    clergy = Clergy.query.get_or_404(clergy_id)
+    # Eagerly load ordination and consecration relationships
+    from sqlalchemy.orm import joinedload
+    clergy = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+        joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+    ).filter(Clergy.id == clergy_id).first_or_404()
     user = User.query.get(session.get('user_id'))
     
     # Get the same data that edit_clergy_handler provides
@@ -660,14 +672,26 @@ def edit_clergy_from_lineage(clergy_id):
 
 @main_bp.route('/clergy/modal/<int:clergy_id>/comment')
 def clergy_modal_comment(clergy_id):
-    clergy = Clergy.query.get_or_404(clergy_id)
+    # Eagerly load ordination and consecration relationships
+    from sqlalchemy.orm import joinedload
+    clergy = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+        joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+    ).filter(Clergy.id == clergy_id).first_or_404()
     return render_template('_clergy_comment_modal.html', clergy=clergy)
 
 @main_bp.route('/clergy/relationships/<int:clergy_id>')
 def clergy_relationships(clergy_id):
     """Get clergy relationships for lineage visualization"""
     try:
-        clergy = Clergy.query.get_or_404(clergy_id)
+        # Eagerly load ordination and consecration relationships
+        from sqlalchemy.orm import joinedload
+        clergy = Clergy.query.options(
+            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+        ).filter(Clergy.id == clergy_id).first_or_404()
         
         # Get ordaining bishop from new ordination table
         ordaining_bishop = None

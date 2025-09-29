@@ -336,38 +336,41 @@ function populateExistingOrdinations() {
     ];
     console.log('Populating', ordinations.length, 'existing ordinations...');
     
-    {% for ordination in clergy.get_all_ordinations() %}
-    addOrdination();
-    const ordinationEntry = container.lastElementChild;
-    if (ordinationEntry) {
-        // Populate date
-        const dateInput = ordinationEntry.querySelector('input[name*="[date]"]');
-        if (dateInput) {
-            dateInput.value = {{ ordination.date.strftime('%Y-%m-%d')|tojson if ordination.date else '""' }};
+    // Populate ordinations using JavaScript
+    ordinations.forEach((ordination, index) => {
+        addOrdination();
+        const ordinationEntry = container.lastElementChild;
+        if (ordinationEntry) {
+            // Populate date
+            const dateInput = ordinationEntry.querySelector('input[name*="[date]"]');
+            if (dateInput && ordination.date) {
+                dateInput.value = ordination.date;
+            }
+            
+            // Populate ordaining bishop
+            const bishopInput = ordinationEntry.querySelector('input[name*="[ordaining_bishop_input]"]');
+            const bishopIdInput = ordinationEntry.querySelector('input[name*="[ordaining_bishop_id]"]');
+            if (ordination.ordaining_bishop) {
+                if (bishopInput) bishopInput.value = ordination.ordaining_bishop.name;
+                if (bishopIdInput) bishopIdInput.value = ordination.ordaining_bishop.id;
+            }
+            
+            // Populate checkboxes
+            const subConditioneInput = ordinationEntry.querySelector('input[name*="[is_sub_conditione]"]');
+            const doubtfulInput = ordinationEntry.querySelector('input[name*="[is_doubtful]"]');
+            const invalidInput = ordinationEntry.querySelector('input[name*="[is_invalid]"]');
+            
+            if (subConditioneInput) subConditioneInput.checked = ordination.is_sub_conditione;
+            if (doubtfulInput) doubtfulInput.checked = ordination.is_doubtful;
+            if (invalidInput) invalidInput.checked = ordination.is_invalid;
+            
+            // Populate notes
+            const notesTextarea = ordinationEntry.querySelector('textarea[name*="[notes]"]');
+            if (notesTextarea && ordination.notes) {
+                notesTextarea.value = ordination.notes;
+            }
         }
-        
-        // Populate ordaining bishop
-        const bishopInput = ordinationEntry.querySelector('input[name*="[ordaining_bishop_input]"]');
-        const bishopIdInput = ordinationEntry.querySelector('input[name*="[ordaining_bishop_id]"]');
-        {% if ordination.ordaining_bishop %}
-        if (bishopInput) bishopInput.value = {{ ordination.ordaining_bishop.name|tojson }};
-        if (bishopIdInput) bishopIdInput.value = {{ ordination.ordaining_bishop.id|tojson }};
-        {% endif %}
-        
-        // Populate checkboxes
-        const subConditioneInput = ordinationEntry.querySelector('input[name*="[is_sub_conditione]"]');
-        const doubtfulInput = ordinationEntry.querySelector('input[name*="[is_doubtful]"]');
-        const invalidInput = ordinationEntry.querySelector('input[name*="[is_invalid]"]');
-        
-        if (subConditioneInput) subConditioneInput.checked = {{ ordination.is_sub_conditione|lower }};
-        if (doubtfulInput) doubtfulInput.checked = {{ ordination.is_doubtful|lower }};
-        if (invalidInput) invalidInput.checked = {{ ordination.is_invalid|lower }};
-        
-        // Populate notes
-        const notesTextarea = ordinationEntry.querySelector('textarea[name*="[notes]"]');
-        if (notesTextarea) notesTextarea.value = {{ ordination.notes|tojson if ordination.notes else '""' }};
-    }
-    {% endfor %}
+    });
     {% else %}
     console.log('No ordinations to populate or not in edit mode');
     {% endif %}
@@ -405,66 +408,67 @@ function populateExistingConsecrations() {
     ];
     console.log('Populating', consecrations.length, 'existing consecrations...');
     
-    {% for consecration in clergy.get_all_consecrations() %}
-    addConsecration();
-    const consecrationEntry = container.lastElementChild;
-    if (consecrationEntry) {
-        // Populate date
-        const dateInput = consecrationEntry.querySelector('input[name*="[date]"]');
-        if (dateInput) {
-            dateInput.value = {{ consecration.date.strftime('%Y-%m-%d')|tojson if consecration.date else '""' }};
+    // Populate consecrations using JavaScript
+    consecrations.forEach((consecration, index) => {
+        addConsecration();
+        const consecrationEntry = container.lastElementChild;
+        if (consecrationEntry) {
+            // Populate date
+            const dateInput = consecrationEntry.querySelector('input[name*="[date]"]');
+            if (dateInput && consecration.date) {
+                dateInput.value = consecration.date;
+            }
+            
+            // Populate consecrator
+            const consecratorInput = consecrationEntry.querySelector('input[name*="[consecrator_input]"]');
+            const consecratorIdInput = consecrationEntry.querySelector('input[name*="[consecrator_id]"]');
+            if (consecration.consecrator) {
+                if (consecratorInput) consecratorInput.value = consecration.consecrator.name;
+                if (consecratorIdInput) consecratorIdInput.value = consecration.consecrator.id;
+            }
+            
+            // Populate co-consecrators
+            if (consecration.co_consecrators && consecration.co_consecrators.length > 0) {
+                const coConsecratorInput = consecrationEntry.querySelector('input[name*="[co_consecrators][0][input]"]');
+                const coConsecratorIdInput = consecrationEntry.querySelector('input[name*="[co_consecrators][0][id]"]');
+                const firstCoConsecrator = consecration.co_consecrators[0];
+                if (coConsecratorInput) coConsecratorInput.value = firstCoConsecrator.name;
+                if (coConsecratorIdInput) coConsecratorIdInput.value = firstCoConsecrator.id;
+                
+                // Add additional co-consecrators if they exist
+                const coConsecratorsList = consecrationEntry.querySelector('.co-consecrators-list');
+                if (coConsecratorsList && consecration.co_consecrators.length > 1) {
+                    consecration.co_consecrators.slice(1).forEach((coConsecrator, coIndex) => {
+                        const additionalCoConsecratorHtml = `
+                            <div class="co-consecrator-item" style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
+                                <input type="text" name="consecrations[${index}][co_consecrators][${coIndex + 1}][input]" value="${coConsecrator.name}" style="flex: 1; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                                <input type="hidden" name="consecrations[${index}][co_consecrators][${coIndex + 1}][id]" value="${coConsecrator.id}">
+                                <button type="button" class="remove-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 100, 100, 0.4); background: rgba(255, 100, 100, 0.08); color: rgba(255, 150, 150, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.75em;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        `;
+                        coConsecratorsList.insertAdjacentHTML('beforeend', additionalCoConsecratorHtml);
+                    });
+                }
+            }
+            
+            // Populate checkboxes
+            const subConditioneInput = consecrationEntry.querySelector('input[name*="[is_sub_conditione]"]');
+            const doubtfulInput = consecrationEntry.querySelector('input[name*="[is_doubtful]"]');
+            const invalidInput = consecrationEntry.querySelector('input[name*="[is_invalid]"]');
+            
+            if (subConditioneInput) subConditioneInput.checked = consecration.is_sub_conditione;
+            if (doubtfulInput) doubtfulInput.checked = consecration.is_doubtful;
+            if (invalidInput) invalidInput.checked = consecration.is_invalid;
+            
+            // Populate notes
+            const notesTextarea = consecrationEntry.querySelector('textarea[name*="[notes]"]');
+            if (notesTextarea && consecration.notes) {
+                notesTextarea.value = consecration.notes;
+            }
         }
-        
-        // Populate consecrator
-        const consecratorInput = consecrationEntry.querySelector('input[name*="[consecrator_input]"]');
-        const consecratorIdInput = consecrationEntry.querySelector('input[name*="[consecrator_id]"]');
-        {% if consecration.consecrator %}
-        if (consecratorInput) consecratorInput.value = {{ consecration.consecrator.name|tojson }};
-        if (consecratorIdInput) consecratorIdInput.value = {{ consecration.consecrator.id|tojson }};
-        {% endif %}
-        
-        // Populate first co-consecrator
-        const coConsecratorInput = consecrationEntry.querySelector('input[name*="[co_consecrators][0][input]"]');
-        const coConsecratorIdInput = consecrationEntry.querySelector('input[name*="[co_consecrators][0][id]"]');
-        {% if consecration.co_consecrators %}
-        {% set first_co_consecrator = consecration.co_consecrators[0] %}
-        if (coConsecratorInput) coConsecratorInput.value = {{ first_co_consecrator.name|tojson }};
-        if (coConsecratorIdInput) coConsecratorIdInput.value = {{ first_co_consecrator.id|tojson }};
-        
-        // Add additional co-consecrators if they exist
-        const coConsecratorsList = consecrationEntry.querySelector('.co-consecrators-list');
-        {% for co_consecrator in consecration.co_consecrators[1:] %}
-        if (coConsecratorsList) {
-            const coConsecratorName = {{ co_consecrator.name|tojson }};
-            const coConsecratorId = {{ co_consecrator.id|tojson }};
-            const additionalCoConsecratorHtml = `
-                <div class="co-consecrator-item" style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
-                    <input type="text" name="consecrations[${consecrationCount-1}][co_consecrators][{{ loop.index }}][input]" value="${coConsecratorName}" style="flex: 1; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
-                    <input type="hidden" name="consecrations[${consecrationCount-1}][co_consecrators][{{ loop.index }}][id]" value="${coConsecratorId}">
-                    <button type="button" class="remove-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 100, 100, 0.4); background: rgba(255, 100, 100, 0.08); color: rgba(255, 150, 150, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.75em;">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            `;
-            coConsecratorsList.insertAdjacentHTML('beforeend', additionalCoConsecratorHtml);
-        }
-        {% endfor %}
-        {% endif %}
-        
-        // Populate checkboxes
-        const subConditioneInput = consecrationEntry.querySelector('input[name*="[is_sub_conditione]"]');
-        const doubtfulInput = consecrationEntry.querySelector('input[name*="[is_doubtful]"]');
-        const invalidInput = consecrationEntry.querySelector('input[name*="[is_invalid]"]');
-        
-        if (subConditioneInput) subConditioneInput.checked = {{ consecration.is_sub_conditione|lower }};
-        if (doubtfulInput) doubtfulInput.checked = {{ consecration.is_doubtful|lower }};
-        if (invalidInput) invalidInput.checked = {{ consecration.is_invalid|lower }};
-        
-        // Populate notes
-        const notesTextarea = consecrationEntry.querySelector('textarea[name*="[notes]"]');
-        if (notesTextarea) notesTextarea.value = {{ consecration.notes|tojson if consecration.notes else '""' }};
-    }
-    {% endfor %}
+    });
     {% else %}
     console.log('No ordinations to populate or not in edit mode');
     {% endif %}

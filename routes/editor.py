@@ -160,8 +160,13 @@ def clergy_form_panel(clergy_id=None):
     fields = FormFields(ranks, organizations)
     
     if clergy_id:
-        # Edit mode
-        clergy = Clergy.query.get_or_404(clergy_id)
+        # Edit mode - eagerly load ordination and consecration relationships
+        from sqlalchemy.orm import joinedload
+        clergy = Clergy.query.options(
+            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+        ).filter(Clergy.id == clergy_id).first_or_404()
         return render_template('editor_panels/clergy_form.html', 
                              fields=fields, 
                              clergy=clergy, 
@@ -197,8 +202,13 @@ def clergy_form_content(clergy_id=None):
     fields = FormFields(ranks, organizations)
     
     if clergy_id:
-        # Edit mode
-        clergy = Clergy.query.get_or_404(clergy_id)
+        # Edit mode - eagerly load ordination and consecration relationships
+        from sqlalchemy.orm import joinedload
+        clergy = Clergy.query.options(
+            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+        ).filter(Clergy.id == clergy_id).first_or_404()
         return render_template('clergy_form_content.html', 
                              fields=fields, 
                              clergy=clergy, 

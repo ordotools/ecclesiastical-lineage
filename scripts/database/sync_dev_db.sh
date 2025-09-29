@@ -69,11 +69,23 @@ echo ""
 echo "🔄 Starting database sync..."
 
 # Drop and recreate the local database
+echo "🗑️  Terminating connections to local database..."
+psql -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$LOCAL_DB_NAME' AND pid <> pg_backend_pid();" 2>/dev/null || true
+
 echo "🗑️  Dropping local database..."
-dropdb --if-exists "$LOCAL_DB_NAME" 2>/dev/null || true
+if dropdb --if-exists "$LOCAL_DB_NAME"; then
+    echo "✅ Local database dropped successfully"
+else
+    echo "⚠️  Database may not have existed or was already dropped"
+fi
 
 echo "📊 Creating local database..."
-createdb "$LOCAL_DB_NAME"
+if createdb "$LOCAL_DB_NAME"; then
+    echo "✅ Local database created successfully"
+else
+    echo "❌ Failed to create local database"
+    exit 1
+fi
 
 # Export from remote and import to local
 echo "📤 Exporting data from remote PostgreSQL..."

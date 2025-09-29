@@ -979,6 +979,12 @@ function initializeDragDropForHTMX() {
 
 // Switch form to edit mode after saving a new clergy record
 function switchToEditMode(clergyId) {
+    // Force clergy switching detection by setting a different clergy ID
+    if (typeof window.isClergySwitching === 'function') {
+        // This will make the next call to isClergySwitching() return true
+        window.currentClergyId = 'force-switch-' + clergyId;
+    }
+    
     // Use the same mechanism as selecting a clergy member for editing
     // This will trigger the proper HTMX request to load the edit form
     if (typeof selectClergy === 'function') {
@@ -995,6 +1001,12 @@ function switchToEditMode(clergyId) {
 
 // Clear form and switch to add mode after deletion
 function clearFormForNewEntry() {
+    // Force clergy switching detection by resetting the current clergy ID
+    if (typeof window.isClergySwitching === 'function') {
+        // This will make the next call to isClergySwitching() return true
+        window.currentClergyId = 'force-reset';
+    }
+    
     // Use the same mechanism as the "Add New Clergy" button
     // This will trigger the proper HTMX request to load the empty form
     if (typeof selectClergy === 'function') {

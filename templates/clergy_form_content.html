@@ -261,9 +261,53 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('🎯 CONTENT TEMPLATE: initializeFormFromRank completed');
 });
 
+// Reset population flags when form is cleared or clergy changes
+function resetPopulationFlags() {
+    const ordinationsContainer = document.getElementById('ordinationsContainer');
+    const consecrationsContainer = document.getElementById('consecrationsContainer');
+    
+    if (ordinationsContainer) {
+        ordinationsContainer.removeAttribute('data-ordinations-populated');
+    }
+    if (consecrationsContainer) {
+        consecrationsContainer.removeAttribute('data-consecrations-populated');
+    }
+}
+
+// Check if we're switching to a different clergy record
+function isClergySwitching() {
+    // Initialize currentClergyId if not already set
+    if (typeof window.currentClergyId === 'undefined') {
+        window.currentClergyId = null;
+    }
+    
+    {% if edit_mode and clergy %}
+    const newClergyId = {{ clergy.id }};
+    if (window.currentClergyId !== newClergyId) {
+        window.currentClergyId = newClergyId;
+        return true;
+    }
+    return false;
+    {% else %}
+    // For new clergy (not edit mode), always reset
+    if (window.currentClergyId !== null) {
+        window.currentClergyId = null;
+        return true;
+    }
+    return false;
+    {% endif %}
+}
+
 // Initialize form fields based on existing rank data
 function initializeFormFromRank() {
     console.log('🔧 INIT: initializeFormFromRank called');
+    
+    // Only reset population flags if we're switching to a different clergy record
+    if (isClergySwitching()) {
+        console.log('🔧 INIT: Switching clergy, resetting population flags');
+        resetPopulationFlags();
+    }
+    
     const rankSelect = document.getElementById('rank');
     console.log('🔧 INIT: rankSelect found:', !!rankSelect);
     
@@ -318,6 +362,12 @@ function populateExistingOrdinations() {
     const container = document.getElementById('ordinationsContainer');
     if (!container) return;
     
+    // Check if ordinations have already been populated to prevent duplicates
+    if (container.hasAttribute('data-ordinations-populated')) {
+        console.log('Ordinations already populated, skipping...');
+        return;
+    }
+    
     const ordinations = [
         {% for ordination in clergy.get_all_ordinations() %}
         {
@@ -335,6 +385,9 @@ function populateExistingOrdinations() {
         {% endfor %}
     ];
     console.log('Populating', ordinations.length, 'existing ordinations...');
+    
+    // Mark as populated before adding entries
+    container.setAttribute('data-ordinations-populated', 'true');
     
     // Populate ordinations using JavaScript
     ordinations.forEach((ordination, index) => {
@@ -382,6 +435,12 @@ function populateExistingConsecrations() {
     const container = document.getElementById('consecrationsContainer');
     if (!container) return;
     
+    // Check if consecrations have already been populated to prevent duplicates
+    if (container.hasAttribute('data-consecrations-populated')) {
+        console.log('Consecrations already populated, skipping...');
+        return;
+    }
+    
     const consecrations = [
         {% for consecration in clergy.get_all_consecrations() %}
         {
@@ -407,6 +466,9 @@ function populateExistingConsecrations() {
         {% endfor %}
     ];
     console.log('Populating', consecrations.length, 'existing consecrations...');
+    
+    // Mark as populated before adding entries
+    container.setAttribute('data-consecrations-populated', 'true');
     
     // Populate consecrations using JavaScript
     consecrations.forEach((consecration, index) => {
@@ -1068,6 +1130,8 @@ if (!window.clergyFormEventListenersAttached) {
     window.initializeFormFromRank = initializeFormFromRank;
     window.populateExistingOrdinations = populateExistingOrdinations;
     window.populateExistingConsecrations = populateExistingConsecrations;
+    window.resetPopulationFlags = resetPopulationFlags;
+    window.isClergySwitching = isClergySwitching;
     
     // Debug function to manually test initialization
     window.debugFormInit = function() {

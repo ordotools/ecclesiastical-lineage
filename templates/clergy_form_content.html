@@ -248,6 +248,7 @@ console.log('🎯 CONTENT TEMPLATE: Running immediate initialization');
 adjustFormLayout();
 initializeFormFromRank();
 initializeClergyAutocomplete();
+attachRankChangeListener(); // Attach rank change listener for HTMX-loaded content
 console.log('🎯 CONTENT TEMPLATE: Immediate initialization completed');
 
 // Also listen for DOMContentLoaded (in case it's not HTMX loaded)
@@ -258,6 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
     adjustFormLayout();
     initializeFormFromRank();
     initializeClergyAutocomplete();
+    attachRankChangeListener(); // Attach rank change listener for DOM-loaded content
     console.log('🎯 CONTENT TEMPLATE: initializeFormFromRank completed');
 });
 
@@ -614,57 +616,62 @@ function adjustFormLayout() {
     console.log('Layout adjusted. Photo rows:', `${photoStartRow}-${photoStartRow + 2}`, 'Ordinations row:', currentRow - 1);
 }
 
-// Watch for rank changes to show/hide papal name field and consecrations
-(function() {
+// Function to attach rank change event listener
+function attachRankChangeListener() {
     const rankSelect = document.getElementById('rank');
-    if (rankSelect) {
+    if (rankSelect && !rankSelect.hasAttribute('data-change-listener-attached')) {
+        rankSelect.setAttribute('data-change-listener-attached', 'true');
         rankSelect.addEventListener('change', function() {
-        console.log('🔄 RANK CHANGE: Event triggered');
-        const papalField = document.getElementById('papalNameField');
-        const consecrationsField = document.getElementById('consecrationsField');
-        const selectedOption = this.options[this.selectedIndex];
-        const rankValue = this.value.toLowerCase();
-        const isBishop = selectedOption.getAttribute('data-is-bishop') === 'true';
-        
-        console.log('🔄 RANK CHANGE: Details:', {
-            rankValue: rankValue,
-            isBishop: isBishop,
-            dataAttribute: selectedOption.getAttribute('data-is-bishop'),
-            papalField: !!papalField,
-            consecrationsField: !!consecrationsField
-        });
-        
-        // Handle papal name field (only for pope)
-        if (rankValue === 'pope') {
-            if (papalField) {
-                papalField.style.display = 'block';
-            }
-        } else {
-            if (papalField) {
-                papalField.style.display = 'none';
-            }
-        }
-        
-        // Handle consecrations field (for any rank with is_bishop flag)
-        if (isBishop) {
-            if (consecrationsField) {
-                consecrationsField.style.display = 'block';
-                console.log('🔄 RANK CHANGE: ✅ Showing consecrations field for bishop rank');
+            console.log('🔄 RANK CHANGE: Event triggered');
+            const papalField = document.getElementById('papalNameField');
+            const consecrationsField = document.getElementById('consecrationsField');
+            const selectedOption = this.options[this.selectedIndex];
+            const rankValue = this.value.toLowerCase();
+            const isBishop = selectedOption.getAttribute('data-is-bishop') === 'true';
+            
+            console.log('🔄 RANK CHANGE: Details:', {
+                rankValue: rankValue,
+                isBishop: isBishop,
+                dataAttribute: selectedOption.getAttribute('data-is-bishop'),
+                papalField: !!papalField,
+                consecrationsField: !!consecrationsField
+            });
+            
+            // Handle papal name field (only for pope)
+            if (rankValue === 'pope') {
+                if (papalField) {
+                    papalField.style.display = 'block';
+                }
             } else {
-                console.log('🔄 RANK CHANGE: ❌ consecrationsField not found');
+                if (papalField) {
+                    papalField.style.display = 'none';
+                }
             }
-        } else {
-            if (consecrationsField) {
-                consecrationsField.style.display = 'none';
-                console.log('🔄 RANK CHANGE: Hiding consecrations field - not bishop rank');
+            
+            // Handle consecrations field (for any rank with is_bishop flag)
+            if (isBishop) {
+                if (consecrationsField) {
+                    consecrationsField.style.display = 'block';
+                    console.log('🔄 RANK CHANGE: ✅ Showing consecrations field for bishop rank');
+                } else {
+                    console.log('🔄 RANK CHANGE: ❌ consecrationsField not found');
+                }
+            } else {
+                if (consecrationsField) {
+                    consecrationsField.style.display = 'none';
+                    console.log('🔄 RANK CHANGE: Hiding consecrations field - not bishop rank');
+                }
             }
-        }
-        
-        // Update form layout
-        adjustFormLayout();
-    });
+            
+            // Update form layout
+            adjustFormLayout();
+        });
+        console.log('✅ Rank change listener attached');
     }
-})();
+}
+
+// Attach rank change listener immediately
+attachRankChangeListener();
 
 // Initial layout adjustment
 document.addEventListener('DOMContentLoaded', function() {

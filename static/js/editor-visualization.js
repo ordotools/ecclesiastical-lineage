@@ -20,17 +20,17 @@ if (typeof window.LINK_DISTANCE === 'undefined') {
 }
 
 // Use window variables to prevent const redeclaration errors
-const LINK_DISTANCE = window.LINK_DISTANCE;
-const CHARGE_STRENGTH = window.CHARGE_STRENGTH;
-const COLLISION_RADIUS = window.COLLISION_RADIUS;
-const OUTER_RADIUS = window.OUTER_RADIUS;
-const INNER_RADIUS = window.INNER_RADIUS;
-const IMAGE_SIZE = window.IMAGE_SIZE;
-const LABEL_DY = window.LABEL_DY;
+var LINK_DISTANCE = window.LINK_DISTANCE;
+var CHARGE_STRENGTH = window.CHARGE_STRENGTH;
+var COLLISION_RADIUS = window.COLLISION_RADIUS;
+var OUTER_RADIUS = window.OUTER_RADIUS;
+var INNER_RADIUS = window.INNER_RADIUS;
+var IMAGE_SIZE = window.IMAGE_SIZE;
+var LABEL_DY = window.LABEL_DY;
 
 // Get color constants from CSS variables
-const GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim() || '#27ae60';
-const BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-black').trim() || '#000000';
+var GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim() || '#27ae60';
+var BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-black').trim() || '#000000';
 
 // Prevent duplicate class declarations
 if (typeof window.EditorVisualization === 'undefined') {

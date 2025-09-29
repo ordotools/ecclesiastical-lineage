@@ -196,7 +196,9 @@
 
 <script>
 // Store all clergy data for client-side filtering
-let allClergyData = [];
+if (typeof allClergyData === 'undefined') {
+    var allClergyData = [];
+}
 
 // Initialize clergy data from DOM
 function initializeClergyData() {
@@ -516,6 +518,7 @@ if (document.readyState === 'loading') {
 setTimeout(initializeClergyList, 100);
 
 // Internal panel resizing functionality
+if (typeof ClergyPanelResizer === 'undefined') {
 class ClergyPanelResizer {
     constructor() {
         this.isResizing = false;
@@ -599,6 +602,7 @@ class ClergyPanelResizer {
 
 // Initialize clergy panel resizer
 new ClergyPanelResizer();
+}
 
 // Clergy panel tab switching
 document.addEventListener('DOMContentLoaded', function() {
@@ -635,8 +639,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load audit logs content initially since it's the active tab
     console.log('🔍 Clergy list initialization complete, calling loadAuditLogsContent...');
     try {
-        loadAuditLogsContent();
-        console.log('🔍 loadAuditLogsContent() call completed');
+        // Add a small delay to ensure DOM is fully ready
+        setTimeout(() => {
+            loadAuditLogsContent();
+            console.log('🔍 loadAuditLogsContent() call completed');
+        }, 50);
     } catch (error) {
         console.error('❌ Error calling loadAuditLogsContent():', error);
     }
@@ -668,23 +675,34 @@ function loadAuditLogsContent() {
     
     console.log('✅ Loading audit logs content via HTMX...');
     
-    // Load audit logs content via HTMX
-    htmx.ajax('GET', '/editor/audit-logs', {
-        target: auditLogsContent,
-        swap: 'innerHTML'
-    }).then(() => {
-        console.log('✅ Audit logs content loaded, initializing smart updater...');
-        // Initialize the smart updater after content is loaded
-        setTimeout(() => {
-            if (!window.auditLogsUpdater && window.AuditLogsUpdater) {
-                console.log('🚀 Creating new AuditLogsUpdater instance...');
-                window.auditLogsUpdater = new window.AuditLogsUpdater();
-            } else {
-                console.log('♻️ AuditLogsUpdater already exists, skipping creation');
-            }
-        }, 100);
-    }).catch(error => {
-        console.error('❌ Error loading audit logs content:', error);
-    });
+    // Load audit logs content via HTMX with better error handling
+    try {
+        htmx.ajax('GET', '/editor/audit-logs', {
+            target: auditLogsContent,
+            swap: 'innerHTML'
+        }).then(() => {
+            console.log('✅ Audit logs content loaded, initializing smart updater...');
+            // Initialize the smart updater after content is loaded
+            setTimeout(() => {
+                try {
+                    if (!window.auditLogsUpdater && window.AuditLogsUpdater) {
+                        console.log('🚀 Creating new AuditLogsUpdater instance...');
+                        window.auditLogsUpdater = new window.AuditLogsUpdater();
+                    } else {
+                        console.log('♻️ AuditLogsUpdater already exists, skipping creation');
+                    }
+                } catch (error) {
+                    console.error('❌ Error initializing AuditLogsUpdater:', error);
+                }
+            }, 100);
+        }).catch(error => {
+            console.error('❌ Error loading audit logs content:', error);
+            // Show error message in the content area
+            auditLogsContent.innerHTML = '<div style="text-align: center; padding: 1em; color: rgba(255, 255, 255, 0.6); font-size: 0.8em;">Error loading audit logs. Please try again.</div>';
+        });
+    } catch (error) {
+        console.error('❌ Error in loadAuditLogsContent:', error);
+        auditLogsContent.innerHTML = '<div style="text-align: center; padding: 1em; color: rgba(255, 255, 255, 0.6); font-size: 0.8em;">Error loading audit logs. Please try again.</div>';
+    }
 }
 </script>

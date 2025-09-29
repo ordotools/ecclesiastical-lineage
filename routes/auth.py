@@ -6,16 +6,6 @@ from datetime import datetime
 
 auth_bp = Blueprint('auth', __name__)
 
-@auth_bp.route('/')
-def index():
-    # Check if user is logged in
-    if 'user_id' in session:
-        # User is logged in, redirect to editor
-        return redirect(url_for('editor.editor'))
-    else:
-        # User is not logged in, redirect to lineage visualization
-        return redirect(url_for('main.lineage_visualization'))
-
 @auth_bp.route('/dashboard')
 def dashboard():
     if 'user_id' not in session:
@@ -69,7 +59,7 @@ def login():
 def logout():
     session.clear()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('main.lineage_visualization'))
+    return redirect(url_for('main.index'))
 
 @auth_bp.route('/admin_invite_signup/<token>', methods=['GET', 'POST'])
 def admin_invite_signup(token):

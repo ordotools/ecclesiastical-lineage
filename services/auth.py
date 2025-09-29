@@ -103,5 +103,5 @@ def logout_handler():
     session.clear()
     flash('You have been logged out.', 'info')
     if request.headers.get('HX-Request'):
-        return user, render_template('login_spinner.html', redirect_url=url_for('main.lineage_visualization'))
-    return user, redirect(url_for('main.lineage_visualization')) 
+        return user, render_template('login_spinner.html', redirect_url=url_for('main.index'))
+    return user, redirect(url_for('main.index')) 

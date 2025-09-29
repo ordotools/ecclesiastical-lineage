@@ -297,13 +297,13 @@ function initializeFormFromRank() {
         console.log('✅ Showing consecrations field for bishop rank');
         
         // If in edit mode, populate existing consecrations
-        {% if edit_mode and clergy and clergy.consecrations %}
+        {% if edit_mode and clergy %}
         populateExistingConsecrations();
         {% endif %}
     }
     
     // If in edit mode and has existing ordinations, populate them
-    {% if edit_mode and clergy and clergy.ordinations %}
+    {% if edit_mode and clergy %}
     populateExistingOrdinations();
     {% endif %}
     
@@ -314,13 +314,29 @@ function initializeFormFromRank() {
 
 // Populate existing ordinations for edit mode
 function populateExistingOrdinations() {
-    {% if edit_mode and clergy and clergy.ordinations %}
+    {% if edit_mode and clergy %}
     const container = document.getElementById('ordinationsContainer');
     if (!container) return;
     
-    console.log('Populating {{ clergy.ordinations|length }} existing ordinations...');
+    const ordinations = [
+        {% for ordination in clergy.get_all_ordinations() %}
+        {
+            id: {{ ordination.id }},
+            date: {{ ordination.date.strftime('%Y-%m-%d')|tojson if ordination.date else 'null' }},
+            is_sub_conditione: {{ ordination.is_sub_conditione|lower }},
+            is_doubtful: {{ ordination.is_doubtful|lower }},
+            is_invalid: {{ ordination.is_invalid|lower }},
+            notes: {{ ordination.notes|tojson if ordination.notes else 'null' }},
+            ordaining_bishop: {% if ordination.ordaining_bishop %}{
+                id: {{ ordination.ordaining_bishop.id }},
+                name: {{ ordination.ordaining_bishop.name|tojson }}
+            }{% else %}null{% endif %}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    console.log('Populating', ordinations.length, 'existing ordinations...');
     
-    {% for ordination in clergy.ordinations %}
+    {% for ordination in clergy.get_all_ordinations() %}
     addOrdination();
     const ordinationEntry = container.lastElementChild;
     if (ordinationEntry) {
@@ -359,13 +375,37 @@ function populateExistingOrdinations() {
 
 // Populate existing consecrations for edit mode
 function populateExistingConsecrations() {
-    {% if edit_mode and clergy and clergy.consecrations %}
+    {% if edit_mode and clergy %}
     const container = document.getElementById('consecrationsContainer');
     if (!container) return;
     
-    console.log('Populating {{ clergy.consecrations|length }} existing consecrations...');
+    const consecrations = [
+        {% for consecration in clergy.get_all_consecrations() %}
+        {
+            id: {{ consecration.id }},
+            date: {{ consecration.date.strftime('%Y-%m-%d')|tojson if consecration.date else 'null' }},
+            is_sub_conditione: {{ consecration.is_sub_conditione|lower }},
+            is_doubtful: {{ consecration.is_doubtful|lower }},
+            is_invalid: {{ consecration.is_invalid|lower }},
+            notes: {{ consecration.notes|tojson if consecration.notes else 'null' }},
+            consecrator: {% if consecration.consecrator %}{
+                id: {{ consecration.consecrator.id }},
+                name: {{ consecration.consecrator.name|tojson }}
+            }{% else %}null{% endif %},
+            co_consecrators: [
+                {% for co_consecrator in consecration.co_consecrators %}
+                {
+                    id: {{ co_consecrator.id }},
+                    name: {{ co_consecrator.name|tojson }}
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ]
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    console.log('Populating', consecrations.length, 'existing consecrations...');
     
-    {% for consecration in clergy.consecrations %}
+    {% for consecration in clergy.get_all_consecrations() %}
     addConsecration();
     const consecrationEntry = container.lastElementChild;
     if (consecrationEntry) {

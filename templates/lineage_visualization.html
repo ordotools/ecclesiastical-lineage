@@ -8,6 +8,19 @@
   document.documentElement.style.setProperty('--lineage-black', '#000000');
 </script>
 <div class="full-viewport-container">
+    <!-- Search Bar Overlay -->
+    <div id="search-overlay" class="search-bar-overlay" style="display: none;">
+        <div class="search-bar-container">
+            <div class="search-bar-input-group">
+                <i class="fas fa-search search-bar-icon"></i>
+                <input type="text" id="overlay-search-input" class="search-bar-input" placeholder="Search clergy by name, rank, or organization..." autocomplete="off">
+                <button id="clear-overlay-search" class="search-bar-clear" type="button" style="display: none;" aria-label="Clear search">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="overlay-search-results" class="search-bar-results" style="display: none;"></div>
+        </div>
+    </div>
     <!-- Floating Menu Button (Mobile Only) -->
     <button id="mobile-menu-btn" class="d-block d-md-none floating-menu-btn" aria-label="Open menu" style="position:fixed;bottom:20px;left:20px;z-index:1100;display:none;">
       <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true" focusable="false">

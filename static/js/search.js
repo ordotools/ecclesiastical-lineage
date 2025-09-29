@@ -33,10 +33,305 @@ export function initializeSearch() {
     clearButtonMobile.addEventListener('click', () => clearSearch(searchInputMobile, searchResultsMobile));
   }
   
+  // Initialize overlay search
+  initializeOverlaySearch();
+  
   // Build search index when nodes are available
   if (window.currentNodes) {
     buildSearchIndex(window.currentNodes);
   }
+}
+
+// Initialize overlay search functionality
+function initializeOverlaySearch() {
+  const navbarSearchBtn = document.getElementById('navbar-search-btn');
+  const searchOverlay = document.getElementById('search-overlay');
+  const overlaySearchInput = document.getElementById('overlay-search-input');
+  const clearOverlaySearch = document.getElementById('clear-overlay-search');
+  const overlaySearchResults = document.getElementById('overlay-search-results');
+  
+  // Show search button on lineage visualization page
+  if (navbarSearchBtn) {
+    navbarSearchBtn.style.display = 'inline-flex';
+  }
+  
+  // Open overlay search
+  if (navbarSearchBtn && searchOverlay) {
+    navbarSearchBtn.addEventListener('click', () => {
+      showOverlaySearch();
+    });
+  }
+  
+  // Close overlay when clicking backdrop
+  if (searchOverlay) {
+    searchOverlay.addEventListener('click', (e) => {
+      if (e.target === searchOverlay) {
+        hideOverlaySearch();
+      }
+    });
+  }
+  
+  // Handle overlay search input
+  if (overlaySearchInput && overlaySearchResults) {
+    overlaySearchInput.addEventListener('input', (e) => {
+      handleOverlaySearchInput(e.target.value, overlaySearchResults);
+    });
+    
+    overlaySearchInput.addEventListener('keydown', (e) => {
+      handleOverlaySearchKeydown(e, overlaySearchResults);
+    });
+  }
+  
+  // Clear overlay search
+  if (clearOverlaySearch && overlaySearchInput && overlaySearchResults) {
+    clearOverlaySearch.addEventListener('click', () => {
+      clearOverlaySearchInput(overlaySearchInput, overlaySearchResults);
+    });
+  }
+  
+  // Close overlay with Escape key and open with Cmd/Ctrl+F
+  document.addEventListener('keydown', (e) => {
+    // Open search with Cmd/Ctrl+F
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+      e.preventDefault(); // Prevent browser's default search
+      if (searchOverlay && searchOverlay.style.display === 'none') {
+        showOverlaySearch();
+      }
+    }
+    // Close search with Escape
+    else if (e.key === 'Escape' && searchOverlay && searchOverlay.style.display !== 'none') {
+      hideOverlaySearch();
+    }
+  });
+}
+
+// Show overlay search
+function showOverlaySearch() {
+  const searchOverlay = document.getElementById('search-overlay');
+  const overlaySearchInput = document.getElementById('overlay-search-input');
+  
+  if (searchOverlay) {
+    // Set appropriate keyboard shortcut hint based on OS
+    if (overlaySearchInput) {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const shortcut = isMac ? '⌘F' : 'Ctrl+F';
+      overlaySearchInput.placeholder = `Search clergy by name, rank, or organization... (${shortcut})`;
+    }
+    
+    searchOverlay.style.display = 'flex';
+    // Trigger reflow to ensure display change is applied
+    searchOverlay.offsetHeight;
+    searchOverlay.classList.add('show');
+    
+    // Focus the input after animation
+    setTimeout(() => {
+      if (overlaySearchInput) {
+        overlaySearchInput.focus();
+      }
+    }, 300);
+  }
+}
+
+// Hide overlay search
+function hideOverlaySearch() {
+  const searchOverlay = document.getElementById('search-overlay');
+  const overlaySearchInput = document.getElementById('overlay-search-input');
+  const overlaySearchResults = document.getElementById('overlay-search-results');
+  
+  if (searchOverlay) {
+    searchOverlay.classList.remove('show');
+    
+    // Hide after animation completes
+    setTimeout(() => {
+      searchOverlay.style.display = 'none';
+      if (overlaySearchInput) {
+        overlaySearchInput.value = '';
+      }
+      if (overlaySearchResults) {
+        overlaySearchResults.style.display = 'none';
+        overlaySearchResults.innerHTML = '';
+      }
+    }, 300);
+  }
+}
+
+// Handle overlay search input
+function handleOverlaySearchInput(query, resultsContainer) {
+  const clearButton = document.getElementById('clear-overlay-search');
+  
+  if (!query.trim()) {
+    hideOverlaySearchResults(resultsContainer);
+    if (clearButton) {
+      clearButton.style.display = 'none';
+    }
+    return;
+  }
+  
+  if (clearButton) {
+    clearButton.style.display = 'inline-block';
+  }
+  
+  const results = performSearch(query);
+  displayOverlaySearchResults(results, resultsContainer);
+}
+
+// Handle overlay search keydown events
+function handleOverlaySearchKeydown(event, resultsContainer) {
+  const results = resultsContainer.querySelectorAll('.search-result-item');
+  const selectedResult = resultsContainer.querySelector('.search-result-item.selected');
+  
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    if (!selectedResult && results.length > 0) {
+      results[0].classList.add('selected');
+    } else if (selectedResult) {
+      selectedResult.classList.remove('selected');
+      const nextIndex = Array.from(results).indexOf(selectedResult) + 1;
+      if (nextIndex < results.length) {
+        results[nextIndex].classList.add('selected');
+      } else {
+        results[0].classList.add('selected');
+      }
+    }
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (!selectedResult && results.length > 0) {
+      results[results.length - 1].classList.add('selected');
+    } else if (selectedResult) {
+      selectedResult.classList.remove('selected');
+      const prevIndex = Array.from(results).indexOf(selectedResult) - 1;
+      if (prevIndex >= 0) {
+        results[prevIndex].classList.add('selected');
+      } else {
+        results[results.length - 1].classList.add('selected');
+      }
+    }
+  } else if (event.key === 'Enter') {
+    event.preventDefault();
+    if (selectedResult) {
+      selectedResult.click();
+    } else if (results.length > 0) {
+      results[0].click();
+    }
+  }
+}
+
+// Display overlay search results
+function displayOverlaySearchResults(results, resultsContainer) {
+  const searchInputGroup = document.querySelector('.search-bar-input-group');
+  
+  if (results.length === 0) {
+    resultsContainer.innerHTML = '<div class="search-no-results">No clergy found</div>';
+    resultsContainer.style.display = 'block';
+    
+    // Add has-dropdown class after a brief delay to show morphing effect
+    setTimeout(() => {
+      if (searchInputGroup) {
+        searchInputGroup.classList.add('has-dropdown');
+      }
+    }, 50);
+    return;
+  }
+  
+  const html = results.map(result => `
+    <div class="search-result-item" data-node-id="${result.id}">
+      <div class="search-result-name">${highlightMatch(result.name, getCurrentOverlaySearchQuery())}</div>
+      <div class="search-result-details">
+        ${result.rank}${result.rank && result.organization ? ' • ' : ''}${result.organization}
+      </div>
+    </div>
+  `).join('');
+  
+  resultsContainer.innerHTML = html;
+  resultsContainer.style.display = 'block';
+  
+  // Add has-dropdown class after a brief delay to show morphing effect
+  setTimeout(() => {
+    if (searchInputGroup) {
+      searchInputGroup.classList.add('has-dropdown');
+    }
+  }, 50);
+  
+  // Add click handlers
+  resultsContainer.querySelectorAll('.search-result-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const nodeId = parseInt(item.getAttribute('data-node-id'));
+      const node = window.currentNodes?.find(n => n.id === nodeId);
+      if (node) {
+        selectOverlaySearchResult(node, resultsContainer);
+      }
+    });
+    
+    // Add hover handlers
+    item.addEventListener('mouseenter', () => {
+      resultsContainer.querySelectorAll('.search-result-item').forEach(i => i.classList.remove('selected'));
+      item.classList.add('selected');
+    });
+  });
+}
+
+// Hide overlay search results
+function hideOverlaySearchResults(resultsContainer) {
+  const searchInputGroup = document.querySelector('.search-bar-input-group');
+  
+  // Remove has-dropdown class first to start reverse morphing
+  if (searchInputGroup) {
+    searchInputGroup.classList.remove('has-dropdown');
+  }
+  
+  // Hide the dropdown after the morphing animation completes
+  setTimeout(() => {
+    resultsContainer.style.display = 'none';
+    resultsContainer.innerHTML = '';
+  }, 200);
+}
+
+// Clear overlay search input
+function clearOverlaySearchInput(searchInput, resultsContainer) {
+  searchInput.value = '';
+  hideOverlaySearchResults(resultsContainer);
+  searchInput.focus();
+  
+  const clearButton = document.getElementById('clear-overlay-search');
+  if (clearButton) {
+    clearButton.style.display = 'none';
+  }
+}
+
+// Get current overlay search query
+function getCurrentOverlaySearchQuery() {
+  const overlaySearchInput = document.getElementById('overlay-search-input');
+  return overlaySearchInput?.value || '';
+}
+
+// Handle overlay search result selection
+function selectOverlaySearchResult(node, resultsContainer) {
+  // Clear search input
+  const searchInput = document.getElementById('overlay-search-input');
+  if (searchInput) {
+    searchInput.value = node.name;
+  }
+  
+  // Hide search results with morphing effect
+  hideOverlaySearchResults(resultsContainer);
+  
+  // Hide the overlay after morphing completes
+  setTimeout(() => {
+    hideOverlaySearch();
+  }, 250);
+  
+  // Center the node in viewport
+  centerNodeInViewport(node);
+  
+  // Highlight the node temporarily
+  highlightNode(node);
+  
+  // Show clergy info panel (no URL change)
+  setTimeout(() => {
+    if (window.innerWidth > 768) { // Only on desktop
+      handleNodeClick(null, node);
+    }
+  }, 100);
 }
 
 // Build search index from nodes
@@ -227,7 +522,7 @@ function selectSearchResult(node, resultsContainer) {
   // Highlight the node temporarily
   highlightNode(node);
   
-  // Update URL with search parameter
+  // Update URL with search parameter (only for side menu search)
   updateURLWithSearch(node.id);
 }
 

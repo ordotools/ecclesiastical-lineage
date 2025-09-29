@@ -157,4 +157,5 @@ function attachAutocomplete(input, hidden, dropdown, dataList, labelFn, idFn) {
 }
 window.attachAutocomplete = attachAutocomplete;
 
-window.fuzzySearch = fuzzySearch; 
+window.fuzzySearch = fuzzySearch;
+window.normalizeString = normalizeString; 

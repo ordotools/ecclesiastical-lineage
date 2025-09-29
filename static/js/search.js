@@ -341,6 +341,7 @@ export function buildSearchIndex(nodes) {
     name: node.name,
     rank: node.rank || '',
     organization: node.organization || '',
+    // Keep the original searchText for backward compatibility
     searchText: `${node.name} ${node.rank || ''} ${node.organization || ''}`.toLowerCase(),
     node: node
   }));
@@ -402,31 +403,23 @@ function handleSearchKeydown(event, resultsContainer) {
   }
 }
 
-// Perform search
+// Perform search using fuzzy search
 function performSearch(query) {
-  const normalizedQuery = query.toLowerCase().trim();
-  const words = normalizedQuery.split(/\s+/);
+  if (!query || !query.trim()) return [];
   
-  return searchIndex
-    .filter(item => {
-      // Check if the node is currently visible (not filtered)
-      if (item.node.filtered) return false;
-      
-      // Check if all search words match
-      return words.every(word => item.searchText.includes(word));
-    })
-    .sort((a, b) => {
-      // Sort by relevance: exact name matches first, then partial matches
-      const aNameMatch = a.name.toLowerCase().includes(normalizedQuery);
-      const bNameMatch = b.name.toLowerCase().includes(normalizedQuery);
-      
-      if (aNameMatch && !bNameMatch) return -1;
-      if (bNameMatch && !aNameMatch) return 1;
-      
-      // Then sort alphabetically
-      return a.name.localeCompare(b.name);
-    })
+  // Use fuzzy search for better matching
+  const searchResults = window.fuzzySearch(searchIndex, query.trim(), (item) => {
+    // Create a searchable string that includes name, rank, and organization
+    return `${item.name} ${item.rank || ''} ${item.organization || ''}`.trim();
+  });
+  
+  // Filter out nodes that are currently filtered (hidden)
+  const visibleResults = searchResults
+    .filter(result => !result.item.node.filtered)
     .slice(0, 10); // Limit to top 10 results
+  
+  // Return the items in the expected format
+  return visibleResults.map(result => result.item);
 }
 
 // Display search results
@@ -488,18 +481,23 @@ function getCurrentSearchQuery() {
   return searchInput?.value || searchInputMobile?.value || '';
 }
 
-// Highlight search matches in text
+// Highlight search matches in text using fuzzy search normalization
 function highlightMatch(text, query) {
   if (!query.trim()) return text;
   
-  const words = query.toLowerCase().trim().split(/\s+/);
+  // Use the same normalization as fuzzy search
+  const normalizedQuery = window.normalizeString ? window.normalizeString(query) : { deAccented: query.toLowerCase() };
+  const normalizedText = window.normalizeString ? window.normalizeString(text) : { deAccented: text.toLowerCase() };
+  
+  // Try to find matches in the normalized text
+  const queryWords = normalizedQuery.deAccented.split(/\s+/).filter(word => word.length > 1);
   let highlightedText = text;
   
-  words.forEach(word => {
-    if (word.length > 1) { // Only highlight words longer than 1 character
-      const regex = new RegExp(`(${word})`, 'gi');
-      highlightedText = highlightedText.replace(regex, '<mark>$1</mark>');
-    }
+  // For each word in the query, try to find and highlight it
+  queryWords.forEach(word => {
+    // Create a regex that matches the word case-insensitively
+    const regex = new RegExp(`(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    highlightedText = highlightedText.replace(regex, '<mark>$1</mark>');
   });
   
   return highlightedText;

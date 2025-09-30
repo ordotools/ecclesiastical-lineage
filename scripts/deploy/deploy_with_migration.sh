@@ -200,6 +200,14 @@ else
     print_warning "⚠️  advanced_scraped_data.json not found, skipping force merge"
 fi
 
+# Step 6.7: Fix bishop ranks (ensure is_bishop field is correct)
+print_status "🔧 Fixing bishop ranks..."
+if python3 scripts/database/fix_production_bishop_ranks.py; then
+    print_success "✅ Bishop ranks fix completed!"
+else
+    print_warning "⚠️  Bishop ranks fix failed or not needed"
+fi
+
 # Step 7: Verify migration was successful
 print_status "🔍 Verifying migration..."
 python3 -c "

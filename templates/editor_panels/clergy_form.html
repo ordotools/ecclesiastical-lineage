@@ -663,14 +663,38 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
         
         // Check if we have initialization functions available
         if (typeof window.initializeFormFromRank === 'function') {
+            console.log('HTMX afterSwap: Calling initializeFormFromRank');
             window.initializeFormFromRank();
         } else {
             // Initialize directly if the functions are in the loaded content
             const rankSelect = document.getElementById('rank');
             if (rankSelect && rankSelect.value) {
+                console.log('HTMX afterSwap: Triggering rank change event');
                 rankSelect.dispatchEvent(new Event('change'));
             }
         }
+        
+        // Additional initialization to ensure consecration field is shown for bishops
+        setTimeout(() => {
+            const rankSelect = document.getElementById('rank');
+            const consecrationsField = document.getElementById('consecrationsField');
+            
+            if (rankSelect && consecrationsField) {
+                const selectedOption = rankSelect.options[rankSelect.selectedIndex];
+                const isBishop = selectedOption && selectedOption.getAttribute('data-is-bishop') === 'true';
+                
+                console.log('HTMX timeout: Checking bishop status:', {
+                    rankValue: rankSelect.value,
+                    isBishop: isBishop,
+                    consecrationsField: !!consecrationsField
+                });
+                
+                if (isBishop) {
+                    consecrationsField.style.display = 'block';
+                    console.log('HTMX timeout: ✅ Showing consecrations field for bishop rank');
+                }
+            }
+        }, 100);
         
         // Initialize photo controls
         console.log('HTMX afterSwap: Initializing photo controls');

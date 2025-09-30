@@ -249,6 +249,29 @@ adjustFormLayout();
 initializeFormFromRank();
 initializeClergyAutocomplete();
 attachRankChangeListener(); // Attach rank change listener for HTMX-loaded content
+
+// Additional check to ensure consecration field is shown for bishops
+setTimeout(() => {
+    const rankSelect = document.getElementById('rank');
+    const consecrationsField = document.getElementById('consecrationsField');
+    
+    if (rankSelect && consecrationsField) {
+        const selectedOption = rankSelect.options[rankSelect.selectedIndex];
+        const isBishop = selectedOption && selectedOption.getAttribute('data-is-bishop') === 'true';
+        
+        console.log('Content template immediate: Checking bishop status:', {
+            rankValue: rankSelect.value,
+            isBishop: isBishop,
+            consecrationsField: !!consecrationsField
+        });
+        
+        if (isBishop) {
+            consecrationsField.style.display = 'block';
+            console.log('Content template immediate: ✅ Showing consecrations field for bishop rank');
+        }
+    }
+}, 50);
+
 console.log('🎯 CONTENT TEMPLATE: Immediate initialization completed');
 
 // Also listen for DOMContentLoaded (in case it's not HTMX loaded)
@@ -260,6 +283,29 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeFormFromRank();
     initializeClergyAutocomplete();
     attachRankChangeListener(); // Attach rank change listener for DOM-loaded content
+    
+    // Additional check to ensure consecration field is shown for bishops
+    setTimeout(() => {
+        const rankSelect = document.getElementById('rank');
+        const consecrationsField = document.getElementById('consecrationsField');
+        
+        if (rankSelect && consecrationsField) {
+            const selectedOption = rankSelect.options[rankSelect.selectedIndex];
+            const isBishop = selectedOption && selectedOption.getAttribute('data-is-bishop') === 'true';
+            
+            console.log('Content template timeout: Checking bishop status:', {
+                rankValue: rankSelect.value,
+                isBishop: isBishop,
+                consecrationsField: !!consecrationsField
+            });
+            
+            if (isBishop) {
+                consecrationsField.style.display = 'block';
+                console.log('Content template timeout: ✅ Showing consecrations field for bishop rank');
+            }
+        }
+    }, 50);
+    
     console.log('🎯 CONTENT TEMPLATE: initializeFormFromRank completed');
 });
 

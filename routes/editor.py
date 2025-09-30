@@ -149,6 +149,12 @@ def clergy_form_panel(clergy_id=None):
     ranks = Rank.query.all()
     organizations = Organization.query.all()
     
+    # Debug: Log rank data
+    print("=== RANK DEBUG ===")
+    for rank in ranks:
+        print(f"Rank: {rank.name}, is_bishop: {rank.is_bishop}")
+    print("==================")
+    
     # Create fields object for the form
     class FormFields:
         def __init__(self, ranks, organizations):
@@ -190,6 +196,12 @@ def clergy_form_content(clergy_id=None):
     # Get form data
     ranks = Rank.query.all()
     organizations = Organization.query.all()
+    
+    # Debug: Log rank data
+    print("=== RANK DEBUG (content) ===")
+    for rank in ranks:
+        print(f"Rank: {rank.name}, is_bishop: {rank.is_bishop}")
+    print("============================")
     
     # Create fields object for the form
     class FormFields:

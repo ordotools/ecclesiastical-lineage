@@ -123,8 +123,9 @@
                                 style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08);  font-size: 0.9em; color: white; ">
                             <option value="" style="background: #2c3e50; color: white;">Select Rank</option>
                             {% for rank in fields.ranks %}
+                            <!-- DEBUG: rank.name={{ rank.name }}, rank.is_bishop={{ rank.is_bishop }} -->
                             <option value="{{ rank.name }}" data-is-bishop="{{ 'true' if rank.is_bishop else 'false' }}" style="background: #2c3e50; color: white;" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>
-                                {{ rank.name }}
+                                {{ rank.name }} ({{ 'Bishop' if rank.is_bishop else 'Not Bishop' }})
                             </option>
                             {% endfor %}
                         </select>
@@ -370,6 +371,16 @@ function initializeFormFromRank() {
     const isBishop = selectedOption.getAttribute('data-is-bishop') === 'true';
     
     console.log('🔧 INIT: rankValue:', rankValue, 'isBishop:', isBishop);
+    console.log('🔧 INIT: selectedOption:', selectedOption);
+    console.log('🔧 INIT: data-is-bishop attribute:', selectedOption.getAttribute('data-is-bishop'));
+    console.log('🔧 INIT: All rank options:');
+    for (let i = 0; i < rankSelect.options.length; i++) {
+        const option = rankSelect.options[i];
+        console.log(`  Option ${i}: value="${option.value}", data-is-bishop="${option.getAttribute('data-is-bishop')}", text="${option.textContent}"`);
+    }
+    
+    // Debug: Log the actual HTML of the select element
+    console.log('🔧 INIT: Select element HTML:', rankSelect.outerHTML);
     
     const papalField = document.getElementById('papalNameField');
     const consecrationsField = document.getElementById('consecrationsField');

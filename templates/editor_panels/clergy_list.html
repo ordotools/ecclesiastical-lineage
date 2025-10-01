@@ -15,18 +15,28 @@
                 </button>
             </div>
             
-            <!-- Quick Filters -->
-            <div style="margin-top: 0.5em; font-size: 0.8em;">
-                <label style="display: inline-flex; align-items: center; margin-right: 1em; color: rgba(255, 255, 255, 0.8);">
-                    <input type="checkbox" id="excludePriests" 
-                           style="margin-right: 0.25em;" onchange="applyFilters()">
-                    Hide Priests
-                </label>
-                <label style="display: inline-flex; align-items: center; margin-right: 1em; color: rgba(255, 255, 255, 0.8);">
-                    <input type="checkbox" id="showDeleted" 
-                           style="margin-right: 0.25em;" onchange="applyFilters()">
-                    Show Deleted
-                </label>
+            <!-- Quick Filters and Add Button -->
+            <div style="margin-top: 0.5em; font-size: 0.8em; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <label style="display: inline-flex; align-items: center; margin-right: 1em; color: rgba(255, 255, 255, 0.8);">
+                        <input type="checkbox" id="excludePriests" 
+                               style="margin-right: 0.25em;" onchange="applyFilters()">
+                        Hide Priests
+                    </label>
+                    <label style="display: inline-flex; align-items: center; margin-right: 1em; color: rgba(255, 255, 255, 0.8);">
+                        <input type="checkbox" id="showDeleted" 
+                               style="margin-right: 0.25em;" onchange="applyFilters()">
+                        Show Deleted
+                    </label>
+                </div>
+                {% if user and user.can_edit_clergy() %}
+                <button onclick="selectClergyFromList(null)" 
+                        style="padding: 0.4em 0.8em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.9); cursor: pointer; font-size: 0.8em; transition: all 0.2s ease; white-space: nowrap;"
+                        onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'"
+                        onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
+                    <i class="fas fa-plus" style="margin-right: 0.4em;"></i>Add New
+                </button>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -57,7 +67,7 @@
     </div>
 
     <!-- Clergy List -->
-    <div id="clergyListContainer" style="max-height: calc(100vh - 200px); overflow-y: auto;">
+    <div id="clergyListContainer" style="max-height: calc(100vh - 300px); overflow-y: auto;">
         {% for clergy in clergy_list %}
         <div class="clergy-item" 
              data-clergy-id="{{ clergy.id }}"
@@ -68,7 +78,7 @@
              data-has-ordinations="{{ (clergy.ordinations|length > 0)|lower }}"
              data-has-consecrations="{{ (clergy.consecrations|length > 0)|lower }}"
              onclick="selectClergyFromList({{ clergy.id }})"
-             style="display: flex; align-items: center; padding: 0.75em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 3px; cursor: pointer; transition: all 0.2s ease; {% if clergy.is_deleted %}opacity: 0.6; border-left: 4px solid rgba(255, 0, 0, 0.5);{% endif %}"
+             style="display: flex; align-items: center; padding: 0.5em; margin-bottom: 0; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); {% if loop.first %}border-top: 1px solid rgba(255, 255, 255, 0.1);{% else %}border-top: none;{% endif %} border-radius: 0; cursor: pointer; transition: all 0.2s ease; {% if clergy.is_deleted %}opacity: 0.6; border-left: 4px solid rgba(255, 0, 0, 0.5);{% endif %}"
              onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
              onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">
             
@@ -144,17 +154,6 @@
         {% endif %}
     </div>
 
-    <!-- Add New Button -->
-    {% if user and user.can_edit_clergy() %}
-    <div style="padding: 1em 0; border-top: 1px solid rgba(255, 255, 255, 0.1); margin-top: 1em;">
-        <button onclick="selectClergyFromList(null)" 
-                style="width: 100%; padding: 0.75em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.9); cursor: pointer; font-size: 0.8em; transition: all 0.2s ease;"
-                onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'"
-                onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
-            <i class="fas fa-plus" style="margin-right: 0.5em;"></i>Add New Clergy
-        </button>
-    </div>
-    {% endif %}
         </div>
     </div>
     

@@ -196,8 +196,9 @@ class ResizablePanes {
             
             container.style.gridTemplateRows = `1fr ${newBottomHeight}px`;
             
-            // Move the bottom resizer handle
-            this.currentResizer.style.bottom = `${newBottomHeight}px`;
+            // Move the bottom resizer handle to the top of the bottom panel
+            this.currentResizer.style.top = `${containerHeight - newBottomHeight}px`;
+            this.currentResizer.style.bottom = 'auto';
             
             // Update the height of vertical resize handles
             const leftResizer = document.getElementById('left-resizer');
@@ -319,9 +320,13 @@ class ResizablePanes {
         }
         
         if (bottomResizer) {
-            bottomResizer.style.bottom = `${bottomHeight}px`;
+            // Position the bottom resizer at the top of the bottom panel (above the tab bar)
+            const bottomTabs = document.querySelector('.bottom-tabs');
+            const tabBarHeight = bottomTabs ? bottomTabs.offsetHeight : 0;
+            bottomResizer.style.top = `${container.offsetHeight - bottomHeight}px`;
             bottomResizer.style.left = `${leftWidth}px`;
             bottomResizer.style.width = `${container.offsetWidth - leftWidth}px`;
+            bottomResizer.style.bottom = 'auto';
         }
     }
 

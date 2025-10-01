@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: chmod +x deploy_staging.sh && ./deploy_staging.sh
+    startCommand: chmod +x scripts/deploy/deploy_staging.sh && ./scripts/deploy/deploy_staging.sh
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.11

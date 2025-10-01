@@ -8,6 +8,10 @@
     
     <!-- Right Side Buttons -->
     <div class="d-flex align-items-center gap-2">
+      <!-- Search Button (only on lineage visualization page) -->
+      <button id="navbar-search-btn" class="btn minimal-action-btn" title="Search clergy" style="display: none;">
+        <i class="fas fa-search"></i>
+      </button>
       {% if session.get('is_admin') %}
         <a href="{{ url_for('editor.editor') }}#settings" class="btn minimal-action-btn" title="Settings">
           <i class="fas fa-cog"></i>

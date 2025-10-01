@@ -55,10 +55,10 @@
                     </div>
 
                     <!-- Photo Section (col 1, 3 rows, starting row 3) -->
-                    <div id="photoField" style="grid-column: 1; grid-row: 3 / 6; display: flex; flex-direction: column;">
+                    <div id="photoField" style="grid-column: 1; grid-row: 3 / 6; display: flex; flex-direction: column; height: 100%;">
                         <label style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Photo</label>
-                        <div id="photoContainer" class="drag-drop-container" style="border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 1em; flex: 1; display: flex; align-items: center; justify-content: center;">
-                            <div id="imagePreview" style="text-align: center;">
+                        <div id="photoContainer" class="drag-drop-container" style="border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 1em; flex: 1; display: flex; align-items: stretch; justify-content: center; flex-direction: column; height: 100%;">
+                            <div id="imagePreview" style="text-align: center; flex: 1; display: flex; align-items: center; justify-content: center;">
                                 {% if edit_mode and clergy and clergy.image_data %}
                                     {% set image_data = clergy.image_data | from_json %}
                                     {% if image_data and image_data.detail %}
@@ -71,28 +71,29 @@
                                 {% elif edit_mode and clergy and clergy.image_url %}
                                     <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage" style="max-width: 100px; max-height: 100px; border-radius: 4px;">
                                 {% else %}
-                                    <div id="noPhotoPlaceholder" style="color: rgba(255, 255, 255, 0.6); font-size: 0.9em; padding: 1em; border: 1px dashed rgba(255, 255, 255, 0.3); border-radius: 4px;">
-                                        <i class="fas fa-user" style="font-size: 1.5em; margin-bottom: 0.5em; display: block; opacity: 0.6;"></i>
+                                    <div id="noPhotoPlaceholder" style="color: rgba(255, 255, 255, 0.6); font-size: 0.9em; padding: 1.5em; border: 1px dashed rgba(255, 255, 255, 0.3); border-radius: 4px; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100px;">
+                                        <i class="fas fa-user" style="font-size: 1.5em; margin-bottom: 0.5em; opacity: 0.6;"></i>
                                         <div>No Photo</div>
                                         <div style="font-size: 0.8em; margin-top: 0.5em; opacity: 0.7;">Click or drag & drop to upload</div>
                                     </div>
                                 {% endif %}
-                                <!-- Hover overlay with image tools -->
-                                <div style="margin-top: 0.5em; display: flex; gap: 0.5em; justify-content: center;">
+                            </div>
+                            <!-- Image control buttons -->
+                            <div style="margin-top: 0.75em; display: flex; flex-direction: column; gap: 0.4em; width: 100%; flex-shrink: 0;">
                                     <input type="file" id="clergyImage" name="clergy_image" accept="image/*" style="display: none;">
-                                    <button type="button" id="uploadBtn" title="Upload Image"
-                                            style="padding: 0.4em 0.8em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
-                                        Upload
-                                    </button>
+                                <button type="button" id="uploadBtn" title="Upload Image"
+                                        style="width: 100%; padding: 0.4em 0.6em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-size: 0.75em;">
+                                    <i class="fas fa-upload" style="margin-right: 0.4em;"></i>Upload Photo
+                                </button>
                                     {% if edit_mode and clergy and clergy.image_url %}
-                                    <button type="button" id="cropExistingBtn" title="Edit Image"
-                                            style="padding: 0.4em 0.8em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
-                                        Edit
-                                    </button>
-                                    <button type="button" id="removeImageBtn" title="Remove Image"
-                                            style="padding: 0.4em 0.8em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
-                                        Remove
-                                    </button>
+                                <button type="button" id="cropExistingBtn" title="Edit Image"
+                                        style="width: 100%; padding: 0.4em 0.6em; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: white; border-radius: 4px; cursor: pointer; font-size: 0.75em;">
+                                    <i class="fas fa-edit" style="margin-right: 0.4em;"></i>Edit Photo
+                                </button>
+                                <button type="button" id="removeImageBtn" title="Remove Image"
+                                        style="width: 100%; padding: 0.4em 0.6em; border: 1px solid rgba(255, 100, 100, 0.4); background: rgba(255, 100, 100, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: rgba(255, 150, 150, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.75em;">
+                                    <i class="fas fa-trash" style="margin-right: 0.4em;"></i>Remove Photo
+                                </button>
                                     {% endif %}
                                 </div>
                             </div>
@@ -106,7 +107,7 @@
                                 style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
                             <option value="" style="background: #2c3e50; color: white;">Select Rank</option>
                             {% for rank in fields.ranks %}
-                            <option value="{{ rank.name }}" data-is-bishop="{{ rank.is_bishop|lower }}" style="background: #2c3e50; color: white;" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>
+                            <option value="{{ rank.name }}" data-is-bishop="{{ 'true' if rank.is_bishop else 'false' }}" style="background: #2c3e50; color: white;" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>
                                 {{ rank.name }}
                             </option>
                             {% endfor %}
@@ -1481,21 +1482,31 @@ document.addEventListener('DOMContentLoaded', function() {
                         const file = files[0];
                         console.log('Embedded processing file:', file.name, file.type, file.size);
                         
-                    if (file.type.startsWith('image/')) {
-                        // Store the file globally for form submission
-                        window.droppedFile = file;
-                        console.log('File stored globally:', file.name, file.size, file.type);
-                        
-                        // Try to set the file in the input element
-                        try {
-                            const dataTransfer = new DataTransfer();
-                            dataTransfer.items.add(file);
-                            fileInput.files = dataTransfer.files;
-                            console.log('File set in input element using DataTransfer');
-                        } catch (error) {
-                            console.error('Error setting file in input:', error);
-                            console.log('File will be handled manually during form submission');
-                        }
+                        if (file.type.startsWith('image/')) {
+                            // Store the file globally for form submission
+                            window.droppedFile = file;
+                            console.log('File stored globally:', file.name, file.size, file.type);
+                            
+                            // Try to set the file in the input element
+                            try {
+                                const dataTransfer = new DataTransfer();
+                                dataTransfer.items.add(file);
+                                fileInput.files = dataTransfer.files;
+                                console.log('File set in input element using DataTransfer');
+                            } catch (error) {
+                                console.error('Error setting file in input:', error);
+                                console.log('File will be handled manually during form submission');
+                            }
+                            
+                            // Store the file globally for form submission
+                            window.droppedFile = file;
+                            console.log('Embedded file stored globally:', file.name, file.size, file.type);
+                            
+                            // Try to set the file in the input element
+                            try {
+                                const dataTransfer = new DataTransfer();
+                                dataTransfer.items.add(file);
+                                fileInput.files = dataTransfer.files;
                                 console.log('Embedded file set in input element');
                                 
                                 // Trigger the image editor if available

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, Response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, Response, make_response
 from services import clergy as clergy_service
 from utils import audit_log, require_permission, require_permission_api, log_audit_event
 from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration
@@ -8,21 +8,16 @@ import requests
 
 main_bp = Blueprint('main', __name__)
 
-# Main landing page
+# Main landing page - now shows lineage visualization
 @main_bp.route('/')
 def index():
-    if 'user_id' in session:
-        return redirect(url_for('auth.dashboard'))
-    return render_template('login.html')
+    return lineage_visualization()
 
-# Lineage visualization
-@main_bp.route('/lineage_visualization')
+# Lineage visualization (moved from /lineage_visualization to root)
 def lineage_visualization():
     current_app.logger.info("=== LINEAGE_VISUALIZATION ROUTE CALLED ===")
     
-    # Check if user is logged in - redirect to editor if they are
-    if 'user_id' in session:
-        return redirect(url_for('editor.editor'))
+    # Allow both logged-in and non-logged-in users to view lineage visualization
     
     try:
         # Check if we have any ordination/consecration data
@@ -164,12 +159,15 @@ def lineage_visualization():
                              links_json=json.dumps([]),
                              error_message=f"Unable to load lineage data. Error: {str(e)}")
 
+# Backward compatibility route
+@main_bp.route('/lineage_visualization')
+def lineage_visualization_alias():
+    return lineage_visualization()
+
 @main_bp.route('/clergy/lineage-data')
 def get_lineage_data():
     """API endpoint to get lineage data as JSON for AJAX requests"""
-    # Check if user is logged in - redirect to editor if they are
-    if 'user_id' in session:
-        return redirect(url_for('editor.editor'))
+    # Allow both logged-in and non-logged-in users to access lineage data
     
     try:
         # Check if we have any ordination/consecration data
@@ -564,7 +562,13 @@ def clergy_modal_add():
 def clergy_modal_edit(clergy_id):
     from models import Rank, Organization, Clergy, User
     
-    clergy = Clergy.query.get_or_404(clergy_id)
+    # Eagerly load ordination and consecration relationships
+    from sqlalchemy.orm import joinedload
+    clergy = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+        joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+    ).filter(Clergy.id == clergy_id).first_or_404()
     user = User.query.get(session.get('user_id'))
     
     # Get the same data that edit_clergy_handler provides
@@ -613,7 +617,13 @@ def edit_clergy_from_lineage(clergy_id):
     """Edit clergy from lineage visualization with modal context"""
     from models import Rank, Organization, Clergy, User
     
-    clergy = Clergy.query.get_or_404(clergy_id)
+    # Eagerly load ordination and consecration relationships
+    from sqlalchemy.orm import joinedload
+    clergy = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+        joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+    ).filter(Clergy.id == clergy_id).first_or_404()
     user = User.query.get(session.get('user_id'))
     
     # Get the same data that edit_clergy_handler provides
@@ -662,14 +672,26 @@ def edit_clergy_from_lineage(clergy_id):
 
 @main_bp.route('/clergy/modal/<int:clergy_id>/comment')
 def clergy_modal_comment(clergy_id):
-    clergy = Clergy.query.get_or_404(clergy_id)
+    # Eagerly load ordination and consecration relationships
+    from sqlalchemy.orm import joinedload
+    clergy = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+        joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+    ).filter(Clergy.id == clergy_id).first_or_404()
     return render_template('_clergy_comment_modal.html', clergy=clergy)
 
 @main_bp.route('/clergy/relationships/<int:clergy_id>')
 def clergy_relationships(clergy_id):
     """Get clergy relationships for lineage visualization"""
     try:
-        clergy = Clergy.query.get_or_404(clergy_id)
+        # Eagerly load ordination and consecration relationships
+        from sqlalchemy.orm import joinedload
+        clergy = Clergy.query.options(
+            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+        ).filter(Clergy.id == clergy_id).first_or_404()
         
         # Get ordaining bishop from new ordination table
         ordaining_bishop = None
@@ -939,7 +961,7 @@ def add_clergy_from_lineage():
             
             if is_htmx:
                 # For HTMX requests, return a response that will trigger redirect to lineage visualization
-                response = make_response('<script>window.location.href = "' + url_for('main.lineage_visualization') + '";</script>')
+                response = make_response('<script>window.location.href = "' + url_for('main.index') + '";</script>')
                 response.headers['HX-Trigger'] = 'redirect'
                 return response
             
@@ -950,10 +972,10 @@ def add_clergy_from_lineage():
                 request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
             )
             if is_ajax:
-                return jsonify({'success': True, 'message': 'Clergy record added successfully!', 'redirect': url_for('main.lineage_visualization')})
+                return jsonify({'success': True, 'message': 'Clergy record added successfully!', 'redirect': url_for('main.index')})
             
             flash('Clergy record added successfully!', 'success')
-            return redirect(url_for('main.lineage_visualization'))
+            return redirect(url_for('main.index'))
         except Exception as e:
             db.session.rollback()
             
@@ -972,7 +994,7 @@ def add_clergy_from_lineage():
             if is_ajax:
                 return jsonify({'success': False, 'message': str(e)}), 400
             flash('Error adding clergy record.', 'error')
-            return redirect(url_for('main.lineage_visualization'))
+            return redirect(url_for('main.index'))
     
     # For GET requests, render the form with proper cancel URL
     user = User.query.get(session.get('user_id'))
@@ -1014,11 +1036,11 @@ def add_clergy_from_lineage():
                              'form_action': url_for('main.add_clergy_from_lineage'),
                              'ranks': ranks,
                              'organizations': organizations,
-                             'cancel_url': url_for('main.lineage_visualization')  # This is the key fix!
+                             'cancel_url': url_for('main.index')  # This is the key fix!
                          },
                          edit_mode=False,
                          user=user,
-                         redirect_url=url_for('main.lineage_visualization'),  # Also fix HTMX redirect
+                         redirect_url=url_for('main.index'),  # Also fix HTMX redirect
                          use_htmx=True,
                          context_type=context_type,
                          context_clergy_id=context_clergy_id,

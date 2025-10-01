@@ -747,7 +747,214 @@ input:focus + .slider {
 
 .input-group .btn-outline-secondary {
   border-left: 0;
-  border-color: #ced4da;
+}
+
+/* Search Bar Overlay Styles */
+.search-bar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 100px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.search-bar-overlay.show {
+  opacity: 1;
+}
+
+.search-bar-container {
+  width: 90%;
+  max-width: 600px;
+  position: relative;
+  transform: translateY(-20px);
+  transition: transform 0.2s ease;
+}
+
+.search-bar-overlay.show .search-bar-container {
+  transform: translateY(0);
+}
+
+.search-bar-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: white;
+  border-radius: 50px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.search-bar-input-group:focus-within {
+  border-color: #27ae60;
+  box-shadow: 0 8px 32px rgba(39, 174, 96, 0.2);
+}
+
+/* When dropdown is visible, remove bottom border radius for seamless transition */
+.search-bar-input-group.has-dropdown {
+  border-radius: 25px 25px 0 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.search-bar-input-group.has-dropdown:focus-within {
+  box-shadow: 0 4px 16px rgba(39, 174, 96, 0.15);
+}
+
+.search-bar-icon {
+  position: absolute;
+  left: 20px;
+  color: #6c757d;
+  font-size: 1.1rem;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.search-bar-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 20px 50px 20px 50px;
+  font-size: 1.1rem;
+  background: transparent;
+  color: #2c3e50;
+}
+
+.search-bar-input::placeholder {
+  color: #adb5bd;
+  font-weight: 400;
+}
+
+.search-bar-clear {
+  position: absolute;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  z-index: 1;
+}
+
+.search-bar-clear:hover {
+  background: #f8f9fa;
+  color: #495057;
+}
+
+.search-bar-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border-radius: 25px 25px 25px 25px;
+  box-shadow: none;
+  border: 2px solid #e9ecef;
+  border-top: none;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 10;
+  margin-top: -2px;
+  transition: border-radius 0.2s ease;
+}
+
+/* When search bar has dropdown, remove top border radius for seamless connection */
+.search-bar-input-group.has-dropdown + .search-bar-results {
+  border-radius: 0 0 25px 25px;
+}
+
+.search-bar-input-group:focus-within + .search-bar-results {
+  border-color: #27ae60;
+}
+
+.search-bar-results .search-result-item {
+  padding: 16px 24px;
+  cursor: pointer;
+  border-bottom: 1px solid #f8f9fa;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-bar-results .search-result-item:last-child {
+  border-bottom: none;
+  border-radius: 0 0 18px 18px;
+}
+
+.search-bar-results .search-result-item:hover,
+.search-bar-results .search-result-item.selected {
+  background-color: rgba(39, 174, 96, 0.08);
+  transform: translateX(4px);
+}
+
+.search-bar-results .search-result-name {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.search-bar-results .search-result-details {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.search-bar-results .search-no-results {
+  padding: 40px 24px;
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Highlight search matches in search bar */
+.search-bar-results .search-result-name mark {
+  background-color: rgba(255, 193, 7, 0.4);
+  color: inherit;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+/* Mobile responsive adjustments for search bar */
+@media (max-width: 768px) {
+  .search-bar-overlay {
+    padding-top: 80px;
+  }
+  
+  .search-bar-container {
+    width: 95%;
+    max-width: none;
+  }
+  
+  .search-bar-input {
+    padding: 16px 40px 16px 45px;
+    font-size: 1rem;
+  }
+  
+  .search-bar-icon {
+    left: 16px;
+    font-size: 1rem;
+  }
+  
+  .search-bar-clear {
+    right: 12px;
+  }
+  
+  .search-bar-results .search-result-item {
+    padding: 14px 20px;
+  }
 }
 
 .input-group .btn-outline-secondary:hover {

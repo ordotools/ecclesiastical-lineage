@@ -8,6 +8,19 @@
   document.documentElement.style.setProperty('--lineage-black', '#000000');
 </script>
 <div class="full-viewport-container">
+    <!-- Search Bar Overlay -->
+    <div id="search-overlay" class="search-bar-overlay" style="display: none;">
+        <div class="search-bar-container">
+            <div class="search-bar-input-group">
+                <i class="fas fa-search search-bar-icon"></i>
+                <input type="text" id="overlay-search-input" class="search-bar-input" placeholder="Search clergy by name, rank, or organization..." autocomplete="off">
+                <button id="clear-overlay-search" class="search-bar-clear" type="button" style="display: none;" aria-label="Clear search">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="overlay-search-results" class="search-bar-results" style="display: none;"></div>
+        </div>
+    </div>
     <!-- Floating Menu Button (Mobile Only) -->
     <button id="mobile-menu-btn" class="d-block d-md-none floating-menu-btn" aria-label="Open menu" style="position:fixed;bottom:20px;left:20px;z-index:1100;display:none;">
       <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
@@ -23,7 +36,7 @@
         <button id="close-mobile-menu" class="close-mobile-menu" aria-label="Close menu">&times;</button>
         <div class="mobile-menu-legend-controls">
           <!-- Legend -->
-          <div class="legend-visualization-mobile">
+          <!-- <div class="legend-visualization-mobile">
             <h6 class="fw-bold mb-2 text-dark">Lineage Types</h6>
             <div class="d-flex align-items-center mb-2">
                 <div style="width: 20px; height: 2px; background: var(--lineage-black); margin-right: 8px;"></div>
@@ -32,11 +45,11 @@
             <div class="d-flex align-items-center mb-2">
                 <div style="width: 20px; height: 2px; background: var(--lineage-green); margin-right: 8px;"></div>
                 <small class="text-dark">Consecration</small>
-            </div>
+            </div> -->
 
           </div>
           <!-- Search -->
-          <div class="visualization-search-mobile mt-3">
+          <!-- <div class="visualization-search-mobile mt-3">
             <h6 class="fw-bold mb-2 text-dark">Search</h6>
             <div class="input-group">
               <input type="text" id="clergy-search-mobile" class="form-control form-control-sm" placeholder="Search clergy...">
@@ -45,19 +58,19 @@
               </button>
             </div>
             <div id="search-results-mobile" class="search-results mt-2" style="display: none;"></div>
-          </div>
+          </div> -->
           
           <!-- Controls -->
-          <div class="visualization-controls-mobile mt-3">
+          <!-- <div class="visualization-controls-mobile mt-3">
             <button id="reset-zoom-mobile" class="btn btn-sm btn-outline-secondary mb-2 w-100">
                 <i class="fas fa-search-plus me-1"></i>Reset Zoom
             </button>
             <button id="center-graph-mobile" class="btn btn-sm btn-outline-secondary w-100">
                 <i class="fas fa-crosshairs me-1"></i>Center Graph
             </button>
-          </div>
+          </div> -->
           <!-- Filters -->
-          <div class="visualization-filters-mobile mt-3">
+          <!-- <div class="visualization-filters-mobile mt-3">
             <h6 class="fw-bold mb-2 text-dark">Filters</h6>
             <div class="filter-item">
               <label class="switch-label" for="hide-priests-mobile">
@@ -68,11 +81,11 @@
                 <span class="slider"></span>
               </label>
             </div>
-          </div>
+          </div> -->
           
           <!-- Views -->
-          <div class="visualization-views-mobile mt-3">
-            <h6 class="fw-bold mb-2 text-dark">Views</h6>
+          <!-- <div class="visualization-views-mobile mt-3">
+            <h6 class="fw-bold mb-2 text-dark">Views</h6> -->
             <!-- Timeline View - Temporarily disabled
             <div class="filter-item">
               <label class="switch-label" for="timeline-view-mobile">
@@ -84,7 +97,7 @@
               </label>
             </div>
             -->
-            <div class="filter-item">
+            <!-- <div class="filter-item">
               <label class="switch-label" for="backbone-only-mobile">
                 <small class="text-dark">Backbone Only</small>
               </label>
@@ -93,10 +106,10 @@
                 <span class="slider"></span>
               </label>
             </div>
-          </div>
+          </div> -->
           
           <!-- Layout Options -->
-          <div class="visualization-layout-mobile mt-3">
+          <!-- <div class="visualization-layout-mobile mt-3">
             <h6 class="fw-bold mb-2 text-dark">Layout</h6>
             <div class="filter-item">
               <label class="switch-label" for="elk-layout-toggle-mobile">
@@ -109,7 +122,7 @@
             </div>
             <small class="text-muted">Experimental layered layout algorithm</small>
           </div>
-        </div>
+        </div> -->
       </div>
     </div>
 
@@ -132,22 +145,6 @@
             </div>
         </div>
 
-        <!-- Search -->
-        <div class="side-menu-card">
-            <div class="card-header">
-                <h6 class="fw-bold mb-0 text-dark">Search</h6>
-            </div>
-            <div class="card-body">
-                <div class="input-group mb-2">
-                    <input type="text" id="clergy-search" class="form-control form-control-sm" placeholder="Search clergy...">
-                    <button id="clear-search" class="btn btn-sm btn-outline-secondary" type="button">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div id="search-results" class="search-results" style="display: none;"></div>
-            </div>
-        </div>
-
         <!-- Controls -->
         <div class="side-menu-card">
             <div class="card-header">
@@ -164,7 +161,7 @@
         </div>
 
         <!-- Filters -->
-        <div class="side-menu-card">
+        <!-- <div class="side-menu-card">
             <div class="card-header">
                 <h6 class="fw-bold mb-0 text-dark">Filters</h6>
             </div>
@@ -179,10 +176,10 @@
                     </label>
                 </div>
             </div>
-        </div>
+        </div> -->
         
         <!-- Views -->
-        <div class="side-menu-card">
+        <!-- <div class="side-menu-card">
             <div class="card-header">
                 <h6 class="fw-bold mb-0 text-dark">Views</h6>
             </div>
@@ -197,7 +194,6 @@
                         <span class="slider"></span>
                     </label>
                 </div>
-                -->
                 <div class="filter-item">
                     <label class="switch-label" for="backbone-only">
                         <small class="text-dark">Backbone Only</small>
@@ -208,10 +204,10 @@
                     </label>
                 </div>
             </div>
-        </div>
+        </div> -->
         
         <!-- Layout Options -->
-        <div class="side-menu-card">
+        <!-- <div class="side-menu-card">
             <div class="card-header">
                 <h6 class="fw-bold mb-0 text-dark">Layout</h6>
             </div>
@@ -227,7 +223,7 @@
                 </div>
                 <small class="text-muted">Experimental layered layout algorithm</small>
             </div>
-        </div>
+        </div> -->
         
         <!-- Toggle Button - Positioned on the right side -->
         <button id="side-menu-toggle" class="side-menu-toggle-btn" aria-label="Toggle side menu">

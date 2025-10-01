@@ -132,6 +132,7 @@
 /* Photo Section Styling */
 .right-panel .photo-section {
     min-height: 280px;
+    height: 100%;
 }
 
 .right-panel .photo-container {
@@ -140,6 +141,9 @@
     border: 2px dashed rgba(255, 255, 255, 0.3);
     border-radius: 8px;
     transition: border-color 0.2s ease, background-color 0.2s ease;
+    height: 100%;
+    display: flex !important;
+    flex-direction: column !important;
 }
 
 .right-panel .photo-container.drag-over {
@@ -147,33 +151,51 @@
     background-color: rgba(255, 255, 255, 0.1);
 }
 
+.right-panel .photo-controls {
+    flex-shrink: 0 !important;
+    margin-top: 0.75em !important;
+}
+
 .right-panel .photo-controls button {
     padding: 0.4em 0.6em !important;
     font-size: 0.75em !important;
+    margin-bottom: 0.4em !important;
+}
+
+.right-panel .photo-controls button:last-child {
+    margin-bottom: 0 !important;
 }
 
 /* Form Fields Styling */
 .right-panel .form-field {
     margin-bottom: 0;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    justify-content: space-between !important;
 }
 
 .right-panel .form-field label {
     font-size: 0.8em !important;
     margin-bottom: 0.2em !important;
     font-weight: 500 !important;
+    flex-shrink: 0 !important;
 }
 
-/* Input and control styling */
 .right-panel .form-field input,
 .right-panel .form-field select,
 .right-panel .form-field textarea {
+    flex: 1 !important;
     font-size: 0.85em !important;
     padding: 0.4em !important;
     border-radius: 3px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
 }
 
 .right-panel .form-field textarea {
     min-height: 60px !important;
+    resize: vertical !important;
 }
 
 /* Section headers */
@@ -251,10 +273,31 @@
     
     .right-panel .photo-section {
         min-height: 240px;
+        height: 100%;
     }
     
     .right-panel .photo-container {
         min-height: 180px !important;
+        height: 100%;
+    }
+    
+    .right-panel .photo-controls button {
+        padding: 0.3em 0.5em !important;
+        font-size: 0.7em !important;
+    }
+    
+    .right-panel .form-field {
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+    }
+    
+    .right-panel .form-field input,
+    .right-panel .form-field select,
+    .right-panel .form-field textarea {
+        font-size: 0.8em !important;
+        padding: 0.35em !important;
     }
 }
 </style>
@@ -663,14 +706,59 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
         
         // Check if we have initialization functions available
         if (typeof window.initializeFormFromRank === 'function') {
+            console.log('HTMX afterSwap: Calling initializeFormFromRank');
             window.initializeFormFromRank();
         } else {
             // Initialize directly if the functions are in the loaded content
             const rankSelect = document.getElementById('rank');
             if (rankSelect && rankSelect.value) {
+                console.log('HTMX afterSwap: Triggering rank change event');
                 rankSelect.dispatchEvent(new Event('change'));
             }
         }
+        
+        // Additional initialization to ensure consecration field is shown for bishops
+        setTimeout(() => {
+            console.log('🔍 HTMX TIMEOUT: Starting HTMX consecration field check');
+            const rankSelect = document.getElementById('rank');
+            const consecrationsField = document.getElementById('consecrationsField');
+            
+            console.log('🔍 HTMX TIMEOUT: rankSelect found =', !!rankSelect);
+            console.log('🔍 HTMX TIMEOUT: consecrationsField found =', !!consecrationsField);
+            
+            if (rankSelect && consecrationsField) {
+                const selectedOption = rankSelect.options[rankSelect.selectedIndex];
+                const isBishop = selectedOption && selectedOption.getAttribute('data-is-bishop') === 'true';
+                
+                console.log('🔍 HTMX TIMEOUT: Checking bishop status:', {
+                    rankValue: rankSelect.value,
+                    isBishop: isBishop,
+                    consecrationsField: !!consecrationsField,
+                    selectedOption: selectedOption ? selectedOption.textContent : 'none',
+                    dataAttribute: selectedOption ? selectedOption.getAttribute('data-is-bishop') : 'none'
+                });
+                
+                if (isBishop) {
+                    consecrationsField.style.display = 'block';
+                    console.log('🔍 HTMX TIMEOUT: ✅ Showing consecrations field for bishop rank');
+                    
+                    // Also try to populate consecrations if in edit mode
+                    const clergyForm = document.getElementById('clergyForm');
+                    if (clergyForm && clergyForm.dataset.editMode === 'true') {
+                        console.log('🔍 HTMX TIMEOUT: About to call populateExistingConsecrations() from HTMX timeout');
+                        if (typeof populateExistingConsecrations === 'function') {
+                            populateExistingConsecrations();
+                        } else {
+                            console.error('❌ HTMX TIMEOUT: populateExistingConsecrations function not found');
+                        }
+                    }
+                } else {
+                    console.log('🔍 HTMX TIMEOUT: ❌ Not a bishop rank, not showing consecrations field');
+                }
+            } else {
+                console.log('🔍 HTMX TIMEOUT: ❌ Missing required elements - rankSelect:', !!rankSelect, 'consecrationsField:', !!consecrationsField);
+            }
+        }, 100);
         
         // Initialize photo controls
         console.log('HTMX afterSwap: Initializing photo controls');
@@ -979,6 +1067,12 @@ function initializeDragDropForHTMX() {
 
 // Switch form to edit mode after saving a new clergy record
 function switchToEditMode(clergyId) {
+    // Force clergy switching detection by setting a different clergy ID
+    if (typeof window.isClergySwitching === 'function') {
+        // This will make the next call to isClergySwitching() return true
+        window.currentClergyId = 'force-switch-' + clergyId;
+    }
+    
     // Use the same mechanism as selecting a clergy member for editing
     // This will trigger the proper HTMX request to load the edit form
     if (typeof selectClergy === 'function') {
@@ -995,6 +1089,12 @@ function switchToEditMode(clergyId) {
 
 // Clear form and switch to add mode after deletion
 function clearFormForNewEntry() {
+    // Force clergy switching detection by resetting the current clergy ID
+    if (typeof window.isClergySwitching === 'function') {
+        // This will make the next call to isClergySwitching() return true
+        window.currentClergyId = 'force-reset';
+    }
+    
     // Use the same mechanism as the "Add New Clergy" button
     // This will trigger the proper HTMX request to load the empty form
     if (typeof selectClergy === 'function') {

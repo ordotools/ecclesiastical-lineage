@@ -1,9 +1,0 @@
-1	Super Admin	Full system access and administration	2025-07-19 20:08:19.057957
-2	Editor	Full content management capabilities	2025-07-19 20:08:19.098187
-3	Contributor	Can add and edit clergy records with approval workflow	2025-07-19 20:08:19.159376
-4	Reviewer	Can view records and provide feedback	2025-07-19 20:08:19.182673
-5	Viewer	Read-only access to clergy records and lineage	2025-07-19 20:08:19.198471
-6	Admin	System administration with limited user management	2025-07-19 21:47:15.665711
-\.
-
-

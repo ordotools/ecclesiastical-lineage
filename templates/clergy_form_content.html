@@ -27,28 +27,28 @@
                 <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75em; align-items: start;">
                     
                     <!-- Row 1: Name (spans 2 columns) -->
-                    <div id="nameField" class="form-field" style="grid-column: 1 / -1; grid-row: 1;">
-                        <label for="name" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em;">Full Name *</label>
+                    <div id="nameField" class="form-field" style="grid-column: 1 / -1; grid-row: 1; display: flex; flex-direction: column; height: 100%; justify-content: space-between;">
+                        <label for="name" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em; flex-shrink: 0;">Full Name *</label>
                         <input type="text" id="name" name="name" 
                                value="{{ clergy.name if edit_mode and clergy else '' }}" required
-                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.9em; color: white;">
+                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.9em; color: white; flex: 1; box-sizing: border-box;">
                     </div>
 
                     <!-- Row 2: Papal Name Field (conditional, spans 2 columns) -->
-                    <div id="papalNameField" class="form-field" style="display: none; grid-column: 1 / -1; grid-row: 2;">
-                        <label for="papal_name" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em;">Papal Name</label>
+                    <div id="papalNameField" class="form-field" style="display: none; grid-column: 1 / -1; grid-row: 2; flex-direction: column; height: 100%; justify-content: space-between;">
+                        <label for="papal_name" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em; flex-shrink: 0;">Papal Name</label>
                         <input type="text" id="papal_name" name="papal_name" 
                                value="{{ clergy.papal_name if edit_mode and clergy else '' }}" 
                                placeholder="e.g., Pope Francis, Pope Benedict XVI"
-                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08);  font-size: 0.9em; color: white; ">
+                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.9em; color: white; flex: 1; box-sizing: border-box;">
                     </div>
 
                     <!-- Row 3: Organization (spans 2 columns) -->
-                    <div id="organizationField" class="form-field" style="grid-column: 1 / -1; grid-row: 3;">
-                        <label for="organization" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em;">Organization</label>
-                        <div style="display: flex; gap: 0.5em; align-items: stretch;">
+                    <div id="organizationField" class="form-field" style="grid-column: 1 / -1; grid-row: 3; display: flex; flex-direction: column; height: 100%; justify-content: space-between;">
+                        <label for="organization" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em; flex-shrink: 0;">Organization</label>
+                        <div style="display: flex; gap: 0.5em; align-items: stretch; flex: 1;">
                             <select id="organization" name="organization" 
-                                    style="flex: 1; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08);  font-size: 0.9em; color: white; ">
+                                    style="flex: 1; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.9em; color: white; box-sizing: border-box;">
                                 <option value="" style="background: #2c3e50; color: white;">Select Organization</option>
                                 {% for org in fields.organizations %}
                                 <option value="{{ org.name }}" style="background: #2c3e50; color: white;" {% if clergy and clergy.organization == org.name %}selected{% endif %}>
@@ -64,10 +64,10 @@
                     </div>
 
                     <!-- Rows 4-6, Col 1: Photo Section (spans 3 rows) -->
-                    <div id="photoField" class="photo-section" style="grid-column: 1; grid-row: 4 / 7; display: flex; flex-direction: column;">
+                    <div id="photoField" class="photo-section" style="grid-column: 1; grid-row: 4 / 7; display: flex; flex-direction: column; height: 100%;">
                         <label style="display: block; margin-bottom: 0.5em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.85em;">Photo</label>
-                        <div id="photoContainer" class="photo-container drag-drop-container" style="border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; background: rgba(255, 255, 255, 0.04); padding: 1em; flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; min-height: 200px; position: relative; z-index: 10;">
-                            <div id="imagePreview" style="text-align: center; width: 100%;">
+                        <div id="photoContainer" class="photo-container drag-drop-container" style="border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; background: rgba(255, 255, 255, 0.04); padding: 1em; flex: 1; display: flex; align-items: stretch; justify-content: center; flex-direction: column; height: 100%; position: relative; z-index: 10;">
+                            <div id="imagePreview" style="text-align: center; width: 100%; flex: 1; display: flex; align-items: center; justify-content: center;">
                                 {% if edit_mode and clergy and clergy.image_data %}
                                     {% set image_data = clergy.image_data | from_json %}
                                     {% if image_data and image_data.detail %}
@@ -87,8 +87,8 @@
                                          data-clergy-id="{{ clergy.id }}"
                                          data-object-key="">
                                 {% else %}
-                                    <div id="noPhotoPlaceholder" style="color: rgba(255, 255, 255, 0.5); font-size: 0.9em; padding: 2em; border: 1px dashed rgba(255, 255, 255, 0.2); border-radius: 4px;">
-                                        <i class="fas fa-user" style="font-size: 2em; margin-bottom: 0.5em; display: block; opacity: 0.6;"></i>
+                                    <div id="noPhotoPlaceholder" style="color: rgba(255, 255, 255, 0.5); font-size: 0.9em; padding: 1.5em; border: 1px dashed rgba(255, 255, 255, 0.2); border-radius: 4px; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px;">
+                                        <i class="fas fa-user" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.6;"></i>
                                         <div>No Photo</div>
                                         <div style="font-size: 0.8em; margin-top: 0.5em; opacity: 0.7;">Click or drag & drop to upload</div>
                                     </div>
@@ -96,20 +96,20 @@
                             </div>
                             
                             <!-- Image Control Buttons -->
-                            <div class="photo-controls" style="margin-top: 1em; display: flex; flex-direction: column; gap: 0.5em; width: 100%;">
+                            <div class="photo-controls" style="margin-top: 0.75em; display: flex; flex-direction: column; gap: 0.4em; width: 100%; flex-shrink: 0;">
                                 <input type="file" id="clergyImage" name="clergy_image" accept="image/*" style="display: none;">
                                 <button type="button" id="uploadBtn" title="Upload Image"
-                                        style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.8em;">
-                                    <i class="fas fa-upload" style="margin-right: 0.5em;"></i>Upload Photo
+                                        style="width: 100%; padding: 0.4em 0.6em; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.75em;">
+                                    <i class="fas fa-upload" style="margin-right: 0.4em;"></i>Upload Photo
                                 </button>
                                 {% if edit_mode and clergy and clergy.image_url %}
                                 <button type="button" id="cropExistingBtn" title="Edit Image"
-                                        style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.8em;">
-                                    <i class="fas fa-edit" style="margin-right: 0.5em;"></i>Edit Photo
+                                        style="width: 100%; padding: 0.4em 0.6em; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.75em;">
+                                    <i class="fas fa-edit" style="margin-right: 0.4em;"></i>Edit Photo
                                 </button>
                                 <button type="button" id="removeImageBtn" title="Remove Image"
-                                        style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 100, 100, 0.4); background: rgba(255, 100, 100, 0.08); color: rgba(255, 150, 150, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.8em;">
-                                    <i class="fas fa-trash" style="margin-right: 0.5em;"></i>Remove Photo
+                                        style="width: 100%; padding: 0.4em 0.6em; border: 1px solid rgba(255, 100, 100, 0.4); background: rgba(255, 100, 100, 0.08); color: rgba(255, 150, 150, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.75em;">
+                                    <i class="fas fa-trash" style="margin-right: 0.4em;"></i>Remove Photo
                                 </button>
                                 {% endif %}
                             </div>
@@ -117,40 +117,41 @@
                     </div>
 
                     <!-- Row 4, Col 2: Rank -->
-                    <div id="rankField" class="form-field" style="grid-column: 2; grid-row: 4;">
-                        <label for="rank" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em;">Rank *</label>
+                    <div id="rankField" class="form-field" style="grid-column: 2; grid-row: 4; display: flex; flex-direction: column; height: 100%; justify-content: space-between;">
+                        <label for="rank" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em; flex-shrink: 0;">Rank *</label>
                         <select id="rank" name="rank" required
-                                style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08);  font-size: 0.9em; color: white; ">
+                                style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.9em; color: white; flex: 1; box-sizing: border-box;">
                             <option value="" style="background: #2c3e50; color: white;">Select Rank</option>
                             {% for rank in fields.ranks %}
-                            <option value="{{ rank.name }}" data-is-bishop="{{ rank.is_bishop|lower }}" style="background: #2c3e50; color: white;" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>
-                                {{ rank.name }}
+                            <!-- DEBUG: rank.name={{ rank.name }}, rank.is_bishop={{ rank.is_bishop }} -->
+                            <option value="{{ rank.name }}" data-is-bishop="{{ 'true' if rank.is_bishop else 'false' }}" style="background: #2c3e50; color: white;" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>
+                                {{ rank.name }} ({{ 'Bishop' if rank.is_bishop else 'Not Bishop' }})
                             </option>
                             {% endfor %}
                         </select>
                     </div>
 
                     <!-- Row 5, Col 2: Date of Birth -->
-                    <div id="birthField" class="form-field" style="grid-column: 2; grid-row: 5;">
-                        <label for="date_of_birth" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em;">Date of Birth</label>
+                    <div id="birthField" class="form-field" style="grid-column: 2; grid-row: 5; display: flex; flex-direction: column; height: 100%; justify-content: space-between;">
+                        <label for="date_of_birth" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em; flex-shrink: 0;">Date of Birth</label>
                         <input type="date" id="date_of_birth" name="date_of_birth" 
                                value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}"
-                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08);  font-size: 0.9em; color: white; ">
+                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.9em; color: white; flex: 1; box-sizing: border-box;">
                     </div>
 
                     <!-- Row 6, Col 2: Date of Death -->
-                    <div id="deathField" class="form-field" style="grid-column: 2; grid-row: 6;">
-                        <label for="date_of_death" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em;">Date of Death</label>
+                    <div id="deathField" class="form-field" style="grid-column: 2; grid-row: 6; display: flex; flex-direction: column; height: 100%; justify-content: space-between;">
+                        <label for="date_of_death" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em; flex-shrink: 0;">Date of Death</label>
                         <input type="date" id="date_of_death" name="date_of_death" 
                                value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}"
-                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08);  font-size: 0.9em; color: white; ">
+                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.9em; color: white; flex: 1; box-sizing: border-box;">
                     </div>
 
                     <!-- Row 7: Notes (spans 2 columns) -->
-                    <div id="notesField" class="form-field" style="grid-column: 1 / -1; grid-row: 7;">
-                        <label for="notes" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em;">Notes</label>
+                    <div id="notesField" class="form-field" style="grid-column: 1 / -1; grid-row: 7; display: flex; flex-direction: column; height: 100%; justify-content: space-between;">
+                        <label for="notes" style="display: block; margin-bottom: 0.25em; font-weight: 500; color: white; font-size: 0.85em; flex-shrink: 0;">Notes</label>
                         <textarea id="notes" name="notes" rows="3" 
-                                  style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08);  font-size: 0.9em; color: white;  resize: vertical;"
+                                  style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.9em; color: white; resize: vertical; flex: 1; box-sizing: border-box; min-height: 60px;"
                                   placeholder="Additional notes about this clergy member...">{{ clergy.notes if edit_mode and clergy else '' }}</textarea>
                     </div>
 
@@ -173,7 +174,7 @@
                     </div>
 
                     <!-- Row 9: Consecrations Section (spans 2 columns, conditional) -->
-                    <div id="consecrationsField" class="form-section" style="grid-column: 1 / -1; grid-row: 9; display: none; margin-top: 1em;">
+                    <div id="consecrationsField" class="form-section" style="grid-column: 1 / -1; grid-row: 9; {% if edit_mode and clergy and clergy.rank and clergy.rank.lower() in ['bishop', 'archbishop', 'cardinal', 'pope'] %}display: block;{% else %}display: none;{% endif %} margin-top: 1em;">
                         <h5 style="margin: 0 0 0.75em 0; color: rgba(255, 255, 255, 0.9); font-size: 0.95em; font-weight: 500; display: flex; align-items: center; gap: 0.5em; padding-bottom: 0.5em; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
                             <i class="fas fa-crown" style="opacity: 0.8;"></i> Consecrations
                         </h5>
@@ -248,7 +249,58 @@ console.log('🎯 CONTENT TEMPLATE: Running immediate initialization');
 adjustFormLayout();
 initializeFormFromRank();
 initializeClergyAutocomplete();
+attachRankChangeListener(); // Attach rank change listener for HTMX-loaded content
+
+// Additional check to ensure consecration field is shown for bishops
+setTimeout(() => {
+    console.log('🔍 IMMEDIATE CHECK: Starting immediate consecration field check');
+    const rankSelect = document.getElementById('rank');
+    const consecrationsField = document.getElementById('consecrationsField');
+    
+    console.log('🔍 IMMEDIATE CHECK: rankSelect found =', !!rankSelect);
+    console.log('🔍 IMMEDIATE CHECK: consecrationsField found =', !!consecrationsField);
+    
+    if (rankSelect && consecrationsField) {
+        const selectedOption = rankSelect.options[rankSelect.selectedIndex];
+        const isBishop = selectedOption && selectedOption.getAttribute('data-is-bishop') === 'true';
+        
+        console.log('🔍 IMMEDIATE CHECK: Checking bishop status:', {
+            rankValue: rankSelect.value,
+            isBishop: isBishop,
+            consecrationsField: !!consecrationsField,
+            selectedOption: selectedOption ? selectedOption.textContent : 'none',
+            dataAttribute: selectedOption ? selectedOption.getAttribute('data-is-bishop') : 'none'
+        });
+        
+        if (isBishop) {
+            consecrationsField.style.display = 'block';
+            console.log('🔍 IMMEDIATE CHECK: ✅ Showing consecrations field for bishop rank');
+            
+            // Also try to populate consecrations immediately
+            {% if edit_mode and clergy %}
+            console.log('🔍 IMMEDIATE CHECK: About to call populateExistingConsecrations() from immediate check');
+            populateExistingConsecrations();
+            {% endif %}
+        } else {
+            console.log('🔍 IMMEDIATE CHECK: ❌ Not a bishop rank, not showing consecrations field');
+        }
+    } else {
+        console.log('🔍 IMMEDIATE CHECK: ❌ Missing required elements - rankSelect:', !!rankSelect, 'consecrationsField:', !!consecrationsField);
+    }
+}, 50);
+
 console.log('🎯 CONTENT TEMPLATE: Immediate initialization completed');
+
+// Fallback: If consecrations field is already visible (server-side), populate consecrations immediately
+{% if edit_mode and clergy %}
+setTimeout(() => {
+    const consecrationsField = document.getElementById('consecrationsField');
+    if (consecrationsField && consecrationsField.style.display !== 'none' && consecrationsField.style.display !== '') {
+        console.log('🔍 FALLBACK: Consecrations field is already visible, populating consecrations');
+        populateExistingConsecrations();
+    }
+}, 200);
+{% endif %}
 
 // Also listen for DOMContentLoaded (in case it's not HTMX loaded)
 document.addEventListener('DOMContentLoaded', function() {
@@ -258,12 +310,80 @@ document.addEventListener('DOMContentLoaded', function() {
     adjustFormLayout();
     initializeFormFromRank();
     initializeClergyAutocomplete();
+    attachRankChangeListener(); // Attach rank change listener for DOM-loaded content
+    
+    // Additional check to ensure consecration field is shown for bishops
+    setTimeout(() => {
+        const rankSelect = document.getElementById('rank');
+        const consecrationsField = document.getElementById('consecrationsField');
+        
+        if (rankSelect && consecrationsField) {
+            const selectedOption = rankSelect.options[rankSelect.selectedIndex];
+            const isBishop = selectedOption && selectedOption.getAttribute('data-is-bishop') === 'true';
+            
+            console.log('Content template timeout: Checking bishop status:', {
+                rankValue: rankSelect.value,
+                isBishop: isBishop,
+                consecrationsField: !!consecrationsField
+            });
+            
+            if (isBishop) {
+                consecrationsField.style.display = 'block';
+                console.log('Content template timeout: ✅ Showing consecrations field for bishop rank');
+            }
+        }
+    }, 50);
+    
     console.log('🎯 CONTENT TEMPLATE: initializeFormFromRank completed');
 });
+
+// Reset population flags when form is cleared or clergy changes
+function resetPopulationFlags() {
+    const ordinationsContainer = document.getElementById('ordinationsContainer');
+    const consecrationsContainer = document.getElementById('consecrationsContainer');
+    
+    if (ordinationsContainer) {
+        ordinationsContainer.removeAttribute('data-ordinations-populated');
+    }
+    if (consecrationsContainer) {
+        consecrationsContainer.removeAttribute('data-consecrations-populated');
+    }
+}
+
+// Check if we're switching to a different clergy record
+function isClergySwitching() {
+    // Initialize currentClergyId if not already set
+    if (typeof window.currentClergyId === 'undefined') {
+        window.currentClergyId = null;
+    }
+    
+    {% if edit_mode and clergy %}
+    const newClergyId = {{ clergy.id }};
+    if (window.currentClergyId !== newClergyId) {
+        window.currentClergyId = newClergyId;
+        return true;
+    }
+    return false;
+    {% else %}
+    // For new clergy (not edit mode), always reset
+    if (window.currentClergyId !== null) {
+        window.currentClergyId = null;
+        return true;
+    }
+    return false;
+    {% endif %}
+}
 
 // Initialize form fields based on existing rank data
 function initializeFormFromRank() {
     console.log('🔧 INIT: initializeFormFromRank called');
+    
+    // Only reset population flags if we're switching to a different clergy record
+    if (isClergySwitching()) {
+        console.log('🔧 INIT: Switching clergy, resetting population flags');
+        resetPopulationFlags();
+    }
+    
     const rankSelect = document.getElementById('rank');
     console.log('🔧 INIT: rankSelect found:', !!rankSelect);
     
@@ -278,6 +398,16 @@ function initializeFormFromRank() {
     const isBishop = selectedOption.getAttribute('data-is-bishop') === 'true';
     
     console.log('🔧 INIT: rankValue:', rankValue, 'isBishop:', isBishop);
+    console.log('🔧 INIT: selectedOption:', selectedOption);
+    console.log('🔧 INIT: data-is-bishop attribute:', selectedOption.getAttribute('data-is-bishop'));
+    console.log('🔧 INIT: All rank options:');
+    for (let i = 0; i < rankSelect.options.length; i++) {
+        const option = rankSelect.options[i];
+        console.log(`  Option ${i}: value="${option.value}", data-is-bishop="${option.getAttribute('data-is-bishop')}", text="${option.textContent}"`);
+    }
+    
+    // Debug: Log the actual HTML of the select element
+    console.log('🔧 INIT: Select element HTML:', rankSelect.outerHTML);
     
     const papalField = document.getElementById('papalNameField');
     const consecrationsField = document.getElementById('consecrationsField');
@@ -292,18 +422,28 @@ function initializeFormFromRank() {
     }
     
     // Show consecrations field if rank is Bishop
+    console.log('🔍 CONSECRATION FIELD DEBUG: Checking if should show consecrations field');
+    console.log('🔍 CONSECRATION FIELD DEBUG: isBishop =', isBishop);
+    console.log('🔍 CONSECRATION FIELD DEBUG: consecrationsField exists =', !!consecrationsField);
+    console.log('🔍 CONSECRATION FIELD DEBUG: edit_mode = {{ edit_mode|lower }}');
+    console.log('🔍 CONSECRATION FIELD DEBUG: clergy exists = {{ (clergy is defined and clergy)|lower }}');
+    
     if (isBishop && consecrationsField) {
         consecrationsField.style.display = 'block';
         console.log('✅ Showing consecrations field for bishop rank');
         
         // If in edit mode, populate existing consecrations
-        {% if edit_mode and clergy and clergy.consecrations %}
+        {% if edit_mode and clergy %}
+        console.log('🔍 CONSECRATION FIELD DEBUG: About to call populateExistingConsecrations()');
         populateExistingConsecrations();
         {% endif %}
+    } else {
+        console.log('❌ CONSECRATION FIELD DEBUG: Not showing consecrations field');
+        console.log('❌ CONSECRATION FIELD DEBUG: isBishop =', isBishop, 'consecrationsField =', !!consecrationsField);
     }
     
     // If in edit mode and has existing ordinations, populate them
-    {% if edit_mode and clergy and clergy.ordinations %}
+    {% if edit_mode and clergy %}
     populateExistingOrdinations();
     {% endif %}
     
@@ -314,44 +454,72 @@ function initializeFormFromRank() {
 
 // Populate existing ordinations for edit mode
 function populateExistingOrdinations() {
-    {% if edit_mode and clergy and clergy.ordinations %}
+    {% if edit_mode and clergy %}
     const container = document.getElementById('ordinationsContainer');
     if (!container) return;
     
-    console.log('Populating {{ clergy.ordinations|length }} existing ordinations...');
-    
-    {% for ordination in clergy.ordinations %}
-    addOrdination();
-    const ordinationEntry = container.lastElementChild;
-    if (ordinationEntry) {
-        // Populate date
-        const dateInput = ordinationEntry.querySelector('input[name*="[date]"]');
-        if (dateInput) {
-            dateInput.value = {{ ordination.date.strftime('%Y-%m-%d')|tojson if ordination.date else '""' }};
-        }
-        
-        // Populate ordaining bishop
-        const bishopInput = ordinationEntry.querySelector('input[name*="[ordaining_bishop_input]"]');
-        const bishopIdInput = ordinationEntry.querySelector('input[name*="[ordaining_bishop_id]"]');
-        {% if ordination.ordaining_bishop %}
-        if (bishopInput) bishopInput.value = {{ ordination.ordaining_bishop.name|tojson }};
-        if (bishopIdInput) bishopIdInput.value = {{ ordination.ordaining_bishop.id|tojson }};
-        {% endif %}
-        
-        // Populate checkboxes
-        const subConditioneInput = ordinationEntry.querySelector('input[name*="[is_sub_conditione]"]');
-        const doubtfulInput = ordinationEntry.querySelector('input[name*="[is_doubtful]"]');
-        const invalidInput = ordinationEntry.querySelector('input[name*="[is_invalid]"]');
-        
-        if (subConditioneInput) subConditioneInput.checked = {{ ordination.is_sub_conditione|lower }};
-        if (doubtfulInput) doubtfulInput.checked = {{ ordination.is_doubtful|lower }};
-        if (invalidInput) invalidInput.checked = {{ ordination.is_invalid|lower }};
-        
-        // Populate notes
-        const notesTextarea = ordinationEntry.querySelector('textarea[name*="[notes]"]');
-        if (notesTextarea) notesTextarea.value = {{ ordination.notes|tojson if ordination.notes else '""' }};
+    // Check if ordinations have already been populated to prevent duplicates
+    if (container.hasAttribute('data-ordinations-populated')) {
+        console.log('Ordinations already populated, skipping...');
+        return;
     }
-    {% endfor %}
+    
+    const ordinations = [
+        {% for ordination in clergy.get_all_ordinations() %}
+        {
+            id: {{ ordination.id }},
+            date: {{ ordination.date.strftime('%Y-%m-%d')|tojson if ordination.date else 'null' }},
+            is_sub_conditione: {{ ordination.is_sub_conditione|lower }},
+            is_doubtful: {{ ordination.is_doubtful|lower }},
+            is_invalid: {{ ordination.is_invalid|lower }},
+            notes: {{ ordination.notes|tojson if ordination.notes else 'null' }},
+            ordaining_bishop: {% if ordination.ordaining_bishop %}{
+                id: {{ ordination.ordaining_bishop.id }},
+                name: {{ ordination.ordaining_bishop.name|tojson }}
+            }{% else %}null{% endif %}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    console.log('Populating', ordinations.length, 'existing ordinations...');
+    
+    // Mark as populated before adding entries
+    container.setAttribute('data-ordinations-populated', 'true');
+    
+    // Populate ordinations using JavaScript
+    ordinations.forEach((ordination, index) => {
+        addOrdination();
+        const ordinationEntry = container.lastElementChild;
+        if (ordinationEntry) {
+            // Populate date
+            const dateInput = ordinationEntry.querySelector('input[name*="[date]"]');
+            if (dateInput && ordination.date) {
+                dateInput.value = ordination.date;
+            }
+            
+            // Populate ordaining bishop
+            const bishopInput = ordinationEntry.querySelector('input[name*="[ordaining_bishop_input]"]');
+            const bishopIdInput = ordinationEntry.querySelector('input[name*="[ordaining_bishop_id]"]');
+            if (ordination.ordaining_bishop) {
+                if (bishopInput) bishopInput.value = ordination.ordaining_bishop.name;
+                if (bishopIdInput) bishopIdInput.value = ordination.ordaining_bishop.id;
+            }
+            
+            // Populate checkboxes
+            const subConditioneInput = ordinationEntry.querySelector('input[name*="[is_sub_conditione]"]');
+            const doubtfulInput = ordinationEntry.querySelector('input[name*="[is_doubtful]"]');
+            const invalidInput = ordinationEntry.querySelector('input[name*="[is_invalid]"]');
+            
+            if (subConditioneInput) subConditioneInput.checked = ordination.is_sub_conditione;
+            if (doubtfulInput) doubtfulInput.checked = ordination.is_doubtful;
+            if (invalidInput) invalidInput.checked = ordination.is_invalid;
+            
+            // Populate notes
+            const notesTextarea = ordinationEntry.querySelector('textarea[name*="[notes]"]');
+            if (notesTextarea && ordination.notes) {
+                notesTextarea.value = ordination.notes;
+            }
+        }
+    });
     {% else %}
     console.log('No ordinations to populate or not in edit mode');
     {% endif %}
@@ -359,72 +527,119 @@ function populateExistingOrdinations() {
 
 // Populate existing consecrations for edit mode
 function populateExistingConsecrations() {
-    {% if edit_mode and clergy and clergy.consecrations %}
+    console.log('🔍 CONSECRATION DEBUG: Starting populateExistingConsecrations function');
+    console.log('🔍 CONSECRATION DEBUG: edit_mode = {{ edit_mode|lower }}');
+    console.log('🔍 CONSECRATION DEBUG: clergy exists = {{ (clergy is defined and clergy)|lower }}');
+    
+    {% if edit_mode and clergy %}
+    console.log('🔍 CONSECRATION DEBUG: In edit mode with clergy, proceeding...');
+    console.log('🔍 CONSECRATION DEBUG: clergy.get_all_consecrations() = {{ clergy.get_all_consecrations()|length }} consecrations');
+    
     const container = document.getElementById('consecrationsContainer');
-    if (!container) return;
-    
-    console.log('Populating {{ clergy.consecrations|length }} existing consecrations...');
-    
-    {% for consecration in clergy.consecrations %}
-    addConsecration();
-    const consecrationEntry = container.lastElementChild;
-    if (consecrationEntry) {
-        // Populate date
-        const dateInput = consecrationEntry.querySelector('input[name*="[date]"]');
-        if (dateInput) {
-            dateInput.value = {{ consecration.date.strftime('%Y-%m-%d')|tojson if consecration.date else '""' }};
-        }
-        
-        // Populate consecrator
-        const consecratorInput = consecrationEntry.querySelector('input[name*="[consecrator_input]"]');
-        const consecratorIdInput = consecrationEntry.querySelector('input[name*="[consecrator_id]"]');
-        {% if consecration.consecrator %}
-        if (consecratorInput) consecratorInput.value = {{ consecration.consecrator.name|tojson }};
-        if (consecratorIdInput) consecratorIdInput.value = {{ consecration.consecrator.id|tojson }};
-        {% endif %}
-        
-        // Populate first co-consecrator
-        const coConsecratorInput = consecrationEntry.querySelector('input[name*="[co_consecrators][0][input]"]');
-        const coConsecratorIdInput = consecrationEntry.querySelector('input[name*="[co_consecrators][0][id]"]');
-        {% if consecration.co_consecrators %}
-        {% set first_co_consecrator = consecration.co_consecrators[0] %}
-        if (coConsecratorInput) coConsecratorInput.value = {{ first_co_consecrator.name|tojson }};
-        if (coConsecratorIdInput) coConsecratorIdInput.value = {{ first_co_consecrator.id|tojson }};
-        
-        // Add additional co-consecrators if they exist
-        const coConsecratorsList = consecrationEntry.querySelector('.co-consecrators-list');
-        {% for co_consecrator in consecration.co_consecrators[1:] %}
-        if (coConsecratorsList) {
-            const coConsecratorName = {{ co_consecrator.name|tojson }};
-            const coConsecratorId = {{ co_consecrator.id|tojson }};
-            const additionalCoConsecratorHtml = `
-                <div class="co-consecrator-item" style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
-                    <input type="text" name="consecrations[${consecrationCount-1}][co_consecrators][{{ loop.index }}][input]" value="${coConsecratorName}" style="flex: 1; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
-                    <input type="hidden" name="consecrations[${consecrationCount-1}][co_consecrators][{{ loop.index }}][id]" value="${coConsecratorId}">
-                    <button type="button" class="remove-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 100, 100, 0.4); background: rgba(255, 100, 100, 0.08); color: rgba(255, 150, 150, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.75em;">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            `;
-            coConsecratorsList.insertAdjacentHTML('beforeend', additionalCoConsecratorHtml);
-        }
-        {% endfor %}
-        {% endif %}
-        
-        // Populate checkboxes
-        const subConditioneInput = consecrationEntry.querySelector('input[name*="[is_sub_conditione]"]');
-        const doubtfulInput = consecrationEntry.querySelector('input[name*="[is_doubtful]"]');
-        const invalidInput = consecrationEntry.querySelector('input[name*="[is_invalid]"]');
-        
-        if (subConditioneInput) subConditioneInput.checked = {{ consecration.is_sub_conditione|lower }};
-        if (doubtfulInput) doubtfulInput.checked = {{ consecration.is_doubtful|lower }};
-        if (invalidInput) invalidInput.checked = {{ consecration.is_invalid|lower }};
-        
-        // Populate notes
-        const notesTextarea = consecrationEntry.querySelector('textarea[name*="[notes]"]');
-        if (notesTextarea) notesTextarea.value = {{ consecration.notes|tojson if consecration.notes else '""' }};
+    console.log('🔍 CONSECRATION DEBUG: consecrationsContainer found =', !!container);
+    if (!container) {
+        console.error('❌ CONSECRATION DEBUG: consecrationsContainer not found!');
+        return;
     }
-    {% endfor %}
+    
+    // Check if consecrations have already been populated to prevent duplicates
+    if (container.hasAttribute('data-consecrations-populated')) {
+        console.log('🔍 CONSECRATION DEBUG: Consecrations already populated, skipping...');
+        return;
+    }
+    
+    console.log('🔍 CONSECRATION DEBUG: Building consecrations array...');
+    const consecrations = [
+        {% for consecration in clergy.get_all_consecrations() %}
+        {
+            id: {{ consecration.id }},
+            date: {{ consecration.date.strftime('%Y-%m-%d')|tojson if consecration.date else 'null' }},
+            is_sub_conditione: {{ consecration.is_sub_conditione|lower }},
+            is_doubtful: {{ consecration.is_doubtful|lower }},
+            is_invalid: {{ consecration.is_invalid|lower }},
+            notes: {{ consecration.notes|tojson if consecration.notes else 'null' }},
+            consecrator: {% if consecration.consecrator %}{
+                id: {{ consecration.consecrator.id }},
+                name: {{ consecration.consecrator.name|tojson }}
+            }{% else %}null{% endif %},
+            co_consecrators: [
+                {% for co_consecrator in consecration.co_consecrators %}
+                {
+                    id: {{ co_consecrator.id }},
+                    name: {{ co_consecrator.name|tojson }}
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ]
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    console.log('🔍 CONSECRATION DEBUG: Built consecrations array:', consecrations);
+    console.log('🔍 CONSECRATION DEBUG: Populating', consecrations.length, 'existing consecrations...');
+    
+    // Mark as populated before adding entries
+    container.setAttribute('data-consecrations-populated', 'true');
+    
+    // Populate consecrations using JavaScript
+    consecrations.forEach((consecration, index) => {
+        addConsecration();
+        const consecrationEntry = container.lastElementChild;
+        if (consecrationEntry) {
+            // Populate date
+            const dateInput = consecrationEntry.querySelector('input[name*="[date]"]');
+            if (dateInput && consecration.date) {
+                dateInput.value = consecration.date;
+            }
+            
+            // Populate consecrator
+            const consecratorInput = consecrationEntry.querySelector('input[name*="[consecrator_input]"]');
+            const consecratorIdInput = consecrationEntry.querySelector('input[name*="[consecrator_id]"]');
+            if (consecration.consecrator) {
+                if (consecratorInput) consecratorInput.value = consecration.consecrator.name;
+                if (consecratorIdInput) consecratorIdInput.value = consecration.consecrator.id;
+            }
+            
+            // Populate co-consecrators
+            if (consecration.co_consecrators && consecration.co_consecrators.length > 0) {
+                const coConsecratorInput = consecrationEntry.querySelector('input[name*="[co_consecrators][0][input]"]');
+                const coConsecratorIdInput = consecrationEntry.querySelector('input[name*="[co_consecrators][0][id]"]');
+                const firstCoConsecrator = consecration.co_consecrators[0];
+                if (coConsecratorInput) coConsecratorInput.value = firstCoConsecrator.name;
+                if (coConsecratorIdInput) coConsecratorIdInput.value = firstCoConsecrator.id;
+                
+                // Add additional co-consecrators if they exist
+                const coConsecratorsList = consecrationEntry.querySelector('.co-consecrators-list');
+                if (coConsecratorsList && consecration.co_consecrators.length > 1) {
+                    consecration.co_consecrators.slice(1).forEach((coConsecrator, coIndex) => {
+                        const additionalCoConsecratorHtml = `
+                            <div class="co-consecrator-item" style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
+                                <input type="text" name="consecrations[${index}][co_consecrators][${coIndex + 1}][input]" value="${coConsecrator.name}" style="flex: 1; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                                <input type="hidden" name="consecrations[${index}][co_consecrators][${coIndex + 1}][id]" value="${coConsecrator.id}">
+                                <button type="button" class="remove-co-consecrator" style="padding: 0.4em 0.6em; border: 1px solid rgba(255, 100, 100, 0.4); background: rgba(255, 100, 100, 0.08); color: rgba(255, 150, 150, 0.9); border-radius: 4px; cursor: pointer; font-size: 0.75em;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        `;
+                        coConsecratorsList.insertAdjacentHTML('beforeend', additionalCoConsecratorHtml);
+                    });
+                }
+            }
+            
+            // Populate checkboxes
+            const subConditioneInput = consecrationEntry.querySelector('input[name*="[is_sub_conditione]"]');
+            const doubtfulInput = consecrationEntry.querySelector('input[name*="[is_doubtful]"]');
+            const invalidInput = consecrationEntry.querySelector('input[name*="[is_invalid]"]');
+            
+            if (subConditioneInput) subConditioneInput.checked = consecration.is_sub_conditione;
+            if (doubtfulInput) doubtfulInput.checked = consecration.is_doubtful;
+            if (invalidInput) invalidInput.checked = consecration.is_invalid;
+            
+            // Populate notes
+            const notesTextarea = consecrationEntry.querySelector('textarea[name*="[notes]"]');
+            if (notesTextarea && consecration.notes) {
+                notesTextarea.value = consecration.notes;
+            }
+        }
+    });
     {% else %}
     console.log('No ordinations to populate or not in edit mode');
     {% endif %}
@@ -508,57 +723,62 @@ function adjustFormLayout() {
     console.log('Layout adjusted. Photo rows:', `${photoStartRow}-${photoStartRow + 2}`, 'Ordinations row:', currentRow - 1);
 }
 
-// Watch for rank changes to show/hide papal name field and consecrations
-(function() {
+// Function to attach rank change event listener
+function attachRankChangeListener() {
     const rankSelect = document.getElementById('rank');
-    if (rankSelect) {
+    if (rankSelect && !rankSelect.hasAttribute('data-change-listener-attached')) {
+        rankSelect.setAttribute('data-change-listener-attached', 'true');
         rankSelect.addEventListener('change', function() {
-        console.log('🔄 RANK CHANGE: Event triggered');
-        const papalField = document.getElementById('papalNameField');
-        const consecrationsField = document.getElementById('consecrationsField');
-        const selectedOption = this.options[this.selectedIndex];
-        const rankValue = this.value.toLowerCase();
-        const isBishop = selectedOption.getAttribute('data-is-bishop') === 'true';
-        
-        console.log('🔄 RANK CHANGE: Details:', {
-            rankValue: rankValue,
-            isBishop: isBishop,
-            dataAttribute: selectedOption.getAttribute('data-is-bishop'),
-            papalField: !!papalField,
-            consecrationsField: !!consecrationsField
-        });
-        
-        // Handle papal name field (only for pope)
-        if (rankValue === 'pope') {
-            if (papalField) {
-                papalField.style.display = 'block';
-            }
-        } else {
-            if (papalField) {
-                papalField.style.display = 'none';
-            }
-        }
-        
-        // Handle consecrations field (for any rank with is_bishop flag)
-        if (isBishop) {
-            if (consecrationsField) {
-                consecrationsField.style.display = 'block';
-                console.log('🔄 RANK CHANGE: ✅ Showing consecrations field for bishop rank');
+            console.log('🔄 RANK CHANGE: Event triggered');
+            const papalField = document.getElementById('papalNameField');
+            const consecrationsField = document.getElementById('consecrationsField');
+            const selectedOption = this.options[this.selectedIndex];
+            const rankValue = this.value.toLowerCase();
+            const isBishop = selectedOption.getAttribute('data-is-bishop') === 'true';
+            
+            console.log('🔄 RANK CHANGE: Details:', {
+                rankValue: rankValue,
+                isBishop: isBishop,
+                dataAttribute: selectedOption.getAttribute('data-is-bishop'),
+                papalField: !!papalField,
+                consecrationsField: !!consecrationsField
+            });
+            
+            // Handle papal name field (only for pope)
+            if (rankValue === 'pope') {
+                if (papalField) {
+                    papalField.style.display = 'block';
+                }
             } else {
-                console.log('🔄 RANK CHANGE: ❌ consecrationsField not found');
+                if (papalField) {
+                    papalField.style.display = 'none';
+                }
             }
-        } else {
-            if (consecrationsField) {
-                consecrationsField.style.display = 'none';
-                console.log('🔄 RANK CHANGE: Hiding consecrations field - not bishop rank');
+            
+            // Handle consecrations field (for any rank with is_bishop flag)
+            if (isBishop) {
+                if (consecrationsField) {
+                    consecrationsField.style.display = 'block';
+                    console.log('🔄 RANK CHANGE: ✅ Showing consecrations field for bishop rank');
+                } else {
+                    console.log('🔄 RANK CHANGE: ❌ consecrationsField not found');
+                }
+            } else {
+                if (consecrationsField) {
+                    consecrationsField.style.display = 'none';
+                    console.log('🔄 RANK CHANGE: Hiding consecrations field - not bishop rank');
+                }
             }
-        }
-        
-        // Update form layout
-        adjustFormLayout();
-    });
+            
+            // Update form layout
+            adjustFormLayout();
+        });
+        console.log('✅ Rank change listener attached');
     }
-})();
+}
+
+// Attach rank change listener immediately
+attachRankChangeListener();
 
 // Initial layout adjustment
 document.addEventListener('DOMContentLoaded', function() {
@@ -1024,6 +1244,8 @@ if (!window.clergyFormEventListenersAttached) {
     window.initializeFormFromRank = initializeFormFromRank;
     window.populateExistingOrdinations = populateExistingOrdinations;
     window.populateExistingConsecrations = populateExistingConsecrations;
+    window.resetPopulationFlags = resetPopulationFlags;
+    window.isClergySwitching = isClergySwitching;
     
     // Debug function to manually test initialization
     window.debugFormInit = function() {

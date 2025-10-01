@@ -10,8 +10,8 @@ console.log('Editor visualization script loaded');
 // Visualization constants - matching lineage visualization exactly
 // Prevent duplicate declarations when HTMX loads content
 if (typeof window.LINK_DISTANCE === 'undefined') {
-    window.LINK_DISTANCE = 80; // Clustering distance for force layout
-    window.CHARGE_STRENGTH = -200; // Clustering charge strength
+    window.LINK_DISTANCE = 150; // Link distance for force layout (matches main visualization)
+    window.CHARGE_STRENGTH = -400; // Charge strength (matches main visualization)
     window.COLLISION_RADIUS = 60; // Node collision radius
     window.OUTER_RADIUS = 30; // Organization ring
     window.INNER_RADIUS = 24; // Rank ring
@@ -20,17 +20,17 @@ if (typeof window.LINK_DISTANCE === 'undefined') {
 }
 
 // Use window variables to prevent const redeclaration errors
-const LINK_DISTANCE = window.LINK_DISTANCE;
-const CHARGE_STRENGTH = window.CHARGE_STRENGTH;
-const COLLISION_RADIUS = window.COLLISION_RADIUS;
-const OUTER_RADIUS = window.OUTER_RADIUS;
-const INNER_RADIUS = window.INNER_RADIUS;
-const IMAGE_SIZE = window.IMAGE_SIZE;
-const LABEL_DY = window.LABEL_DY;
+var LINK_DISTANCE = window.LINK_DISTANCE;
+var CHARGE_STRENGTH = window.CHARGE_STRENGTH;
+var COLLISION_RADIUS = window.COLLISION_RADIUS;
+var OUTER_RADIUS = window.OUTER_RADIUS;
+var INNER_RADIUS = window.INNER_RADIUS;
+var IMAGE_SIZE = window.IMAGE_SIZE;
+var LABEL_DY = window.LABEL_DY;
 
 // Get color constants from CSS variables
-const GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim() || '#27ae60';
-const BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-black').trim() || '#000000';
+var GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim() || '#27ae60';
+var BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-black').trim() || '#000000';
 
 // Prevent duplicate class declarations
 if (typeof window.EditorVisualization === 'undefined') {
@@ -50,6 +50,17 @@ class EditorVisualization {
         this.dragThreshold = 100;
         this.maxClickDuration = 300;
         this.dragStartTime = 0;
+    }
+
+    // Function to check if a rank is a bishop rank - matching main visualization
+    isBishopRank(rankValue) {
+        if (!rankValue) return false;
+        const lowerRank = rankValue.toLowerCase();
+        return lowerRank.includes('bishop') || 
+               lowerRank.includes('pope') || 
+               lowerRank.includes('archbishop') || 
+               lowerRank.includes('cardinal') ||
+               lowerRank.includes('patriarch');
     }
 
     init(nodesData, linksData) {
@@ -99,13 +110,19 @@ class EditorVisualization {
         
         // Create simulation - matching lineage visualization exactly
         this.simulation = d3.forceSimulation(this.nodesData)
-            .force('link', d3.forceLink(this.linksData).id(d => d.id).distance(LINK_DISTANCE))
-            .force('charge', d3.forceManyBody().strength(CHARGE_STRENGTH))
-            .force('center', d3.forceCenter(width / 2, height / 2).strength(0.5))
+            .force('link', d3.forceLink(this.linksData).id(d => d.id).distance(80)) // Use clustering distance like main visualization
+            .force('charge', d3.forceManyBody().strength(-200)) // Use clustering charge strength like main visualization
+            .force('center', d3.forceCenter(width / 2, height / 2).strength(0.5)) // Stronger centering force
             .force('collision', d3.forceCollide().radius(COLLISION_RADIUS))
-            .force('radial', d3.forceRadial(150, width / 2, height / 2).strength(0.1))
-            .alphaDecay(0.05)
-            .velocityDecay(0.2);
+            .force('radial', d3.forceRadial(150, width / 2, height / 2).strength(0.1)) // Radial clustering force
+            .alphaDecay(0.05) // Reduced for longer simulation
+            .velocityDecay(0.2); // Reduced for more movement
+
+        // Add repulsion between bishops - matching main visualization
+        const bishopNodes = this.nodesData.filter(n => n.rank && this.isBishopRank(n.rank));
+        if (bishopNodes.length > 0) {
+            this.simulation.force('bishop-repulsion', d3.forceManyBody().strength(-800));
+        }
         
         this.renderVisualization();
         

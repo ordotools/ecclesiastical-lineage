@@ -447,7 +447,13 @@ def view_clergy_handler(clergy_id):
         flash('Please log in to view clergy records.', 'error')
         return redirect(url_for('auth.login'))
     user = User.query.get(session['user_id'])
-    clergy = Clergy.query.get_or_404(clergy_id)
+    # Eagerly load ordination and consecration relationships
+    from sqlalchemy.orm import joinedload
+    clergy = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+        joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+    ).filter(Clergy.id == clergy_id).first_or_404()
     set_clergy_display_name(clergy)  # Set display name for the clergy member
     if user.can_edit_clergy():
         return redirect(url_for('clergy.edit_clergy', clergy_id=clergy_id))
@@ -476,13 +482,14 @@ def edit_clergy_handler(clergy_id):
         flash('Please log in to edit clergy records.', 'error')
         return redirect(url_for('auth.login'))
     user = User.query.get(session['user_id'])
-    clergy = Clergy.query.get_or_404(clergy_id)
+    # Eagerly load ordination and consecration relationships
+    from sqlalchemy.orm import joinedload
+    clergy = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+        joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+    ).filter(Clergy.id == clergy_id).first_or_404()
     set_clergy_display_name(clergy)  # Set display name for the clergy being edited
-    
-    # Explicitly load ordinations and consecrations relationships for the template
-    # This ensures the relationships are available when the template renders
-    _ = clergy.ordinations  # Trigger lazy loading
-    _ = clergy.consecrations  # Trigger lazy loading
     comments = ClergyComment.query.filter_by(clergy_id=clergy_id, is_public=True, is_resolved=False).order_by(ClergyComment.created_at.desc()).all()
     organizations = Organization.query.all()
     org_abbreviation_map = {org.name: org.abbreviation for org in organizations}

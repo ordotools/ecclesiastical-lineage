@@ -4,6 +4,7 @@ from services.clergy import permanently_delete_clergy_handler
 from utils import audit_log, require_permission, log_audit_event
 from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite
 from datetime import datetime
+from sqlalchemy import text
 import json
 import base64
 
@@ -149,6 +150,12 @@ def clergy_form_panel(clergy_id=None):
     ranks = Rank.query.all()
     organizations = Organization.query.all()
     
+    # Debug: Log rank data
+    print("=== RANK DEBUG ===")
+    for rank in ranks:
+        print(f"Rank: {rank.name}, is_bishop: {rank.is_bishop}")
+    print("==================")
+    
     # Create fields object for the form
     class FormFields:
         def __init__(self, ranks, organizations):
@@ -160,8 +167,13 @@ def clergy_form_panel(clergy_id=None):
     fields = FormFields(ranks, organizations)
     
     if clergy_id:
-        # Edit mode
-        clergy = Clergy.query.get_or_404(clergy_id)
+        # Edit mode - eagerly load ordination and consecration relationships
+        from sqlalchemy.orm import joinedload
+        clergy = Clergy.query.options(
+            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+        ).filter(Clergy.id == clergy_id).first_or_404()
         return render_template('editor_panels/clergy_form.html', 
                              fields=fields, 
                              clergy=clergy, 
@@ -186,6 +198,12 @@ def clergy_form_content(clergy_id=None):
     ranks = Rank.query.all()
     organizations = Organization.query.all()
     
+    # Debug: Log rank data
+    print("=== RANK DEBUG (content) ===")
+    for rank in ranks:
+        print(f"Rank: {rank.name}, is_bishop: {rank.is_bishop}")
+    print("============================")
+    
     # Create fields object for the form
     class FormFields:
         def __init__(self, ranks, organizations):
@@ -197,8 +215,27 @@ def clergy_form_content(clergy_id=None):
     fields = FormFields(ranks, organizations)
     
     if clergy_id:
-        # Edit mode
-        clergy = Clergy.query.get_or_404(clergy_id)
+        # Edit mode - eagerly load ordination and consecration relationships
+        from sqlalchemy.orm import joinedload
+        clergy = Clergy.query.options(
+            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+        ).filter(Clergy.id == clergy_id).first_or_404()
+        
+        # Debug logging for consecration data
+        print(f"=== CONSECRATION DEBUG (clergy-form-content) ===")
+        print(f"Clergy ID: {clergy_id}")
+        print(f"Clergy Name: {clergy.name}")
+        print(f"Clergy Rank: {clergy.rank}")
+        print(f"Number of ordinations: {len(clergy.ordinations)}")
+        print(f"Number of consecrations: {len(clergy.consecrations)}")
+        for i, consecration in enumerate(clergy.consecrations):
+            print(f"  Consecration {i+1}: ID={consecration.id}, Date={consecration.date}")
+            print(f"    Consecrator: {consecration.consecrator.name if consecration.consecrator else 'None'}")
+            print(f"    Co-consecrators: {[cc.name for cc in consecration.co_consecrators]}")
+        print("===============================================")
+        
         return render_template('clergy_form_content.html', 
                              fields=fields, 
                              clergy=clergy, 
@@ -1030,7 +1067,7 @@ def api_db_status():
     try:
         # Test database connection with a simple query
         start_time = datetime.now()
-        db.session.execute('SELECT 1')
+        db.session.execute(text('SELECT 1'))
         db.session.commit()
         response_time = (datetime.now() - start_time).total_seconds() * 1000
         

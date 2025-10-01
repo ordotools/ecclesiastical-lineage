@@ -4,6 +4,7 @@ from services.clergy import permanently_delete_clergy_handler
 from utils import audit_log, require_permission, log_audit_event
 from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite
 from datetime import datetime
+from sqlalchemy import text
 import json
 import base64
 
@@ -1066,7 +1067,7 @@ def api_db_status():
     try:
         # Test database connection with a simple query
         start_time = datetime.now()
-        db.session.execute('SELECT 1')
+        db.session.execute(text('SELECT 1'))
         db.session.commit()
         response_time = (datetime.now() - start_time).total_seconds() * 1000
         

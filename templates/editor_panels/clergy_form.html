@@ -676,23 +676,44 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
         
         // Additional initialization to ensure consecration field is shown for bishops
         setTimeout(() => {
+            console.log('🔍 HTMX TIMEOUT: Starting HTMX consecration field check');
             const rankSelect = document.getElementById('rank');
             const consecrationsField = document.getElementById('consecrationsField');
+            
+            console.log('🔍 HTMX TIMEOUT: rankSelect found =', !!rankSelect);
+            console.log('🔍 HTMX TIMEOUT: consecrationsField found =', !!consecrationsField);
             
             if (rankSelect && consecrationsField) {
                 const selectedOption = rankSelect.options[rankSelect.selectedIndex];
                 const isBishop = selectedOption && selectedOption.getAttribute('data-is-bishop') === 'true';
                 
-                console.log('HTMX timeout: Checking bishop status:', {
+                console.log('🔍 HTMX TIMEOUT: Checking bishop status:', {
                     rankValue: rankSelect.value,
                     isBishop: isBishop,
-                    consecrationsField: !!consecrationsField
+                    consecrationsField: !!consecrationsField,
+                    selectedOption: selectedOption ? selectedOption.textContent : 'none',
+                    dataAttribute: selectedOption ? selectedOption.getAttribute('data-is-bishop') : 'none'
                 });
                 
                 if (isBishop) {
                     consecrationsField.style.display = 'block';
-                    console.log('HTMX timeout: ✅ Showing consecrations field for bishop rank');
+                    console.log('🔍 HTMX TIMEOUT: ✅ Showing consecrations field for bishop rank');
+                    
+                    // Also try to populate consecrations if in edit mode
+                    const clergyForm = document.getElementById('clergyForm');
+                    if (clergyForm && clergyForm.dataset.editMode === 'true') {
+                        console.log('🔍 HTMX TIMEOUT: About to call populateExistingConsecrations() from HTMX timeout');
+                        if (typeof populateExistingConsecrations === 'function') {
+                            populateExistingConsecrations();
+                        } else {
+                            console.error('❌ HTMX TIMEOUT: populateExistingConsecrations function not found');
+                        }
+                    }
+                } else {
+                    console.log('🔍 HTMX TIMEOUT: ❌ Not a bishop rank, not showing consecrations field');
                 }
+            } else {
+                console.log('🔍 HTMX TIMEOUT: ❌ Missing required elements - rankSelect:', !!rankSelect, 'consecrationsField:', !!consecrationsField);
             }
         }, 100);
         

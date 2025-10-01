@@ -174,7 +174,7 @@
                     </div>
 
                     <!-- Row 9: Consecrations Section (spans 2 columns, conditional) -->
-                    <div id="consecrationsField" class="form-section" style="grid-column: 1 / -1; grid-row: 9; display: none; margin-top: 1em;">
+                    <div id="consecrationsField" class="form-section" style="grid-column: 1 / -1; grid-row: 9; {% if edit_mode and clergy and clergy.rank and clergy.rank.lower() in ['bishop', 'archbishop', 'cardinal', 'pope'] %}display: block;{% else %}display: none;{% endif %} margin-top: 1em;">
                         <h5 style="margin: 0 0 0.75em 0; color: rgba(255, 255, 255, 0.9); font-size: 0.95em; font-weight: 500; display: flex; align-items: center; gap: 0.5em; padding-bottom: 0.5em; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
                             <i class="fas fa-crown" style="opacity: 0.8;"></i> Consecrations
                         </h5>
@@ -253,27 +253,54 @@ attachRankChangeListener(); // Attach rank change listener for HTMX-loaded conte
 
 // Additional check to ensure consecration field is shown for bishops
 setTimeout(() => {
+    console.log('🔍 IMMEDIATE CHECK: Starting immediate consecration field check');
     const rankSelect = document.getElementById('rank');
     const consecrationsField = document.getElementById('consecrationsField');
+    
+    console.log('🔍 IMMEDIATE CHECK: rankSelect found =', !!rankSelect);
+    console.log('🔍 IMMEDIATE CHECK: consecrationsField found =', !!consecrationsField);
     
     if (rankSelect && consecrationsField) {
         const selectedOption = rankSelect.options[rankSelect.selectedIndex];
         const isBishop = selectedOption && selectedOption.getAttribute('data-is-bishop') === 'true';
         
-        console.log('Content template immediate: Checking bishop status:', {
+        console.log('🔍 IMMEDIATE CHECK: Checking bishop status:', {
             rankValue: rankSelect.value,
             isBishop: isBishop,
-            consecrationsField: !!consecrationsField
+            consecrationsField: !!consecrationsField,
+            selectedOption: selectedOption ? selectedOption.textContent : 'none',
+            dataAttribute: selectedOption ? selectedOption.getAttribute('data-is-bishop') : 'none'
         });
         
         if (isBishop) {
             consecrationsField.style.display = 'block';
-            console.log('Content template immediate: ✅ Showing consecrations field for bishop rank');
+            console.log('🔍 IMMEDIATE CHECK: ✅ Showing consecrations field for bishop rank');
+            
+            // Also try to populate consecrations immediately
+            {% if edit_mode and clergy %}
+            console.log('🔍 IMMEDIATE CHECK: About to call populateExistingConsecrations() from immediate check');
+            populateExistingConsecrations();
+            {% endif %}
+        } else {
+            console.log('🔍 IMMEDIATE CHECK: ❌ Not a bishop rank, not showing consecrations field');
         }
+    } else {
+        console.log('🔍 IMMEDIATE CHECK: ❌ Missing required elements - rankSelect:', !!rankSelect, 'consecrationsField:', !!consecrationsField);
     }
 }, 50);
 
 console.log('🎯 CONTENT TEMPLATE: Immediate initialization completed');
+
+// Fallback: If consecrations field is already visible (server-side), populate consecrations immediately
+{% if edit_mode and clergy %}
+setTimeout(() => {
+    const consecrationsField = document.getElementById('consecrationsField');
+    if (consecrationsField && consecrationsField.style.display !== 'none' && consecrationsField.style.display !== '') {
+        console.log('🔍 FALLBACK: Consecrations field is already visible, populating consecrations');
+        populateExistingConsecrations();
+    }
+}, 200);
+{% endif %}
 
 // Also listen for DOMContentLoaded (in case it's not HTMX loaded)
 document.addEventListener('DOMContentLoaded', function() {
@@ -395,14 +422,24 @@ function initializeFormFromRank() {
     }
     
     // Show consecrations field if rank is Bishop
+    console.log('🔍 CONSECRATION FIELD DEBUG: Checking if should show consecrations field');
+    console.log('🔍 CONSECRATION FIELD DEBUG: isBishop =', isBishop);
+    console.log('🔍 CONSECRATION FIELD DEBUG: consecrationsField exists =', !!consecrationsField);
+    console.log('🔍 CONSECRATION FIELD DEBUG: edit_mode = {{ edit_mode|lower }}');
+    console.log('🔍 CONSECRATION FIELD DEBUG: clergy exists = {{ (clergy is defined and clergy)|lower }}');
+    
     if (isBishop && consecrationsField) {
         consecrationsField.style.display = 'block';
         console.log('✅ Showing consecrations field for bishop rank');
         
         // If in edit mode, populate existing consecrations
         {% if edit_mode and clergy %}
+        console.log('🔍 CONSECRATION FIELD DEBUG: About to call populateExistingConsecrations()');
         populateExistingConsecrations();
         {% endif %}
+    } else {
+        console.log('❌ CONSECRATION FIELD DEBUG: Not showing consecrations field');
+        console.log('❌ CONSECRATION FIELD DEBUG: isBishop =', isBishop, 'consecrationsField =', !!consecrationsField);
     }
     
     // If in edit mode and has existing ordinations, populate them
@@ -490,16 +527,28 @@ function populateExistingOrdinations() {
 
 // Populate existing consecrations for edit mode
 function populateExistingConsecrations() {
-    {% if edit_mode and clergy %}
-    const container = document.getElementById('consecrationsContainer');
-    if (!container) return;
+    console.log('🔍 CONSECRATION DEBUG: Starting populateExistingConsecrations function');
+    console.log('🔍 CONSECRATION DEBUG: edit_mode = {{ edit_mode|lower }}');
+    console.log('🔍 CONSECRATION DEBUG: clergy exists = {{ (clergy is defined and clergy)|lower }}');
     
-    // Check if consecrations have already been populated to prevent duplicates
-    if (container.hasAttribute('data-consecrations-populated')) {
-        console.log('Consecrations already populated, skipping...');
+    {% if edit_mode and clergy %}
+    console.log('🔍 CONSECRATION DEBUG: In edit mode with clergy, proceeding...');
+    console.log('🔍 CONSECRATION DEBUG: clergy.get_all_consecrations() = {{ clergy.get_all_consecrations()|length }} consecrations');
+    
+    const container = document.getElementById('consecrationsContainer');
+    console.log('🔍 CONSECRATION DEBUG: consecrationsContainer found =', !!container);
+    if (!container) {
+        console.error('❌ CONSECRATION DEBUG: consecrationsContainer not found!');
         return;
     }
     
+    // Check if consecrations have already been populated to prevent duplicates
+    if (container.hasAttribute('data-consecrations-populated')) {
+        console.log('🔍 CONSECRATION DEBUG: Consecrations already populated, skipping...');
+        return;
+    }
+    
+    console.log('🔍 CONSECRATION DEBUG: Building consecrations array...');
     const consecrations = [
         {% for consecration in clergy.get_all_consecrations() %}
         {
@@ -524,7 +573,8 @@ function populateExistingConsecrations() {
         }{% if not loop.last %},{% endif %}
         {% endfor %}
     ];
-    console.log('Populating', consecrations.length, 'existing consecrations...');
+    console.log('🔍 CONSECRATION DEBUG: Built consecrations array:', consecrations);
+    console.log('🔍 CONSECRATION DEBUG: Populating', consecrations.length, 'existing consecrations...');
     
     // Mark as populated before adding entries
     container.setAttribute('data-consecrations-populated', 'true');

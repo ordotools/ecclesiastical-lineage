@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if location else 'Add' }} Location - Episcopal Lineage{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-map-marker-alt me-2"></i>
+                        {{ 'Edit' if location else 'Add' }} Location
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">Name *</label>
+                                    <input type="text" class="form-control" id="name" name="name" 
+                                           value="{{ location.name if location else '' }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="location_type" class="form-label">Type *</label>
+                                    <select class="form-select" id="location_type" name="location_type" required>
+                                        <option value="church" {{ 'selected' if location and location.location_type == 'church' else '' }}>Church</option>
+                                        <option value="cathedral" {{ 'selected' if location and location.location_type == 'cathedral' else '' }}>Cathedral</option>
+                                        <option value="monastery" {{ 'selected' if location and location.location_type == 'monastery' else '' }}>Monastery</option>
+                                        <option value="seminary" {{ 'selected' if location and location.location_type == 'seminary' else '' }}>Seminary</option>
+                                        <option value="organization" {{ 'selected' if location and location.location_type == 'organization' else '' }}>Organization</option>
+                                        <option value="address" {{ 'selected' if location and location.location_type == 'address' else '' }}>Address</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="address" class="form-label">Address</label>
+                            <textarea class="form-control" id="address" name="address" rows="2">{{ location.address if location else '' }}</textarea>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="city" class="form-label">City</label>
+                                    <input type="text" class="form-control" id="city" name="city" 
+                                           value="{{ location.city if location else '' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="state_province" class="form-label">State/Province</label>
+                                    <input type="text" class="form-control" id="state_province" name="state_province" 
+                                           value="{{ location.state_province if location else '' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="postal_code" class="form-label">Postal Code</label>
+                                    <input type="text" class="form-control" id="postal_code" name="postal_code" 
+                                           value="{{ location.postal_code if location else '' }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="country" class="form-label">Country</label>
+                            <input type="text" class="form-control" id="country" name="country" 
+                                   value="{{ location.country if location else '' }}">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="latitude" class="form-label">Latitude</label>
+                                    <input type="number" class="form-control" id="latitude" name="latitude" 
+                                           step="any" value="{{ location.latitude if location else '' }}">
+                                    <div class="form-text">Required for plotting on the map</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="longitude" class="form-label">Longitude</label>
+                                    <input type="number" class="form-control" id="longitude" name="longitude" 
+                                           step="any" value="{{ location.longitude if location else '' }}">
+                                    <div class="form-text">Required for plotting on the map</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="pastor_name" class="form-label">Pastor/Leader Name</label>
+                                    <input type="text" class="form-control" id="pastor_name" name="pastor_name" 
+                                           value="{{ location.pastor_name if location else '' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="organization" class="form-label">Organization</label>
+                                    <input type="text" class="form-control" id="organization" name="organization" 
+                                           value="{{ location.organization if location else '' }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3">{{ location.notes if location else '' }}</textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('main.locations_list') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>Back to Locations
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>{{ 'Update' if location else 'Add' }} Location
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Add coordinate lookup functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const addressFields = ['address', 'city', 'state_province', 'country'];
+    const coordinateFields = ['latitude', 'longitude'];
+    
+    // Function to geocode address
+    function geocodeAddress() {
+        const address = [
+            document.getElementById('address').value,
+            document.getElementById('city').value,
+            document.getElementById('state_province').value,
+            document.getElementById('country').value
+        ].filter(field => field.trim()).join(', ');
+        
+        if (address.length < 5) {
+            alert('Please enter at least a city and country to geocode coordinates.');
+            return;
+        }
+        
+        // Use a free geocoding service (you might want to use a more reliable service)
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`)
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.length > 0) {
+                    document.getElementById('latitude').value = parseFloat(data[0].lat).toFixed(6);
+                    document.getElementById('longitude').value = parseFloat(data[0].lon).toFixed(6);
+                    alert('Coordinates found and filled automatically!');
+                } else {
+                    alert('Could not find coordinates for this address. Please enter them manually.');
+                }
+            })
+            .catch(error => {
+                console.error('Geocoding error:', error);
+                alert('Error looking up coordinates. Please enter them manually.');
+            });
+    }
+    
+    // Add geocode button
+    const coordinateRow = document.querySelector('.row').nextElementSibling;
+    const geocodeButton = document.createElement('button');
+    geocodeButton.type = 'button';
+    geocodeButton.className = 'btn btn-outline-info btn-sm';
+    geocodeButton.innerHTML = '<i class="fas fa-map-marker-alt me-1"></i>Look up Coordinates';
+    geocodeButton.onclick = geocodeAddress;
+    
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'col-12 text-center mt-2';
+    buttonContainer.appendChild(geocodeButton);
+    coordinateRow.appendChild(buttonContainer);
+});
+</script>
+{% endblock %}

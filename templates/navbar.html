@@ -1,10 +1,20 @@
 <!-- Minimal Header with Button-like Elements -->
 <div class="minimal-header" style="position:fixed; top:0; left:0; width:100vw; z-index:1050; padding:16px; background:transparent;">
   <div class="d-flex align-items-center justify-content-between" style="max-width: 100%;">
-    <!-- Title Button -->
-    <a href="/" class="btn minimal-title-btn">
-      Episcopal Lineage
-    </a>
+    <!-- Title Button with Dropdown -->
+    <div class="dropdown">
+      <a href="/" class="btn minimal-title-btn" id="episcopalLineageBtn">
+        Episcopal Lineage
+      </a>
+      <div class="dropdown-menu" id="episcopalLineageDropdown">
+        <a class="dropdown-item" href="/">
+          <i class="fas fa-project-diagram me-2"></i>Lineage View
+        </a>
+        <a class="dropdown-item" href="/geographic">
+          <i class="fas fa-globe me-2"></i>Geographic View
+        </a>
+      </div>
+    </div>
     
     <!-- Right Side Buttons -->
     <div class="d-flex align-items-center gap-2">
@@ -32,3 +42,57 @@
 
 <!-- Spacer to prevent content from being hidden behind navbar -->
 <!-- <div style="height:68px;"></div>  -->
+
+<script>
+// Handle Episcopal Lineage dropdown
+document.addEventListener('DOMContentLoaded', function() {
+    const episcopalLineageBtn = document.getElementById('episcopalLineageBtn');
+    const episcopalLineageDropdown = document.getElementById('episcopalLineageDropdown');
+    
+    if (episcopalLineageBtn && episcopalLineageDropdown) {
+        // Toggle dropdown on click
+        episcopalLineageBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Close other dropdowns
+            document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                if (menu !== episcopalLineageDropdown) {
+                    menu.style.display = 'none';
+                    menu.classList.remove('show');
+                }
+            });
+            
+            // Toggle current dropdown
+            const isVisible = episcopalLineageDropdown.style.display === 'block';
+            
+            if (isVisible) {
+                episcopalLineageDropdown.style.display = 'none';
+                episcopalLineageDropdown.classList.remove('show');
+            } else {
+                episcopalLineageDropdown.style.display = 'block';
+                episcopalLineageDropdown.classList.add('show');
+            }
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!episcopalLineageBtn.contains(e.target) && !episcopalLineageDropdown.contains(e.target)) {
+                episcopalLineageDropdown.style.display = 'none';
+                episcopalLineageDropdown.classList.remove('show');
+            }
+        });
+        
+        // Close dropdown when clicking on dropdown items (but allow navigation)
+        episcopalLineageDropdown.addEventListener('click', function(e) {
+            if (e.target.tagName === 'A') {
+                // Close dropdown but allow navigation
+                setTimeout(() => {
+                    episcopalLineageDropdown.style.display = 'none';
+                    episcopalLineageDropdown.classList.remove('show');
+                }, 100);
+            }
+        });
+    }
+});
+</script>

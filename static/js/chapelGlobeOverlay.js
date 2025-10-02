@@ -1,0 +1,556 @@
+/**
+ * Chapel Globe Overlay
+ * Clean implementation for overlaying chapel locations on a D3.js globe
+ * Built to work with the existing GeographicLineageVisualization
+ */
+
+class ChapelGlobeOverlay {
+    constructor(globeVisualization) {
+        this.globe = globeVisualization;
+        this.chapelData = [];
+        this.chapelOverlayGroup = null;
+        this.selectedChapel = null;
+        
+        // Chapel styling configuration
+        this.styles = {
+            chapel: {
+                radius: 4,
+                fillColor: '#e74c3c',
+                strokeColor: '#ffffff',
+                strokeWidth: 1.5,
+                opacity: 0.9,
+                glowRadius: 8,
+                glowOpacity: 0.3
+            },
+            selected: {
+                radius: 6,
+                fillColor: '#f39c12',
+                strokeColor: '#ffffff',
+                strokeWidth: 2,
+                opacity: 1,
+                glowRadius: 12,
+                glowOpacity: 0.5
+            },
+            hover: {
+                radius: 5,
+                fillColor: '#e67e22',
+                strokeColor: '#ffffff',
+                strokeWidth: 2,
+                opacity: 1,
+                glowRadius: 10,
+                glowOpacity: 0.4
+            }
+        };
+        
+        this.init();
+    }
+    
+    init() {
+        console.log('Initializing Chapel Globe Overlay');
+        this.createOverlayGroup();
+        // Load test data will be called after overlay group is created
+        this.setupEventListeners();
+    }
+    
+    createOverlayGroup() {
+        // Wait for the globe's SVG to be ready
+        if (!this.globe || 
+            !this.globe.svg || 
+            !this.globe.svg.node()) {
+            console.warn('Globe SVG not ready, retrying...');
+            setTimeout(() => this.createOverlayGroup(), 100);
+            return;
+        }
+        
+        try {
+            // Create a dedicated group for chapel overlays directly on the SVG
+            // This avoids issues with the globe's internal group structure
+            this.chapelOverlayGroup = this.globe.svg.append('g')
+                .attr('class', 'chapel-overlay-group');
+                
+            console.log('Chapel overlay group created');
+            
+            // Now load test data since the overlay group is ready
+            this.loadTestData();
+        } catch (error) {
+            console.error('Error creating chapel overlay group:', error);
+            setTimeout(() => this.createOverlayGroup(), 100);
+        }
+    }
+    
+    loadTestData() {
+        // Test chapel data with various locations
+        this.chapelData = [
+            {
+                id: 'chapel-1',
+                name: 'St. Peter\'s Basilica',
+                type: 'cathedral',
+                lat: 41.9022,
+                lng: 12.4539,
+                city: 'Vatican City',
+                country: 'Vatican',
+                description: 'The papal basilica of St. Peter in the Vatican',
+                yearFounded: 1506
+            },
+            {
+                id: 'chapel-2',
+                name: 'Westminster Abbey',
+                type: 'abbey',
+                lat: 51.4994,
+                lng: -0.1274,
+                city: 'London',
+                country: 'United Kingdom',
+                description: 'A large Gothic abbey church in Westminster',
+                yearFounded: 1065
+            },
+            {
+                id: 'chapel-3',
+                name: 'Notre-Dame Cathedral',
+                type: 'cathedral',
+                lat: 48.8530,
+                lng: 2.3499,
+                city: 'Paris',
+                country: 'France',
+                description: 'Medieval Catholic cathedral on the Île de la Cité',
+                yearFounded: 1163
+            },
+            {
+                id: 'chapel-4',
+                name: 'St. Patrick\'s Cathedral',
+                type: 'cathedral',
+                lat: 40.7589,
+                lng: -73.9851,
+                city: 'New York',
+                country: 'United States',
+                description: 'The seat of the archbishop of the Roman Catholic Archdiocese of New York',
+                yearFounded: 1858
+            },
+            {
+                id: 'chapel-5',
+                name: 'Sagrada Familia',
+                type: 'basilica',
+                lat: 41.4036,
+                lng: 2.1744,
+                city: 'Barcelona',
+                country: 'Spain',
+                description: 'Large unfinished Roman Catholic church designed by Antoni Gaudí',
+                yearFounded: 1882
+            },
+            {
+                id: 'chapel-6',
+                name: 'St. Basil\'s Cathedral',
+                type: 'cathedral',
+                lat: 55.7525,
+                lng: 37.6231,
+                city: 'Moscow',
+                country: 'Russia',
+                description: 'A church in Red Square in Moscow',
+                yearFounded: 1555
+            },
+            {
+                id: 'chapel-7',
+                name: 'Hagia Sophia',
+                type: 'cathedral',
+                lat: 41.0086,
+                lng: 28.9802,
+                city: 'Istanbul',
+                country: 'Turkey',
+                description: 'A former Greek Orthodox Christian patriarchal basilica',
+                yearFounded: 537
+            },
+            {
+                id: 'chapel-8',
+                name: 'Church of the Holy Sepulchre',
+                type: 'church',
+                lat: 31.7784,
+                lng: 35.2298,
+                city: 'Jerusalem',
+                country: 'Israel',
+                description: 'A church in the Christian Quarter of the Old City of Jerusalem',
+                yearFounded: 335
+            }
+        ];
+        
+        console.log(`Loaded ${this.chapelData.length} test chapels`);
+        this.renderChapels();
+    }
+    
+    renderChapels() {
+        if (!this.chapelOverlayGroup || !this.chapelOverlayGroup.node()) {
+            console.error('Chapel overlay group not initialized or not ready');
+            return;
+        }
+        
+        try {
+            // Clear existing chapel markers
+            this.chapelOverlayGroup.selectAll('.chapel-marker').remove();
+            
+            // Create chapel markers
+            const chapelMarkers = this.chapelOverlayGroup.selectAll('.chapel-marker')
+                .data(this.chapelData)
+                .enter()
+                .append('g')
+                .attr('class', 'chapel-marker')
+                .attr('data-chapel-id', d => d.id);
+            
+            // Add glow effect and main marker for each chapel
+            chapelMarkers.each(function(d) {
+                const chapelGroup = d3.select(this);
+                
+                // Outer glow
+                chapelGroup.append('circle')
+                    .attr('class', 'chapel-glow')
+                    .attr('r', 8)
+                    .attr('fill', '#e74c3c')
+                    .attr('opacity', 0.3)
+                    .style('filter', 'blur(2px)')
+                    .style('pointer-events', 'none');
+                
+                // Main chapel marker
+                chapelGroup.append('circle')
+                    .attr('class', 'chapel-dot')
+                    .attr('r', 4)
+                    .attr('fill', '#e74c3c')
+                    .attr('stroke', '#ffffff')
+                    .attr('stroke-width', 1.5)
+                    .attr('opacity', 0.9)
+                    .style('pointer-events', 'all')
+                    .style('cursor', 'pointer');
+            });
+            
+            // Position chapel markers
+            this.updateChapelPositions();
+            
+            // Add event listeners
+            this.addChapelEventListeners();
+            
+            console.log(`Rendered ${this.chapelData.length} chapel markers`);
+        } catch (error) {
+            console.error('Error rendering chapel markers:', error);
+        }
+    }
+    
+    updateChapelPositions() {
+        if (!this.chapelOverlayGroup || !this.chapelOverlayGroup.node()) {
+            return;
+        }
+        
+        const chapelMarkers = this.chapelOverlayGroup.selectAll('.chapel-marker');
+        const self = this; // Store reference to class instance
+        
+        chapelMarkers.each(function(d) {
+            const chapelGroup = d3.select(this);
+            
+            // Use the same 3D culling logic as the main globe
+            const isVisible = self.isChapelVisible(d.lng, d.lat);
+            
+            if (isVisible) {
+                // Get current projection from the globe for positioning
+                const projection = self.globe.projection;
+                const coords = projection([d.lng, d.lat]);
+                
+                if (coords && coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+                    const [x, y] = coords;
+                    // Point is visible, show it
+                    chapelGroup
+                        .attr('transform', `translate(${x}, ${y})`)
+                        .style('opacity', 1)
+                        .style('display', 'block');
+                } else {
+                    // Fallback: hide if projection fails
+                    chapelGroup
+                        .style('opacity', 0)
+                        .style('display', 'none');
+                }
+            } else {
+                // Point is on the back side, hide it
+                chapelGroup
+                    .style('opacity', 0)
+                    .style('display', 'none');
+            }
+        });
+    }
+    
+    isChapelVisible(longitude, latitude) {
+        // Use the exact same culling logic as the main globe
+        // This ensures consistent behavior with the globe's backface culling
+        
+        // Convert to radians
+        const lngRad = longitude * Math.PI / 180;
+        const latRad = latitude * Math.PI / 180;
+        
+        // Get current rotation (only Y rotation matters for basic culling)
+        const [rotateX, rotateY, rotateZ] = this.globe.projection.rotate();
+        const rotateYRad = rotateY * Math.PI / 180;
+        
+        // Convert lat/lng to 3D coordinates on unit sphere
+        const x = Math.cos(latRad) * Math.cos(lngRad);
+        const y = Math.cos(latRad) * Math.sin(lngRad);
+        const z = Math.sin(latRad);
+        
+        // Apply Y rotation (main rotation when dragging)
+        const cosY = Math.cos(rotateYRad);
+        const sinY = Math.sin(rotateYRad);
+        const xRotated = x * cosY + z * sinY;
+        const zRotated = -x * sinY + z * cosY;
+        
+        // Check if the point is in front of the viewer
+        // Use the same threshold as the main globe
+        return zRotated > 0.1;
+    }
+    
+    addChapelEventListeners() {
+        const chapelDots = this.chapelOverlayGroup.selectAll('.chapel-dot');
+        
+        chapelDots
+            .on('mouseover', (event, d) => this.onChapelHover(event, d))
+            .on('mouseout', (event, d) => this.onChapelOut(event, d))
+            .on('click', (event, d) => this.onChapelClick(event, d));
+    }
+    
+    onChapelHover(event, chapel) {
+        // Change appearance on hover
+        const chapelGroup = d3.select(event.target.parentNode);
+        
+        chapelGroup.select('.chapel-glow')
+            .attr('r', this.styles.hover.glowRadius)
+            .attr('opacity', this.styles.hover.glowOpacity);
+            
+        chapelGroup.select('.chapel-dot')
+            .attr('r', this.styles.hover.radius)
+            .attr('fill', this.styles.hover.fillColor)
+            .attr('stroke-width', this.styles.hover.strokeWidth)
+            .attr('opacity', this.styles.hover.opacity);
+        
+        // Show tooltip
+        this.showChapelTooltip(event, chapel);
+    }
+    
+    onChapelOut(event, chapel) {
+        // Reset appearance unless selected
+        if (this.selectedChapel && this.selectedChapel.id === chapel.id) {
+            return; // Keep selected styling
+        }
+        
+        const chapelGroup = d3.select(event.target.parentNode);
+        
+        chapelGroup.select('.chapel-glow')
+            .attr('r', this.styles.chapel.glowRadius)
+            .attr('opacity', this.styles.chapel.glowOpacity);
+            
+        chapelGroup.select('.chapel-dot')
+            .attr('r', this.styles.chapel.radius)
+            .attr('fill', this.styles.chapel.fillColor)
+            .attr('stroke-width', this.styles.chapel.strokeWidth)
+            .attr('opacity', this.styles.chapel.opacity);
+        
+        // Hide tooltip
+        this.hideTooltip();
+    }
+    
+    onChapelClick(event, chapel) {
+        // Select chapel
+        this.selectChapel(chapel);
+        
+        // Show detailed information
+        this.showChapelDetails(chapel);
+    }
+    
+    selectChapel(chapel) {
+        // Deselect previous chapel
+        if (this.selectedChapel) {
+            const prevGroup = this.chapelOverlayGroup.select(`[data-chapel-id="${this.selectedChapel.id}"]`);
+            prevGroup.select('.chapel-glow')
+                .attr('r', this.styles.chapel.glowRadius)
+                .attr('opacity', this.styles.chapel.glowOpacity);
+            prevGroup.select('.chapel-dot')
+                .attr('r', this.styles.chapel.radius)
+                .attr('fill', this.styles.chapel.fillColor)
+                .attr('stroke-width', this.styles.chapel.strokeWidth)
+                .attr('opacity', this.styles.chapel.opacity);
+        }
+        
+        // Select new chapel
+        this.selectedChapel = chapel;
+        const chapelGroup = this.chapelOverlayGroup.select(`[data-chapel-id="${chapel.id}"]`);
+        
+        chapelGroup.select('.chapel-glow')
+            .attr('r', this.styles.selected.glowRadius)
+            .attr('opacity', this.styles.selected.glowOpacity);
+            
+        chapelGroup.select('.chapel-dot')
+            .attr('r', this.styles.selected.radius)
+            .attr('fill', this.styles.selected.fillColor)
+            .attr('stroke-width', this.styles.selected.strokeWidth)
+            .attr('opacity', this.styles.selected.opacity);
+        
+        console.log('Selected chapel:', chapel.name);
+    }
+    
+    showChapelTooltip(event, chapel) {
+        if (!this.globe.tooltip) return;
+        
+        this.globe.tooltip
+            .style('opacity', 1)
+            .html(`
+                <div class="chapel-tooltip">
+                    <h6>${chapel.name}</h6>
+                    <p><strong>Type:</strong> ${chapel.type}</p>
+                    <p><strong>Location:</strong> ${chapel.city}, ${chapel.country}</p>
+                    ${chapel.yearFounded ? `<p><strong>Founded:</strong> ${chapel.yearFounded}</p>` : ''}
+                    <p><strong>Coordinates:</strong> ${chapel.lat.toFixed(4)}, ${chapel.lng.toFixed(4)}</p>
+                </div>
+            `)
+            .style('left', (event.pageX + 10) + 'px')
+            .style('top', (event.pageY - 10) + 'px');
+    }
+    
+    showChapelDetails(chapel) {
+        const asidePanel = document.getElementById('location-info-panel');
+        if (!asidePanel) return;
+        
+        const typeColors = {
+            'cathedral': '#9b59b6',
+            'basilica': '#e74c3c',
+            'abbey': '#f39c12',
+            'church': '#3498db',
+            'chapel': '#1abc9c'
+        };
+        
+        const color = typeColors[chapel.type] || '#95a5a6';
+        
+        asidePanel.innerHTML = `
+            <div class="card">
+                <div class="card-header" style="background: ${color}; color: white;">
+                    <h5 class="mb-0">
+                        <i class="fas fa-church me-2"></i>
+                        ${chapel.name}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <span class="badge" style="background: ${color};">
+                            ${chapel.type.charAt(0).toUpperCase() + chapel.type.slice(1)}
+                        </span>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <strong>Location:</strong><br>
+                        <span class="text-muted">${chapel.city}, ${chapel.country}</span>
+                    </div>
+                    
+                    ${chapel.yearFounded ? `
+                    <div class="mb-2">
+                        <strong>Founded:</strong><br>
+                        <span class="text-muted">${chapel.yearFounded}</span>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="mb-2">
+                        <strong>Coordinates:</strong><br>
+                        <span class="text-muted">${chapel.lat.toFixed(6)}, ${chapel.lng.toFixed(6)}</span>
+                    </div>
+                    
+                    ${chapel.description ? `
+                    <div class="mb-3">
+                        <strong>Description:</strong><br>
+                        <span class="text-muted">${chapel.description}</span>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="d-grid gap-2">
+                        <a href="https://www.google.com/maps?q=${chapel.lat},${chapel.lng}" 
+                           target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-external-link-alt me-1"></i>View on Google Maps
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Show the aside panel
+        const aside = document.getElementById('location-aside');
+        if (aside) {
+            aside.classList.add('show');
+        }
+    }
+    
+    hideTooltip() {
+        if (this.globe.tooltip) {
+            this.globe.tooltip.style('opacity', 0);
+        }
+    }
+    
+    setupEventListeners() {
+        // Listen for globe updates (rotation, zoom, etc.)
+        if (this.globe.svg) {
+            this.globe.svg.on('update-chapels', () => {
+                this.updateChapelPositions();
+            });
+        }
+    }
+    
+    // Public methods for external control
+    addChapel(chapelData) {
+        this.chapelData.push(chapelData);
+        this.renderChapels();
+    }
+    
+    removeChapel(chapelId) {
+        this.chapelData = this.chapelData.filter(chapel => chapel.id !== chapelId);
+        this.renderChapels();
+    }
+    
+    clearChapels() {
+        this.chapelData = [];
+        if (this.chapelOverlayGroup) {
+            this.chapelOverlayGroup.selectAll('.chapel-marker').remove();
+        }
+    }
+    
+    updateChapelData(newData) {
+        this.chapelData = newData;
+        this.renderChapels();
+    }
+    
+    // Method to be called when globe updates
+    onGlobeUpdate() {
+        this.updateChapelPositions();
+    }
+    
+    // Enhanced method to handle globe rotation and zoom
+    onGlobeTransform() {
+        // Update chapel positions when globe transforms
+        this.updateChapelPositions();
+    }
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait for the main globe visualization to be ready
+    const initChapelOverlay = () => {
+        if (window.geographicVisualization && 
+            window.geographicVisualization.svg && 
+            window.geographicVisualization.svg.node()) {
+            
+            console.log('Initializing Chapel Globe Overlay');
+            window.chapelOverlay = new ChapelGlobeOverlay(window.geographicVisualization);
+            
+            // The chapel overlay will automatically listen for 'update-chapels' events
+            // which are dispatched by the main globe during rotation and zoom
+            console.log('Chapel overlay initialized and ready');
+        } else {
+            // Retry after a short delay
+            console.log('Globe not ready yet, retrying...');
+            setTimeout(initChapelOverlay, 300);
+        }
+    };
+    
+    // Wait longer to ensure globe is fully initialized
+    setTimeout(initChapelOverlay, 1000);
+});
+
+// Export for module usage if needed
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = ChapelGlobeOverlay;
+}

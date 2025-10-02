@@ -1,0 +1,556 @@
+{% extends "base.html" %}
+
+{% block title %}Geographic Lineage - Episcopal Lineage{% endblock %}
+
+{% block full_content %}
+<script>
+  document.documentElement.style.setProperty('--lineage-green', '#27ae60');
+  document.documentElement.style.setProperty('--lineage-black', '#000000');
+</script>
+<div class="full-viewport-container">
+    <!-- Search Bar Overlay -->
+    <div id="search-overlay" class="search-bar-overlay" style="display: none;">
+        <div class="search-bar-container">
+            <div class="search-bar-input-group">
+                <i class="fas fa-search search-bar-icon"></i>
+                <input type="text" id="overlay-search-input" class="search-bar-input" placeholder="Search clergy by name, rank, or organization..." autocomplete="off">
+                <button id="clear-overlay-search" class="search-bar-clear" type="button" style="display: none;" aria-label="Clear search">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="overlay-search-results" class="search-bar-results" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Floating Menu Button (Mobile Only) -->
+    <button id="mobile-menu-btn" class="d-block d-md-none floating-menu-btn" aria-label="Open menu" style="position:fixed;bottom:20px;left:20px;z-index:1100;display:none;">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <rect x="6" y="10" width="20" height="2.5" rx="1.2" fill="#2c3e50"/>
+        <rect x="6" y="15" width="20" height="2.5" rx="1.2" fill="#2c3e50"/>
+        <rect x="6" y="20" width="20" height="2.5" rx="1.2" fill="#2c3e50"/>
+      </svg>
+    </button>
+
+    <!-- Modal Overlay for Mobile Menu -->
+    <div id="mobile-menu-modal" class="mobile-menu-modal" style="display:none;">
+      <div class="mobile-menu-modal-content">
+        <button id="close-mobile-menu" class="close-mobile-menu" aria-label="Close menu">&times;</button>
+        <div class="mobile-menu-legend-controls">
+          <!-- Legend -->
+          <div class="legend-visualization-mobile">
+            <h6 class="fw-bold mb-2 text-dark">Location Types</h6>
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 12px; height: 12px; background: #27ae60; border-radius: 50%; margin-right: 8px;"></div>
+                <small class="text-dark">Church</small>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 12px; height: 12px; background: #9b59b6; border-radius: 50%; margin-right: 8px;"></div>
+                <small class="text-dark">Cathedral</small>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 12px; height: 12px; background: #f39c12; border-radius: 50%; margin-right: 8px;"></div>
+                <small class="text-dark">Monastery</small>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 12px; height: 12px; background: #1abc9c; border-radius: 50%; margin-right: 8px;"></div>
+                <small class="text-dark">Seminary</small>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 12px; height: 12px; background: #3498db; border-radius: 50%; margin-right: 8px;"></div>
+                <small class="text-dark">Organization</small>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 12px; height: 12px; background: #e74c3c; border-radius: 50%; margin-right: 8px;"></div>
+                <small class="text-dark">Address</small>
+            </div>
+          </div>
+          
+          <!-- Controls -->
+          <div class="visualization-controls-mobile mt-3">
+            <button id="reset-zoom-mobile" class="btn btn-sm btn-outline-secondary mb-2 w-100">
+                <i class="fas fa-search-plus me-1"></i>Reset View
+            </button>
+            <button id="center-graph-mobile" class="btn btn-sm btn-outline-secondary w-100">
+                <i class="fas fa-crosshairs me-1"></i>Center Globe
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Side Menu -->
+    <div id="side-menu" class="side-menu">
+        <!-- Legend -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Location Types</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 12px; height: 12px; background: #27ae60; border-radius: 50%; margin-right: 8px;"></div>
+                    <small class="text-dark">Church</small>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 12px; height: 12px; background: #9b59b6; border-radius: 50%; margin-right: 8px;"></div>
+                    <small class="text-dark">Cathedral</small>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 12px; height: 12px; background: #f39c12; border-radius: 50%; margin-right: 8px;"></div>
+                    <small class="text-dark">Monastery</small>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 12px; height: 12px; background: #1abc9c; border-radius: 50%; margin-right: 8px;"></div>
+                    <small class="text-dark">Seminary</small>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 12px; height: 12px; background: #3498db; border-radius: 50%; margin-right: 8px;"></div>
+                    <small class="text-dark">Organization</small>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 12px; height: 12px; background: #e74c3c; border-radius: 50%; margin-right: 8px;"></div>
+                    <small class="text-dark">Address</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="side-menu-card">
+            <div class="card-header">
+                <h6 class="fw-bold mb-0 text-dark">Controls</h6>
+            </div>
+            <div class="card-body">
+                <button id="reset-zoom" class="btn btn-sm btn-outline-secondary mb-2 w-100">
+                    <i class="fas fa-search-plus me-1"></i>Reset View
+                </button>
+                <button id="center-graph" class="btn btn-sm btn-outline-secondary w-100">
+                    <i class="fas fa-crosshairs me-1"></i>Center Globe
+                </button>
+            </div>
+        </div>
+        
+        <!-- Toggle Button - Positioned on the right side -->
+        <button id="side-menu-toggle" class="side-menu-toggle-btn" aria-label="Toggle side menu">
+            <i class="fas fa-bars"></i>
+        </button>
+    </div>
+
+    <!-- Right Side Aside - Location Information Panel -->
+    <div id="location-aside" class="location-aside">
+        <!-- Location information panel -->
+        <div id="location-info-panel">
+            <!-- Default placeholder -->
+            <div class="text-center p-4">
+                <i class="fas fa-map-marker-alt fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Geographic Locations</h5>
+                <p class="text-muted">Click on a glowing dot to view location information</p>
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <strong>Location Types:</strong><br>
+                        <span class="badge bg-success me-1">Church</span>
+                        <span class="badge bg-primary me-1">Cathedral</span>
+                        <span class="badge bg-warning me-1">Monastery</span>
+                        <span class="badge bg-info me-1">Seminary</span>
+                        <span class="badge bg-secondary me-1">Organization</span>
+                        <span class="badge bg-danger me-1">Address</span>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Navigation Buttons -->
+    {% if session.user_id %}
+    <div class="admin-nav-container">
+        {% if user and user.has_permission('manage_metadata') %}
+        <a href="{{ url_for('main.locations_list') }}" class="btn admin-nav-btn" title="Manage Locations">
+            <i class="fas fa-map-marker-alt me-2"></i>Locations
+        </a>
+        <a href="{{ url_for('main.add_location') }}" class="btn admin-nav-btn" title="Add New Location">
+            <i class="fas fa-plus me-2"></i>Add Location
+        </a>
+        {% endif %}
+        <a href="{{ url_for('auth.dashboard') }}" class="btn admin-nav-btn">
+            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="position-fixed" style="top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1200;">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading geographic visualization...</p>
+        </div>
+    </div>
+
+    <!-- Globe Container -->
+    <div id="globe-container" class="globe-container-full"></div>
+    
+    <!-- Error Message Display -->
+    {% if error_message %}
+    <div class="alert alert-warning alert-dismissible fade show position-fixed" style="top: 20px; right: 20px; z-index: 1200;" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        {{ error_message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- Clergy Form Modal -->
+    <div class="modal fade" id="clergyFormModal" tabindex="-1" aria-labelledby="clergyFormModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl" style="max-width: 95%; margin: 20px auto;">
+            <div class="modal-content" style="border: none; box-shadow: none; background: transparent;">
+                <div class="modal-header" style="padding: 0; border: none; background: transparent;">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="position: absolute; top: 15px; right: 15px; z-index: 1050; background: transparent; border: none; font-size: 24px; color: #666; cursor: pointer; padding: 0; width: auto; height: auto; line-height: 1;">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="clergyFormModalBody" style="padding: 0;">
+                    <!-- HTMX will load content here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/visualizer.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/clergy-form-clean.css') }}">
+<style>
+.globe-container-full {
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: #000011;
+    overflow: hidden;
+}
+
+/* Ensure Globe.gl canvas is visible */
+.globe-container-full canvas {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.globe-svg {
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    transition: cursor 0.1s ease;
+}
+
+.globe-svg:active {
+    cursor: grabbing;
+}
+
+.globe-svg.dragging {
+    cursor: grabbing;
+}
+
+/* Add a subtle hint about drag directions */
+.globe-container-full::before {
+    content: "Drag to rotate globe";
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.globe-container-full:hover::before {
+    opacity: 1;
+}
+
+.globe-path {
+    fill: none;
+    stroke: #444;
+    stroke-width: 0.5;
+}
+
+.globe-graticule {
+    fill: none;
+    stroke: #333;
+    stroke-width: 0.3;
+    opacity: 0.6;
+}
+
+.clergy-node {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clergy-node:hover {
+    r: 6;
+    filter: brightness(1.2);
+}
+
+.clergy-node.ordination {
+    fill: var(--lineage-black);
+    stroke: #fff;
+    stroke-width: 1;
+}
+
+.clergy-node.consecration {
+    fill: var(--lineage-green);
+    stroke: #fff;
+    stroke-width: 1;
+}
+
+.clergy-node.bishop {
+    r: 4;
+}
+
+.clergy-node.priest {
+    r: 2;
+}
+
+.clergy-node.archbishop {
+    r: 5;
+}
+
+.clergy-node.pope {
+    r: 6;
+}
+
+.lineage-link {
+    stroke: #666;
+    stroke-width: 1;
+    opacity: 0.7;
+    fill: none;
+}
+
+.lineage-link.ordination {
+    stroke: var(--lineage-black);
+}
+
+.lineage-link.consecration {
+    stroke: var(--lineage-green);
+    stroke-dasharray: 3,3;
+}
+
+.tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+    max-width: 200px;
+}
+
+.tooltip h6 {
+    margin: 0 0 4px 0;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.tooltip p {
+    margin: 0;
+    font-size: 11px;
+    opacity: 0.8;
+}
+
+.globe-fallback {
+    fill: none;
+    stroke: #444;
+    stroke-width: 2;
+}
+
+.location-label {
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+}
+
+.rotation-indicator {
+    font-family: 'Inter', sans-serif !important;
+    font-size: 10px !important;
+    opacity: 0.8 !important;
+    transition: opacity 0.3s ease !important;
+}
+
+.rotation-indicator:hover {
+    opacity: 1 !important;
+}
+
+/* Location aside panel styling */
+.location-aside {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 300px;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-left: 1px solid rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+}
+
+.location-aside.show {
+    transform: translateX(0);
+}
+
+.location-aside .card {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+}
+
+.location-aside .card-body {
+    padding: 1rem;
+}
+
+/* Location node styling */
+.location-dot {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.location-dot:hover {
+    r: 4;
+    filter: brightness(1.3);
+}
+
+.location-glow-outer,
+.location-glow-middle {
+    pointer-events: none;
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- D3.js and TopoJSON -->
+<script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
+<script src="https://unpkg.com/topojson@3"></script>
+<script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
+<!-- Include the new clean clergy form controller -->
+<script src="{{ url_for('static', filename='js/clergy-form-controller.js') }}"></script>
+<script>
+window.linksData = {{ links_json | safe }};
+window.nodesData = {{ nodes_json | safe }};
+console.log('Geographic template rendered at:', new Date().toISOString());
+console.log('Template links count:', window.linksData ? window.linksData.length : 'undefined');
+console.log('Template nodes count:', window.nodesData ? window.nodesData.length : 'undefined');
+</script>
+<script src="{{ url_for('static', filename='js/geographicLineage.js') }}?v={{ range(1000, 9999) | random }}"></script>
+
+<!-- Add Clergy Button Handler -->
+{% if user and user.has_permission('add_clergy') %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addClergyBtn = document.getElementById('addClergyFromLineageBtn');
+    if (addClergyBtn) {
+        addClergyBtn.addEventListener('click', function() {
+            // Load the add clergy form in the modal
+            fetch('{{ url_for("main.add_clergy_from_lineage") }}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                // Load the form into the modal
+                document.getElementById('clergyFormModalBody').innerHTML = html;
+                
+                // Manually execute any script tags in the loaded HTML
+                const scripts = document.getElementById('clergyFormModalBody').querySelectorAll('script');
+                scripts.forEach(script => {
+                    const newScript = document.createElement('script');
+                    newScript.textContent = script.textContent;
+                    document.head.appendChild(newScript);
+                    document.head.removeChild(newScript);
+                });
+                
+                // Initialize the form after HTML is loaded
+                setTimeout(() => {
+                    console.log('Initializing form after HTML load');
+                    
+                    // Reset the form initialization flags
+                    window.clergyFormInitialized = false;
+                    window.dynamicFormInitialized = false;
+                    
+                    // Initialize dynamic form system first (provides toggleConsecrationFields function)
+                    if (typeof window.initializeDynamicFormSystem === 'function') {
+                        console.log('Initializing dynamic form system');
+                        window.initializeDynamicFormSystem();
+                    }
+                    
+                    // Then initialize the clergy form
+                    if (typeof window.initializeClergyForm === 'function') {
+                        console.log('Initializing clergy form');
+                        window.initializeClergyForm();
+                    } else {
+                        // Fallback: trigger DOMContentLoaded event for clergyForm.js
+                        console.log('Triggering form initialization via DOMContentLoaded');
+                        const event = new Event('DOMContentLoaded');
+                        document.dispatchEvent(event);
+                    }
+                    
+                    // Initialize embedded form script (handles grid layout, form interactions)
+                    if (typeof window.initializeEmbeddedFormScript === 'function') {
+                        console.log('Initializing embedded form script');
+                        window.initializeEmbeddedFormScript();
+                    }
+                }, 50);
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('clergyFormModal'));
+                modal.show();
+                
+                // Update modal state after showing
+                setTimeout(() => {
+                    if (typeof window.setModalState === 'function') {
+                        window.setModalState(true);
+                    }
+                }, 100);
+                
+                // Listen for modal close events
+                document.getElementById('clergyFormModal').addEventListener('hidden.bs.modal', function() {
+                    if (typeof window.setModalState === 'function') {
+                        window.setModalState(false);
+                    }
+                });
+                
+                // Add simple modal overlay click handler
+                document.getElementById('clergyFormModal').addEventListener('click', function(e) {
+                    // Only close if clicking on the modal backdrop (not the modal content)
+                    if (e.target === this) {
+                        console.log('Modal backdrop clicked - closing modal');
+                        const modal = bootstrap.Modal.getInstance(this);
+                        if (modal) {
+                            modal.hide();
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error loading add clergy form:', error);
+                alert('Error loading add clergy form. Please try again.');
+            });
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, Response, make_response
 from services import clergy as clergy_service
 from utils import audit_log, require_permission, require_permission_api, log_audit_event
-from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration
+from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, Location
 import json
 import base64
 import requests
@@ -12,6 +12,211 @@ main_bp = Blueprint('main', __name__)
 @main_bp.route('/')
 def index():
     return lineage_visualization()
+
+# Geographic lineage visualization
+@main_bp.route('/geographic')
+def geographic_lineage():
+    current_app.logger.info("=== GEOGRAPHIC_LINEAGE ROUTE CALLED ===")
+    
+    try:
+        # Get all active locations for the visualization
+        all_locations = Location.query.filter(Location.is_active == True).all()
+        
+        # Log current data status
+        current_app.logger.info(f"Found {len(all_locations)} locations in database")
+        
+        # Prepare data for D3.js visualization
+        nodes = []
+        links = []  # No links for locations, just glowing dots
+        
+        # Create nodes for each location with coordinates
+        for location in all_locations:
+            # Only include locations that have coordinates
+            if location.has_coordinates():
+                # Determine color based on location type
+                color_map = {
+                    'church': '#27ae60',      # Green for churches
+                    'organization': '#3498db', # Blue for organizations
+                    'address': '#e74c3c',     # Red for addresses
+                    'cathedral': '#9b59b6',   # Purple for cathedrals
+                    'monastery': '#f39c12',   # Orange for monasteries
+                    'seminary': '#1abc9c'     # Teal for seminaries
+                }
+                
+                node_color = color_map.get(location.location_type, '#95a5a6')
+                
+                nodes.append({
+                    'id': location.id,
+                    'name': location.name,
+                    'location_type': location.location_type,
+                    'pastor_name': location.pastor_name,
+                    'organization': location.organization,
+                    'address': location.get_full_address(),
+                    'city': location.city,
+                    'country': location.country,
+                    'latitude': location.latitude,
+                    'longitude': location.longitude,
+                    'color': node_color,
+                    'notes': location.notes
+                })
+        
+        current_app.logger.info(f"Geographic visualization: {len(nodes)} location nodes created")
+        
+        # Safely serialize data to JSON
+        try:
+            nodes_json = json.dumps(nodes)
+            links_json = json.dumps(links)
+            current_app.logger.info(f"JSON serialization successful: {len(nodes)} nodes, {len(links)} links")
+        except (TypeError, ValueError) as e:
+            current_app.logger.error(f"Error serializing data to JSON: {e}")
+            raise e
+            
+        current_app.logger.info(f"=== RENDERING GEOGRAPHIC TEMPLATE WITH {len(nodes)} NODES AND {len(links)} LINKS ===")
+        
+        # Get current user if logged in
+        user = None
+        if 'user_id' in session:
+            user = User.query.get(session['user_id'])
+        
+        return render_template('geographic_lineage.html', 
+                             nodes_json=nodes_json, 
+                             links_json=links_json,
+                             user=user)
+    except Exception as e:
+        current_app.logger.error(f"Error in geographic lineage visualization: {e}")
+        error_message = f"Error loading geographic visualization: {str(e)}"
+        return render_template('geographic_lineage.html', 
+                             nodes_json='[]', 
+                             links_json='[]',
+                             error_message=error_message,
+                             user=None)
+
+# Location management routes
+@main_bp.route('/locations')
+@require_permission('manage_metadata')
+def locations_list():
+    """List all locations"""
+    locations = Location.query.filter(Location.is_active == True).all()
+    return render_template('locations_list.html', locations=locations)
+
+@main_bp.route('/locations/add', methods=['GET', 'POST'])
+@require_permission('manage_metadata')
+def add_location():
+    """Add a new location"""
+    if request.method == 'POST':
+        try:
+            location = Location(
+                name=request.form['name'],
+                address=request.form.get('address'),
+                city=request.form.get('city'),
+                state_province=request.form.get('state_province'),
+                country=request.form.get('country'),
+                postal_code=request.form.get('postal_code'),
+                latitude=float(request.form['latitude']) if request.form.get('latitude') else None,
+                longitude=float(request.form['longitude']) if request.form.get('longitude') else None,
+                location_type=request.form.get('location_type', 'church'),
+                pastor_name=request.form.get('pastor_name'),
+                organization=request.form.get('organization'),
+                notes=request.form.get('notes'),
+                created_by=session.get('user_id')
+            )
+            
+            db.session.add(location)
+            db.session.commit()
+            
+            log_audit_event(
+                user_id=session.get('user_id'),
+                action='create',
+                entity_type='location',
+                entity_id=location.id,
+                entity_name=location.name,
+                details=f"Created location: {location.name}"
+            )
+            
+            flash('Location added successfully!', 'success')
+            return redirect(url_for('main.locations_list'))
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error adding location: {e}")
+            flash('Error adding location. Please try again.', 'error')
+    
+    return render_template('location_form.html', location=None)
+
+@main_bp.route('/locations/<int:location_id>/edit', methods=['GET', 'POST'])
+@require_permission('manage_metadata')
+def edit_location(location_id):
+    """Edit an existing location"""
+    location = Location.query.get_or_404(location_id)
+    
+    if request.method == 'POST':
+        try:
+            location.name = request.form['name']
+            location.address = request.form.get('address')
+            location.city = request.form.get('city')
+            location.state_province = request.form.get('state_province')
+            location.country = request.form.get('country')
+            location.postal_code = request.form.get('postal_code')
+            location.latitude = float(request.form['latitude']) if request.form.get('latitude') else None
+            location.longitude = float(request.form['longitude']) if request.form.get('longitude') else None
+            location.location_type = request.form.get('location_type', 'church')
+            location.pastor_name = request.form.get('pastor_name')
+            location.organization = request.form.get('organization')
+            location.notes = request.form.get('notes')
+            
+            db.session.commit()
+            
+            log_audit_event(
+                user_id=session.get('user_id'),
+                action='update',
+                entity_type='location',
+                entity_id=location.id,
+                entity_name=location.name,
+                details=f"Updated location: {location.name}"
+            )
+            
+            flash('Location updated successfully!', 'success')
+            return redirect(url_for('main.locations_list'))
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating location: {e}")
+            flash('Error updating location. Please try again.', 'error')
+    
+    return render_template('location_form.html', location=location)
+
+@main_bp.route('/locations/<int:location_id>/delete', methods=['POST'])
+@require_permission('manage_metadata')
+def delete_location(location_id):
+    """Delete a location (soft delete)"""
+    location = Location.query.get_or_404(location_id)
+    
+    try:
+        location.is_active = False
+        db.session.commit()
+        
+        log_audit_event(
+            user_id=session.get('user_id'),
+            action='delete',
+            entity_type='location',
+            entity_id=location.id,
+            entity_name=location.name,
+            details=f"Deleted location: {location.name}"
+        )
+        
+        flash('Location deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting location: {e}")
+        flash('Error deleting location. Please try again.', 'error')
+    
+    return redirect(url_for('main.locations_list'))
+
+@main_bp.route('/locations/<int:location_id>')
+def view_location(location_id):
+    """View location details"""
+    location = Location.query.get_or_404(location_id)
+    return render_template('location_details.html', location=location)
 
 # Lineage visualization (moved from /lineage_visualization to root)
 def lineage_visualization():

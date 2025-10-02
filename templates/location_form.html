@@ -40,7 +40,13 @@
 
                         <div class="mb-3">
                             <label for="address" class="form-label">Address</label>
-                            <textarea class="form-control" id="address" name="address" rows="2">{{ location.address if location else '' }}</textarea>
+                            <div class="input-group">
+                                <textarea class="form-control" id="address" name="address" rows="2" placeholder="Enter full address to get coordinates automatically">{{ location.address if location else '' }}</textarea>
+                                <button type="button" class="btn btn-outline-primary" id="geocode-btn" title="Get coordinates from address">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Enter a complete address and click the map icon to automatically get coordinates</div>
                         </div>
 
                         <div class="row">
@@ -77,8 +83,13 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="latitude" class="form-label">Latitude</label>
-                                    <input type="number" class="form-control" id="latitude" name="latitude" 
-                                           step="any" value="{{ location.latitude if location else '' }}">
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="latitude" name="latitude" 
+                                               step="any" value="{{ location.latitude if location else '' }}" placeholder="0.000000">
+                                        <button type="button" class="btn btn-outline-secondary" id="reverse-geocode-btn" title="Get address from coordinates">
+                                            <i class="fas fa-search"></i>
+                                        </button>
+                                    </div>
                                     <div class="form-text">Required for plotting on the map</div>
                                 </div>
                             </div>
@@ -86,10 +97,16 @@
                                 <div class="mb-3">
                                     <label for="longitude" class="form-label">Longitude</label>
                                     <input type="number" class="form-control" id="longitude" name="longitude" 
-                                           step="any" value="{{ location.longitude if location else '' }}">
+                                           step="any" value="{{ location.longitude if location else '' }}" placeholder="0.000000">
                                     <div class="form-text">Required for plotting on the map</div>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <!-- Geocoding Status -->
+                        <div id="geocoding-status" class="alert alert-info" style="display: none;">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <span id="geocoding-message"></span>
                         </div>
 
                         <div class="row">
@@ -130,55 +147,190 @@
 </div>
 
 <script>
-// Add coordinate lookup functionality
 document.addEventListener('DOMContentLoaded', function() {
-    const addressFields = ['address', 'city', 'state_province', 'country'];
-    const coordinateFields = ['latitude', 'longitude'];
+    const addressInput = document.getElementById('address');
+    const latitudeInput = document.getElementById('latitude');
+    const longitudeInput = document.getElementById('longitude');
+    const geocodeBtn = document.getElementById('geocode-btn');
+    const reverseGeocodeBtn = document.getElementById('reverse-geocode-btn');
+    const statusDiv = document.getElementById('geocoding-status');
+    const messageSpan = document.getElementById('geocoding-message');
     
-    // Function to geocode address
-    function geocodeAddress() {
-        const address = [
-            document.getElementById('address').value,
-            document.getElementById('city').value,
-            document.getElementById('state_province').value,
-            document.getElementById('country').value
-        ].filter(field => field.trim()).join(', ');
+    // Show geocoding status
+    function showStatus(message, type = 'info') {
+        statusDiv.className = `alert alert-${type}`;
+        messageSpan.textContent = message;
+        statusDiv.style.display = 'block';
         
-        if (address.length < 5) {
-            alert('Please enter at least a city and country to geocode coordinates.');
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 5000);
+    }
+    
+    // Geocode address to coordinates
+    geocodeBtn.addEventListener('click', async function() {
+        const address = addressInput.value.trim();
+        if (!address) {
+            showStatus('Please enter an address first', 'warning');
             return;
         }
         
-        // Use a free geocoding service (you might want to use a more reliable service)
-        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`)
-            .then(response => response.json())
-            .then(data => {
-                if (data && data.length > 0) {
-                    document.getElementById('latitude').value = parseFloat(data[0].lat).toFixed(6);
-                    document.getElementById('longitude').value = parseFloat(data[0].lon).toFixed(6);
-                    alert('Coordinates found and filled automatically!');
-                } else {
-                    alert('Could not find coordinates for this address. Please enter them manually.');
-                }
-            })
-            .catch(error => {
-                console.error('Geocoding error:', error);
-                alert('Error looking up coordinates. Please enter them manually.');
+        geocodeBtn.disabled = true;
+        geocodeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        showStatus('Getting coordinates...', 'info');
+        
+        try {
+            const response = await fetch('/api/geocode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ address: address })
             });
-    }
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                // Fill in coordinates
+                latitudeInput.value = data.latitude;
+                longitudeInput.value = data.longitude;
+                
+                // Fill in additional fields if they're empty
+                if (!document.getElementById('city').value && data.city) {
+                    document.getElementById('city').value = data.city;
+                }
+                if (!document.getElementById('state_province').value && data.state) {
+                    document.getElementById('state_province').value = data.state;
+                }
+                if (!document.getElementById('country').value && data.country) {
+                    document.getElementById('country').value = data.country;
+                }
+                if (!document.getElementById('postal_code').value && data.postcode) {
+                    document.getElementById('postal_code').value = data.postcode;
+                }
+                
+                showStatus(`Coordinates found! Confidence: ${Math.round(data.confidence * 100)}%`, 'success');
+            } else {
+                showStatus(`Geocoding failed: ${data.error || 'Unknown error'}`, 'danger');
+            }
+        } catch (error) {
+            console.error('Geocoding error:', error);
+            showStatus('Geocoding failed: Network error', 'danger');
+        } finally {
+            geocodeBtn.disabled = false;
+            geocodeBtn.innerHTML = '<i class="fas fa-map-marker-alt"></i>';
+        }
+    });
     
-    // Add geocode button
-    const coordinateRow = document.querySelector('.row').nextElementSibling;
-    const geocodeButton = document.createElement('button');
-    geocodeButton.type = 'button';
-    geocodeButton.className = 'btn btn-outline-info btn-sm';
-    geocodeButton.innerHTML = '<i class="fas fa-map-marker-alt me-1"></i>Look up Coordinates';
-    geocodeButton.onclick = geocodeAddress;
+    // Reverse geocode coordinates to address
+    reverseGeocodeBtn.addEventListener('click', async function() {
+        const lat = latitudeInput.value.trim();
+        const lng = longitudeInput.value.trim();
+        
+        if (!lat || !lng) {
+            showStatus('Please enter both latitude and longitude', 'warning');
+            return;
+        }
+        
+        reverseGeocodeBtn.disabled = true;
+        reverseGeocodeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        showStatus('Getting address...', 'info');
+        
+        try {
+            const response = await fetch('/api/reverse-geocode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    latitude: parseFloat(lat), 
+                    longitude: parseFloat(lng) 
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                // Fill in address
+                addressInput.value = data.formatted_address;
+                
+                // Fill in additional fields if they're empty
+                if (!document.getElementById('city').value && data.city) {
+                    document.getElementById('city').value = data.city;
+                }
+                if (!document.getElementById('state_province').value && data.state) {
+                    document.getElementById('state_province').value = data.state;
+                }
+                if (!document.getElementById('country').value && data.country) {
+                    document.getElementById('country').value = data.country;
+                }
+                if (!document.getElementById('postal_code').value && data.postcode) {
+                    document.getElementById('postal_code').value = data.postcode;
+                }
+                
+                showStatus(`Address found! Confidence: ${Math.round(data.confidence * 100)}%`, 'success');
+            } else {
+                showStatus(`Reverse geocoding failed: ${data.error || 'Unknown error'}`, 'danger');
+            }
+        } catch (error) {
+            console.error('Reverse geocoding error:', error);
+            showStatus('Reverse geocoding failed: Network error', 'danger');
+        } finally {
+            reverseGeocodeBtn.disabled = false;
+            reverseGeocodeBtn.innerHTML = '<i class="fas fa-search"></i>';
+        }
+    });
     
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'col-12 text-center mt-2';
-    buttonContainer.appendChild(geocodeButton);
-    coordinateRow.appendChild(buttonContainer);
+    // Auto-geocode when address is entered and coordinates are empty
+    addressInput.addEventListener('blur', function() {
+        if (this.value.trim() && !latitudeInput.value && !longitudeInput.value) {
+            // Small delay to let user finish typing
+            setTimeout(() => {
+                if (this.value.trim() && !latitudeInput.value && !longitudeInput.value) {
+                    geocodeBtn.click();
+                }
+            }, 500);
+        }
+    });
+    
+    // Auto-reverse geocode when coordinates are entered and address is empty
+    latitudeInput.addEventListener('blur', function() {
+        if (this.value.trim() && longitudeInput.value.trim() && !addressInput.value.trim()) {
+            setTimeout(() => {
+                if (this.value.trim() && longitudeInput.value.trim() && !addressInput.value.trim()) {
+                    reverseGeocodeBtn.click();
+                }
+            }, 500);
+        }
+    });
+    
+    longitudeInput.addEventListener('blur', function() {
+        if (this.value.trim() && latitudeInput.value.trim() && !addressInput.value.trim()) {
+            setTimeout(() => {
+                if (this.value.trim() && latitudeInput.value.trim() && !addressInput.value.trim()) {
+                    reverseGeocodeBtn.click();
+                }
+            }, 500);
+        }
+    });
+    
+    // Check geocoding service status on page load
+    fetch('/api/geocoding-status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.configured) {
+                showStatus('Geocoding service is ready - enter an address to get coordinates automatically', 'success');
+            } else {
+                showStatus('Geocoding service not configured - coordinates must be entered manually', 'warning');
+                geocodeBtn.disabled = true;
+                reverseGeocodeBtn.disabled = true;
+            }
+        })
+        .catch(error => {
+            console.warn('Could not check geocoding status:', error);
+            showStatus('Could not check geocoding service status', 'warning');
+        });
 });
 </script>
 {% endblock %}

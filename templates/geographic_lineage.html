@@ -239,7 +239,7 @@
 .globe-svg {
     width: 100%;
     height: 100%;
-    cursor: grab;
+    cursor: default;
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -292,7 +292,6 @@
 
 .clergy-node {
     cursor: pointer;
-    transition: all 0.2s ease;
 }
 
 .clergy-node:hover {
@@ -420,20 +419,60 @@
     padding: 1rem;
 }
 
-/* Location node styling */
-.location-dot {
+/* Location marker styling */
+.location-marker {
+    cursor: pointer !important;
+    pointer-events: all !important;
+    z-index: 1000 !important;
+}
+
+.location-marker:hover {
+    filter: brightness(1.2);
+    stroke-width: 4;
+}
+
+.location-nodes {
+    z-index: 1000;
+}
+
+/* Chapel overlay styles */
+.chapel-overlay-group {
+    pointer-events: all;
+}
+
+.chapel-marker {
     cursor: pointer;
-    transition: all 0.2s ease;
 }
 
-.location-dot:hover {
-    r: 4;
-    filter: brightness(1.3);
+.chapel-dot {
+    /* No transitions for better performance */
+    cursor: pointer;
 }
 
-.location-glow-outer,
-.location-glow-middle {
+.chapel-glow {
     pointer-events: none;
+}
+
+.chapel-marker:hover .chapel-dot {
+    r: 5;
+    filter: brightness(1.2);
+}
+
+.chapel-marker:hover .chapel-glow {
+    r: 10;
+    opacity: 0.4;
+}
+
+/* Chapel tooltip styles */
+.chapel-tooltip h6 {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    color: #f39c12;
+}
+
+.chapel-tooltip p {
+    margin: 2px 0;
+    font-size: 11px;
 }
 </style>
 {% endblock %}
@@ -453,6 +492,7 @@ console.log('Template links count:', window.linksData ? window.linksData.length 
 console.log('Template nodes count:', window.nodesData ? window.nodesData.length : 'undefined');
 </script>
 <script src="{{ url_for('static', filename='js/geographicLineage.js') }}?v={{ range(1000, 9999) | random }}"></script>
+<script src="{{ url_for('static', filename='js/chapelGlobeOverlay.js') }}?v={{ range(1000, 9999) | random }}"></script>
 
 <!-- Add Clergy Button Handler -->
 {% if user and user.has_permission('add_clergy') %}
@@ -553,4 +593,96 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endif %}
+
+<!-- Chapel Overlay Control Handlers -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // No test chapel functionality - using database locations only
+    
+    // Debug functions for console access
+    window.debugChapelOverlay = function() {
+        console.log('Chapel Overlay Debug Info:');
+        console.log('- Globe visualization:', window.geographicVisualization);
+        console.log('- Globe SVG:', window.geographicVisualization?.svg);
+        console.log('- Globe SVG node:', window.geographicVisualization?.svg?.node());
+        console.log('- Globe group:', window.geographicVisualization?.g);
+        console.log('- Globe group node:', window.geographicVisualization?.g?.node());
+        console.log('- Chapel overlay:', window.chapelOverlay);
+        console.log('- Chapel data:', window.chapelOverlay?.chapelData);
+        console.log('- Chapel overlay group:', window.chapelOverlay?.chapelOverlayGroup);
+        console.log('- Chapel markers count:', window.chapelOverlay?.chapelOverlayGroup?.selectAll('.chapel-marker').size());
+    };
+    
+    // Test culling for specific coordinates
+    window.testCulling = function(lng, lat) {
+        if (window.chapelOverlay) {
+            const isVisible = window.chapelOverlay.isChapelVisible(lng, lat);
+            console.log(`Coordinates [${lng}, ${lat}] - Visible: ${isVisible}`);
+            return isVisible;
+        } else {
+            console.log('Chapel overlay not available');
+            return false;
+        }
+    };
+    
+    // Test culling for all chapel data
+    window.testAllCulling = function() {
+        if (window.chapelOverlay && window.chapelOverlay.chapelData) {
+            console.log('Testing culling for all chapels:');
+            window.chapelOverlay.chapelData.forEach(chapel => {
+                const isVisible = window.chapelOverlay.isChapelVisible(chapel.lng, chapel.lat);
+                console.log(`${chapel.name} [${chapel.lng}, ${chapel.lat}] - Visible: ${isVisible}`);
+            });
+        } else {
+            console.log('Chapel overlay or data not available');
+        }
+    };
+    
+    // Test projection coordinates
+    window.testProjection = function() {
+        if (window.geographicVisualization && window.geographicVisualization.projection) {
+            const projection = window.geographicVisualization.projection;
+            console.log('Testing projection coordinates:');
+            
+            // Test some coordinates
+            const testCoords = [
+                [12.4539, 41.9022], // Vatican (should be visible initially)
+                [-74.0060, 40.7128], // New York
+                [0, 0], // Equator/Prime meridian
+                [180, 90], // Far east/north
+                [-180, -90] // Far west/south
+            ];
+            
+            testCoords.forEach((coord, i) => {
+                const [lng, lat] = coord;
+                const result = projection([lng, lat]);
+                console.log(`Test ${i}: [${lng}, ${lat}] ->`, result);
+            });
+            
+            // Test clip angle
+            console.log('Clip angle:', projection.clipAngle());
+            console.log('Rotation:', projection.rotate());
+            console.log('Scale:', projection.scale());
+        }
+    };
+    
+    // Debug globe SVG
+    window.debugGlobe = function() {
+        console.log('Globe Debug Info:');
+        const container = document.getElementById('globe-container');
+        console.log('- Container:', container);
+        console.log('- Container children:', container?.children);
+        console.log('- SVG in container:', container?.querySelector('svg'));
+    };
+    
+    // Make debug functions available in console
+    console.log('Debug functions available:');
+    console.log('- window.debugChapelOverlay() - Show chapel overlay debug info');
+    console.log('- window.debugGlobe() - Show globe debug info');
+    console.log('- window.testProjection() - Test projection coordinates');
+    console.log('- window.testCulling(lng, lat) - Test culling for specific coordinates');
+    console.log('- window.testAllCulling() - Test culling for all chapel data');
+    console.log('- window.geographicVisualization.debugCulling() - Test enhanced culling logic');
+});
+</script>
 {% endblock %}

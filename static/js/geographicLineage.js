@@ -244,34 +244,26 @@ class GeographicLineageVisualization {
     }
     
     updateLocationPositions() {
-        // Update location node positions
-        const locationGroups = this.g.selectAll('.location-group');
+        // Update location marker positions (optimized for performance)
+        const markers = this.g.selectAll('.location-marker');
         
-        locationGroups.each((d, i, nodes) => {
-            const locationGroup = d3.select(nodes[i]);
-            const locationId = locationGroup.attr('data-location-id');
+        markers.each((d, i, nodes) => {
+            const marker = d3.select(nodes[i]);
+            const locationId = marker.attr('data-location-id');
             
             // Find the location data by ID
             const location = window.nodesData.find(loc => loc.id == locationId);
             if (location && location.latitude !== undefined && location.longitude !== undefined) {
-                // Check visibility first using the enhanced 3D culling
-                const isVisible = this.isLocationVisible(location.longitude, location.latitude);
+                // Get coordinates using the main projection
+                const [x, y] = this.projection([location.longitude, location.latitude]);
                 
-                if (isVisible) {
-                    // Get coordinates using the main projection
-                    const [x, y] = this.projection([location.longitude, location.latitude]);
-                    
-                    if (x !== undefined && y !== undefined) {
-                        locationGroup
-                            .attr('transform', `translate(${x}, ${y})`)
-                            .style('opacity', 1)
-                            .style('display', 'block');
-                    }
+                if (x !== undefined && y !== undefined) {
+                    // Update position directly without style changes for better performance
+                    marker.attr('cx', x).attr('cy', y);
                 } else {
-                    // Hide the location if it's not visible
-                    locationGroup
-                        .style('opacity', 0)
-                        .style('display', 'none');
+                    // Hide the location if projection fails
+                    marker.style('opacity', '0');
+                    marker.style('pointer-events', 'none');
                 }
             }
         });
@@ -311,8 +303,8 @@ class GeographicLineageVisualization {
             const z3d = Math.sin(phi) * Math.sin(theta);
             
             // The view direction is looking at the center (0, 0, 1) in the rotated coordinate system
-            // If z-coordinate is negative, the point is on the back side
-            if (z3d < 0) {
+            // If x-coordinate is positive, the point is on the back side
+            if (x3d > 0) {
                 return false;
             }
             
@@ -506,11 +498,11 @@ class GeographicLineageVisualization {
                 .attr('stroke-width', 0.2)
                 .attr('opacity', 0.3);
             
-            // Add location nodes (after backface culling to ensure they're not clipped)
-            this.addLocationNodes();
-            
-            // Add atmospheric glow effect
+            // Add atmospheric glow effect first (so it's behind everything)
             this.addAtmosphericGlow();
+            
+            // Add location nodes last (so they're on top of everything)
+            this.addLocationNodes();
             
         } catch (error) {
             console.error('Error loading world data:', error);
@@ -525,108 +517,62 @@ class GeographicLineageVisualization {
             return;
         }
         
-        // window.nodesData is already a JavaScript object, not a JSON string
         const nodes = window.nodesData;
         console.log('Adding location nodes:', nodes.length);
         
-        // Create node groups
-        const nodeGroup = this.g.append('g').attr('class', 'location-nodes');
+        // Remove any existing location nodes
+        this.g.selectAll('.location-nodes').remove();
         
-        nodes.forEach((location) => {
-            // Use the location's actual coordinates
+        // Create a new group for location nodes
+        const locationGroup = this.g.append('g').attr('class', 'location-nodes');
+        
+        nodes.forEach((location, index) => {
+            // Get projected coordinates
             const [x, y] = this.projection([location.longitude, location.latitude]);
             
             if (x !== undefined && y !== undefined) {
-                // Create a glowing dot for this location
-                const locationGroup = nodeGroup.append('g')
-                    .attr('class', 'location-group')
-                    .attr('data-location-id', location.id)
-                    .attr('transform', `translate(${x}, ${y})`);
-                
-                // Create the glowing effect with multiple circles
-                const glowRadius = 8;
-                const coreRadius = 3;
-                
-                // Outer glow
-                locationGroup.append('circle')
-                    .attr('class', 'location-glow-outer')
-                    .attr('cx', 0)
-                    .attr('cy', 0)
-                    .attr('r', glowRadius)
-                    .attr('fill', location.color)
-                    .attr('opacity', 0.3)
-                    .style('filter', 'blur(2px)')
-                    .style('pointer-events', 'none');
-                
-                // Middle glow
-                locationGroup.append('circle')
-                    .attr('class', 'location-glow-middle')
-                    .attr('cx', 0)
-                    .attr('cy', 0)
-                    .attr('r', glowRadius * 0.6)
-                    .attr('fill', location.color)
-                    .attr('opacity', 0.6)
-                    .style('filter', 'blur(1px)')
-                    .style('pointer-events', 'none');
-                
-                // Core dot
-                const coreDot = locationGroup.append('circle')
-                    .attr('class', `location-dot ${location.location_type}`)
-                    .attr('cx', 0)
-                    .attr('cy', 0)
-                    .attr('r', coreRadius)
+                // Create a simple, clean location marker
+                const marker = locationGroup.append('circle')
+                    .attr('class', 'location-marker')
+                    .attr('cx', x)
+                    .attr('cy', y)
+                    .attr('r', 8)
                     .attr('fill', location.color)
                     .attr('stroke', '#ffffff')
-                    .attr('stroke-width', 1)
+                    .attr('stroke-width', 3)
                     .attr('data-location-id', location.id)
-                    .attr('data-location-name', location.name)
-                    .attr('data-location-type', location.location_type)
-                    .attr('data-pastor-name', location.pastor_name || '')
-                    .attr('data-organization', location.organization || '')
-                    .attr('data-address', location.address || '')
-                    .style('pointer-events', 'all');
+                    .style('cursor', 'pointer')
+                    .style('pointer-events', 'all')
+                    .style('opacity', 1)
+                    .style('z-index', '1000');
                 
+                // Add click handler
+                marker.on('click', (event) => {
+                    console.log('Location clicked:', location.name);
+                    event.stopPropagation();
+                    this.handleLocationClick(location);
+                });
                 
-                // Add hover effects
-                coreDot
-                    .on('mouseover', (event) => this.showLocationTooltip(event, location))
-                    .on('mouseout', () => this.hideTooltip())
-                    .on('click', (event) => this.selectLocation(event, location));
+                // Add hover effects (optimized for performance)
+                marker.on('mouseover', (event) => {
+                    d3.select(event.target)
+                        .attr('r', 10);
+                    this.showLocationTooltip(event, location);
+                });
                 
-                // Add pulsing animation
-                this.addPulsingAnimation(locationGroup, location.color);
+                marker.on('mouseout', (event) => {
+                    d3.select(event.target)
+                        .attr('r', 8);
+                    this.hideTooltip();
+                });
+            } else {
+                console.error(`Failed to project coordinates for ${location.name}: [${location.longitude}, ${location.latitude}]`);
             }
         });
+        
+        console.log('Location nodes created successfully');
     }
     
-    addPulsingAnimation(locationGroup, color) {
-        // Add pulsing animation to the glow effect
-        const outerGlow = locationGroup.select('.location-glow-outer');
-        const middleGlow = locationGroup.select('.location-glow-middle');
-        
-        // Create pulsing animation
-        const pulse = () => {
-            outerGlow
-                .transition()
-                .duration(2000)
-                .attr('opacity', 0.6)
-                .transition()
-                .duration(2000)
-                .attr('opacity', 0.3)
-                .on('end', pulse);
-                
-            middleGlow
-                .transition()
-                .duration(2000)
-                .attr('opacity', 0.8)
-                .transition()
-                .duration(2000)
-                .attr('opacity', 0.6)
-                .on('end', () => {});
-        };
-        
-        pulse();
-    }
     
     groupNodesByLocation(nodes) {
         const groups = {};
@@ -740,9 +686,14 @@ class GeographicLineageVisualization {
     }
     
     setupEventListeners() {
-        // Drag to rotate globe
+        // Drag to rotate globe - only on empty space, not on location markers
         this.svg
             .call(d3.drag()
+                .filter((event) => {
+                    // Only allow dragging if not clicking on a location marker
+                    const target = event.target;
+                    return !target.classList.contains('location-marker');
+                })
                 .on('start', (event) => {
                     this.isDragging = true;
                     this.lastMousePosition = d3.pointer(event, this.svg.node());
@@ -760,9 +711,6 @@ class GeographicLineageVisualization {
                         this.projection.rotate(this.rotation);
                         this.updateGlobe();
                         this.updateRotationIndicator();
-                        
-                        // Trigger chapel updates during drag
-                        this.svg.dispatch('update-chapels');
                         
                         this.lastMousePosition = currentMousePosition;
                     }
@@ -906,14 +854,28 @@ class GeographicLineageVisualization {
         this.tooltip.style('opacity', 0);
     }
     
+    handleLocationClick(location) {
+        console.log('=== LOCATION CLICKED ===');
+        console.log('Location:', location.name);
+        console.log('Type:', location.location_type);
+        console.log('Coordinates:', [location.latitude, location.longitude]);
+        
+        this.showLocationDetails(location);
+    }
+    
     selectLocation(event, location) {
         console.log('Selected location:', location);
         this.showLocationDetails(location);
     }
     
     showLocationDetails(location) {
+        console.log('showLocationDetails called for:', location.name, location);
         const asidePanel = document.getElementById('location-info-panel');
-        if (!asidePanel) return;
+        if (!asidePanel) {
+            console.error('location-info-panel not found!');
+            return;
+        }
+        console.log('Found aside panel:', asidePanel);
         
         const locationTypeColors = {
             'church': '#27ae60',
@@ -986,8 +948,21 @@ class GeographicLineageVisualization {
         
         // Show the aside panel
         const aside = document.getElementById('location-aside');
+        console.log('Found aside element:', aside);
         if (aside) {
+            console.log('Adding show class to aside panel');
             aside.classList.add('show');
+            aside.style.transform = 'translateX(0)';
+            aside.style.display = 'block';
+            aside.style.visibility = 'visible';
+            console.log('Aside panel classes after adding show:', aside.className);
+            console.log('Aside panel styles after forcing show:', {
+                transform: aside.style.transform,
+                display: aside.style.display,
+                visibility: aside.style.visibility
+            });
+        } else {
+            console.error('location-aside element not found!');
         }
     }
     
@@ -1118,6 +1093,68 @@ class GeographicLineageVisualization {
         
         console.log('=== End Debug Information ===');
     }
+    
+    // Test function to verify location click functionality
+    testLocationClicks() {
+        console.log('=== Testing Location Click Functionality ===');
+        
+        // Check if location data exists
+        if (!window.nodesData || window.nodesData.length === 0) {
+            console.error('No location data available for testing');
+            return;
+        }
+        
+        console.log(`Found ${window.nodesData.length} locations in data`);
+        console.log('Sample location:', window.nodesData[0]);
+        
+        // Check if location nodes exist in DOM
+        const locationDots = this.g.selectAll('.location-dot');
+        console.log(`Found ${locationDots.size()} location dots in DOM`);
+        
+        // Test clicking the first visible location
+        const firstLocation = window.nodesData[0];
+        console.log('Testing click on first location:', firstLocation.name);
+        
+        // Simulate a click event
+        const mockEvent = { preventDefault: () => {} };
+        this.selectLocation(mockEvent, firstLocation);
+        
+        console.log('=== End Location Click Test ===');
+    }
+    
+    // Function to refresh location data from the server
+    async refreshLocationData() {
+        console.log('Refreshing location data from server...');
+        
+        try {
+            // Fetch updated location data from the API endpoint
+            const response = await fetch('/api/geographic-locations');
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log(`Updated location data: ${data.count} locations`);
+                console.log('Sample updated location:', data.nodes[0]);
+                
+                // Update the global data
+                window.nodesData = data.nodes;
+                
+                // Clear existing location nodes
+                this.g.selectAll('.location-nodes').remove();
+                
+                // Re-render location nodes with updated data
+                this.addLocationNodes();
+                
+                console.log('Location data refreshed successfully');
+                return true;
+            } else {
+                console.error('API returned error:', data.error);
+                return false;
+            }
+        } catch (error) {
+            console.error('Error refreshing location data:', error);
+            return false;
+        }
+    }
 }
 
 // Initialize when DOM is loaded
@@ -1133,6 +1170,212 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('France:', window.geographicVisualization.getCountryColor('France'));
             console.log('Unknown Country:', window.geographicVisualization.getCountryColor('Unknown Country', 0));
             console.log('Fallback colors:', window.geographicVisualization.fallbackColors);
+        }
+    };
+    
+    // Add location click test function to global scope
+    window.testLocationClicks = function() {
+        if (window.geographicVisualization) {
+            window.geographicVisualization.testLocationClicks();
+        } else {
+            console.error('Geographic visualization not initialized yet');
+        }
+    };
+    
+    // Add location refresh function to global scope
+    window.refreshLocationData = async function() {
+        if (window.geographicVisualization) {
+            return await window.geographicVisualization.refreshLocationData();
+        } else {
+            console.error('Geographic visualization not initialized yet');
+            return false;
+        }
+    };
+    
+    // Add test function to simulate location clicks
+    window.testLocationClick = function(locationIndex = 0) {
+        if (window.geographicVisualization && window.nodesData && window.nodesData.length > 0) {
+            const location = window.nodesData[locationIndex];
+            if (location) {
+                console.log('Testing click on location:', location.name);
+                const mockEvent = { preventDefault: () => {} };
+                window.geographicVisualization.selectLocation(mockEvent, location);
+            } else {
+                console.error('Location not found at index:', locationIndex);
+            }
+        } else {
+            console.error('Geographic visualization or location data not available');
+        }
+    };
+    
+    // Add function to list all available locations
+    window.listLocations = function() {
+        if (window.nodesData && window.nodesData.length > 0) {
+            console.log('Available locations:');
+            window.nodesData.forEach((location, index) => {
+                console.log(`${index}: ${location.name} (${location.location_type}) at [${location.longitude}, ${location.latitude}]`);
+            });
+        } else {
+            console.log('No location data available');
+        }
+    };
+    
+    // Add function to test location marker creation and clickability
+    window.testLocationMarkers = function() {
+        if (window.geographicVisualization) {
+            const markers = window.geographicVisualization.g.selectAll('.location-marker');
+            console.log('Found location markers:', markers.size());
+            
+            markers.each(function(d, i) {
+                const marker = d3.select(this);
+                console.log(`Marker ${i}:`, {
+                    class: marker.attr('class'),
+                    id: marker.attr('data-location-id'),
+                    cx: marker.attr('cx'),
+                    cy: marker.attr('cy'),
+                    pointerEvents: marker.style('pointer-events'),
+                    opacity: marker.style('opacity')
+                });
+            });
+            
+            // Test if markers are visible and clickable
+            const visibleMarkers = markers.filter(function() {
+                const marker = d3.select(this);
+                return marker.style('opacity') !== '0' && marker.style('pointer-events') === 'all';
+            });
+            console.log('Visible and clickable markers:', visibleMarkers.size());
+        } else {
+            console.log('Geographic visualization not available');
+        }
+    };
+    
+    // Add function to simulate a click on the first visible location marker
+    window.simulateLocationClick = function() {
+        if (window.geographicVisualization) {
+            const markers = window.geographicVisualization.g.selectAll('.location-marker');
+            const firstMarker = markers.filter(function() {
+                const marker = d3.select(this);
+                return marker.style('opacity') !== '0' && marker.style('pointer-events') === 'all';
+            }).nodes()[0];
+            
+            if (firstMarker) {
+                console.log('Simulating click on first visible marker');
+                const clickEvent = new MouseEvent('click', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window
+                });
+                firstMarker.dispatchEvent(clickEvent);
+            } else {
+                console.log('No visible clickable markers found');
+            }
+        } else {
+            console.log('Geographic visualization not available');
+        }
+    };
+    
+    // Add function to test the aside panel directly
+    window.testAsidePanel = function() {
+        const aside = document.getElementById('location-aside');
+        const panel = document.getElementById('location-info-panel');
+        
+        console.log('Aside element:', aside);
+        console.log('Panel element:', panel);
+        
+        if (aside) {
+            console.log('Current aside classes:', aside.className);
+            console.log('Current aside transform:', window.getComputedStyle(aside).transform);
+            console.log('Current aside display:', window.getComputedStyle(aside).display);
+            console.log('Current aside visibility:', window.getComputedStyle(aside).visibility);
+        }
+        
+        if (panel) {
+            console.log('Panel innerHTML length:', panel.innerHTML.length);
+            console.log('Panel innerHTML preview:', panel.innerHTML.substring(0, 200));
+        }
+    };
+    
+    // Add function to force show the aside panel
+    window.forceShowAside = function() {
+        const aside = document.getElementById('location-aside');
+        if (aside) {
+            aside.classList.add('show');
+            aside.style.transform = 'translateX(0)';
+            aside.style.display = 'block';
+            console.log('Forced aside panel to show');
+        }
+    };
+    
+    // Add function to debug marker DOM elements
+    window.debugMarkerDOM = function() {
+        console.log('=== MARKER DOM DEBUG ===');
+        
+        // Check SVG structure
+        const svg = document.querySelector('.globe-svg');
+        console.log('SVG element:', svg);
+        
+        // Check location nodes group
+        const locationNodes = document.querySelector('.location-nodes');
+        console.log('Location nodes group:', locationNodes);
+        
+        // Check individual markers
+        const markers = document.querySelectorAll('.location-marker');
+        console.log('Number of marker elements found:', markers.length);
+        
+        markers.forEach((marker, index) => {
+            console.log(`Marker ${index}:`, {
+                element: marker,
+                cx: marker.getAttribute('cx'),
+                cy: marker.getAttribute('cy'),
+                r: marker.getAttribute('r'),
+                fill: marker.getAttribute('fill'),
+                class: marker.className,
+                style: marker.style.cssText,
+                computedStyle: window.getComputedStyle(marker),
+                pointerEvents: window.getComputedStyle(marker).pointerEvents,
+                cursor: window.getComputedStyle(marker).cursor
+            });
+        });
+        
+        console.log('=== END MARKER DOM DEBUG ===');
+    };
+    
+    // Add function to test clicking directly on DOM element
+    window.testDirectClick = function() {
+        const markers = document.querySelectorAll('.location-marker');
+        if (markers.length > 0) {
+            const firstMarker = markers[0];
+            console.log('Testing direct click on first marker:', firstMarker);
+            
+            // Simulate a click event
+            const clickEvent = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            });
+            
+            firstMarker.dispatchEvent(clickEvent);
+        } else {
+            console.log('No markers found in DOM');
+        }
+    };
+    
+    // Add function to highlight the marker visually for debugging
+    window.highlightMarker = function() {
+        const markers = document.querySelectorAll('.location-marker');
+        if (markers.length > 0) {
+            const firstMarker = markers[0];
+            console.log('Highlighting first marker:', firstMarker);
+            
+            // Make it very obvious
+            firstMarker.style.stroke = '#ff0000';
+            firstMarker.style.strokeWidth = '5';
+            firstMarker.style.filter = 'brightness(2)';
+            firstMarker.setAttribute('r', '15');
+            
+            console.log('Marker highlighted - you should see a large red-bordered circle');
+        } else {
+            console.log('No markers found to highlight');
         }
     };
 });

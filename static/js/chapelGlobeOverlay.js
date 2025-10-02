@@ -79,99 +79,9 @@ class ChapelGlobeOverlay {
     }
     
     loadTestData() {
-        // Test chapel data with various locations
-        this.chapelData = [
-            {
-                id: 'chapel-1',
-                name: 'St. Peter\'s Basilica',
-                type: 'cathedral',
-                lat: 41.9022,
-                lng: 12.4539,
-                city: 'Vatican City',
-                country: 'Vatican',
-                description: 'The papal basilica of St. Peter in the Vatican',
-                yearFounded: 1506
-            },
-            {
-                id: 'chapel-2',
-                name: 'Westminster Abbey',
-                type: 'abbey',
-                lat: 51.4994,
-                lng: -0.1274,
-                city: 'London',
-                country: 'United Kingdom',
-                description: 'A large Gothic abbey church in Westminster',
-                yearFounded: 1065
-            },
-            {
-                id: 'chapel-3',
-                name: 'Notre-Dame Cathedral',
-                type: 'cathedral',
-                lat: 48.8530,
-                lng: 2.3499,
-                city: 'Paris',
-                country: 'France',
-                description: 'Medieval Catholic cathedral on the Île de la Cité',
-                yearFounded: 1163
-            },
-            {
-                id: 'chapel-4',
-                name: 'St. Patrick\'s Cathedral',
-                type: 'cathedral',
-                lat: 40.7589,
-                lng: -73.9851,
-                city: 'New York',
-                country: 'United States',
-                description: 'The seat of the archbishop of the Roman Catholic Archdiocese of New York',
-                yearFounded: 1858
-            },
-            {
-                id: 'chapel-5',
-                name: 'Sagrada Familia',
-                type: 'basilica',
-                lat: 41.4036,
-                lng: 2.1744,
-                city: 'Barcelona',
-                country: 'Spain',
-                description: 'Large unfinished Roman Catholic church designed by Antoni Gaudí',
-                yearFounded: 1882
-            },
-            {
-                id: 'chapel-6',
-                name: 'St. Basil\'s Cathedral',
-                type: 'cathedral',
-                lat: 55.7525,
-                lng: 37.6231,
-                city: 'Moscow',
-                country: 'Russia',
-                description: 'A church in Red Square in Moscow',
-                yearFounded: 1555
-            },
-            {
-                id: 'chapel-7',
-                name: 'Hagia Sophia',
-                type: 'cathedral',
-                lat: 41.0086,
-                lng: 28.9802,
-                city: 'Istanbul',
-                country: 'Turkey',
-                description: 'A former Greek Orthodox Christian patriarchal basilica',
-                yearFounded: 537
-            },
-            {
-                id: 'chapel-8',
-                name: 'Church of the Holy Sepulchre',
-                type: 'church',
-                lat: 31.7784,
-                lng: 35.2298,
-                city: 'Jerusalem',
-                country: 'Israel',
-                description: 'A church in the Christian Quarter of the Old City of Jerusalem',
-                yearFounded: 335
-            }
-        ];
-        
-        console.log(`Loaded ${this.chapelData.length} test chapels`);
+        // No test data - only use database locations
+        this.chapelData = [];
+        console.log('No test chapel data loaded - using database locations only');
         this.renderChapels();
     }
     
@@ -238,44 +148,45 @@ class ChapelGlobeOverlay {
         const chapelMarkers = this.chapelOverlayGroup.selectAll('.chapel-marker');
         const self = this; // Store reference to class instance
         
-        chapelMarkers.each(function(d) {
-            const chapelGroup = d3.select(this);
-            
-            // Use the same 3D culling logic as the main globe
-            const isVisible = self.isChapelVisible(d.lng, d.lat);
-            
-            if (isVisible) {
-                // Get current projection from the globe for positioning
-                const projection = self.globe.projection;
-                const coords = projection([d.lng, d.lat]);
+        // Use requestAnimationFrame for smoother updates
+        requestAnimationFrame(() => {
+            chapelMarkers.each(function(d) {
+                const chapelGroup = d3.select(this);
                 
-                if (coords && coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-                    const [x, y] = coords;
-                    // Point is visible, show it
-                    chapelGroup
-                        .attr('transform', `translate(${x}, ${y})`)
-                        .style('opacity', 1)
-                        .style('display', 'block');
+                // Use the same 3D culling logic as the main globe
+                const isVisible = self.isChapelVisible(d.lng, d.lat);
+                
+                if (isVisible) {
+                    // Get current projection from the globe for positioning
+                    const projection = self.globe.projection;
+                    const coords = projection([d.lng, d.lat]);
+                    
+                    if (coords && coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+                        const [x, y] = coords;
+                        // Point is visible, show it - direct DOM manipulation for performance
+                        chapelGroup.node().setAttribute('transform', `translate(${x}, ${y})`);
+                        chapelGroup.node().style.opacity = '1';
+                        chapelGroup.node().style.pointerEvents = 'all';
+                    } else {
+                        // Fallback: hide if projection fails but keep in DOM for click handlers
+                        chapelGroup.node().style.opacity = '0';
+                        chapelGroup.node().style.pointerEvents = 'none';
+                    }
                 } else {
-                    // Fallback: hide if projection fails
-                    chapelGroup
-                        .style('opacity', 0)
-                        .style('display', 'none');
+                    // Point is on the back side, hide it but keep in DOM for click handlers
+                    chapelGroup.node().style.opacity = '0';
+                    chapelGroup.node().style.pointerEvents = 'none';
                 }
-            } else {
-                // Point is on the back side, hide it
-                chapelGroup
-                    .style('opacity', 0)
-                    .style('display', 'none');
-            }
+            });
         });
     }
     isChapelVisible(longitude, latitude) {
+        // Use D3's geoRotation for proper backface culling
+        // This leverages D3's built-in spherical math functions
         try {
             // Get the projected coordinates first
             const projected = this.globe.projection([longitude, latitude]);
-            
-            // If projection returns null, the point is not visible
+
             if (!projected || projected.length !== 2) {
                 return false;
             }
@@ -299,9 +210,9 @@ class ChapelGlobeOverlay {
             const x3d = Math.sin(phi) * Math.cos(theta);
             const y3d = Math.cos(phi);
             const z3d = Math.sin(phi) * Math.sin(theta);
-            
-            // The view direction is looking at the center (0, 0, -1) in the rotated coordinate system
-            // If x-coordinate is positive, the point is on the back side
+
+            // The view direction is looking at the center (0, 0, 1) in the rotated coordinate system
+            // If z-coordinate is negative, the point is on the back side
             if (x3d > 0) {
                 return false;
             }

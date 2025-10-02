@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, Response, make_response
 from services import clergy as clergy_service
+from services.geocoding import geocoding_service
 from utils import audit_log, require_permission, require_permission_api, log_audit_event
 from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, Location
 import json
@@ -90,6 +91,62 @@ def geographic_lineage():
                              links_json='[]',
                              error_message=error_message,
                              user=None)
+
+@main_bp.route('/api/geographic-locations')
+def api_geographic_locations():
+    """API endpoint to get location data for geographic visualization"""
+    try:
+        # Get all active locations for the visualization
+        all_locations = Location.query.filter(Location.is_active == True).all()
+        
+        # Prepare data for D3.js visualization
+        nodes = []
+        
+        # Create nodes for each location with coordinates
+        for location in all_locations:
+            # Only include locations that have coordinates
+            if location.has_coordinates():
+                # Determine color based on location type
+                color_map = {
+                    'church': '#27ae60',      # Green for churches
+                    'organization': '#3498db', # Blue for organizations
+                    'address': '#e74c3c',     # Red for addresses
+                    'cathedral': '#9b59b6',   # Purple for cathedrals
+                    'monastery': '#f39c12',   # Orange for monasteries
+                    'seminary': '#1abc9c'     # Teal for seminaries
+                }
+                
+                node_color = color_map.get(location.location_type, '#95a5a6')
+                
+                nodes.append({
+                    'id': location.id,
+                    'name': location.name,
+                    'location_type': location.location_type,
+                    'pastor_name': location.pastor_name,
+                    'organization': location.organization,
+                    'address': location.get_full_address(),
+                    'city': location.city,
+                    'country': location.country,
+                    'latitude': location.latitude,
+                    'longitude': location.longitude,
+                    'color': node_color,
+                    'notes': location.notes
+                })
+        
+        return jsonify({
+            'success': True,
+            'nodes': nodes,
+            'count': len(nodes)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting location data: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'nodes': [],
+            'count': 0
+        }), 500
 
 # Location management routes
 @main_bp.route('/locations')
@@ -1408,3 +1465,88 @@ def proxy_image():
     except requests.RequestException as e:
         current_app.logger.error(f"Error proxying image {image_url}: {e}")
         return 'Error fetching image', 500
+
+# Geocoding API endpoints
+@main_bp.route('/api/geocode', methods=['POST'])
+def geocode_address():
+    """Geocode an address to get coordinates"""
+    try:
+        data = request.get_json()
+        address = data.get('address', '').strip()
+        
+        if not address:
+            return jsonify({'error': 'Address is required'}), 400
+        
+        # Check if geocoding service is configured
+        if not geocoding_service.is_configured():
+            return jsonify({'error': 'Geocoding service not configured'}), 503
+        
+        # Get coordinates
+        result = geocoding_service.geocode_address(address)
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'latitude': result['latitude'],
+                'longitude': result['longitude'],
+                'formatted_address': result['formatted_address'],
+                'city': result.get('city'),
+                'state': result.get('state'),
+                'country': result.get('country'),
+                'postcode': result.get('postcode'),
+                'confidence': result.get('confidence', 0)
+            })
+        else:
+            return jsonify({'error': 'Address not found'}), 404
+            
+    except Exception as e:
+        current_app.logger.error(f"Geocoding error: {e}")
+        return jsonify({'error': 'Geocoding failed'}), 500
+
+@main_bp.route('/api/reverse-geocode', methods=['POST'])
+def reverse_geocode():
+    """Reverse geocode coordinates to get address"""
+    try:
+        data = request.get_json()
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        
+        if latitude is None or longitude is None:
+            return jsonify({'error': 'Latitude and longitude are required'}), 400
+        
+        # Check if geocoding service is configured
+        if not geocoding_service.is_configured():
+            return jsonify({'error': 'Geocoding service not configured'}), 503
+        
+        # Get address
+        result = geocoding_service.reverse_geocode(float(latitude), float(longitude))
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'formatted_address': result['formatted_address'],
+                'city': result.get('city'),
+                'state': result.get('state'),
+                'country': result.get('country'),
+                'postcode': result.get('postcode'),
+                'confidence': result.get('confidence', 0)
+            })
+        else:
+            return jsonify({'error': 'Address not found for coordinates'}), 404
+            
+    except Exception as e:
+        current_app.logger.error(f"Reverse geocoding error: {e}")
+        return jsonify({'error': 'Reverse geocoding failed'}), 500
+
+@main_bp.route('/api/geocoding-status', methods=['GET'])
+def geocoding_status():
+    """Check if geocoding service is available"""
+    return jsonify({
+        'configured': geocoding_service.is_configured(),
+        'service': 'OpenCage' if geocoding_service.is_configured() else None
+    })
+
+@main_bp.route('/geocoding-test')
+def geocoding_test():
+    """Test page for geocoding functionality"""
+    return render_template('geocoding_test.html')

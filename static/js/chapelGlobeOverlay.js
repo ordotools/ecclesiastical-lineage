@@ -270,33 +270,50 @@ class ChapelGlobeOverlay {
             }
         });
     }
-    
     isChapelVisible(longitude, latitude) {
-        // Use the exact same culling logic as the main globe
-        // This ensures consistent behavior with the globe's backface culling
-        
-        // Convert to radians
-        const lngRad = longitude * Math.PI / 180;
-        const latRad = latitude * Math.PI / 180;
-        
-        // Get current rotation (only Y rotation matters for basic culling)
-        const [rotateX, rotateY, rotateZ] = this.globe.projection.rotate();
-        const rotateYRad = rotateY * Math.PI / 180;
-        
-        // Convert lat/lng to 3D coordinates on unit sphere
-        const x = Math.cos(latRad) * Math.cos(lngRad);
-        const y = Math.cos(latRad) * Math.sin(lngRad);
-        const z = Math.sin(latRad);
-        
-        // Apply Y rotation (main rotation when dragging)
-        const cosY = Math.cos(rotateYRad);
-        const sinY = Math.sin(rotateYRad);
-        const xRotated = x * cosY + z * sinY;
-        const zRotated = -x * sinY + z * cosY;
-        
-        // Check if the point is in front of the viewer
-        // Use the same threshold as the main globe
-        return zRotated > 0.1;
+        try {
+            // Get the projected coordinates first
+            const projected = this.globe.projection([longitude, latitude]);
+            
+            // If projection returns null, the point is not visible
+            if (!projected || projected.length !== 2) {
+                return false;
+            }
+
+            const [x, y] = projected;
+
+            // Check if coordinates are valid numbers
+            if (isNaN(x) || isNaN(y)) {
+                return false;
+            }
+
+            // Use D3's geoRotation to get the rotated point
+            const rotation = this.globe.projection.rotate();
+            const geoRotation = d3.geoRotation(rotation);
+            const rotatedPoint = geoRotation([longitude, latitude]);
+            
+            // Convert the rotated point to 3D coordinates
+            const phi = (90 - rotatedPoint[1]) * Math.PI / 180;
+            const theta = (rotatedPoint[0] + 180) * Math.PI / 180;
+            
+            const x3d = Math.sin(phi) * Math.cos(theta);
+            const y3d = Math.cos(phi);
+            const z3d = Math.sin(phi) * Math.sin(theta);
+            
+            // The view direction is looking at the center (0, 0, -1) in the rotated coordinate system
+            // If x-coordinate is positive, the point is on the back side
+            if (x3d > 0) {
+                return false;
+            }
+            
+            // Point is visible if it's on the front side
+            return true;
+
+        } catch (error) {
+            // If there's any error in projection, consider it not visible
+            console.warn('Error in chapel visibility check:', error);
+            return false;
+        }
     }
     
     addChapelEventListeners() {

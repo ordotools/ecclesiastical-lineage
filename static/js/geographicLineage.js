@@ -254,7 +254,7 @@ class GeographicLineageVisualization {
             // Find the location data by ID
             const location = window.nodesData.find(loc => loc.id == locationId);
             if (location && location.latitude !== undefined && location.longitude !== undefined) {
-                // Check visibility first using the same projection as countries
+                // Check visibility first using the enhanced 3D culling
                 const isVisible = this.isLocationVisible(location.longitude, location.latitude);
                 
                 if (isVisible) {
@@ -278,31 +278,52 @@ class GeographicLineageVisualization {
     }
     
     isLocationVisible(longitude, latitude) {
-        // Simple 3D approach - check if point is on the front side of the sphere
-        // This is more reliable than trying to use D3's projection
-        
-        // Convert to radians
-        const lngRad = longitude * Math.PI / 180;
-        const latRad = latitude * Math.PI / 180;
-        
-        // Get current rotation (only Y rotation matters for basic culling)
-        const [rotateX, rotateY, rotateZ] = this.projection.rotate();
-        const rotateYRad = rotateY * Math.PI / 180;
-        
-        // Convert lat/lng to 3D coordinates on unit sphere
-        const x = Math.cos(latRad) * Math.cos(lngRad);
-        const y = Math.cos(latRad) * Math.sin(lngRad);
-        const z = Math.sin(latRad);
-        
-        // Apply Y rotation (main rotation when dragging)
-        const cosY = Math.cos(rotateYRad);
-        const sinY = Math.sin(rotateYRad);
-        const xRotated = x * cosY + z * sinY;
-        const zRotated = -x * sinY + z * cosY;
-        
-        // Check if the point is in front of the viewer
-        // Use a threshold that matches the globe's horizon
-        return zRotated > 0.1;
+        // Use D3's geoRotation for proper backface culling
+        // This leverages D3's built-in spherical math functions
+
+        try {
+            // Get the projected coordinates first
+            const projected = this.projection([longitude, latitude]);
+            
+            // If projection returns null, the point is not visible
+            if (!projected || projected.length !== 2) {
+                return false;
+            }
+
+            const [x, y] = projected;
+
+            // Check if coordinates are valid numbers
+            if (isNaN(x) || isNaN(y)) {
+                return false;
+            }
+
+            // Use D3's geoRotation to get the rotated point
+            const rotation = this.projection.rotate();
+            const geoRotation = d3.geoRotation(rotation);
+            const rotatedPoint = geoRotation([longitude, latitude]);
+            
+            // Convert the rotated point to 3D coordinates
+            const phi = (90 - rotatedPoint[1]) * Math.PI / 180;
+            const theta = (rotatedPoint[0] + 180) * Math.PI / 180;
+            
+            const x3d = Math.sin(phi) * Math.cos(theta);
+            const y3d = Math.cos(phi);
+            const z3d = Math.sin(phi) * Math.sin(theta);
+            
+            // The view direction is looking at the center (0, 0, 1) in the rotated coordinate system
+            // If z-coordinate is negative, the point is on the back side
+            if (z3d < 0) {
+                return false;
+            }
+            
+            // Point is visible if it's on the front side
+            return true;
+
+        } catch (error) {
+            // If there's any error in projection, consider it not visible
+            console.warn('Error in location visibility check:', error);
+            return false;
+        }
     }
     
     init() {
@@ -458,7 +479,7 @@ class GeographicLineageVisualization {
                 .attr('fill', (d, i) => {
                     const countryName = d.properties.NAME || d.properties.name || d.properties.NAME_EN || d.properties.name_en || d.properties.ADMIN || d.properties.ADMIN_EN || 'Unknown';
                     const color = this.getCountryColor(countryName, i);
-                    console.log(`Country ${i}: ${countryName}, Color: ${color}`);
+                    // console.log(`Country ${i}: ${countryName}, Color: ${color}`);
                     return color;
                 })
                 .attr('stroke', '#4A3E33')
@@ -473,9 +494,7 @@ class GeographicLineageVisualization {
             // Apply backface culling after countries are rendered
             this.applyBackfaceCulling();
             
-            // Log summary of color assignment
-            console.log(`Total countries rendered: ${worldData.features.length}`);
-            console.log('Country colors should now be visible on the globe');
+            
                 
             // Draw graticule with subtle styling
             this.g.append('path')
@@ -1067,6 +1086,37 @@ class GeographicLineageVisualization {
         if (indicator) {
             indicator.style.display = 'none';
         }
+    }
+    
+    // Debug function to test culling behavior
+    debugCulling() {
+        console.log('=== Culling Debug Information ===');
+        const [rotateX, rotateY, rotateZ] = this.projection.rotate();
+        console.log(`Current rotation: X=${rotateX.toFixed(1)}°, Y=${rotateY.toFixed(1)}°, Z=${rotateZ.toFixed(1)}°`);
+        console.log(`Clip angle: ${this.clipAngle}°`);
+        
+        // Test some key coordinates
+        const testCoords = [
+            { name: 'Vatican', lng: 12.4539, lat: 41.9022 },
+            { name: 'New York', lng: -74.0060, lat: 40.7128 },
+            { name: 'London', lng: -0.1278, lat: 51.5074 },
+            { name: 'Paris', lng: 2.3522, lat: 48.8566 },
+            { name: 'Moscow', lng: 37.6176, lat: 55.7558 },
+            { name: 'Istanbul', lng: 28.9784, lat: 41.0082 },
+            { name: 'Jerusalem', lng: 35.2137, lat: 31.7683 },
+            { name: 'Sydney', lng: 151.2093, lat: -33.8688 },
+            { name: 'Tokyo', lng: 139.6917, lat: 35.6895 },
+            { name: 'Equator/Prime Meridian', lng: 0, lat: 0 }
+        ];
+        
+        console.log('\nVisibility test results:');
+        testCoords.forEach(coord => {
+            const isVisible = this.isLocationVisible(coord.lng, coord.lat);
+            const projection = this.projection([coord.lng, coord.lat]);
+            console.log(`${coord.name}: Visible=${isVisible}, Projection=[${projection[0]?.toFixed(1) || 'undefined'}, ${projection[1]?.toFixed(1) || 'undefined'}]`);
+        });
+        
+        console.log('=== End Debug Information ===');
     }
 }
 

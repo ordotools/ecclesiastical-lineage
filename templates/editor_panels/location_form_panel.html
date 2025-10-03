@@ -1,0 +1,154 @@
+<!-- Location Form Panel Content -->
+<div style="padding: 1em; height: 100%; display: flex; flex-direction: column; overflow-y: auto;">
+    <div style="margin-bottom: 1.5em; padding-bottom: 0.75em; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+        <h2 style="margin: 0; color: white; font-weight: 500; font-size: 1.1em; opacity: 0.95;">
+            {% if location %}Edit Chapel Location{% else %}Add New Chapel Location{% endif %}
+        </h2>
+    </div>
+    
+    <form id="locationForm" method="POST" 
+          action="{% if location %}/locations/{{ location.id }}/edit{% else %}/locations/add{% endif %}" 
+          enctype="multipart/form-data" 
+          data-init-location-form="true">
+        <div style="display: flex; flex-direction: column; gap: 1em;">
+            
+            <!-- Name -->
+            <div>
+                <label for="name" style="display: block; margin-bottom: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">Name *</label>
+                <input type="text" id="name" name="name" required
+                       value="{% if location %}{{ location.name }}{% endif %}"
+                       style="width: 100%; padding: 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; font-size: 0.9em;"
+                       placeholder="Enter chapel name">
+            </div>
+            
+            <!-- Type -->
+            <div>
+                <label for="location_type" style="display: block; margin-bottom: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">Type *</label>
+                <select id="location_type" name="location_type" required
+                        style="width: 100%; padding: 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; font-size: 0.9em;">
+                    <option value="">Select chapel type</option>
+                    <option value="church" {% if location and location.location_type == 'church' %}selected{% endif %}>Church</option>
+                    <option value="cathedral" {% if location and location.location_type == 'cathedral' %}selected{% endif %}>Cathedral</option>
+                    <option value="monastery" {% if location and location.location_type == 'monastery' %}selected{% endif %}>Monastery</option>
+                    <option value="seminary" {% if location and location.location_type == 'seminary' %}selected{% endif %}>Seminary</option>
+                    <option value="organization" {% if location and location.location_type == 'organization' %}selected{% endif %}>Organization</option>
+                    <option value="address" {% if location and location.location_type == 'address' %}selected{% endif %}>Address</option>
+                </select>
+            </div>
+            
+            <!-- Street Address -->
+            <div>
+                <label for="street_address" style="display: block; margin-bottom: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">Street Address</label>
+                <input type="text" id="street_address" name="street_address"
+                       value="{% if location %}{{ location.address }}{% endif %}"
+                       style="width: 100%; padding: 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; font-size: 0.9em;"
+                       placeholder="Enter street address, building number, district, ward, etc.">
+            </div>
+            
+            <!-- City, State/Province, Country -->
+            <div style="display: flex; gap: 1em;">
+                <div style="flex: 1;">
+                    <label for="city" style="display: block; margin-bottom: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">City</label>
+                    <input type="text" id="city" name="city"
+                           value="{% if location %}{{ location.city }}{% endif %}"
+                           style="width: 100%; padding: 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; font-size: 0.9em;"
+                           placeholder="Enter city">
+                </div>
+                <div style="flex: 1;">
+                    <label for="state_province" style="display: block; margin-bottom: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">State/Province</label>
+                    <input type="text" id="state_province" name="state_province"
+                           value="{% if location %}{{ location.state_province }}{% endif %}"
+                           style="width: 100%; padding: 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; font-size: 0.9em;"
+                           placeholder="State, province, region, etc.">
+                </div>
+            </div>
+            
+            <!-- Country and Postal Code -->
+            <div style="display: flex; gap: 1em;">
+                <div style="flex: 2; position: relative;">
+                    <label for="country" style="display: block; margin-bottom: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">Country</label>
+                    <input type="text" id="country" name="country" required autocomplete="off"
+                           value="{% if location %}{{ location.country }}{% endif %}"
+                           style="width: 100%; padding: 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; font-size: 0.9em;"
+                           placeholder="Start typing country name...">
+                    <div id="country-suggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: rgba(0, 0, 0, 0.9); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 2px;"></div>
+                </div>
+                <div style="flex: 1;">
+                    <label for="postal_code" style="display: block; margin-bottom: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">Postal Code</label>
+                    <input type="text" id="postal_code" name="postal_code"
+                           value="{% if location %}{{ location.postal_code }}{% endif %}"
+                           style="width: 100%; padding: 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; font-size: 0.9em;"
+                           placeholder="ZIP, postal code, etc.">
+                </div>
+            </div>
+            
+            <!-- Coordinates Display (Read-only) -->
+            <div id="coordinates-display" style="display: none; padding: 0.5em; margin: 0.5em 0; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Coordinates:</span>
+                    <span id="coordinates-text" style="color: rgba(255, 255, 255, 0.9); font-size: 0.8em; font-family: monospace;"></span>
+                </div>
+            </div>
+            
+            <!-- Pastor/Leader Name -->
+            <div style="position: relative;">
+                <label for="pastor_name" style="display: block; margin-bottom: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">Pastor/Leader Name</label>
+                <input type="text" id="pastor_name" name="pastor_name" autocomplete="off"
+                       value="{% if location %}{{ location.pastor_name }}{% endif %}"
+                       style="width: 100%; padding: 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; font-size: 0.9em;"
+                       placeholder="Start typing pastor or leader name...">
+                <div id="pastor-suggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: rgba(0, 0, 0, 0.9); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 2px;"></div>
+            </div>
+            
+            <!-- Hidden fields for coordinates -->
+            <input type="hidden" id="latitude" name="latitude" value="{% if location %}{{ location.latitude }}{% endif %}">
+            <input type="hidden" id="longitude" name="longitude" value="{% if location %}{{ location.longitude }}{% endif %}">
+            
+            <!-- Deleted Flag (only show when editing) -->
+            {% if location %}
+            <div>
+                <label style="display: flex; align-items: center; gap: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">
+                    <input type="checkbox" id="deleted" name="deleted" value="true" {% if location.deleted %}checked{% endif %}
+                           style="margin: 0; transform: scale(1.1);">
+                    <span>Mark as deleted</span>
+                </label>
+                <div style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6); margin-top: 0.2em;">
+                    Check this box to mark this chapel as deleted (soft delete)
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Notes -->
+            <div>
+                <label for="notes" style="display: block; margin-bottom: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">Notes</label>
+                <textarea id="notes" name="notes" rows="3"
+                          style="width: 100%; padding: 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; font-size: 0.9em; resize: vertical;"
+                          placeholder="Optional notes about the chapel">{% if location %}{{ location.notes }}{% endif %}</textarea>
+            </div>
+            
+            <!-- Geocoding Status -->
+            <div id="geocoding-status" style="display: none; padding: 0.5em; margin: 0.5em 0; border-radius: 4px; font-size: 0.8em;">
+                <i class="fas fa-info-circle" style="margin-right: 0.5em;"></i>
+                <span id="geocoding-message"></span>
+            </div>
+            
+            <!-- Form Actions -->
+            <div style="display: flex; gap: 0.5em; margin-top: 1.5em; padding-top: 1em; border-top: 1px solid rgba(255, 255, 255, 0.15);">
+                <button type="submit" 
+                        style="flex: 1; padding: 0.7em 1em; background: rgba(76, 175, 80, 0.8); border: 1px solid rgba(76, 175, 80, 0.6); border-radius: 4px; color: white; font-size: 0.9em; font-weight: 500; cursor: pointer; transition: all 0.2s ease;"
+                        onmouseover="this.style.background='rgba(76, 175, 80, 0.9)'"
+                        onmouseout="this.style.background='rgba(76, 175, 80, 0.8)'">
+                    <i class="fas fa-save" style="margin-right: 0.5em;"></i>Save Chapel
+                </button>
+                <button type="button" onclick="clearLocationForm()"
+                        style="flex: 1; padding: 0.7em 1em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: rgba(255, 255, 255, 0.8); font-size: 0.9em; cursor: pointer; transition: all 0.2s ease;"
+                        onmouseover="this.style.background='rgba(255, 255, 255, 0.15)'"
+                        onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
+                    <i class="fas fa-undo" style="margin-right: 0.5em;"></i>Clear
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Location form panel - JavaScript will be loaded by main editor page -->

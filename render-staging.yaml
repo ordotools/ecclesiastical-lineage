@@ -18,6 +18,8 @@ services:
         value: staging
       - key: FLASK_ENV
         value: staging
+      - key: AUTO_MIGRATE_ON_STARTUP
+        value: true
 
 databases:
   - name: ecclesiastical-lineage-staging-db

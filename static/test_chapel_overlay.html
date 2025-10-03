@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapel Globe Overlay Test</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+    
+    <!-- D3.js and TopoJSON -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/topojson@3"></script>
+    
+    <!-- Bootstrap for styling -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        
+        #globe-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        .globe-svg {
+            cursor: grab;
+        }
+        
+        .globe-svg.dragging {
+            cursor: grabbing;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 250px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .tooltip h6 {
+            margin: 0 0 4px 0;
+            font-size: 14px;
+            color: #f39c12;
+        }
+        
+        .tooltip p {
+            margin: 2px 0;
+            font-size: 11px;
+        }
+        
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+        
+        .controls .btn {
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        
+        .loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            z-index: 1000;
+        }
+        
+        .rotation-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-family: monospace;
+            z-index: 1000;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div id="globe-container">
+        <!-- Loading indicator -->
+        <div id="loading-indicator" class="loading-indicator">
+            <i class="fas fa-spinner fa-spin me-2"></i>
+            Loading globe...
+        </div>
+        
+        <!-- Controls -->
+        <div class="controls">
+            <button id="reset-zoom" class="btn btn-outline-light btn-sm">
+                <i class="fas fa-home me-1"></i>Reset View
+            </button>
+            <button id="center-graph" class="btn btn-outline-light btn-sm">
+                <i class="fas fa-crosshairs me-1"></i>Center Globe
+            </button>
+            <button id="test-chapels" class="btn btn-outline-success btn-sm">
+                <i class="fas fa-plus me-1"></i>Add Test Chapel
+            </button>
+            <button id="clear-chapels" class="btn btn-outline-danger btn-sm">
+                <i class="fas fa-trash me-1"></i>Clear Chapels
+            </button>
+        </div>
+        
+        <!-- Info Panel -->
+        <div id="location-aside" class="info-panel">
+            <div id="location-info-panel">
+                <div class="card bg-dark text-white">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Chapel Globe Overlay
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p>This is a test of the chapel overlay functionality.</p>
+                        <p><strong>Instructions:</strong></p>
+                        <ul class="small">
+                            <li>Drag to rotate the globe</li>
+                            <li>Scroll to zoom in/out</li>
+                            <li>Click on chapel markers to view details</li>
+                            <li>Use controls to reset view or add test data</li>
+                        </ul>
+                        <p class="small text-muted">
+                            Chapel markers are positioned using latitude/longitude coordinates 
+                            and automatically handle backface culling when the globe rotates.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Include the scripts -->
+    <script src="js/geographicLineage.js"></script>
+    <script src="js/chapelGlobeOverlay.js"></script>
+    
+    <script>
+        // Test functions
+        document.getElementById('test-chapels').addEventListener('click', function() {
+            if (window.chapelOverlay) {
+                const testChapel = {
+                    id: 'test-chapel-' + Date.now(),
+                    name: 'Test Chapel',
+                    type: 'chapel',
+                    lat: Math.random() * 180 - 90, // Random latitude
+                    lng: Math.random() * 360 - 180, // Random longitude
+                    city: 'Test City',
+                    country: 'Test Country',
+                    description: 'This is a randomly placed test chapel',
+                    yearFounded: 2024
+                };
+                
+                window.chapelOverlay.addChapel(testChapel);
+                console.log('Added test chapel:', testChapel);
+            }
+        });
+        
+        document.getElementById('clear-chapels').addEventListener('click', function() {
+            if (window.chapelOverlay) {
+                window.chapelOverlay.clearChapels();
+                console.log('Cleared all chapels');
+            }
+        });
+        
+        // Debug functions
+        window.debugChapelOverlay = function() {
+            console.log('Chapel Overlay Debug Info:');
+            console.log('- Globe visualization:', window.geographicVisualization);
+            console.log('- Globe SVG:', window.geographicVisualization?.svg);
+            console.log('- Globe SVG node:', window.geographicVisualization?.svg?.node());
+            console.log('- Globe group:', window.geographicVisualization?.g);
+            console.log('- Globe group node:', window.geographicVisualization?.g?.node());
+            console.log('- Chapel overlay:', window.chapelOverlay);
+            console.log('- Chapel data:', window.chapelOverlay?.chapelData);
+            console.log('- Chapel overlay group:', window.chapelOverlay?.chapelOverlayGroup);
+            console.log('- Chapel markers count:', window.chapelOverlay?.chapelOverlayGroup?.selectAll('.chapel-marker').size());
+        };
+        
+        // Test culling for specific coordinates
+        window.testCulling = function(lng, lat) {
+            if (window.chapelOverlay) {
+                const isVisible = window.chapelOverlay.isChapelVisible(lng, lat);
+                console.log(`Coordinates [${lng}, ${lat}] - Visible: ${isVisible}`);
+                return isVisible;
+            } else {
+                console.log('Chapel overlay not available');
+                return false;
+            }
+        };
+        
+        // Test culling for all chapel data
+        window.testAllCulling = function() {
+            if (window.chapelOverlay && window.chapelOverlay.chapelData) {
+                console.log('Testing culling for all chapels:');
+                window.chapelOverlay.chapelData.forEach(chapel => {
+                    const isVisible = window.chapelOverlay.isChapelVisible(chapel.lng, chapel.lat);
+                    console.log(`${chapel.name} [${chapel.lng}, ${chapel.lat}] - Visible: ${isVisible}`);
+                });
+            } else {
+                console.log('Chapel overlay or data not available');
+            }
+        };
+        
+        // Test projection coordinates
+        window.testProjection = function() {
+            if (window.geographicVisualization && window.geographicVisualization.projection) {
+                const projection = window.geographicVisualization.projection;
+                console.log('Testing projection coordinates:');
+                
+                // Test some coordinates
+                const testCoords = [
+                    [12.4539, 41.9022], // Vatican (should be visible initially)
+                    [-74.0060, 40.7128], // New York
+                    [0, 0], // Equator/Prime meridian
+                    [180, 90], // Far east/north
+                    [-180, -90] // Far west/south
+                ];
+                
+                testCoords.forEach((coord, i) => {
+                    const [lng, lat] = coord;
+                    const result = projection([lng, lat]);
+                    console.log(`Test ${i}: [${lng}, ${lat}] ->`, result);
+                });
+                
+                // Test clip angle
+                console.log('Clip angle:', projection.clipAngle());
+                console.log('Rotation:', projection.rotate());
+                console.log('Scale:', projection.scale());
+            }
+        };
+        
+        // Debug globe SVG
+        window.debugGlobe = function() {
+            console.log('Globe Debug Info:');
+            const container = document.getElementById('globe-container');
+            console.log('- Container:', container);
+            console.log('- Container children:', container?.children);
+            console.log('- SVG in container:', container?.querySelector('svg'));
+        };
+        
+        // Make debug functions available in console
+        console.log('Debug functions available:');
+        console.log('- window.debugChapelOverlay() - Show chapel overlay debug info');
+        console.log('- window.debugGlobe() - Show globe debug info');
+        console.log('- window.testProjection() - Test projection coordinates');
+        console.log('- window.testCulling(lng, lat) - Test culling for specific coordinates');
+        console.log('- window.testAllCulling() - Test culling for all chapel data');
+        console.log('- window.geographicVisualization.debugCulling() - Test enhanced culling logic');
+    </script>
+</body>
+</html>

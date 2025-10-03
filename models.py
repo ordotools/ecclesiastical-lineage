@@ -272,6 +272,49 @@ class Consecration(db.Model):
     def __repr__(self):
         return f'<Consecration {self.clergy.name if self.clergy else self.clergy_id} on {self.date}>'
 
+class Location(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)  # Church name, organization name, etc.
+    address = db.Column(db.Text, nullable=True)  # Full address
+    city = db.Column(db.String(100), nullable=True)
+    state_province = db.Column(db.String(100), nullable=True)
+    country = db.Column(db.String(100), nullable=True)
+    postal_code = db.Column(db.String(20), nullable=True)
+    latitude = db.Column(db.Float, nullable=True)  # For precise positioning
+    longitude = db.Column(db.Float, nullable=True)  # For precise positioning
+    location_type = db.Column(db.String(50), nullable=False, default='church')  # church, organization, address, etc.
+    pastor_name = db.Column(db.String(200), nullable=True)  # Current pastor/leader
+    organization = db.Column(db.String(200), nullable=True)  # Associated organization
+    notes = db.Column(db.Text, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    deleted = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    creator = db.relationship('User', backref='created_locations')
+
+    def __repr__(self):
+        return f'<Location {self.name}>'
+
+    def get_full_address(self):
+        """Return formatted full address"""
+        parts = []
+        if self.address:
+            parts.append(self.address)
+        if self.city:
+            parts.append(self.city)
+        if self.state_province:
+            parts.append(self.state_province)
+        if self.postal_code:
+            parts.append(self.postal_code)
+        if self.country:
+            parts.append(self.country)
+        return ', '.join(parts)
+
+    def has_coordinates(self):
+        """Check if location has valid coordinates"""
+        return self.latitude is not None and self.longitude is not None
+
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)

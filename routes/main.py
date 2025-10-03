@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, Response, make_response
 from services import clergy as clergy_service
+from services.geocoding import geocoding_service
 from utils import audit_log, require_permission, require_permission_api, log_audit_event
-from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration
+from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, Location
 import json
 import base64
 import requests
@@ -12,6 +13,355 @@ main_bp = Blueprint('main', __name__)
 @main_bp.route('/')
 def index():
     return lineage_visualization()
+
+# Geographic lineage visualization
+@main_bp.route('/geographic')
+def geographic_lineage():
+    current_app.logger.info("=== GEOGRAPHIC_LINEAGE ROUTE CALLED ===")
+    
+    try:
+        # Get all active locations for the visualization
+        all_locations = Location.query.filter(Location.is_active == True, Location.deleted == False).all()
+        
+        # Log current data status
+        current_app.logger.info(f"Found {len(all_locations)} locations in database")
+        
+        # Prepare data for D3.js visualization
+        nodes = []
+        links = []  # No links for locations, just glowing dots
+        
+        # Create nodes for each location with coordinates
+        for location in all_locations:
+            # Only include locations that have coordinates
+            if location.has_coordinates():
+                # Determine color based on location type
+                color_map = {
+                    'church': '#27ae60',      # Green for churches
+                    'organization': '#3498db', # Blue for organizations
+                    'address': '#e74c3c',     # Red for addresses
+                    'cathedral': '#9b59b6',   # Purple for cathedrals
+                    'monastery': '#f39c12',   # Orange for monasteries
+                    'seminary': '#1abc9c'     # Teal for seminaries
+                }
+                
+                node_color = color_map.get(location.location_type, '#95a5a6')
+                
+                nodes.append({
+                    'id': location.id,
+                    'name': location.name,
+                    'location_type': location.location_type,
+                    'pastor_name': location.pastor_name,
+                    'organization': location.organization,
+                    'address': location.get_full_address(),
+                    'city': location.city,
+                    'country': location.country,
+                    'latitude': location.latitude,
+                    'longitude': location.longitude,
+                    'color': node_color,
+                    'notes': location.notes
+                })
+        
+        current_app.logger.info(f"Geographic visualization: {len(nodes)} location nodes created")
+        
+        # Safely serialize data to JSON
+        try:
+            nodes_json = json.dumps(nodes)
+            links_json = json.dumps(links)
+            current_app.logger.info(f"JSON serialization successful: {len(nodes)} nodes, {len(links)} links")
+        except (TypeError, ValueError) as e:
+            current_app.logger.error(f"Error serializing data to JSON: {e}")
+            raise e
+            
+        current_app.logger.info(f"=== RENDERING GEOGRAPHIC TEMPLATE WITH {len(nodes)} NODES AND {len(links)} LINKS ===")
+        
+        # Get current user if logged in
+        user = None
+        if 'user_id' in session:
+            user = User.query.get(session['user_id'])
+        
+        return render_template('geographic_lineage.html', 
+                             nodes_json=nodes_json, 
+                             links_json=links_json,
+                             user=user)
+    except Exception as e:
+        current_app.logger.error(f"Error in geographic lineage visualization: {e}")
+        error_message = f"Error loading geographic visualization: {str(e)}"
+        return render_template('geographic_lineage.html', 
+                             nodes_json='[]', 
+                             links_json='[]',
+                             error_message=error_message,
+                             user=None)
+
+@main_bp.route('/api/geographic-locations')
+def api_geographic_locations():
+    """API endpoint to get location data for geographic visualization"""
+    try:
+        # Get all active locations for the visualization
+        all_locations = Location.query.filter(Location.is_active == True, Location.deleted == False).all()
+        
+        # Prepare data for D3.js visualization
+        nodes = []
+        
+        # Create nodes for each location with coordinates
+        for location in all_locations:
+            # Only include locations that have coordinates
+            if location.has_coordinates():
+                # Determine color based on location type
+                color_map = {
+                    'church': '#27ae60',      # Green for churches
+                    'organization': '#3498db', # Blue for organizations
+                    'address': '#e74c3c',     # Red for addresses
+                    'cathedral': '#9b59b6',   # Purple for cathedrals
+                    'monastery': '#f39c12',   # Orange for monasteries
+                    'seminary': '#1abc9c'     # Teal for seminaries
+                }
+                
+                node_color = color_map.get(location.location_type, '#95a5a6')
+                
+                nodes.append({
+                    'id': location.id,
+                    'name': location.name,
+                    'location_type': location.location_type,
+                    'pastor_name': location.pastor_name,
+                    'organization': location.organization,
+                    'address': location.get_full_address(),
+                    'city': location.city,
+                    'country': location.country,
+                    'latitude': location.latitude,
+                    'longitude': location.longitude,
+                    'color': node_color,
+                    'notes': location.notes
+                })
+        
+        return jsonify({
+            'success': True,
+            'nodes': nodes,
+            'count': len(nodes)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting location data: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'nodes': [],
+            'count': 0
+        }), 500
+
+# Location management routes
+@main_bp.route('/locations')
+@require_permission('manage_metadata')
+def locations_list():
+    """List all locations"""
+    locations = Location.query.filter(Location.is_active == True, Location.deleted == False).all()
+    return render_template('locations_list.html', locations=locations)
+
+@main_bp.route('/locations/add', methods=['GET', 'POST'])
+@require_permission('manage_metadata')
+def add_location():
+    """Add a new location"""
+    if request.method == 'POST':
+        try:
+            location = Location(
+                name=request.form['name'],
+                address=request.form.get('street_address'),  # Map street_address to address field
+                city=request.form.get('city'),
+                state_province=request.form.get('state_province'),
+                country=request.form.get('country'),
+                postal_code=request.form.get('postal_code'),
+                latitude=float(request.form['latitude']) if request.form.get('latitude') else None,
+                longitude=float(request.form['longitude']) if request.form.get('longitude') else None,
+                location_type=request.form.get('location_type', 'church'),
+                pastor_name=request.form.get('pastor_name'),
+                organization=request.form.get('organization'),
+                notes=request.form.get('notes'),
+                deleted=request.form.get('deleted') == 'true',
+                created_by=session.get('user_id')
+            )
+            
+            db.session.add(location)
+            db.session.commit()
+            
+            log_audit_event(
+                user_id=session.get('user_id'),
+                action='create',
+                entity_type='location',
+                entity_id=location.id,
+                entity_name=location.name,
+                details=f"Created location: {location.name}"
+            )
+            
+            # Check if this is an AJAX request
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': 'Location added successfully!',
+                    'location': {
+                        'id': location.id,
+                        'name': location.name,
+                        'address': location.address,
+                        'city': location.city,
+                        'state_province': location.state_province,
+                        'country': location.country,
+                        'postal_code': location.postal_code,
+                        'latitude': location.latitude,
+                        'longitude': location.longitude,
+                        'location_type': location.location_type,
+                        'pastor_name': location.pastor_name,
+                        'organization': location.organization,
+                        'notes': location.notes,
+                        'deleted': location.deleted
+                    }
+                })
+            else:
+                flash('Location added successfully!', 'success')
+                return redirect(url_for('main.locations_list'))
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error adding location: {e}")
+            
+            # Check if this is an AJAX request
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            
+            if is_ajax:
+                return jsonify({
+                    'success': False,
+                    'message': f'Error adding location: {str(e)}'
+                }), 400
+            else:
+                flash('Error adding location. Please try again.', 'error')
+    
+    return render_template('location_form.html', location=None)
+
+@main_bp.route('/locations/<int:location_id>/edit', methods=['GET', 'POST'])
+@require_permission('manage_metadata')
+def edit_location(location_id):
+    """Edit an existing location"""
+    location = Location.query.get_or_404(location_id)
+    
+    if request.method == 'POST':
+        try:
+            location.name = request.form['name']
+            location.address = request.form.get('street_address')  # Map street_address to address field
+            location.city = request.form.get('city')
+            location.state_province = request.form.get('state_province')
+            location.country = request.form.get('country')
+            location.postal_code = request.form.get('postal_code')
+            location.latitude = float(request.form['latitude']) if request.form.get('latitude') else None
+            location.longitude = float(request.form['longitude']) if request.form.get('longitude') else None
+            location.location_type = request.form.get('location_type', 'church')
+            location.pastor_name = request.form.get('pastor_name')
+            location.organization = request.form.get('organization')
+            location.notes = request.form.get('notes')
+            location.deleted = request.form.get('deleted') == 'true'
+            
+            db.session.commit()
+            
+            log_audit_event(
+                user_id=session.get('user_id'),
+                action='update',
+                entity_type='location',
+                entity_id=location.id,
+                entity_name=location.name,
+                details=f"Updated location: {location.name}"
+            )
+            
+            # Check if this is an AJAX request
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': 'Location updated successfully!',
+                    'location': {
+                        'id': location.id,
+                        'name': location.name,
+                        'address': location.address,
+                        'city': location.city,
+                        'state_province': location.state_province,
+                        'country': location.country,
+                        'postal_code': location.postal_code,
+                        'latitude': location.latitude,
+                        'longitude': location.longitude,
+                        'location_type': location.location_type,
+                        'pastor_name': location.pastor_name,
+                        'organization': location.organization,
+                        'notes': location.notes,
+                        'deleted': location.deleted
+                    }
+                })
+            else:
+                flash('Location updated successfully!', 'success')
+                return redirect(url_for('main.locations_list'))
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating location: {e}")
+            
+            # Check if this is an AJAX request
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            
+            if is_ajax:
+                return jsonify({
+                    'success': False,
+                    'message': f'Error updating location: {str(e)}'
+                }), 400
+            else:
+                flash('Error updating location. Please try again.', 'error')
+    
+    return render_template('location_form.html', location=location)
+
+@main_bp.route('/locations/<int:location_id>/delete', methods=['POST'])
+@require_permission('manage_metadata')
+def delete_location(location_id):
+    """Delete a location (soft delete)"""
+    location = Location.query.get_or_404(location_id)
+    
+    try:
+        location.is_active = False
+        db.session.commit()
+        
+        log_audit_event(
+            user_id=session.get('user_id'),
+            action='delete',
+            entity_type='location',
+            entity_id=location.id,
+            entity_name=location.name,
+            details=f"Deleted location: {location.name}"
+        )
+        
+        flash('Location deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting location: {e}")
+        flash('Error deleting location. Please try again.', 'error')
+    
+    return redirect(url_for('main.locations_list'))
+
+@main_bp.route('/locations/<int:location_id>')
+def view_location(location_id):
+    """View location details"""
+    location = Location.query.get_or_404(location_id)
+    return render_template('location_details.html', location=location)
 
 # Lineage visualization (moved from /lineage_visualization to root)
 def lineage_visualization():
@@ -1203,3 +1553,215 @@ def proxy_image():
     except requests.RequestException as e:
         current_app.logger.error(f"Error proxying image {image_url}: {e}")
         return 'Error fetching image', 500
+
+# Geocoding API endpoints
+@main_bp.route('/api/geocode', methods=['POST'])
+def geocode_address():
+    """Geocode an address to get coordinates"""
+    try:
+        data = request.get_json()
+        address = data.get('address', '').strip()
+        
+        if not address:
+            return jsonify({'error': 'Address is required'}), 400
+        
+        # Check if geocoding service is configured
+        if not geocoding_service.is_configured():
+            return jsonify({'error': 'Geocoding service not configured'}), 503
+        
+        # Get coordinates
+        result = geocoding_service.geocode_address(address)
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'latitude': result['latitude'],
+                'longitude': result['longitude'],
+                'formatted_address': result['formatted_address'],
+                'city': result.get('city'),
+                'state': result.get('state'),
+                'country': result.get('country'),
+                'postcode': result.get('postcode'),
+                'confidence': result.get('confidence', 0)
+            })
+        else:
+            return jsonify({'error': 'Address not found'}), 404
+            
+    except Exception as e:
+        current_app.logger.error(f"Geocoding error: {e}")
+        return jsonify({'error': 'Geocoding failed'}), 500
+
+@main_bp.route('/api/reverse-geocode', methods=['POST'])
+def reverse_geocode():
+    """Reverse geocode coordinates to get address"""
+    try:
+        data = request.get_json()
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        
+        if latitude is None or longitude is None:
+            return jsonify({'error': 'Latitude and longitude are required'}), 400
+        
+        # Check if geocoding service is configured
+        if not geocoding_service.is_configured():
+            return jsonify({'error': 'Geocoding service not configured'}), 503
+        
+        # Get address
+        result = geocoding_service.reverse_geocode(float(latitude), float(longitude))
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'formatted_address': result['formatted_address'],
+                'city': result.get('city'),
+                'state': result.get('state'),
+                'country': result.get('country'),
+                'postcode': result.get('postcode'),
+                'confidence': result.get('confidence', 0)
+            })
+        else:
+            return jsonify({'error': 'Address not found for coordinates'}), 404
+            
+    except Exception as e:
+        current_app.logger.error(f"Reverse geocoding error: {e}")
+        return jsonify({'error': 'Reverse geocoding failed'}), 500
+
+@main_bp.route('/api/geocoding-status', methods=['GET'])
+def geocoding_status():
+    """Check if geocoding service is available"""
+    return jsonify({
+        'configured': geocoding_service.is_configured(),
+        'service': 'OpenCage' if geocoding_service.is_configured() else None
+    })
+
+@main_bp.route('/api/countries')
+def api_countries():
+    """API endpoint to get list of countries"""
+    current_app.logger.info("=== COUNTRIES API CALLED ===")
+    try:
+        # Comprehensive list of countries for international address support
+        countries = [
+            # North America
+            'United States', 'Canada', 'Mexico', 'Guatemala', 'Belize', 'El Salvador', 
+            'Honduras', 'Nicaragua', 'Costa Rica', 'Panama', 'Cuba', 'Jamaica', 
+            'Haiti', 'Dominican Republic', 'Puerto Rico', 'Trinidad and Tobago',
+            
+            # South America
+            'Brazil', 'Argentina', 'Chile', 'Colombia', 'Peru', 'Venezuela', 
+            'Ecuador', 'Bolivia', 'Paraguay', 'Uruguay', 'Guyana', 'Suriname',
+            
+            # Europe
+            'United Kingdom', 'Ireland', 'France', 'Germany', 'Italy', 'Spain', 
+            'Portugal', 'Netherlands', 'Belgium', 'Switzerland', 'Austria', 
+            'Poland', 'Czech Republic', 'Slovakia', 'Hungary', 'Romania', 
+            'Bulgaria', 'Greece', 'Croatia', 'Slovenia', 'Serbia', 'Montenegro',
+            'Bosnia and Herzegovina', 'Macedonia', 'Albania', 'Moldova', 'Ukraine',
+            'Belarus', 'Lithuania', 'Latvia', 'Estonia', 'Finland', 'Sweden',
+            'Norway', 'Denmark', 'Iceland', 'Russia', 'Turkey',
+            
+            # Asia
+            'China', 'Japan', 'South Korea', 'North Korea', 'Mongolia', 'India',
+            'Pakistan', 'Bangladesh', 'Sri Lanka', 'Nepal', 'Bhutan', 'Myanmar',
+            'Thailand', 'Vietnam', 'Laos', 'Cambodia', 'Malaysia', 'Singapore',
+            'Indonesia', 'Philippines', 'Brunei', 'Taiwan', 'Hong Kong', 'Macau',
+            'Afghanistan', 'Iran', 'Iraq', 'Israel', 'Palestine', 'Jordan',
+            'Lebanon', 'Syria', 'Saudi Arabia', 'United Arab Emirates', 'Qatar',
+            'Bahrain', 'Kuwait', 'Oman', 'Yemen', 'Kazakhstan', 'Uzbekistan',
+            'Turkmenistan', 'Tajikistan', 'Kyrgyzstan', 'Georgia', 'Armenia',
+            'Azerbaijan',
+            
+            # Africa
+            'Egypt', 'Libya', 'Tunisia', 'Algeria', 'Morocco', 'Sudan', 'South Sudan',
+            'Ethiopia', 'Eritrea', 'Djibouti', 'Somalia', 'Kenya', 'Uganda',
+            'Tanzania', 'Rwanda', 'Burundi', 'Democratic Republic of the Congo',
+            'Republic of the Congo', 'Central African Republic', 'Chad', 'Cameroon',
+            'Nigeria', 'Niger', 'Mali', 'Burkina Faso', 'Senegal', 'Gambia',
+            'Guinea-Bissau', 'Guinea', 'Sierra Leone', 'Liberia', 'Ivory Coast',
+            'Ghana', 'Togo', 'Benin', 'South Africa', 'Namibia', 'Botswana',
+            'Zimbabwe', 'Zambia', 'Malawi', 'Mozambique', 'Madagascar', 'Mauritius',
+            'Seychelles', 'Comoros', 'Angola', 'Equatorial Guinea', 'Gabon',
+            'São Tomé and Príncipe', 'Cape Verde', 'Mauritania',
+            
+            # Oceania
+            'Australia', 'New Zealand', 'Papua New Guinea', 'Fiji', 'Solomon Islands',
+            'Vanuatu', 'New Caledonia', 'Samoa', 'Tonga', 'Kiribati', 'Tuvalu',
+            'Nauru', 'Palau', 'Marshall Islands', 'Micronesia',
+            
+            # Special territories and dependencies
+            'Vatican City', 'San Marino', 'Monaco', 'Liechtenstein', 'Andorra',
+            'Greenland', 'Faroe Islands', 'Bermuda', 'Cayman Islands', 'British Virgin Islands',
+            'US Virgin Islands', 'Guam', 'Northern Mariana Islands', 'American Samoa',
+            'Cook Islands', 'French Polynesia', 'New Caledonia', 'Wallis and Futuna',
+            'Pitcairn Islands', 'Falkland Islands', 'South Georgia and South Sandwich Islands',
+            'Antarctica'
+        ]
+        
+        # Get unique countries from existing locations to add any missing ones
+        existing_countries = db.session.query(Location.country).filter(
+            Location.country.isnot(None),
+            Location.country != ''
+        ).distinct().all()
+        
+        # Add any countries from existing data that aren't in our list
+        existing_names = {country[0] for country in existing_countries if country[0]}
+        for existing_country in existing_names:
+            if existing_country not in countries:
+                countries.append(existing_country)
+        
+        # Convert to list of country objects and sort alphabetically
+        country_list = [{'name': country} for country in countries]
+        country_list.sort(key=lambda x: x['name'])
+        
+        current_app.logger.info(f"Returning {len(country_list)} countries")
+        
+        return jsonify({
+            'success': True,
+            'countries': country_list
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting countries: {e}")
+        return jsonify({'error': 'Failed to get countries'}), 500
+
+@main_bp.route('/api/living-clergy')
+def api_living_clergy():
+    """API endpoint to get list of living clergy for pastor selection"""
+    current_app.logger.info("=== LIVING CLERGY API CALLED ===")
+    try:
+        from datetime import date
+        
+        # Get clergy who are alive (no date of death or date of death is in the future)
+        # Also exclude deleted clergy
+        living_clergy = Clergy.query.filter(
+            Clergy.is_deleted != True,
+            db.or_(
+                Clergy.date_of_death.is_(None),
+                Clergy.date_of_death > date.today()
+            )
+        ).order_by(Clergy.name).all()
+        
+        # Convert to list of clergy objects
+        clergy_list = []
+        for person in living_clergy:
+            clergy_list.append({
+                'id': person.id,
+                'name': person.name,
+                'rank': person.rank or 'Unknown',
+                'organization': person.organization or ''
+            })
+        
+        current_app.logger.info(f"Returning {len(clergy_list)} living clergy")
+        
+        return jsonify({
+            'success': True,
+            'clergy': clergy_list
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting living clergy: {e}")
+        return jsonify({'error': 'Failed to get clergy list'}), 500
+
+@main_bp.route('/geocoding-test')
+def geocoding_test():
+    """Test page for geocoding functionality"""
+    return render_template('geocoding_test.html')

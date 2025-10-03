@@ -20,6 +20,8 @@ services:
         value: production
       - key: PRODUCTION_API_URL
         value: https://ecclesiastical-lineage.onrender.com/clergy/lineage-data
+      - key: AUTO_MIGRATE_ON_STARTUP
+        value: true
 
 databases:
   - name: ecclesiastical-lineage-db

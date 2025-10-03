@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if location else 'Add' }} Location - Episcopal Lineage{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-map-marker-alt me-2"></i>
+                        {{ 'Edit' if location else 'Add' }} Location
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">Name *</label>
+                                    <input type="text" class="form-control" id="name" name="name" 
+                                           value="{{ location.name if location else '' }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="location_type" class="form-label">Type *</label>
+                                    <select class="form-select" id="location_type" name="location_type" required>
+                                        <option value="church" {{ 'selected' if location and location.location_type == 'church' else '' }}>Church</option>
+                                        <option value="cathedral" {{ 'selected' if location and location.location_type == 'cathedral' else '' }}>Cathedral</option>
+                                        <option value="monastery" {{ 'selected' if location and location.location_type == 'monastery' else '' }}>Monastery</option>
+                                        <option value="seminary" {{ 'selected' if location and location.location_type == 'seminary' else '' }}>Seminary</option>
+                                        <option value="organization" {{ 'selected' if location and location.location_type == 'organization' else '' }}>Organization</option>
+                                        <option value="address" {{ 'selected' if location and location.location_type == 'address' else '' }}>Address</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="address" class="form-label">Address</label>
+                            <div class="input-group">
+                                <textarea class="form-control" id="address" name="address" rows="2" placeholder="Enter full address to get coordinates automatically">{{ location.address if location else '' }}</textarea>
+                                <button type="button" class="btn btn-outline-primary" id="geocode-btn" title="Get coordinates from address">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Enter a complete address and click the map icon to automatically get coordinates</div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="city" class="form-label">City</label>
+                                    <input type="text" class="form-control" id="city" name="city" 
+                                           value="{{ location.city if location else '' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="state_province" class="form-label">State/Province</label>
+                                    <input type="text" class="form-control" id="state_province" name="state_province" 
+                                           value="{{ location.state_province if location else '' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="postal_code" class="form-label">Postal Code</label>
+                                    <input type="text" class="form-control" id="postal_code" name="postal_code" 
+                                           value="{{ location.postal_code if location else '' }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="country" class="form-label">Country</label>
+                            <input type="text" class="form-control" id="country" name="country" 
+                                   value="{{ location.country if location else '' }}">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="latitude" class="form-label">Latitude</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="latitude" name="latitude" 
+                                               step="any" value="{{ location.latitude if location else '' }}" placeholder="0.000000">
+                                        <button type="button" class="btn btn-outline-secondary" id="reverse-geocode-btn" title="Get address from coordinates">
+                                            <i class="fas fa-search"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Required for plotting on the map</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="longitude" class="form-label">Longitude</label>
+                                    <input type="number" class="form-control" id="longitude" name="longitude" 
+                                           step="any" value="{{ location.longitude if location else '' }}" placeholder="0.000000">
+                                    <div class="form-text">Required for plotting on the map</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Geocoding Status -->
+                        <div id="geocoding-status" class="alert alert-info" style="display: none;">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <span id="geocoding-message"></span>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="pastor_name" class="form-label">Pastor/Leader Name</label>
+                                    <input type="text" class="form-control" id="pastor_name" name="pastor_name" 
+                                           value="{{ location.pastor_name if location else '' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="organization" class="form-label">Organization</label>
+                                    <input type="text" class="form-control" id="organization" name="organization" 
+                                           value="{{ location.organization if location else '' }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3">{{ location.notes if location else '' }}</textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('main.locations_list') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>Back to Locations
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>{{ 'Update' if location else 'Add' }} Location
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addressInput = document.getElementById('address');
+    const latitudeInput = document.getElementById('latitude');
+    const longitudeInput = document.getElementById('longitude');
+    const geocodeBtn = document.getElementById('geocode-btn');
+    const reverseGeocodeBtn = document.getElementById('reverse-geocode-btn');
+    const statusDiv = document.getElementById('geocoding-status');
+    const messageSpan = document.getElementById('geocoding-message');
+    
+    // Show geocoding status
+    function showStatus(message, type = 'info') {
+        statusDiv.className = `alert alert-${type}`;
+        messageSpan.textContent = message;
+        statusDiv.style.display = 'block';
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 5000);
+    }
+    
+    // Geocode address to coordinates
+    geocodeBtn.addEventListener('click', async function() {
+        const address = addressInput.value.trim();
+        if (!address) {
+            showStatus('Please enter an address first', 'warning');
+            return;
+        }
+        
+        geocodeBtn.disabled = true;
+        geocodeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        showStatus('Getting coordinates...', 'info');
+        
+        try {
+            const response = await fetch('/api/geocode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ address: address })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                // Fill in coordinates
+                latitudeInput.value = data.latitude;
+                longitudeInput.value = data.longitude;
+                
+                // Fill in additional fields if they're empty
+                if (!document.getElementById('city').value && data.city) {
+                    document.getElementById('city').value = data.city;
+                }
+                if (!document.getElementById('state_province').value && data.state) {
+                    document.getElementById('state_province').value = data.state;
+                }
+                if (!document.getElementById('country').value && data.country) {
+                    document.getElementById('country').value = data.country;
+                }
+                if (!document.getElementById('postal_code').value && data.postcode) {
+                    document.getElementById('postal_code').value = data.postcode;
+                }
+                
+                showStatus(`Coordinates found! Confidence: ${Math.round(data.confidence * 100)}%`, 'success');
+            } else {
+                showStatus(`Geocoding failed: ${data.error || 'Unknown error'}`, 'danger');
+            }
+        } catch (error) {
+            console.error('Geocoding error:', error);
+            showStatus('Geocoding failed: Network error', 'danger');
+        } finally {
+            geocodeBtn.disabled = false;
+            geocodeBtn.innerHTML = '<i class="fas fa-map-marker-alt"></i>';
+        }
+    });
+    
+    // Reverse geocode coordinates to address
+    reverseGeocodeBtn.addEventListener('click', async function() {
+        const lat = latitudeInput.value.trim();
+        const lng = longitudeInput.value.trim();
+        
+        if (!lat || !lng) {
+            showStatus('Please enter both latitude and longitude', 'warning');
+            return;
+        }
+        
+        reverseGeocodeBtn.disabled = true;
+        reverseGeocodeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        showStatus('Getting address...', 'info');
+        
+        try {
+            const response = await fetch('/api/reverse-geocode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    latitude: parseFloat(lat), 
+                    longitude: parseFloat(lng) 
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                // Fill in address
+                addressInput.value = data.formatted_address;
+                
+                // Fill in additional fields if they're empty
+                if (!document.getElementById('city').value && data.city) {
+                    document.getElementById('city').value = data.city;
+                }
+                if (!document.getElementById('state_province').value && data.state) {
+                    document.getElementById('state_province').value = data.state;
+                }
+                if (!document.getElementById('country').value && data.country) {
+                    document.getElementById('country').value = data.country;
+                }
+                if (!document.getElementById('postal_code').value && data.postcode) {
+                    document.getElementById('postal_code').value = data.postcode;
+                }
+                
+                showStatus(`Address found! Confidence: ${Math.round(data.confidence * 100)}%`, 'success');
+            } else {
+                showStatus(`Reverse geocoding failed: ${data.error || 'Unknown error'}`, 'danger');
+            }
+        } catch (error) {
+            console.error('Reverse geocoding error:', error);
+            showStatus('Reverse geocoding failed: Network error', 'danger');
+        } finally {
+            reverseGeocodeBtn.disabled = false;
+            reverseGeocodeBtn.innerHTML = '<i class="fas fa-search"></i>';
+        }
+    });
+    
+    // Auto-geocode when address is entered and coordinates are empty
+    addressInput.addEventListener('blur', function() {
+        if (this.value.trim() && !latitudeInput.value && !longitudeInput.value) {
+            // Small delay to let user finish typing
+            setTimeout(() => {
+                if (this.value.trim() && !latitudeInput.value && !longitudeInput.value) {
+                    geocodeBtn.click();
+                }
+            }, 500);
+        }
+    });
+    
+    // Auto-reverse geocode when coordinates are entered and address is empty
+    latitudeInput.addEventListener('blur', function() {
+        if (this.value.trim() && longitudeInput.value.trim() && !addressInput.value.trim()) {
+            setTimeout(() => {
+                if (this.value.trim() && longitudeInput.value.trim() && !addressInput.value.trim()) {
+                    reverseGeocodeBtn.click();
+                }
+            }, 500);
+        }
+    });
+    
+    longitudeInput.addEventListener('blur', function() {
+        if (this.value.trim() && latitudeInput.value.trim() && !addressInput.value.trim()) {
+            setTimeout(() => {
+                if (this.value.trim() && latitudeInput.value.trim() && !addressInput.value.trim()) {
+                    reverseGeocodeBtn.click();
+                }
+            }, 500);
+        }
+    });
+    
+    // Check geocoding service status on page load
+    fetch('/api/geocoding-status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.configured) {
+                showStatus('Geocoding service is ready - enter an address to get coordinates automatically', 'success');
+            } else {
+                showStatus('Geocoding service not configured - coordinates must be entered manually', 'warning');
+                geocodeBtn.disabled = true;
+                reverseGeocodeBtn.disabled = true;
+            }
+        })
+        .catch(error => {
+            console.warn('Could not check geocoding status:', error);
+            showStatus('Could not check geocoding service status', 'warning');
+        });
+});
+</script>
+{% endblock %}

@@ -17,6 +17,7 @@
     <script src="{{ url_for('static', filename='js/resizable-panes.js') }}"></script>
     <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
     <script src="{{ url_for('static', filename='js/imageEditor.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/locationForm.js') }}"></script>
     <script>
         // Make notification function globally available
         window.showNotification = function(message, type = 'info') {
@@ -833,6 +834,17 @@
             <div class="panel-header">
                 <i class="fas fa-sitemap"></i>
                 Lineage Visualization
+                <!-- Chapel List Toggle Button -->
+                <button id="chapelListToggle" 
+                        style="margin-left: auto; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); 
+                               border-radius: 3px; color: rgba(255, 255, 255, 0.8); padding: 0.2em 0.4em; 
+                               font-size: 0.65em; cursor: pointer; transition: all 0.2s ease;"
+                        onmouseover="this.style.background='rgba(255, 255, 255, 0.15)'; this.style.borderColor='rgba(255, 255, 255, 0.4)'"
+                        onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.borderColor='rgba(255, 255, 255, 0.3)'"
+                        onclick="alert('Chapel button clicked!'); console.log('=== CHAPEL BUTTON CLICKED ==='); toggleChapelList()"
+                        title="Toggle Chapel List">
+                    <i class="fas fa-church"></i> Chapel
+                </button>
             </div>
             <div id="visualization-panel-content" class="panel-content"
                  hx-get="/editor/visualization"
@@ -1446,6 +1458,205 @@
                 closeAuditLogsModal();
             }
         });
+        
+        // State tracking for chapel list toggle
+        let isChapelListVisible = false;
+        let isGlobeViewVisible = false;
+        
+        // Function to toggle chapel list and globe view
+        function toggleChapelList() {
+            console.log('=== TOGGLE CHAPEL LIST CALLED ===');
+            console.log('Toggling chapel list, current state:', isChapelListVisible, 'globe view:', isGlobeViewVisible);
+            
+            const leftPanel = document.querySelector('.left-panel .panel-content');
+            const centerPanel = document.querySelector('#visualization-panel-content');
+            const rightPanel = document.querySelector('.right-panel .panel-content');
+            const rightPanelHeader = document.querySelector('.right-panel .panel-header');
+            
+            console.log('Panel elements found:', {
+                leftPanel: !!leftPanel,
+                centerPanel: !!centerPanel,
+                rightPanel: !!rightPanel,
+                rightPanelHeader: !!rightPanelHeader
+            });
+            
+            if (!leftPanel || !centerPanel || !rightPanel) {
+                console.error('Required panels not found');
+                return;
+            }
+            
+            const panelHeader = document.querySelector('.left-panel .panel-header');
+            const toggleButton = document.getElementById('chapelListToggle');
+            
+            if (!isChapelListVisible && !isGlobeViewVisible) {
+                // Switch to chapel list and globe view
+                console.log('Switching to chapel list and globe view...');
+                
+                // Update the left panel header
+                if (panelHeader) {
+                    panelHeader.innerHTML = '<i class="fas fa-church"></i> Chapel List';
+                }
+                
+                // Update the right panel header to show Chapel Form
+                if (rightPanelHeader) {
+                    rightPanelHeader.innerHTML = '<i class="fas fa-church"></i> Chapel Form';
+                }
+                
+                // Update button to show "Back to List" state
+                if (toggleButton) {
+                    toggleButton.innerHTML = '<i class="fas fa-list"></i> Back to List';
+                    toggleButton.title = 'Return to Clergy List';
+                }
+                
+                // Load chapel list content
+                htmx.ajax('GET', '/editor/chapel-list', {
+                    target: leftPanel,
+                    swap: 'innerHTML'
+                }).then(() => {
+                    console.log('Successfully switched to chapel list');
+                    isChapelListVisible = true;
+                }).catch(error => {
+                    console.error('Error switching to chapel list:', error);
+                });
+                
+                // Load chapel form content
+                console.log('Loading chapel form into right panel...');
+                console.log('Right panel element:', rightPanel);
+                console.log('Right panel current content:', rightPanel.innerHTML.substring(0, 200) + '...');
+                
+                // Add timeout to detect if request hangs
+                const timeoutId = setTimeout(() => {
+                    console.error('Chapel form request timed out after 5 seconds');
+                }, 5000);
+                
+                // Try using fetch instead of htmx.ajax
+                fetch('/editor/chapel-form')
+                    .then(response => {
+                        console.log('Chapel form fetch response:', response);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.text();
+                    })
+                    .then(html => {
+                        clearTimeout(timeoutId);
+                        console.log('Chapel form HTML received:', html.substring(0, 200) + '...');
+                        rightPanel.innerHTML = html;
+                        console.log('Right panel content after load:', rightPanel.innerHTML.substring(0, 200) + '...');
+                        console.log('Successfully switched to chapel form');
+                        // Remove the hx-trigger attribute to prevent auto-loading
+                        rightPanel.removeAttribute('hx-trigger');
+                        rightPanel.removeAttribute('hx-get');
+                        
+                        // Trigger location form initialization after a short delay
+                        setTimeout(function() {
+                            if (typeof initializeLocationForm === 'function') {
+                                console.log('Manually triggering location form initialization...');
+                                if (initializeLocationForm() || (typeof checkForLocationForms === 'function' && checkForLocationForms())) {
+                                    console.log('Location form initialized successfully');
+                                } else {
+                                    console.log('Location form not found yet');
+                                }
+                            } else {
+                                console.log('initializeLocationForm function not available yet, retrying...');
+                                // Retry a few times
+                                let retries = 0;
+                                const maxRetries = 10;
+                                const retryInterval = setInterval(function() {
+                                    retries++;
+                                    if (typeof initializeLocationForm === 'function') {
+                                        console.log('initializeLocationForm function found, initializing...');
+                                        if (initializeLocationForm() || (typeof checkForLocationForms === 'function' && checkForLocationForms())) {
+                                            console.log('Location form initialized successfully');
+                                            clearInterval(retryInterval);
+                                        }
+                                    } else if (retries >= maxRetries) {
+                                        console.error('initializeLocationForm function not found after', maxRetries, 'retries');
+                                        clearInterval(retryInterval);
+                                    }
+                                }, 100);
+                            }
+                        }, 500);
+                    })
+                    .catch(error => {
+                        clearTimeout(timeoutId);
+                        console.error('Error switching to chapel form:', error);
+                        console.error('Error details:', error.message, error.stack);
+                    });
+                
+                // Load globe view content
+                htmx.ajax('GET', '/editor/globe-view', {
+                    target: centerPanel,
+                    swap: 'innerHTML'
+                }).then(() => {
+                    console.log('Successfully switched to globe view');
+                    isGlobeViewVisible = true;
+                }).catch(error => {
+                    console.error('Error switching to globe view:', error);
+                });
+            } else {
+                // Switch back to clergy list and lineage graph
+                console.log('Switching back to clergy list and lineage graph...');
+                
+                // Update the left panel header
+                if (panelHeader) {
+                    panelHeader.innerHTML = '<i class="fas fa-users"></i> Clergy List';
+                }
+                
+                // Update the right panel header back to Clergy Form
+                if (rightPanelHeader) {
+                    rightPanelHeader.innerHTML = '<i class="fas fa-edit"></i> Clergy Form';
+                }
+                
+                // Update button to show "Chapel" state
+                if (toggleButton) {
+                    toggleButton.innerHTML = '<i class="fas fa-church"></i> Chapel';
+                    toggleButton.title = 'Toggle Chapel List';
+                }
+                
+                // Load clergy list content
+                htmx.ajax('GET', '/editor/clergy-list', {
+                    target: leftPanel,
+                    swap: 'innerHTML'
+                }).then(() => {
+                    console.log('Successfully switched back to clergy list');
+                    isChapelListVisible = false;
+                }).catch(error => {
+                    console.error('Error switching back to clergy list:', error);
+                });
+                
+                // Load clergy form content
+                htmx.ajax('GET', '/editor/clergy-form', {
+                    target: rightPanel,
+                    swap: 'innerHTML'
+                }).then(() => {
+                    console.log('Successfully switched back to clergy form');
+                    // Restore the hx-trigger attributes for clergy form
+                    rightPanel.setAttribute('hx-trigger', 'load');
+                    rightPanel.setAttribute('hx-get', '/editor/clergy-form');
+                }).catch(error => {
+                    console.error('Error switching back to clergy form:', error);
+                });
+                
+                // Load lineage graph content
+                htmx.ajax('GET', '/editor/visualization', {
+                    target: centerPanel,
+                    swap: 'innerHTML'
+                }).then(() => {
+                    console.log('Successfully switched back to lineage graph');
+                    isGlobeViewVisible = false;
+                }).catch(error => {
+                    console.error('Error switching back to lineage graph:', error);
+                });
+            }
+        }
+        
+        // Make function globally available
+        window.toggleChapelList = toggleChapelList;
+        
+        // Test if function is available
+        console.log('toggleChapelList function defined:', typeof window.toggleChapelList);
+        console.log('Function available:', window.toggleChapelList);
     </script>
 </body>
 </html>

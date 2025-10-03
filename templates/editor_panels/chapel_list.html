@@ -1,0 +1,121 @@
+<!-- Chapel List Panel Content -->
+<div style="padding: 1em; height: 100%; display: flex; flex-direction: column;">
+    <!-- Header with Add Button -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;">
+        <h6 style="margin: 0; color: rgba(255, 255, 255, 0.9); font-size: 0.95em;">Chapel Locations</h6>
+        <button onclick="openChapelModal()" 
+                style="padding: 0.3em 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.8); cursor: pointer; font-size: 0.75em;">
+            <i class="fas fa-plus" style="margin-right: 0.25em;"></i>Add Chapel
+        </button>
+    </div>
+    
+    <!-- Search Bar -->
+    <div style="margin-bottom: 1em;">
+        <input type="text" id="chapelSearchInput" placeholder="Search chapels..." 
+               style="width: 100%; padding: 0.4em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.9); font-size: 0.8em;">
+    </div>
+    
+    <!-- Chapel List -->
+    <div id="chapelList" style="flex: 1; overflow-y: auto;">
+        {% if locations %}
+            {% for location in locations %}
+            <div class="chapel-item" 
+                 data-location-id="{{ location.id }}"
+                 style="padding: 0.5em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 3px; cursor: pointer; transition: background-color 0.2s ease;" 
+                 onmouseover="this.style.backgroundColor='rgba(255, 255, 255, 0.1)'" 
+                 onmouseout="this.style.backgroundColor='rgba(255, 255, 255, 0.05)'"
+                 onclick="selectChapel({{ location.id }})">
+                <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 0.85em; margin-bottom: 0.2em;">
+                    {{ location.name }}
+                </div>
+                <div style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6); margin-bottom: 0.1em;">
+                    {{ location.location_type.title() }} • {{ location.city or 'Unknown City' }}{% if location.country %}, {{ location.country }}{% endif %}
+                </div>
+                {% if location.pastor_name %}
+                <div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5);">
+                    Pastor: {{ location.pastor_name }}
+                </div>
+                {% endif %}
+                {% if location.organization %}
+                <div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5);">
+                    Organization: {{ location.organization }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="padding: 2em; text-align: center; color: rgba(255, 255, 255, 0.6);">
+                <i class="fas fa-church" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.5;"></i>
+                <div>No chapels found</div>
+                <div style="font-size: 0.8em; margin-top: 0.5em;">Add a chapel to get started</div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Chapel list functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize chapel search
+    const searchInput = document.getElementById('chapelSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', window.handleChapelSearch);
+    }
+    
+    // Add click handlers to chapel items
+    const chapelItems = document.querySelectorAll('.chapel-item');
+    chapelItems.forEach(item => {
+        item.addEventListener('click', function() {
+            // Remove active state from all items
+            chapelItems.forEach(otherItem => {
+                otherItem.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                otherItem.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+            });
+            
+            // Add active state to clicked item
+            this.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+            this.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            
+            // Get the location ID and call selectChapel
+            const locationId = this.getAttribute('data-location-id');
+            if (locationId) {
+                selectChapel(parseInt(locationId));
+            }
+        });
+    });
+});
+
+// Function to select a chapel and load its details
+function selectChapel(locationId) {
+    console.log('Selected chapel with ID:', locationId);
+    
+    // Update the right panel with chapel form for this location
+    if (typeof htmx !== 'undefined') {
+        htmx.ajax('GET', `/editor/chapel-form/${locationId}`, {
+            target: '.right-panel .panel-content',
+            swap: 'innerHTML'
+        }).then(() => {
+            console.log('Chapel form loaded for location:', locationId);
+        }).catch(error => {
+            console.error('Error loading chapel form:', error);
+        });
+    }
+}
+
+// Function for opening chapel modal (add new chapel)
+function openChapelModal() {
+    console.log('Opening chapel modal for new chapel');
+    
+    // Load empty chapel form for adding new chapel
+    if (typeof htmx !== 'undefined') {
+        htmx.ajax('GET', '/editor/chapel-form', {
+            target: '.right-panel .panel-content',
+            swap: 'innerHTML'
+        }).then(() => {
+            console.log('Empty chapel form loaded for new chapel');
+        }).catch(error => {
+            console.error('Error loading empty chapel form:', error);
+        });
+    }
+}
+</script>

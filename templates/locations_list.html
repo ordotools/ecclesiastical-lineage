@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Locations - Episcopal Lineage{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-map-marker-alt me-2"></i>Locations</h2>
+                <a href="{{ url_for('main.add_location') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>Add Location
+                </a>
+            </div>
+
+            {% if locations %}
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Address</th>
+                                    <th>Pastor/Leader</th>
+                                    <th>Coordinates</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for location in locations %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ location.name }}</strong>
+                                        {% if location.organization %}
+                                        <br><small class="text-muted">{{ location.organization }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if location.location_type == 'church' else 'primary' if location.location_type == 'cathedral' else 'warning' if location.location_type == 'monastery' else 'info' if location.location_type == 'seminary' else 'secondary' }}">
+                                            {{ location.location_type.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if location.get_full_address() %}
+                                        {{ location.get_full_address() }}
+                                        {% else %}
+                                        <span class="text-muted">No address</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if location.pastor_name %}
+                                        {{ location.pastor_name }}
+                                        {% else %}
+                                        <span class="text-muted">Not specified</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if location.has_coordinates() %}
+                                        <small class="text-muted">
+                                            {{ "%.4f"|format(location.latitude) }}, {{ "%.4f"|format(location.longitude) }}
+                                        </small>
+                                        {% else %}
+                                        <span class="text-muted">No coordinates</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{{ url_for('main.view_location', location_id=location.id) }}" 
+                                               class="btn btn-outline-info" title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{{ url_for('main.edit_location', location_id=location.id) }}" 
+                                               class="btn btn-outline-primary" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-outline-danger" 
+                                                    onclick="confirmDelete({{ location.id }}, '{{ location.name }}')" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-map-marker-alt fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">No Locations Found</h4>
+                    <p class="text-muted">Get started by adding your first location.</p>
+                    <a href="{{ url_for('main.add_location') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Add First Location
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the location <strong id="deleteLocationName"></strong>?</p>
+                <p class="text-muted">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete Location</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(locationId, locationName) {
+    document.getElementById('deleteLocationName').textContent = locationName;
+    document.getElementById('deleteForm').action = '{{ url_for("main.delete_location", location_id=0) }}'.replace('0', locationId);
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

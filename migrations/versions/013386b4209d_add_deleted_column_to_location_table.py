@@ -7,6 +7,7 @@ Create Date: 2025-10-03 10:30:00.066019
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
@@ -23,7 +24,7 @@ def upgrade():
     
     # Set default value for existing records
     connection = op.get_bind()
-    connection.execute("UPDATE location SET deleted = false WHERE deleted IS NULL")
+    connection.execute(text("UPDATE location SET deleted = false WHERE deleted IS NULL"))
     
     # Make the column non-nullable after setting defaults
     with op.batch_alter_table('location', schema=None) as batch_op:

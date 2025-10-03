@@ -153,8 +153,8 @@ class ChapelGlobeOverlay {
             chapelMarkers.each(function(d) {
                 const chapelGroup = d3.select(this);
                 
-                // Use the same 3D culling logic as the main globe
-                const isVisible = self.isChapelVisible(d.lng, d.lat);
+                // Use the main globe's visibility function for consistency
+                const isVisible = self.globe.isLocationVisible(d.lng, d.lat);
                 
                 if (isVisible) {
                     // Get current projection from the globe for positioning
@@ -179,52 +179,6 @@ class ChapelGlobeOverlay {
                 }
             });
         });
-    }
-    isChapelVisible(longitude, latitude) {
-        // Use D3's geoRotation for proper backface culling
-        // This leverages D3's built-in spherical math functions
-        try {
-            // Get the projected coordinates first
-            const projected = this.globe.projection([longitude, latitude]);
-
-            if (!projected || projected.length !== 2) {
-                return false;
-            }
-
-            const [x, y] = projected;
-
-            // Check if coordinates are valid numbers
-            if (isNaN(x) || isNaN(y)) {
-                return false;
-            }
-
-            // Use D3's geoRotation to get the rotated point
-            const rotation = this.globe.projection.rotate();
-            const geoRotation = d3.geoRotation(rotation);
-            const rotatedPoint = geoRotation([longitude, latitude]);
-            
-            // Convert the rotated point to 3D coordinates
-            const phi = (90 - rotatedPoint[1]) * Math.PI / 180;
-            const theta = (rotatedPoint[0] + 180) * Math.PI / 180;
-            
-            const x3d = Math.sin(phi) * Math.cos(theta);
-            const y3d = Math.cos(phi);
-            const z3d = Math.sin(phi) * Math.sin(theta);
-
-            // The view direction is looking at the center (0, 0, 1) in the rotated coordinate system
-            // If z-coordinate is negative, the point is on the back side
-            if (x3d > 0) {
-                return false;
-            }
-            
-            // Point is visible if it's on the front side
-            return true;
-
-        } catch (error) {
-            // If there's any error in projection, consider it not visible
-            console.warn('Error in chapel visibility check:', error);
-            return false;
-        }
     }
     
     addChapelEventListeners() {

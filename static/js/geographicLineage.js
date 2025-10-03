@@ -244,7 +244,7 @@ class GeographicLineageVisualization {
     }
     
     updateLocationPositions() {
-        // Update location marker positions (optimized for performance)
+        // Update location marker positions with proper backface culling
         const markers = this.g.selectAll('.location-marker');
         
         markers.each((d, i, nodes) => {
@@ -254,14 +254,25 @@ class GeographicLineageVisualization {
             // Find the location data by ID
             const location = window.nodesData.find(loc => loc.id == locationId);
             if (location && location.latitude !== undefined && location.longitude !== undefined) {
-                // Get coordinates using the main projection
-                const [x, y] = this.projection([location.longitude, location.latitude]);
+                // Check if location is visible using 3D backface culling
+                const isVisible = this.isLocationVisible(location.longitude, location.latitude);
                 
-                if (x !== undefined && y !== undefined) {
-                    // Update position directly without style changes for better performance
-                    marker.attr('cx', x).attr('cy', y);
+                if (isVisible) {
+                    // Get coordinates using the main projection
+                    const [x, y] = this.projection([location.longitude, location.latitude]);
+                    
+                    if (x !== undefined && y !== undefined) {
+                        // Update position and show the marker
+                        marker.attr('cx', x).attr('cy', y);
+                        marker.style('opacity', '1');
+                        marker.style('pointer-events', 'all');
+                    } else {
+                        // Hide the location if projection fails
+                        marker.style('opacity', '0');
+                        marker.style('pointer-events', 'none');
+                    }
                 } else {
-                    // Hide the location if projection fails
+                    // Hide the location if it's on the back side of the globe
                     marker.style('opacity', '0');
                     marker.style('pointer-events', 'none');
                 }
@@ -303,7 +314,7 @@ class GeographicLineageVisualization {
             const z3d = Math.sin(phi) * Math.sin(theta);
             
             // The view direction is looking at the center (0, 0, 1) in the rotated coordinate system
-            // If x-coordinate is positive, the point is on the back side
+            // If z-coordinate is negative, the point is on the back side
             if (x3d > 0) {
                 return false;
             }
@@ -545,33 +556,75 @@ class GeographicLineageVisualization {
         const locationGroup = this.g.append('g').attr('class', 'location-nodes');
         
         nodes.forEach((location, index) => {
-            // Get projected coordinates
-            const [x, y] = this.projection([location.longitude, location.latitude]);
+            // Check if location is visible using 3D backface culling
+            const isVisible = this.isLocationVisible(location.longitude, location.latitude);
             
-            if (x !== undefined && y !== undefined) {
-                // Create a simple, clean location marker
+            if (isVisible) {
+                // Get projected coordinates
+                const [x, y] = this.projection([location.longitude, location.latitude]);
+                
+                if (x !== undefined && y !== undefined) {
+                    // Create a simple, clean location marker
+                    const marker = locationGroup.append('circle')
+                        .attr('class', 'location-marker')
+                        .attr('cx', x)
+                        .attr('cy', y)
+                        .attr('r', 8)
+                        .attr('fill', location.color)
+                        .attr('stroke', '#ffffff')
+                        .attr('stroke-width', 3)
+                        .attr('data-location-id', location.id)
+                        .style('cursor', 'pointer')
+                        .style('pointer-events', 'all')
+                        .style('opacity', 1)
+                        .style('z-index', '1000');
+                    
+                    // Add click handler
+                    marker.on('click', (event) => {
+                        console.log('Location clicked:', location.name);
+                        event.stopPropagation();
+                        this.handleLocationClick(location);
+                    });
+                    
+                    // Add hover effects (optimized for performance)
+                    marker.on('mouseover', (event) => {
+                        d3.select(event.target)
+                            .attr('r', 10);
+                        this.showLocationTooltip(event, location);
+                    });
+                    
+                    marker.on('mouseout', (event) => {
+                        d3.select(event.target)
+                            .attr('r', 8);
+                        this.hideTooltip();
+                    });
+                } else {
+                    console.error(`Failed to project coordinates for ${location.name}: [${location.longitude}, ${location.latitude}]`);
+                }
+            } else {
+                // Location is on the back side of the globe, create hidden marker
                 const marker = locationGroup.append('circle')
                     .attr('class', 'location-marker')
-                    .attr('cx', x)
-                    .attr('cy', y)
+                    .attr('cx', 0)
+                    .attr('cy', 0)
                     .attr('r', 8)
                     .attr('fill', location.color)
                     .attr('stroke', '#ffffff')
                     .attr('stroke-width', 3)
                     .attr('data-location-id', location.id)
                     .style('cursor', 'pointer')
-                    .style('pointer-events', 'all')
-                    .style('opacity', 1)
+                    .style('pointer-events', 'none')
+                    .style('opacity', 0)
                     .style('z-index', '1000');
                 
-                // Add click handler
+                // Add click handler (will be enabled when visible)
                 marker.on('click', (event) => {
                     console.log('Location clicked:', location.name);
                     event.stopPropagation();
                     this.handleLocationClick(location);
                 });
                 
-                // Add hover effects (optimized for performance)
+                // Add hover effects (will be enabled when visible)
                 marker.on('mouseover', (event) => {
                     d3.select(event.target)
                         .attr('r', 10);
@@ -583,8 +636,6 @@ class GeographicLineageVisualization {
                         .attr('r', 8);
                     this.hideTooltip();
                 });
-            } else {
-                console.error(`Failed to project coordinates for ${location.name}: [${location.longitude}, ${location.latitude}]`);
             }
         });
         
@@ -1223,13 +1274,8 @@ class GeographicLineageVisualization {
             return;
         }
         
-        // Get projected coordinates
-        const [x, y] = this.projection([locationData.longitude, locationData.latitude]);
-        
-        if (x === undefined || y === undefined) {
-            console.warn('Could not project coordinates for location:', locationData.name);
-            return;
-        }
+        // Check if location is visible using 3D backface culling
+        const isVisible = this.isLocationVisible(locationData.longitude, locationData.latitude);
         
         // Find or create the location nodes group
         let locationGroup = this.g.select('.location-nodes');
@@ -1237,40 +1283,85 @@ class GeographicLineageVisualization {
             locationGroup = this.g.append('g').attr('class', 'location-nodes');
         }
         
-        // Create the location marker
-        const marker = locationGroup.append('circle')
-            .attr('class', 'location-marker')
-            .attr('cx', x)
-            .attr('cy', y)
-            .attr('r', 8)
-            .attr('fill', locationData.color)
-            .attr('stroke', '#ffffff')
-            .attr('stroke-width', 3)
-            .attr('data-location-id', locationData.id)
-            .style('cursor', 'pointer')
-            .style('pointer-events', 'all')
-            .style('opacity', 1)
-            .style('z-index', '1000');
-        
-        // Add click handler
-        marker.on('click', (event) => {
-            console.log('Location clicked:', locationData.name);
-            event.stopPropagation();
-            this.handleLocationClick(locationData);
-        });
-        
-        // Add hover effects
-        marker.on('mouseover', (event) => {
-            d3.select(event.target)
-                .attr('r', 10);
-            this.showLocationTooltip(event, locationData);
-        });
-        
-        marker.on('mouseout', (event) => {
-            d3.select(event.target)
-                .attr('r', 8);
-            this.hideLocationTooltip();
-        });
+        if (isVisible) {
+            // Get projected coordinates
+            const [x, y] = this.projection([locationData.longitude, locationData.latitude]);
+            
+            if (x === undefined || y === undefined) {
+                console.warn('Could not project coordinates for location:', locationData.name);
+                return;
+            }
+            
+            // Create the location marker
+            const marker = locationGroup.append('circle')
+                .attr('class', 'location-marker')
+                .attr('cx', x)
+                .attr('cy', y)
+                .attr('r', 8)
+                .attr('fill', locationData.color)
+                .attr('stroke', '#ffffff')
+                .attr('stroke-width', 3)
+                .attr('data-location-id', locationData.id)
+                .style('cursor', 'pointer')
+                .style('pointer-events', 'all')
+                .style('opacity', 1)
+                .style('z-index', '1000');
+            
+            // Add click handler
+            marker.on('click', (event) => {
+                console.log('Location clicked:', locationData.name);
+                event.stopPropagation();
+                this.handleLocationClick(locationData);
+            });
+            
+            // Add hover effects
+            marker.on('mouseover', (event) => {
+                d3.select(event.target)
+                    .attr('r', 10);
+                this.showLocationTooltip(event, locationData);
+            });
+            
+            marker.on('mouseout', (event) => {
+                d3.select(event.target)
+                    .attr('r', 8);
+                this.hideLocationTooltip();
+            });
+        } else {
+            // Location is on the back side of the globe, create hidden marker
+            const marker = locationGroup.append('circle')
+                .attr('class', 'location-marker')
+                .attr('cx', 0)
+                .attr('cy', 0)
+                .attr('r', 8)
+                .attr('fill', locationData.color)
+                .attr('stroke', '#ffffff')
+                .attr('stroke-width', 3)
+                .attr('data-location-id', locationData.id)
+                .style('cursor', 'pointer')
+                .style('pointer-events', 'none')
+                .style('opacity', 0)
+                .style('z-index', '1000');
+            
+            // Add click handler (will be enabled when visible)
+            marker.on('click', (event) => {
+                console.log('Location clicked:', locationData.name);
+                event.stopPropagation();
+                this.handleLocationClick(locationData);
+            });
+            
+            // Add hover effects (will be enabled when visible)
+            marker.on('mouseover', (event) => {
+                d3.select(event.target)
+                    .attr('r', 10);
+                this.showLocationTooltip(event, locationData);
+            });
+            
+            marker.on('mouseout', (event) => {
+                d3.select(event.target)
+                    .attr('r', 8);
+                this.hideLocationTooltip();
+            });
+        }
         
         console.log('Single location node added successfully');
     }
@@ -1293,20 +1384,36 @@ class GeographicLineageVisualization {
             return;
         }
         
-        // Get projected coordinates
-        const [x, y] = this.projection([locationData.longitude, locationData.latitude]);
+        // Check if location is visible using 3D backface culling
+        const isVisible = this.isLocationVisible(locationData.longitude, locationData.latitude);
         
-        if (x === undefined || y === undefined) {
-            console.warn('Could not project coordinates for location:', locationData.name);
-            return;
+        if (isVisible) {
+            // Get projected coordinates
+            const [x, y] = this.projection([locationData.longitude, locationData.latitude]);
+            
+            if (x === undefined || y === undefined) {
+                console.warn('Could not project coordinates for location:', locationData.name);
+                return;
+            }
+            
+            // Update the existing marker
+            existingMarker
+                .attr('cx', x)
+                .attr('cy', y)
+                .attr('fill', locationData.color)
+                .attr('data-location-id', locationData.id)
+                .style('opacity', '1')
+                .style('pointer-events', 'all');
+        } else {
+            // Location is on the back side of the globe, hide it
+            existingMarker
+                .attr('cx', 0)
+                .attr('cy', 0)
+                .attr('fill', locationData.color)
+                .attr('data-location-id', locationData.id)
+                .style('opacity', '0')
+                .style('pointer-events', 'none');
         }
-        
-        // Update the existing marker
-        existingMarker
-            .attr('cx', x)
-            .attr('cy', y)
-            .attr('fill', locationData.color)
-            .attr('data-location-id', locationData.id);
         
         // Update the click handler with new data
         existingMarker.on('click', (event) => {

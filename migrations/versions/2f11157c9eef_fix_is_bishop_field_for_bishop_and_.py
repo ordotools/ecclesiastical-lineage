@@ -1,7 +1,7 @@
 """Fix is_bishop field for Bishop and Archbishop ranks
 
 Revision ID: 2f11157c9eef
-Revises: rebuild_db_users
+Revises: ffca03f86792
 Create Date: 2025-09-29 13:37:25.613051
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '2f11157c9eef'
-down_revision = 'rebuild_db_users'
+down_revision = 'ffca03f86792'
 branch_labels = None
 depends_on = None
 

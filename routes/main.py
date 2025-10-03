@@ -21,7 +21,7 @@ def geographic_lineage():
     
     try:
         # Get all active locations for the visualization
-        all_locations = Location.query.filter(Location.is_active == True).all()
+        all_locations = Location.query.filter(Location.is_active == True, Location.deleted == False).all()
         
         # Log current data status
         current_app.logger.info(f"Found {len(all_locations)} locations in database")
@@ -97,7 +97,7 @@ def api_geographic_locations():
     """API endpoint to get location data for geographic visualization"""
     try:
         # Get all active locations for the visualization
-        all_locations = Location.query.filter(Location.is_active == True).all()
+        all_locations = Location.query.filter(Location.is_active == True, Location.deleted == False).all()
         
         # Prepare data for D3.js visualization
         nodes = []
@@ -153,7 +153,7 @@ def api_geographic_locations():
 @require_permission('manage_metadata')
 def locations_list():
     """List all locations"""
-    locations = Location.query.filter(Location.is_active == True).all()
+    locations = Location.query.filter(Location.is_active == True, Location.deleted == False).all()
     return render_template('locations_list.html', locations=locations)
 
 @main_bp.route('/locations/add', methods=['GET', 'POST'])
@@ -175,6 +175,7 @@ def add_location():
                 pastor_name=request.form.get('pastor_name'),
                 organization=request.form.get('organization'),
                 notes=request.form.get('notes'),
+                deleted=request.form.get('deleted') == 'true',
                 created_by=session.get('user_id')
             )
             
@@ -214,7 +215,8 @@ def add_location():
                         'location_type': location.location_type,
                         'pastor_name': location.pastor_name,
                         'organization': location.organization,
-                        'notes': location.notes
+                        'notes': location.notes,
+                        'deleted': location.deleted
                     }
                 })
             else:
@@ -262,6 +264,7 @@ def edit_location(location_id):
             location.pastor_name = request.form.get('pastor_name')
             location.organization = request.form.get('organization')
             location.notes = request.form.get('notes')
+            location.deleted = request.form.get('deleted') == 'true'
             
             db.session.commit()
             
@@ -298,7 +301,8 @@ def edit_location(location_id):
                         'location_type': location.location_type,
                         'pastor_name': location.pastor_name,
                         'organization': location.organization,
-                        'notes': location.notes
+                        'notes': location.notes,
+                        'deleted': location.deleted
                     }
                 })
             else:

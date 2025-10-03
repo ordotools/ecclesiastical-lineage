@@ -287,6 +287,7 @@ class Location(db.Model):
     organization = db.Column(db.String(200), nullable=True)  # Associated organization
     notes = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
+    deleted = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)

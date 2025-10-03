@@ -9,8 +9,7 @@
     <form id="locationForm" method="POST" 
           action="{% if location %}/locations/{{ location.id }}/edit{% else %}/locations/add{% endif %}" 
           enctype="multipart/form-data" 
-          data-init-location-form="true" 
-          onsubmit="return handleLocationFormSubmit(event)">
+          data-init-location-form="true">
         <div style="display: flex; flex-direction: column; gap: 1em;">
             
             <!-- Name -->
@@ -104,6 +103,20 @@
             <!-- Hidden fields for coordinates -->
             <input type="hidden" id="latitude" name="latitude" value="{% if location %}{{ location.latitude }}{% endif %}">
             <input type="hidden" id="longitude" name="longitude" value="{% if location %}{{ location.longitude }}{% endif %}">
+            
+            <!-- Deleted Flag (only show when editing) -->
+            {% if location %}
+            <div>
+                <label style="display: flex; align-items: center; gap: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">
+                    <input type="checkbox" id="deleted" name="deleted" value="true" {% if location.deleted %}checked{% endif %}
+                           style="margin: 0; transform: scale(1.1);">
+                    <span>Mark as deleted</span>
+                </label>
+                <div style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6); margin-top: 0.2em;">
+                    Check this box to mark this chapel as deleted (soft delete)
+                </div>
+            </div>
+            {% endif %}
             
             <!-- Notes -->
             <div>

@@ -49,6 +49,7 @@ def chapel_list_panel():
     church_types = ['church', 'cathedral', 'chapel', 'monastery', 'seminary', 'abbey']
     locations = Location.query.filter(
         Location.is_active == True,
+        Location.deleted == False,
         Location.location_type.in_(church_types)
     ).order_by(Location.name).all()
     
@@ -184,7 +185,7 @@ def globe_view_panel():
     """HTMX endpoint for the center panel globe view"""
     try:
         # Get all active locations (chapels, churches, etc.) for the globe visualization
-        all_locations = Location.query.filter(Location.is_active == True).all()
+        all_locations = Location.query.filter(Location.is_active == True, Location.deleted == False).all()
         
         # Prepare data for D3.js globe visualization
         nodes = []

@@ -426,9 +426,42 @@ class LocationFormManager {
 
 // Function to clear the location form - make it globally available
 window.clearLocationForm = function() {
+    console.log('Clearing location form...');
     const form = document.getElementById('locationForm');
     if (form) {
+        // Reset the form
         form.reset();
+        
+        // Also manually clear specific fields to ensure they're cleared
+        const nameField = form.querySelector('#name');
+        const locationTypeField = form.querySelector('#location_type');
+        const streetAddressField = form.querySelector('#street_address');
+        const cityField = form.querySelector('#city');
+        const stateProvinceField = form.querySelector('#state_province');
+        const countryField = form.querySelector('#country');
+        const postalCodeField = form.querySelector('#postal_code');
+        const pastorNameField = form.querySelector('#pastor_name');
+        const notesField = form.querySelector('#notes');
+        const deletedField = form.querySelector('#deleted');
+        const latitudeField = form.querySelector('#latitude');
+        const longitudeField = form.querySelector('#longitude');
+        
+        if (nameField) nameField.value = '';
+        if (locationTypeField) locationTypeField.value = '';
+        if (streetAddressField) streetAddressField.value = '';
+        if (cityField) cityField.value = '';
+        if (stateProvinceField) stateProvinceField.value = '';
+        if (countryField) countryField.value = '';
+        if (postalCodeField) postalCodeField.value = '';
+        if (pastorNameField) pastorNameField.value = '';
+        if (notesField) notesField.value = '';
+        if (deletedField) deletedField.checked = false;
+        if (latitudeField) latitudeField.value = '';
+        if (longitudeField) longitudeField.value = '';
+        
+        // Reset form action to add new chapel
+        form.action = '/locations/add';
+        
         // Hide coordinates display
         const display = document.getElementById('coordinates-display');
         if (display) {
@@ -439,15 +472,26 @@ window.clearLocationForm = function() {
         const pastorSuggestions = document.getElementById('pastor-suggestions');
         if (countrySuggestions) countrySuggestions.style.display = 'none';
         if (pastorSuggestions) pastorSuggestions.style.display = 'none';
+        
+        console.log('Location form cleared successfully');
+    } else {
+        console.warn('Location form not found for clearing');
     }
 };
 
 // Function to handle form submission
 window.handleLocationFormSubmit = function(event) {
+    console.log('handleLocationFormSubmit called');
     event.preventDefault();
     
     const form = document.getElementById('locationForm');
-    if (!form) return false;
+    if (!form) {
+        console.error('Location form not found');
+        return false;
+    }
+    
+    console.log('Form found:', form);
+    console.log('Form action:', form.action);
     
     // Show loading state
     const submitButton = form.querySelector('button[type="submit"]');
@@ -475,16 +519,27 @@ window.handleLocationFormSubmit = function(event) {
             const location = data.location;
             
             if (isEditing) {
-                // For editing, update the existing chapel in the list and globe
-                updateChapelInList(location);
-                updateChapelInGlobe(location);
-                showSuccessMessage(data.message || 'Chapel location updated successfully!');
+                // For editing, check if chapel is deleted
+                if (location.deleted) {
+                    // Remove from list and globe if deleted
+                    removeChapelFromList(location.id);
+                    removeChapelFromGlobe(location.id);
+                    showSuccessMessage('Chapel marked as deleted successfully!');
+                } else {
+                    // Update the existing chapel in the list and globe
+                    updateChapelInList(location);
+                    updateChapelInGlobe(location);
+                    showSuccessMessage(data.message || 'Chapel location updated successfully!');
+                }
+                // Clear form after any edit operation
+                clearLocationForm();
             } else {
                 // For adding, add new chapel to list and globe
                 addChapelToList(location);
                 addChapelToGlobe(location);
-                clearLocationForm();
                 showSuccessMessage(data.message || 'Chapel location added successfully!');
+                // Clear form after adding
+                clearLocationForm();
             }
         } else {
             // Error - show error message
@@ -593,6 +648,14 @@ function initializeLocationForm() {
     if (form && !window.locationFormManager) {
         console.log('Initializing LocationFormManager');
         window.locationFormManager = new LocationFormManager();
+        
+        // Add form submission event listener
+        form.addEventListener('submit', function(e) {
+            console.log('Form submit event fired');
+            e.preventDefault();
+            window.handleLocationFormSubmit(e);
+        });
+        
         return true;
     }
     return false;
@@ -604,6 +667,15 @@ function checkForLocationForms() {
     if (forms.length > 0 && !window.locationFormManager) {
         console.log('Found location form with data attribute, initializing...');
         window.locationFormManager = new LocationFormManager();
+        
+        // Add form submission event listener to all forms
+        forms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                window.handleLocationFormSubmit(e);
+            });
+        });
+        
         return true;
     }
     return false;
@@ -623,6 +695,8 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('htmx:afterSwap', function(event) {
     if (event.target.querySelector('#locationForm')) {
         console.log('Location form loaded via HTMX, initializing...');
+        // Reset the manager to allow re-initialization
+        window.locationFormManager = null;
         initializeLocationForm();
     }
 });
@@ -825,6 +899,19 @@ function updateChapelInList(location) {
     console.log('Chapel updated in list successfully');
 }
 
+// Function to remove a chapel from the chapel list
+function removeChapelFromList(locationId) {
+    console.log('Removing chapel from list:', locationId);
+    
+    const chapelItem = document.querySelector(`[data-location-id="${locationId}"]`);
+    if (chapelItem) {
+        chapelItem.remove();
+        console.log('Chapel removed from list successfully');
+    } else {
+        console.warn('Chapel item not found in list for removal');
+    }
+}
+
 // Function to update an existing chapel in the globe visualization
 function updateChapelInGlobe(location) {
     console.log('Updating chapel in globe:', location);
@@ -901,4 +988,42 @@ function updateChapelInGlobe(location) {
     }
     
     console.log('Chapel updated in globe successfully');
+}
+
+// Function to remove a chapel from the globe visualization
+function removeChapelFromGlobe(locationId) {
+    console.log('Removing chapel from globe:', locationId);
+    
+    // Remove from global nodes data if it exists
+    if (window.nodesData) {
+        const index = window.nodesData.findIndex(node => node.id === locationId);
+        if (index !== -1) {
+            window.nodesData.splice(index, 1);
+            console.log('Removed from nodesData');
+        }
+    }
+    
+    // Check if we're in globe view mode
+    const isGlobeViewActive = document.querySelector('#globe-container') !== null;
+    console.log('Is globe view active for removal:', isGlobeViewActive);
+    
+    if (isGlobeViewActive) {
+        // Try to remove from different visualization types
+        if (window.chapelGlobeOverlay && typeof window.chapelGlobeOverlay.removeChapel === 'function') {
+            console.log('Removing from chapel globe overlay');
+            window.chapelGlobeOverlay.removeChapel(locationId);
+        }
+        
+        if (window.geographicVisualization && typeof window.geographicVisualization.removeLocationNode === 'function') {
+            console.log('Removing from geographic visualization');
+            window.geographicVisualization.removeLocationNode(locationId);
+        } else if (window.geographicVisualization && typeof window.geographicVisualization.addLocationNodes === 'function') {
+            console.log('Refreshing all location nodes in geographic visualization');
+            window.geographicVisualization.addLocationNodes();
+        }
+    } else {
+        console.log('Globe view not active, skipping globe removal');
+    }
+    
+    console.log('Chapel removed from globe successfully');
 }

@@ -1330,6 +1330,29 @@ class GeographicLineageVisualization {
         
         console.log('Single location node updated successfully');
     }
+    
+    // Method to remove a single location node dynamically
+    removeLocationNode(locationId) {
+        console.log('Removing single location node:', locationId);
+        
+        if (!this.g) {
+            console.warn('Cannot remove location node - globe not available');
+            return;
+        }
+        
+        // Find and remove the existing marker by location ID
+        const existingMarker = this.g.select(`[data-location-id="${locationId}"]`);
+        
+        if (existingMarker.empty()) {
+            console.warn('Location marker not found for removal:', locationId);
+            return;
+        }
+        
+        // Remove the marker
+        existingMarker.remove();
+        
+        console.log('Single location node removed successfully');
+    }
 }
 
 // Initialize when DOM is loaded

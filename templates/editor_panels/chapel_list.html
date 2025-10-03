@@ -1,0 +1,141 @@
+<!-- Chapel List Panel Content -->
+<div style="padding: 1em; height: 100%; display: flex; flex-direction: column;">
+    <!-- Header with Add Button -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;">
+        <h6 style="margin: 0; color: rgba(255, 255, 255, 0.9); font-size: 0.95em;">Chapel Locations</h6>
+        <button onclick="openChapelModal()" 
+                style="padding: 0.3em 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.8); cursor: pointer; font-size: 0.75em;">
+            <i class="fas fa-plus" style="margin-right: 0.25em;"></i>Add Chapel
+        </button>
+    </div>
+    
+    <!-- Search Bar -->
+    <div style="margin-bottom: 1em;">
+        <input type="text" id="chapelSearchInput" placeholder="Search chapels..." 
+               style="width: 100%; padding: 0.4em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.9); font-size: 0.8em;">
+    </div>
+    
+    <!-- Chapel List -->
+    <div id="chapelList" style="flex: 1; overflow-y: auto;">
+        <!-- Sample chapel data - in a real implementation this would come from the database -->
+        <div class="chapel-item" style="padding: 0.5em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 3px; cursor: pointer; transition: background-color 0.2s ease;" 
+             onmouseover="this.style.backgroundColor='rgba(255, 255, 255, 0.1)'" 
+             onmouseout="this.style.backgroundColor='rgba(255, 255, 255, 0.05)'">
+            <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 0.85em; margin-bottom: 0.2em;">
+                St. Peter's Basilica
+            </div>
+            <div style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6); margin-bottom: 0.1em;">
+                Cathedral • Vatican City, Vatican
+            </div>
+            <div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5);">
+                Founded: 1506
+            </div>
+        </div>
+        
+        <div class="chapel-item" style="padding: 0.5em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 3px; cursor: pointer; transition: background-color 0.2s ease;" 
+             onmouseover="this.style.backgroundColor='rgba(255, 255, 255, 0.1)'" 
+             onmouseout="this.style.backgroundColor='rgba(255, 255, 255, 0.05)'">
+            <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 0.85em; margin-bottom: 0.2em;">
+                Notre-Dame Cathedral
+            </div>
+            <div style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6); margin-bottom: 0.1em;">
+                Cathedral • Paris, France
+            </div>
+            <div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5);">
+                Founded: 1163
+            </div>
+        </div>
+        
+        <div class="chapel-item" style="padding: 0.5em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 3px; cursor: pointer; transition: background-color 0.2s ease;" 
+             onmouseover="this.style.backgroundColor='rgba(255, 255, 255, 0.1)'" 
+             onmouseout="this.style.backgroundColor='rgba(255, 255, 255, 0.05)'">
+            <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 0.85em; margin-bottom: 0.2em;">
+                Westminster Abbey
+            </div>
+            <div style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6); margin-bottom: 0.1em;">
+                Abbey • London, England
+            </div>
+            <div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5);">
+                Founded: 960
+            </div>
+        </div>
+        
+        <div class="chapel-item" style="padding: 0.5em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 3px; cursor: pointer; transition: background-color 0.2s ease;" 
+             onmouseover="this.style.backgroundColor='rgba(255, 255, 255, 0.1)'" 
+             onmouseout="this.style.backgroundColor='rgba(255, 255, 255, 0.05)'">
+            <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 0.85em; margin-bottom: 0.2em;">
+                Sistine Chapel
+            </div>
+            <div style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6); margin-bottom: 0.1em;">
+                Chapel • Vatican City, Vatican
+            </div>
+            <div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5);">
+                Founded: 1473
+            </div>
+        </div>
+        
+        <div class="chapel-item" style="padding: 0.5em; margin-bottom: 0.5em; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 3px; cursor: pointer; transition: background-color 0.2s ease;" 
+             onmouseover="this.style.backgroundColor='rgba(255, 255, 255, 0.1)'" 
+             onmouseout="this.style.backgroundColor='rgba(255, 255, 255, 0.05)'">
+            <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 0.85em; margin-bottom: 0.2em;">
+                Chartres Cathedral
+            </div>
+            <div style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6); margin-bottom: 0.1em;">
+                Cathedral • Chartres, France
+            </div>
+            <div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5);">
+                Founded: 1020
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chapel list functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize chapel search
+    const searchInput = document.getElementById('chapelSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            const chapelItems = document.querySelectorAll('.chapel-item');
+            
+            chapelItems.forEach(item => {
+                const name = item.querySelector('div').textContent.toLowerCase();
+                const location = item.querySelector('div:nth-child(2)').textContent.toLowerCase();
+                
+                if (name.includes(query) || location.includes(query)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    }
+    
+    // Add click handlers to chapel items
+    const chapelItems = document.querySelectorAll('.chapel-item');
+    chapelItems.forEach(item => {
+        item.addEventListener('click', function() {
+            // Remove active state from all items
+            chapelItems.forEach(otherItem => {
+                otherItem.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                otherItem.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+            });
+            
+            // Add active state to clicked item
+            this.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+            this.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            
+            // Here you could add functionality to show chapel details or update the globe visualization
+            console.log('Selected chapel:', this.querySelector('div').textContent);
+        });
+    });
+});
+
+// Placeholder function for opening chapel modal
+function openChapelModal() {
+    console.log('Opening chapel modal - not yet implemented');
+    // This would open a modal to add/edit chapel information
+}
+</script>

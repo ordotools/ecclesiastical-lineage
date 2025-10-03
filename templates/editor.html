@@ -833,6 +833,17 @@
             <div class="panel-header">
                 <i class="fas fa-sitemap"></i>
                 Lineage Visualization
+                <!-- Chapel List Toggle Button -->
+                <button id="chapelListToggle" 
+                        style="margin-left: auto; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); 
+                               border-radius: 3px; color: rgba(255, 255, 255, 0.8); padding: 0.2em 0.4em; 
+                               font-size: 0.65em; cursor: pointer; transition: all 0.2s ease;"
+                        onmouseover="this.style.background='rgba(255, 255, 255, 0.15)'; this.style.borderColor='rgba(255, 255, 255, 0.4)'"
+                        onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.borderColor='rgba(255, 255, 255, 0.3)'"
+                        onclick="toggleChapelList()"
+                        title="Toggle Chapel List">
+                    <i class="fas fa-church"></i> Chapel
+                </button>
             </div>
             <div id="visualization-panel-content" class="panel-content"
                  hx-get="/editor/visualization"
@@ -1446,6 +1457,78 @@
                 closeAuditLogsModal();
             }
         });
+        
+        // State tracking for chapel list toggle
+        let isChapelListVisible = false;
+        
+        // Function to toggle chapel list
+        function toggleChapelList() {
+            console.log('Toggling chapel list, current state:', isChapelListVisible);
+            
+            const leftPanel = document.querySelector('.left-panel .panel-content');
+            if (!leftPanel) {
+                console.error('Left panel not found');
+                return;
+            }
+            
+            const panelHeader = document.querySelector('.left-panel .panel-header');
+            const toggleButton = document.getElementById('chapelListToggle');
+            
+            if (!isChapelListVisible) {
+                // Switch to chapel list
+                console.log('Switching to chapel list...');
+                
+                // Update the panel header
+                if (panelHeader) {
+                    panelHeader.innerHTML = '<i class="fas fa-church"></i> Chapel List';
+                }
+                
+                // Update button to show "Back to List" state
+                if (toggleButton) {
+                    toggleButton.innerHTML = '<i class="fas fa-list"></i> Back to List';
+                    toggleButton.title = 'Return to Clergy List';
+                }
+                
+                // Load chapel list content
+                htmx.ajax('GET', '/editor/chapel-list', {
+                    target: leftPanel,
+                    swap: 'innerHTML'
+                }).then(() => {
+                    console.log('Successfully switched to chapel list');
+                    isChapelListVisible = true;
+                }).catch(error => {
+                    console.error('Error switching to chapel list:', error);
+                });
+            } else {
+                // Switch back to clergy list
+                console.log('Switching back to clergy list...');
+                
+                // Update the panel header
+                if (panelHeader) {
+                    panelHeader.innerHTML = '<i class="fas fa-users"></i> Clergy List';
+                }
+                
+                // Update button to show "Chapel" state
+                if (toggleButton) {
+                    toggleButton.innerHTML = '<i class="fas fa-church"></i> Chapel';
+                    toggleButton.title = 'Toggle Chapel List';
+                }
+                
+                // Load clergy list content
+                htmx.ajax('GET', '/editor/clergy-list', {
+                    target: leftPanel,
+                    swap: 'innerHTML'
+                }).then(() => {
+                    console.log('Successfully switched back to clergy list');
+                    isChapelListVisible = false;
+                }).catch(error => {
+                    console.error('Error switching back to clergy list:', error);
+                });
+            }
+        }
+        
+        // Make function globally available
+        window.toggleChapelList = toggleChapelList;
     </script>
 </body>
 </html>

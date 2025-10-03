@@ -38,6 +38,16 @@ def clergy_list_panel():
                          exclude_organizations=[],
                          show_deleted=False)
 
+@editor_bp.route('/editor/chapel-list')
+@require_permission('edit_clergy')
+def chapel_list_panel():
+    """HTMX endpoint for the left panel chapel list"""
+    user = User.query.get(session['user_id']) if 'user_id' in session else None
+    
+    # For now, return the template with sample data
+    # In a real implementation, this would query a Chapel model from the database
+    return render_template('editor_panels/chapel_list.html', user=user)
+
 @editor_bp.route('/editor/visualization')
 @require_permission('edit_clergy')
 def visualization_panel():

@@ -1213,6 +1213,123 @@ class GeographicLineageVisualization {
         // Clear the container
         d3.select('#globe-container').selectAll('*').remove();
     }
+    
+    // Method to add a single location node dynamically
+    addSingleLocationNode(locationData) {
+        console.log('Adding single location node:', locationData);
+        
+        if (!this.g || !locationData.latitude || !locationData.longitude) {
+            console.warn('Cannot add location node - missing globe or coordinates');
+            return;
+        }
+        
+        // Get projected coordinates
+        const [x, y] = this.projection([locationData.longitude, locationData.latitude]);
+        
+        if (x === undefined || y === undefined) {
+            console.warn('Could not project coordinates for location:', locationData.name);
+            return;
+        }
+        
+        // Find or create the location nodes group
+        let locationGroup = this.g.select('.location-nodes');
+        if (locationGroup.empty()) {
+            locationGroup = this.g.append('g').attr('class', 'location-nodes');
+        }
+        
+        // Create the location marker
+        const marker = locationGroup.append('circle')
+            .attr('class', 'location-marker')
+            .attr('cx', x)
+            .attr('cy', y)
+            .attr('r', 8)
+            .attr('fill', locationData.color)
+            .attr('stroke', '#ffffff')
+            .attr('stroke-width', 3)
+            .attr('data-location-id', locationData.id)
+            .style('cursor', 'pointer')
+            .style('pointer-events', 'all')
+            .style('opacity', 1)
+            .style('z-index', '1000');
+        
+        // Add click handler
+        marker.on('click', (event) => {
+            console.log('Location clicked:', locationData.name);
+            event.stopPropagation();
+            this.handleLocationClick(locationData);
+        });
+        
+        // Add hover effects
+        marker.on('mouseover', (event) => {
+            d3.select(event.target)
+                .attr('r', 10);
+            this.showLocationTooltip(event, locationData);
+        });
+        
+        marker.on('mouseout', (event) => {
+            d3.select(event.target)
+                .attr('r', 8);
+            this.hideLocationTooltip();
+        });
+        
+        console.log('Single location node added successfully');
+    }
+    
+    // Method to update a single location node dynamically
+    updateSingleLocationNode(locationData) {
+        console.log('Updating single location node:', locationData);
+        
+        if (!this.g || !locationData.latitude || !locationData.longitude) {
+            console.warn('Cannot update location node - missing globe or coordinates');
+            return;
+        }
+        
+        // Find the existing marker by location ID
+        const existingMarker = this.g.select(`[data-location-id="${locationData.id}"]`);
+        
+        if (existingMarker.empty()) {
+            console.log('Location marker not found, adding as new node');
+            this.addSingleLocationNode(locationData);
+            return;
+        }
+        
+        // Get projected coordinates
+        const [x, y] = this.projection([locationData.longitude, locationData.latitude]);
+        
+        if (x === undefined || y === undefined) {
+            console.warn('Could not project coordinates for location:', locationData.name);
+            return;
+        }
+        
+        // Update the existing marker
+        existingMarker
+            .attr('cx', x)
+            .attr('cy', y)
+            .attr('fill', locationData.color)
+            .attr('data-location-id', locationData.id);
+        
+        // Update the click handler with new data
+        existingMarker.on('click', (event) => {
+            console.log('Location clicked:', locationData.name);
+            event.stopPropagation();
+            this.handleLocationClick(locationData);
+        });
+        
+        // Update hover handlers with new data
+        existingMarker.on('mouseover', (event) => {
+            d3.select(event.target)
+                .attr('r', 10);
+            this.showLocationTooltip(event, locationData);
+        });
+        
+        existingMarker.on('mouseout', (event) => {
+            d3.select(event.target)
+                .attr('r', 8);
+            this.hideLocationTooltip();
+        });
+        
+        console.log('Single location node updated successfully');
+    }
 }
 
 // Initialize when DOM is loaded

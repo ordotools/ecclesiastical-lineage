@@ -44,9 +44,38 @@ def chapel_list_panel():
     """HTMX endpoint for the left panel chapel list"""
     user = User.query.get(session['user_id']) if 'user_id' in session else None
     
-    # For now, return the template with sample data
-    # In a real implementation, this would query a Chapel model from the database
-    return render_template('editor_panels/chapel_list.html', user=user)
+    # Get all active locations (chapels) from the database
+    # Filter for church-related location types
+    church_types = ['church', 'cathedral', 'chapel', 'monastery', 'seminary', 'abbey']
+    locations = Location.query.filter(
+        Location.is_active == True,
+        Location.location_type.in_(church_types)
+    ).order_by(Location.name).all()
+    
+    return render_template('editor_panels/chapel_list.html', user=user, locations=locations)
+
+@editor_bp.route('/editor/chapel-form')
+@editor_bp.route('/editor/chapel-form/<int:location_id>')
+@require_permission('edit_clergy')
+def chapel_form_panel(location_id=None):
+    """HTMX endpoint for the right panel chapel form"""
+    print("=== CHAPEL FORM ROUTE CALLED ===")
+    user = User.query.get(session['user_id']) if 'user_id' in session else None
+    print(f"User: {user}, Location ID: {location_id}")
+    
+    location = None
+    if location_id:
+        location = Location.query.get(location_id)
+        if not location:
+            return "Location not found", 404
+    
+    try:
+        result = render_template('editor_panels/location_form_panel.html', user=user, location=location)
+        print("Chapel form template rendered successfully")
+        return result
+    except Exception as e:
+        print(f"Error rendering chapel form template: {e}")
+        return f"Error: {e}", 500
 
 @editor_bp.route('/editor/visualization')
 @require_permission('edit_clergy')

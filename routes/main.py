@@ -164,7 +164,7 @@ def add_location():
         try:
             location = Location(
                 name=request.form['name'],
-                address=request.form.get('address'),
+                address=request.form.get('street_address'),  # Map street_address to address field
                 city=request.form.get('city'),
                 state_province=request.form.get('state_province'),
                 country=request.form.get('country'),
@@ -190,13 +190,55 @@ def add_location():
                 details=f"Created location: {location.name}"
             )
             
-            flash('Location added successfully!', 'success')
-            return redirect(url_for('main.locations_list'))
+            # Check if this is an AJAX request
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': 'Location added successfully!',
+                    'location': {
+                        'id': location.id,
+                        'name': location.name,
+                        'address': location.address,
+                        'city': location.city,
+                        'state_province': location.state_province,
+                        'country': location.country,
+                        'postal_code': location.postal_code,
+                        'latitude': location.latitude,
+                        'longitude': location.longitude,
+                        'location_type': location.location_type,
+                        'pastor_name': location.pastor_name,
+                        'organization': location.organization,
+                        'notes': location.notes
+                    }
+                })
+            else:
+                flash('Location added successfully!', 'success')
+                return redirect(url_for('main.locations_list'))
             
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error adding location: {e}")
-            flash('Error adding location. Please try again.', 'error')
+            
+            # Check if this is an AJAX request
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            
+            if is_ajax:
+                return jsonify({
+                    'success': False,
+                    'message': f'Error adding location: {str(e)}'
+                }), 400
+            else:
+                flash('Error adding location. Please try again.', 'error')
     
     return render_template('location_form.html', location=None)
 
@@ -209,7 +251,7 @@ def edit_location(location_id):
     if request.method == 'POST':
         try:
             location.name = request.form['name']
-            location.address = request.form.get('address')
+            location.address = request.form.get('street_address')  # Map street_address to address field
             location.city = request.form.get('city')
             location.state_province = request.form.get('state_province')
             location.country = request.form.get('country')
@@ -232,13 +274,55 @@ def edit_location(location_id):
                 details=f"Updated location: {location.name}"
             )
             
-            flash('Location updated successfully!', 'success')
-            return redirect(url_for('main.locations_list'))
+            # Check if this is an AJAX request
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': 'Location updated successfully!',
+                    'location': {
+                        'id': location.id,
+                        'name': location.name,
+                        'address': location.address,
+                        'city': location.city,
+                        'state_province': location.state_province,
+                        'country': location.country,
+                        'postal_code': location.postal_code,
+                        'latitude': location.latitude,
+                        'longitude': location.longitude,
+                        'location_type': location.location_type,
+                        'pastor_name': location.pastor_name,
+                        'organization': location.organization,
+                        'notes': location.notes
+                    }
+                })
+            else:
+                flash('Location updated successfully!', 'success')
+                return redirect(url_for('main.locations_list'))
             
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error updating location: {e}")
-            flash('Error updating location. Please try again.', 'error')
+            
+            # Check if this is an AJAX request
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
+                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
+            )
+            
+            if is_ajax:
+                return jsonify({
+                    'success': False,
+                    'message': f'Error updating location: {str(e)}'
+                }), 400
+            else:
+                flash('Error updating location. Please try again.', 'error')
     
     return render_template('location_form.html', location=location)
 
@@ -1545,6 +1629,133 @@ def geocoding_status():
         'configured': geocoding_service.is_configured(),
         'service': 'OpenCage' if geocoding_service.is_configured() else None
     })
+
+@main_bp.route('/api/countries')
+def api_countries():
+    """API endpoint to get list of countries"""
+    current_app.logger.info("=== COUNTRIES API CALLED ===")
+    try:
+        # Comprehensive list of countries for international address support
+        countries = [
+            # North America
+            'United States', 'Canada', 'Mexico', 'Guatemala', 'Belize', 'El Salvador', 
+            'Honduras', 'Nicaragua', 'Costa Rica', 'Panama', 'Cuba', 'Jamaica', 
+            'Haiti', 'Dominican Republic', 'Puerto Rico', 'Trinidad and Tobago',
+            
+            # South America
+            'Brazil', 'Argentina', 'Chile', 'Colombia', 'Peru', 'Venezuela', 
+            'Ecuador', 'Bolivia', 'Paraguay', 'Uruguay', 'Guyana', 'Suriname',
+            
+            # Europe
+            'United Kingdom', 'Ireland', 'France', 'Germany', 'Italy', 'Spain', 
+            'Portugal', 'Netherlands', 'Belgium', 'Switzerland', 'Austria', 
+            'Poland', 'Czech Republic', 'Slovakia', 'Hungary', 'Romania', 
+            'Bulgaria', 'Greece', 'Croatia', 'Slovenia', 'Serbia', 'Montenegro',
+            'Bosnia and Herzegovina', 'Macedonia', 'Albania', 'Moldova', 'Ukraine',
+            'Belarus', 'Lithuania', 'Latvia', 'Estonia', 'Finland', 'Sweden',
+            'Norway', 'Denmark', 'Iceland', 'Russia', 'Turkey',
+            
+            # Asia
+            'China', 'Japan', 'South Korea', 'North Korea', 'Mongolia', 'India',
+            'Pakistan', 'Bangladesh', 'Sri Lanka', 'Nepal', 'Bhutan', 'Myanmar',
+            'Thailand', 'Vietnam', 'Laos', 'Cambodia', 'Malaysia', 'Singapore',
+            'Indonesia', 'Philippines', 'Brunei', 'Taiwan', 'Hong Kong', 'Macau',
+            'Afghanistan', 'Iran', 'Iraq', 'Israel', 'Palestine', 'Jordan',
+            'Lebanon', 'Syria', 'Saudi Arabia', 'United Arab Emirates', 'Qatar',
+            'Bahrain', 'Kuwait', 'Oman', 'Yemen', 'Kazakhstan', 'Uzbekistan',
+            'Turkmenistan', 'Tajikistan', 'Kyrgyzstan', 'Georgia', 'Armenia',
+            'Azerbaijan',
+            
+            # Africa
+            'Egypt', 'Libya', 'Tunisia', 'Algeria', 'Morocco', 'Sudan', 'South Sudan',
+            'Ethiopia', 'Eritrea', 'Djibouti', 'Somalia', 'Kenya', 'Uganda',
+            'Tanzania', 'Rwanda', 'Burundi', 'Democratic Republic of the Congo',
+            'Republic of the Congo', 'Central African Republic', 'Chad', 'Cameroon',
+            'Nigeria', 'Niger', 'Mali', 'Burkina Faso', 'Senegal', 'Gambia',
+            'Guinea-Bissau', 'Guinea', 'Sierra Leone', 'Liberia', 'Ivory Coast',
+            'Ghana', 'Togo', 'Benin', 'South Africa', 'Namibia', 'Botswana',
+            'Zimbabwe', 'Zambia', 'Malawi', 'Mozambique', 'Madagascar', 'Mauritius',
+            'Seychelles', 'Comoros', 'Angola', 'Equatorial Guinea', 'Gabon',
+            'São Tomé and Príncipe', 'Cape Verde', 'Mauritania',
+            
+            # Oceania
+            'Australia', 'New Zealand', 'Papua New Guinea', 'Fiji', 'Solomon Islands',
+            'Vanuatu', 'New Caledonia', 'Samoa', 'Tonga', 'Kiribati', 'Tuvalu',
+            'Nauru', 'Palau', 'Marshall Islands', 'Micronesia',
+            
+            # Special territories and dependencies
+            'Vatican City', 'San Marino', 'Monaco', 'Liechtenstein', 'Andorra',
+            'Greenland', 'Faroe Islands', 'Bermuda', 'Cayman Islands', 'British Virgin Islands',
+            'US Virgin Islands', 'Guam', 'Northern Mariana Islands', 'American Samoa',
+            'Cook Islands', 'French Polynesia', 'New Caledonia', 'Wallis and Futuna',
+            'Pitcairn Islands', 'Falkland Islands', 'South Georgia and South Sandwich Islands',
+            'Antarctica'
+        ]
+        
+        # Get unique countries from existing locations to add any missing ones
+        existing_countries = db.session.query(Location.country).filter(
+            Location.country.isnot(None),
+            Location.country != ''
+        ).distinct().all()
+        
+        # Add any countries from existing data that aren't in our list
+        existing_names = {country[0] for country in existing_countries if country[0]}
+        for existing_country in existing_names:
+            if existing_country not in countries:
+                countries.append(existing_country)
+        
+        # Convert to list of country objects and sort alphabetically
+        country_list = [{'name': country} for country in countries]
+        country_list.sort(key=lambda x: x['name'])
+        
+        current_app.logger.info(f"Returning {len(country_list)} countries")
+        
+        return jsonify({
+            'success': True,
+            'countries': country_list
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting countries: {e}")
+        return jsonify({'error': 'Failed to get countries'}), 500
+
+@main_bp.route('/api/living-clergy')
+def api_living_clergy():
+    """API endpoint to get list of living clergy for pastor selection"""
+    current_app.logger.info("=== LIVING CLERGY API CALLED ===")
+    try:
+        from datetime import date
+        
+        # Get clergy who are alive (no date of death or date of death is in the future)
+        # Also exclude deleted clergy
+        living_clergy = Clergy.query.filter(
+            Clergy.is_deleted != True,
+            db.or_(
+                Clergy.date_of_death.is_(None),
+                Clergy.date_of_death > date.today()
+            )
+        ).order_by(Clergy.name).all()
+        
+        # Convert to list of clergy objects
+        clergy_list = []
+        for person in living_clergy:
+            clergy_list.append({
+                'id': person.id,
+                'name': person.name,
+                'rank': person.rank or 'Unknown',
+                'organization': person.organization or ''
+            })
+        
+        current_app.logger.info(f"Returning {len(clergy_list)} living clergy")
+        
+        return jsonify({
+            'success': True,
+            'clergy': clergy_list
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting living clergy: {e}")
+        return jsonify({'error': 'Failed to get clergy list'}), 500
 
 @main_bp.route('/geocoding-test')
 def geocoding_test():

@@ -1,0 +1,62 @@
+<!-- Globe View Panel Content -->
+{% if error_message %}
+<div style="padding: 2em; text-align: center; color: rgba(255, 100, 100, 0.9); background: #1a1a1a;">
+    <i class="fas fa-exclamation-triangle" style="font-size: 2em; margin-bottom: 0.5em;"></i>
+    <div>{{ error_message }}</div>
+</div>
+{% else %}
+        <div id="globe-container" style="width: 100%; height: 100%; position: relative; background: #000011; overflow: hidden;">
+            <!-- Globe will be rendered here by D3.js -->
+        </div>
+
+<!-- Include necessary scripts for globe functionality -->
+<script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
+<script src="https://unpkg.com/topojson@3"></script>
+<script src="{{ url_for('static', filename='js/geographicLineage.js') }}"></script>
+
+<script>
+(function() {
+    console.log('Globe view template script starting...');
+    
+    // Data from the server
+    const nodesData = {{ nodes_json | safe }};
+    const linksData = {{ links_json | safe }};
+    
+    // Make location data available globally for the globe visualization
+    window.nodesData = nodesData;
+    window.linksData = linksData;
+    
+    console.log('Globe view - Location data:', nodesData.length, 'Links data:', linksData.length);
+    
+    // Wait for the script to load and then initialize
+    function waitForScriptAndInitialize() {
+        if (typeof window.GeographicLineageVisualization === 'undefined') {
+            console.log('GeographicLineageVisualization not yet loaded, retrying...');
+            setTimeout(waitForScriptAndInitialize, 100);
+            return;
+        }
+        
+        console.log('Script loaded, initializing globe view...');
+        
+        // Cleanup existing globe visualization on panel reload
+        if (window.geographicVisualization) {
+            console.log('Cleaning up existing globe visualization...');
+            if (typeof window.geographicVisualization.cleanup === 'function') {
+                window.geographicVisualization.cleanup();
+            }
+            window.geographicVisualization = null;
+        }
+        
+        // Initialize the globe visualization
+        window.geographicVisualization = new GeographicLineageVisualization();
+        window.geographicVisualization.init();
+        
+        // The globe visualization already displays location markers, so no need for chapel overlay
+        console.log('Globe view initialized successfully with', nodesData.length, 'chapel locations');
+    }
+    
+    // Start waiting for the script
+    waitForScriptAndInitialize();
+})();
+</script>
+{% endif %}

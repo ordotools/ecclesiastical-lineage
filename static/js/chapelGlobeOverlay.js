@@ -482,3 +482,6 @@ document.addEventListener('DOMContentLoaded', function() {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = ChapelGlobeOverlay;
 }
+
+// Make the class globally available
+window.ChapelGlobeOverlay = ChapelGlobeOverlay;

@@ -329,12 +329,29 @@ class GeographicLineageVisualization {
     
     setupSVG() {
         const container = d3.select('#globe-container');
+        const containerNode = container.node();
+        
+        // Get actual container dimensions
+        const containerWidth = containerNode.offsetWidth;
+        const containerHeight = containerNode.offsetHeight;
+        
+        // Use container dimensions instead of this.width/this.height
+        this.width = containerWidth;
+        this.height = containerHeight;
         
         this.svg = container
             .append('svg')
             .attr('class', 'globe-svg')
             .attr('width', this.width)
-            .attr('height', this.height);
+            .attr('height', this.height)
+            .style('position', 'absolute')
+            .style('top', '0')
+            .style('left', '0')
+            .style('z-index', '10')
+            .style('overflow', 'hidden')
+            .style('max-width', '100%')
+            .style('max-height', '100%');
+            
             
         this.g = this.svg.append('g');
         
@@ -344,6 +361,7 @@ class GeographicLineageVisualization {
             .translate([this.width / 2, this.height / 2])
             .clipAngle(this.clipAngle)
             .rotate(this.rotation);
+            
         
         // Add rotation indicator for debugging
         this.addRotationIndicator();
@@ -452,8 +470,8 @@ class GeographicLineageVisualization {
                 .attr('r', Math.min(this.width, this.height) / 2 - 50)
                 .attr('fill', 'url(#oceanGradient)')
                 .attr('stroke', '#2E5BBA')
-                .attr('stroke-width', 0.5)
-                .attr('opacity', 0.8);
+                .attr('stroke-width', 2)
+                .attr('opacity', 1.0);
             
             // Debug: Log the first few features to see the data structure
             if (worldData.features && worldData.features.length > 0) {
@@ -495,8 +513,8 @@ class GeographicLineageVisualization {
                 .attr('d', this.path)
                 .attr('fill', 'none')
                 .attr('stroke', '#666')
-                .attr('stroke-width', 0.2)
-                .attr('opacity', 0.3);
+                .attr('stroke-width', 0.5)
+                .attr('opacity', 0.6);
             
             // Add atmospheric glow effect first (so it's behind everything)
             this.addAtmosphericGlow();
@@ -741,6 +759,17 @@ class GeographicLineageVisualization {
         
         // Window resize
         window.addEventListener('resize', () => this.handleResize());
+        
+        // Panel-specific resize observer for better responsiveness
+        if (window.ResizeObserver) {
+            const container = d3.select('#globe-container').node();
+            if (container) {
+                this.resizeObserver = new ResizeObserver(() => {
+                    this.handleResize();
+                });
+                this.resizeObserver.observe(container);
+            }
+        }
     }
     
     updateGlobe() {
@@ -797,17 +826,30 @@ class GeographicLineageVisualization {
     }
     
     handleResize() {
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
+        const container = d3.select('#globe-container');
+        const containerNode = container.node();
         
+        if (!containerNode) return;
+        
+        // Get actual container dimensions
+        const containerWidth = containerNode.offsetWidth;
+        const containerHeight = containerNode.offsetHeight;
+        
+        // Update dimensions
+        this.width = containerWidth;
+        this.height = containerHeight;
+        
+        // Update SVG dimensions
         this.svg
             .attr('width', this.width)
             .attr('height', this.height);
             
+        // Update projection
         this.projection
             .scale(Math.min(this.width, this.height) / 2 - 50)
             .translate([this.width / 2, this.height / 2]);
             
+        // Update the globe
         this.updateGlobe();
     }
     
@@ -988,9 +1030,9 @@ class GeographicLineageVisualization {
             .attr('cy', this.height / 2)
             .attr('r', initialScale)
             .attr('fill', 'url(#oceanGradient)')
-            .attr('stroke', '#2E5BBA')
-            .attr('stroke-width', 0.5)
-            .attr('opacity', 0.8);
+                .attr('stroke', '#2E5BBA')
+                .attr('stroke-width', 1.5)
+                .attr('opacity', 1.0);
         
         // Create a simple circle to represent land with traditional map color
         this.g.append('circle')
@@ -1154,6 +1196,22 @@ class GeographicLineageVisualization {
             console.error('Error refreshing location data:', error);
             return false;
         }
+    }
+    
+    cleanup() {
+        // Remove resize observer
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            this.resizeObserver = null;
+        }
+        
+        // Remove tooltip
+        if (this.tooltip) {
+            this.tooltip.remove();
+        }
+        
+        // Clear the container
+        d3.select('#globe-container').selectAll('*').remove();
     }
 }
 
@@ -1379,3 +1437,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 });
+
+// Make the class globally available
+window.GeographicLineageVisualization = GeographicLineageVisualization;

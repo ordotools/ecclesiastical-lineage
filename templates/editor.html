@@ -1460,23 +1460,25 @@
         
         // State tracking for chapel list toggle
         let isChapelListVisible = false;
+        let isGlobeViewVisible = false;
         
-        // Function to toggle chapel list
+        // Function to toggle chapel list and globe view
         function toggleChapelList() {
-            console.log('Toggling chapel list, current state:', isChapelListVisible);
+            console.log('Toggling chapel list, current state:', isChapelListVisible, 'globe view:', isGlobeViewVisible);
             
             const leftPanel = document.querySelector('.left-panel .panel-content');
-            if (!leftPanel) {
-                console.error('Left panel not found');
+            const centerPanel = document.querySelector('#visualization-panel-content');
+            if (!leftPanel || !centerPanel) {
+                console.error('Required panels not found');
                 return;
             }
             
             const panelHeader = document.querySelector('.left-panel .panel-header');
             const toggleButton = document.getElementById('chapelListToggle');
             
-            if (!isChapelListVisible) {
-                // Switch to chapel list
-                console.log('Switching to chapel list...');
+            if (!isChapelListVisible && !isGlobeViewVisible) {
+                // Switch to chapel list and globe view
+                console.log('Switching to chapel list and globe view...');
                 
                 // Update the panel header
                 if (panelHeader) {
@@ -1499,9 +1501,20 @@
                 }).catch(error => {
                     console.error('Error switching to chapel list:', error);
                 });
+                
+                // Load globe view content
+                htmx.ajax('GET', '/editor/globe-view', {
+                    target: centerPanel,
+                    swap: 'innerHTML'
+                }).then(() => {
+                    console.log('Successfully switched to globe view');
+                    isGlobeViewVisible = true;
+                }).catch(error => {
+                    console.error('Error switching to globe view:', error);
+                });
             } else {
-                // Switch back to clergy list
-                console.log('Switching back to clergy list...');
+                // Switch back to clergy list and lineage graph
+                console.log('Switching back to clergy list and lineage graph...');
                 
                 // Update the panel header
                 if (panelHeader) {
@@ -1523,6 +1536,17 @@
                     isChapelListVisible = false;
                 }).catch(error => {
                     console.error('Error switching back to clergy list:', error);
+                });
+                
+                // Load lineage graph content
+                htmx.ajax('GET', '/editor/visualization', {
+                    target: centerPanel,
+                    swap: 'innerHTML'
+                }).then(() => {
+                    console.log('Successfully switched back to lineage graph');
+                    isGlobeViewVisible = false;
+                }).catch(error => {
+                    console.error('Error switching back to lineage graph:', error);
                 });
             }
         }

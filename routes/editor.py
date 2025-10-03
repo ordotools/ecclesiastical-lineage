@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from services import clergy as clergy_service
 from services.clergy import permanently_delete_clergy_handler
 from utils import audit_log, require_permission, log_audit_event
-from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite
+from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite, Location
 from datetime import datetime
 from sqlalchemy import text
 import json
@@ -146,6 +146,65 @@ def visualization_panel():
         current_app.logger.error(f"Error in visualization panel: {e}")
         return render_template('editor_panels/visualization.html', 
                              error_message=f"Error loading visualization: {str(e)}",
+                             nodes_json='[]',
+                             links_json='[]')
+
+@editor_bp.route('/editor/globe-view')
+@require_permission('edit_clergy')
+def globe_view_panel():
+    """HTMX endpoint for the center panel globe view"""
+    try:
+        # Get all active locations (chapels, churches, etc.) for the globe visualization
+        all_locations = Location.query.filter(Location.is_active == True).all()
+        
+        # Prepare data for D3.js globe visualization
+        nodes = []
+        links = []
+        
+        # Create nodes for each location with coordinates
+        for location in all_locations:
+            # Only include locations that have coordinates
+            if location.has_coordinates():
+                # Determine color based on location type
+                color_map = {
+                    'church': '#27ae60',      # Green for churches
+                    'organization': '#3498db', # Blue for organizations
+                    'address': '#e74c3c',     # Red for addresses
+                    'cathedral': '#9b59b6',   # Purple for cathedrals
+                    'monastery': '#f39c12',   # Orange for monasteries
+                    'seminary': '#1abc9c',    # Teal for seminaries
+                    'chapel': '#e67e22'       # Orange for chapels
+                }
+                
+                node_color = color_map.get(location.location_type, '#95a5a6')
+                
+                nodes.append({
+                    'id': location.id,
+                    'name': location.name,
+                    'location_type': location.location_type,
+                    'pastor_name': location.pastor_name,
+                    'organization': location.organization,
+                    'address': location.get_full_address(),
+                    'city': location.city,
+                    'country': location.country,
+                    'latitude': location.latitude,
+                    'longitude': location.longitude,
+                    'color': node_color,
+                    'notes': location.notes
+                })
+
+        # Convert to JSON for JavaScript
+        nodes_json = json.dumps(nodes)
+        links_json = json.dumps(links)
+
+        return render_template('editor_panels/globe_view.html', 
+                             nodes_json=nodes_json, 
+                             links_json=links_json)
+    
+    except Exception as e:
+        current_app.logger.error(f"Error in globe view panel: {e}")
+        return render_template('editor_panels/globe_view.html', 
+                             error_message=f"Error loading globe view: {str(e)}",
                              nodes_json='[]',
                              links_json='[]')
 

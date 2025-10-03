@@ -55,32 +55,30 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 print_success "✅ DATABASE_URL is configured"
 
-# Step 4: Initialize database first (creates tables if they don't exist)
-print_status "🗄️  Initializing database tables..."
-if python3 scripts/database/init_postgres_db.py; then
-    print_success "✅ Database initialization completed successfully!"
-else
-    print_warning "⚠️  Database initialization had warnings (admin user may already exist)"
-    print_status "🔍 Checking if database is functional..."
-    if python3 -c "
+# Step 4: Check database connection
+print_status "🔍 Checking database connection..."
+if python3 -c "
 from app import app, db
 from models import User
 with app.app_context():
-    user_count = User.query.count()
-    print(f'✅ Database is functional - {user_count} users found')
-    if user_count > 0:
-        print('✅ Database has data, continuing with deployment')
-    else:
-        print('⚠️  Database is empty but functional')
+    try:
+        user_count = User.query.count()
+        print(f'✅ Database is functional - {user_count} users found')
+        if user_count > 0:
+            print('✅ Database has data, continuing with deployment')
+        else:
+            print('⚠️  Database is empty but functional')
+    except Exception as e:
+        print(f'❌ Database connection failed: {e}')
+        exit(1)
 "; then
-        print_success "✅ Database is functional, continuing deployment"
-    else
-        print_error "❌ Database is not functional!"
-        exit 1
-    fi
+    print_success "✅ Database is functional, continuing deployment"
+else
+    print_error "❌ Database is not functional!"
+    exit 1
 fi
 
-# Step 5: Run database migration using Flask-Migrate
+# Step 4: Run database migration using Flask-Migrate
 print_status "🗄️  Running Flask-Migrate database migration..."
 if python3 -c "
 import os
@@ -110,7 +108,7 @@ else
     exit 1
 fi
 
-# Step 6: Verify database is ready
+# Step 5: Verify database is ready
 print_status "🔍 Verifying database..."
 python3 -c "
 import os
@@ -184,7 +182,7 @@ else
     exit 1
 fi
 
-# Step 7: Start the application
+# Step 6: Start the application
 print_status "🌐 Starting STAGING application..."
 print_success "✅ STAGING deployment completed successfully!"
 echo ""

@@ -1503,6 +1503,189 @@ def check_and_create_bishops():
             'message': f'Error creating bishops: {str(e)}'
         }), 500
 
+# API endpoint for checking and creating pastors
+@main_bp.route('/api/check-and-create-pastor', methods=['POST'])
+@require_permission('add_clergy')
+def check_and_create_pastor():
+    """Check if pastor exists by name and create them if they don't"""
+    try:
+        data = request.get_json()
+        pastor_name = data.get('pastor_name', '').strip()
+        
+        if not pastor_name:
+            return jsonify({'success': True, 'pastor_id': None})
+        
+        # Check if pastor already exists
+        existing_pastor = Clergy.query.filter_by(name=pastor_name).first()
+        if existing_pastor:
+            return jsonify({
+                'success': True, 
+                'pastor_id': existing_pastor.id,
+                'pastor_name': existing_pastor.name,
+                'created': False
+            })
+        
+        # Create new pastor with rank 'Pastor' (or 'Priest' if more appropriate)
+        new_pastor = Clergy(
+            name=pastor_name,
+            rank='Pastor',
+            notes=f'Auto-created pastor record for {pastor_name}'
+        )
+        db.session.add(new_pastor)
+        db.session.flush()  # Get the ID
+        
+        # Log the creation
+        log_audit_event(
+            action='create',
+            entity_type='clergy',
+            entity_id=new_pastor.id,
+            entity_name=new_pastor.name,
+            details={
+                'rank': new_pastor.rank,
+                'auto_created': True,
+                'reason': 'Missing pastor for chapel/location'
+            }
+        )
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'pastor_id': new_pastor.id,
+            'pastor_name': new_pastor.name,
+            'created': True,
+            'message': f'Created new pastor record for {pastor_name}'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error creating pastor: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Error creating pastor: {str(e)}'
+        }), 500
+
+# Test route for pastor creation functionality
+@main_bp.route('/test-pastor-form')
+def test_pastor_form():
+    """Test route to verify pastor creation functionality"""
+    return current_app.send_static_file('test_pastor_form.html')
+
+# Test API endpoint for pastor creation (no authentication required for testing)
+@main_bp.route('/api/test-check-and-create-pastor', methods=['POST'])
+def test_check_and_create_pastor():
+    """Test version of pastor creation API that doesn't require authentication"""
+    try:
+        data = request.get_json()
+        pastor_name = data.get('pastor_name', '').strip()
+        
+        if not pastor_name:
+            return jsonify({'success': True, 'pastor_id': None})
+        
+        # Check if pastor already exists
+        existing_pastor = Clergy.query.filter_by(name=pastor_name).first()
+        if existing_pastor:
+            return jsonify({
+                'success': True, 
+                'pastor_id': existing_pastor.id,
+                'pastor_name': existing_pastor.name,
+                'created': False
+            })
+        
+        # Create new pastor with rank 'Pastor'
+        new_pastor = Clergy(
+            name=pastor_name,
+            rank='Pastor',
+            notes=f'Test-created pastor record for {pastor_name}'
+        )
+        db.session.add(new_pastor)
+        db.session.flush()  # Get the ID
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'pastor_id': new_pastor.id,
+            'pastor_name': new_pastor.name,
+            'created': True,
+            'message': f'Test-created new pastor record for {pastor_name}'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error in test pastor creation: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Error creating pastor: {str(e)}'
+        }), 500
+
+# Test API endpoint for location creation (no authentication required for testing)
+@main_bp.route('/api/test-locations-add', methods=['POST'])
+def test_add_location():
+    """Test version of location creation API that doesn't require authentication"""
+    try:
+        # Handle organization_id
+        organization_id = request.form.get('organization_id')
+        if organization_id:
+            organization_id = int(organization_id)
+        else:
+            organization_id = None
+        
+        location = Location(
+            name=request.form['name'],
+            address=request.form.get('street_address'),  # Map street_address to address field
+            city=request.form.get('city'),
+            state_province=request.form.get('state_province'),
+            country=request.form.get('country'),
+            postal_code=request.form.get('postal_code'),
+            latitude=float(request.form['latitude']) if request.form.get('latitude') else None,
+            longitude=float(request.form['longitude']) if request.form.get('longitude') else None,
+            location_type=request.form.get('location_type', 'church'),
+            pastor_name=request.form.get('pastor_name'),
+            organization=request.form.get('organization'),  # Keep legacy field
+            organization_id=organization_id,  # New foreign key field
+            notes=request.form.get('notes'),
+            deleted=False,
+            created_by=None  # No user for test
+        )
+        
+        db.session.add(location)
+        db.session.commit()
+        
+        # Load the organization relationship for the response
+        db.session.refresh(location)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Test location added successfully!',
+            'location': {
+                'id': location.id,
+                'name': location.name,
+                'address': location.address,
+                'city': location.city,
+                'state_province': location.state_province,
+                'country': location.country,
+                'postal_code': location.postal_code,
+                'latitude': location.latitude,
+                'longitude': location.longitude,
+                'location_type': location.location_type,
+                'pastor_name': location.pastor_name,
+                'organization': location.organization,
+                'organization_id': location.organization_id,
+                'organization_name': location.organization_obj.name if location.organization_obj else None,
+                'notes': location.notes,
+                'deleted': location.deleted
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error adding test location: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Error adding location: {str(e)}'
+        }), 500
+
 # Database initialization (for development)
 @main_bp.route('/init-db')
 def init_db():

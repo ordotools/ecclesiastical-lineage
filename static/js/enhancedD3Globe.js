@@ -158,13 +158,72 @@ class EnhancedD3Globe {
             .attr('stop-opacity', 0);
     }
     
+    async detectConnectionSpeed() {
+        // Use Network Information API if available
+        if ('connection' in navigator) {
+            const connection = navigator.connection;
+            const effectiveType = connection.effectiveType;
+            
+            console.log('Network effective type:', effectiveType);
+            
+            if (effectiveType === '4g' || effectiveType === '5g') {
+                return 'fast';
+            } else if (effectiveType === '3g') {
+                return 'medium';
+            } else {
+                return 'slow';
+            }
+        }
+        
+        // Fallback: Test download speed with a small image
+        try {
+            const startTime = performance.now();
+            const testImage = new Image();
+            
+            return new Promise((resolve) => {
+                testImage.onload = () => {
+                    const endTime = performance.now();
+                    const duration = endTime - startTime;
+                    
+                    // Rough speed estimation based on load time
+                    if (duration < 500) {
+                        resolve('fast');
+                    } else if (duration < 1500) {
+                        resolve('medium');
+                    } else {
+                        resolve('slow');
+                    }
+                };
+                
+                testImage.onerror = () => {
+                    resolve('slow'); // Default to slow if test fails
+                };
+                
+                // Use a small test image (1KB)
+                testImage.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+            });
+        } catch (error) {
+            console.warn('Connection speed detection failed:', error);
+            return 'medium'; // Default fallback
+        }
+    }
+    
     async loadWorldData() {
         try {
             let world;
+            
+            // Detect connection speed and choose appropriate data source
+            const connectionSpeed = await this.detectConnectionSpeed();
+            console.log('Detected connection speed:', connectionSpeed);
+            
+            // Store connection speed for rendering optimization
+            this.connectionSpeed = connectionSpeed;
+            
+            // Define data sources - use working sources
             const dataSources = [
                 'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson',
-                'https://unpkg.com/world-atlas@1/world/110m.json',
-                'https://raw.githubusercontent.com/d3/d3-geo/master/test/data/world-110m.json'
+                'https://raw.githubusercontent.com/d3/d3-geo/master/test/data/world-110m.json',
+                'https://unpkg.com/world-atlas@1/world/110m.json'
             ];
             
             for (const url of dataSources) {
@@ -405,10 +464,38 @@ class EnhancedD3Globe {
     addWorldMapWithColors(worldData) {
         const worldGroup = this.g.append('g').attr('class', 'world-map-group');
         
+        // Apply detail level based on connection speed
+        const detailLevel = this.getDetailLevel();
+        console.log('Rendering world map with detail level:', detailLevel);
+        
         // Draw the world map with country colors
         if (worldData.features) {
+            // Filter features based on detail level for performance
+            let featuresToRender = worldData.features;
+            const totalFeatures = worldData.features.length;
+            
+            if (detailLevel === 'low') {
+                // For slow connections, only render larger countries
+                featuresToRender = worldData.features.filter(d => {
+                    const area = d3.geoArea(d);
+                    return area > 0.01; // Increased threshold for more dramatic difference
+                });
+            } else if (detailLevel === 'medium') {
+                // For medium connections, filter out very small features
+                featuresToRender = worldData.features.filter(d => {
+                    const area = d3.geoArea(d);
+                    return area > 0.001; // Increased threshold
+                });
+            }
+            // For fast connections, render all features
+            
+            console.log(`Detail level: ${detailLevel}`);
+            console.log(`Total features: ${totalFeatures}`);
+            console.log(`Features to render: ${featuresToRender.length}`);
+            console.log(`Filtered out: ${totalFeatures - featuresToRender.length} features`);
+            
             worldGroup.selectAll('path')
-                .data(worldData.features)
+                .data(featuresToRender)
                 .enter()
                 .append('path')
                 .attr('class', 'globe-path')
@@ -418,8 +505,8 @@ class EnhancedD3Globe {
                     const countryName = d.properties?.NAME || d.properties?.name || d.properties?.NAME_EN || `Country_${i}`;
                     return this.getCountryColor(countryName);
                 })
-                .attr('stroke', '#2D4A2D')
-                .attr('stroke-width', 0.3)
+                .attr('stroke', detailLevel === 'high' ? '#2D4A2D' : detailLevel === 'medium' ? '#4A6B4A' : '#6B8B6B')
+                .attr('stroke-width', detailLevel === 'high' ? 0.3 : detailLevel === 'medium' ? 0.8 : 1.2)
                 .attr('opacity', 1);
         } else {
             // Fallback for single geometry
@@ -428,9 +515,20 @@ class EnhancedD3Globe {
                 .attr('class', 'globe-path')
                 .attr('d', this.path)
                 .attr('fill', this.getCountryColor('World'))
-                .attr('stroke', '#2D4A2D')
-                .attr('stroke-width', 0.3)
+                .attr('stroke', detailLevel === 'high' ? '#2D4A2D' : detailLevel === 'medium' ? '#4A6B4A' : '#6B8B6B')
+                .attr('stroke-width', detailLevel === 'high' ? 0.3 : detailLevel === 'medium' ? 0.8 : 1.2)
                 .attr('opacity', 1);
+        }
+    }
+    
+    getDetailLevel() {
+        // Return detail level based on connection speed
+        if (this.connectionSpeed === 'fast') {
+            return 'high';
+        } else if (this.connectionSpeed === 'medium') {
+            return 'medium';
+        } else {
+            return 'low';
         }
     }
     
@@ -582,8 +680,8 @@ class EnhancedD3Globe {
                         const deltaX = currentMousePosition[0] - this.lastMousePosition[0];
                         const deltaY = currentMousePosition[1] - this.lastMousePosition[1];
                         
-                        this.rotation[0] += deltaX * 0.5;
-                        this.rotation[1] -= deltaY * 0.5;
+                        this.rotation[0] += deltaX * 0.15;
+                        this.rotation[1] -= deltaY * 0.15;
                         
                         this.projection.rotate(this.rotation);
                         this.updateGlobe();

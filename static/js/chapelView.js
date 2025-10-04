@@ -1,9 +1,9 @@
 /**
- * Geographic Lineage Visualization
- * Interactive 3D globe showing clergy locations and relationships
+ * Chapel View Visualization
+ * Interactive 3D globe showing chapel locations and relationships
  */
 
-class GeographicLineageVisualization {
+class ChapelViewVisualization {
     constructor() {
         this.width = window.innerWidth;
         this.height = window.innerHeight;
@@ -16,6 +16,9 @@ class GeographicLineageVisualization {
         this.isDragging = false;
         this.lastMousePosition = null;
         this.clipAngle = 90; // Clip angle for backface culling
+        
+        // Initialize centralized styling
+        this.styles = new LocationMarkerStyles();
         
         // Country color palette - traditional paper map colors
         this.countryColors = {
@@ -330,7 +333,7 @@ class GeographicLineageVisualization {
     }
     
     init() {
-        console.log('Initializing Geographic Lineage Visualization');
+        console.log('Initializing Chapel View Visualization');
         this.setupSVG();
         this.setupTooltip();
         this.loadWorldData();
@@ -379,10 +382,23 @@ class GeographicLineageVisualization {
     }
     
     setupTooltip() {
+        // Create a simple, reliable tooltip
         this.tooltip = d3.select('body')
             .append('div')
             .attr('class', 'tooltip')
-            .style('opacity', 0);
+            .style('position', 'absolute')
+            .style('background', 'rgba(0, 0, 0, 0.9)')
+            .style('color', 'white')
+            .style('padding', '8px 12px')
+            .style('border-radius', '4px')
+            .style('font-size', '12px')
+            .style('pointer-events', 'none')
+            .style('z-index', '1000')
+            .style('max-width', '200px')
+            .style('opacity', 0)
+            .style('display', 'none');
+        
+        console.log('Tooltip setup complete:', this.tooltip);
     }
     
     createOceanGradient() {
@@ -564,38 +580,31 @@ class GeographicLineageVisualization {
                 const [x, y] = this.projection([location.longitude, location.latitude]);
                 
                 if (x !== undefined && y !== undefined) {
-                    // Create a simple, clean location marker
+                    // Create a simple, clean location marker using centralized styling
                     const marker = locationGroup.append('circle')
-                        .attr('class', 'location-marker')
+                        .attr('class', this.styles.getCSSClass('locationMarker'))
                         .attr('cx', x)
                         .attr('cy', y)
-                        .attr('r', 8)
-                        .attr('fill', location.color)
-                        .attr('stroke', '#ffffff')
-                        .attr('stroke-width', 3)
-                        .attr('data-location-id', location.id)
-                        .style('cursor', 'pointer')
-                        .style('pointer-events', 'all')
-                        .style('opacity', 1)
-                        .style('z-index', '1000');
+                        .attr('data-location-id', location.id);
+                    
+                    // Apply styling using centralized configuration
+                    this.styles.applyMarkerStyle(marker, 'normal', location.color);
                     
                     // Add click handler
                     marker.on('click', (event) => {
                         console.log('Location clicked:', location.name);
                         event.stopPropagation();
-                        this.handleLocationClick(location);
+                        this.handleLocationClick(event, location);
                     });
                     
-                    // Add hover effects (optimized for performance)
+                    // Add hover effects using centralized styling
                     marker.on('mouseover', (event) => {
-                        d3.select(event.target)
-                            .attr('r', 10);
+                        this.styles.applyMarkerStyle(d3.select(event.target), 'hover', location.color);
                         this.showLocationTooltip(event, location);
                     });
                     
                     marker.on('mouseout', (event) => {
-                        d3.select(event.target)
-                            .attr('r', 8);
+                        this.styles.applyMarkerStyle(d3.select(event.target), 'normal', location.color);
                         this.hideTooltip();
                     });
                 } else {
@@ -604,18 +613,13 @@ class GeographicLineageVisualization {
             } else {
                 // Location is on the back side of the globe, create hidden marker
                 const marker = locationGroup.append('circle')
-                    .attr('class', 'location-marker')
+                    .attr('class', this.styles.getCSSClass('locationMarker'))
                     .attr('cx', 0)
                     .attr('cy', 0)
-                    .attr('r', 8)
-                    .attr('fill', location.color)
-                    .attr('stroke', '#ffffff')
-                    .attr('stroke-width', 3)
-                    .attr('data-location-id', location.id)
-                    .style('cursor', 'pointer')
-                    .style('pointer-events', 'none')
-                    .style('opacity', 0)
-                    .style('z-index', '1000');
+                    .attr('data-location-id', location.id);
+                
+                // Apply hidden styling using centralized configuration
+                this.styles.applyMarkerStyle(marker, 'hidden', location.color);
                 
                 // Add click handler (will be enabled when visible)
                 marker.on('click', (event) => {
@@ -626,14 +630,12 @@ class GeographicLineageVisualization {
                 
                 // Add hover effects (will be enabled when visible)
                 marker.on('mouseover', (event) => {
-                    d3.select(event.target)
-                        .attr('r', 10);
+                    this.styles.applyMarkerStyle(d3.select(event.target), 'hover', location.color);
                     this.showLocationTooltip(event, location);
                 });
                 
                 marker.on('mouseout', (event) => {
-                    d3.select(event.target)
-                        .attr('r', 8);
+                    this.styles.applyMarkerStyle(d3.select(event.target), 'normal', location.color);
                     this.hideTooltip();
                 });
             }
@@ -755,6 +757,17 @@ class GeographicLineageVisualization {
     }
     
     setupEventListeners() {
+        // Initialize touch state
+        this.touchState = {
+            isTouching: false,
+            lastTouchPosition: null,
+            touchStartTime: null,
+            touchStartPosition: null,
+            isPinching: false,
+            lastPinchDistance: null,
+            lastPinchCenter: null
+        };
+        
         // Drag to rotate globe - only on empty space, not on location markers
         this.svg
             .call(d3.drag()
@@ -789,6 +802,9 @@ class GeographicLineageVisualization {
                     this.svg.classed('dragging', false);
                 }));
         
+        // Touch events for mobile devices
+        this.setupTouchEvents();
+        
         // Zoom
         this.svg
             .call(d3.zoom()
@@ -820,6 +836,178 @@ class GeographicLineageVisualization {
                 });
                 this.resizeObserver.observe(container);
             }
+        }
+    }
+    
+    setupTouchEvents() {
+        const svgNode = this.svg.node();
+        
+        // Touch start
+        svgNode.addEventListener('touchstart', (event) => {
+            event.preventDefault();
+            
+            if (event.touches.length === 1) {
+                // Single touch - start rotation
+                this.touchState.isTouching = true;
+                this.touchState.touchStartTime = Date.now();
+                this.touchState.touchStartPosition = this.getTouchPosition(event.touches[0]);
+                this.touchState.lastTouchPosition = this.touchState.touchStartPosition;
+                this.touchState.isPinching = false;
+                
+                // Check if touching a location marker
+                const target = event.target;
+                if (target.classList.contains('location-marker')) {
+                    // Don't start rotation if touching a marker
+                    this.touchState.isTouching = false;
+                    return;
+                }
+                
+                this.svg.classed('dragging', true);
+            } else if (event.touches.length === 2) {
+                // Two touches - start pinch zoom
+                this.touchState.isPinching = true;
+                this.touchState.isTouching = false;
+                this.touchState.lastPinchDistance = this.getPinchDistance(event.touches);
+                this.touchState.lastPinchCenter = this.getPinchCenter(event.touches);
+            }
+        }, { passive: false });
+        
+        // Touch move
+        svgNode.addEventListener('touchmove', (event) => {
+            event.preventDefault();
+            
+            if (this.touchState.isTouching && event.touches.length === 1) {
+                // Single touch rotation
+                const currentTouchPosition = this.getTouchPosition(event.touches[0]);
+                const deltaX = currentTouchPosition[0] - this.touchState.lastTouchPosition[0];
+                const deltaY = currentTouchPosition[1] - this.touchState.lastTouchPosition[1];
+                
+                this.rotation[0] += deltaX * 0.5;
+                this.rotation[1] -= deltaY * 0.5;
+                
+                this.projection.rotate(this.rotation);
+                this.updateGlobe();
+                this.updateRotationIndicator();
+                
+                this.touchState.lastTouchPosition = currentTouchPosition;
+            } else if (this.touchState.isPinching && event.touches.length === 2) {
+                // Two finger pinch zoom
+                const currentPinchDistance = this.getPinchDistance(event.touches);
+                const currentPinchCenter = this.getPinchCenter(event.touches);
+                
+                if (this.touchState.lastPinchDistance && this.touchState.lastPinchCenter) {
+                    const scaleChange = currentPinchDistance / this.touchState.lastPinchDistance;
+                    const currentScale = this.projection.scale();
+                    const newScale = Math.max(0.5, Math.min(3, currentScale * scaleChange));
+                    
+                    this.projection.scale(newScale);
+                    this.updateGlobe();
+                }
+                
+                this.touchState.lastPinchDistance = currentPinchDistance;
+                this.touchState.lastPinchCenter = currentPinchCenter;
+            }
+        }, { passive: false });
+        
+        // Touch end
+        svgNode.addEventListener('touchend', (event) => {
+            event.preventDefault();
+            
+            if (event.touches.length === 0) {
+                // All touches ended
+                this.touchState.isTouching = false;
+                this.touchState.isPinching = false;
+                this.touchState.lastTouchPosition = null;
+                this.touchState.lastPinchDistance = null;
+                this.touchState.lastPinchCenter = null;
+                this.svg.classed('dragging', false);
+                
+                // Check for tap (quick touch and release)
+                if (this.touchState.touchStartTime && Date.now() - this.touchState.touchStartTime < 300) {
+                    this.handleTap(event);
+                }
+            } else if (event.touches.length === 1 && this.touchState.isPinching) {
+                // Switched from pinch to single touch
+                this.touchState.isPinching = false;
+                this.touchState.isTouching = true;
+                this.touchState.lastTouchPosition = this.getTouchPosition(event.touches[0]);
+            }
+        }, { passive: false });
+        
+        // Prevent default touch behaviors that might interfere
+        svgNode.addEventListener('touchcancel', (event) => {
+            event.preventDefault();
+            this.touchState.isTouching = false;
+            this.touchState.isPinching = false;
+            this.touchState.lastTouchPosition = null;
+            this.touchState.lastPinchDistance = null;
+            this.touchState.lastPinchCenter = null;
+            this.svg.classed('dragging', false);
+        }, { passive: false });
+    }
+    
+    getTouchPosition(touch) {
+        const rect = this.svg.node().getBoundingClientRect();
+        return [
+            touch.clientX - rect.left,
+            touch.clientY - rect.top
+        ];
+    }
+    
+    getPinchDistance(touches) {
+        const touch1 = touches[0];
+        const touch2 = touches[1];
+        const dx = touch1.clientX - touch2.clientX;
+        const dy = touch1.clientY - touch2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    getPinchCenter(touches) {
+        const touch1 = touches[0];
+        const touch2 = touches[1];
+        const rect = this.svg.node().getBoundingClientRect();
+        return [
+            (touch1.clientX + touch2.clientX) / 2 - rect.left,
+            (touch1.clientY + touch2.clientY) / 2 - rect.top
+        ];
+    }
+    
+    handleTap(event) {
+        // Handle tap on location markers
+        const touch = event.changedTouches[0];
+        const touchPosition = this.getTouchPosition(touch);
+        
+        // Find the location marker at the touch position
+        const locationMarkers = this.g.selectAll('.location-marker');
+        let clickedMarker = null;
+        
+        locationMarkers.each(function(d) {
+            const marker = d3.select(this);
+            const cx = parseFloat(marker.attr('cx'));
+            const cy = parseFloat(marker.attr('cy'));
+            const r = parseFloat(marker.attr('r'));
+            
+            const distance = Math.sqrt(
+                Math.pow(touchPosition[0] - cx, 2) + 
+                Math.pow(touchPosition[1] - cy, 2)
+            );
+            
+            if (distance <= r && marker.style('opacity') !== '0' && marker.style('pointer-events') === 'all') {
+                clickedMarker = { marker, data: d };
+            }
+        });
+        
+        if (clickedMarker) {
+            // Simulate a click event on the marker
+            const clickEvent = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            
+            clickedMarker.marker.node().dispatchEvent(clickEvent);
         }
     }
     
@@ -905,18 +1093,7 @@ class GeographicLineageVisualization {
     }
     
     showLocationTooltip(event, location) {
-        this.tooltip
-            .style('opacity', 1)
-            .html(`
-                <h6>${location.name}</h6>
-                <p><strong>Type:</strong> ${location.location_type}</p>
-                ${location.pastor_name ? `<p><strong>Pastor:</strong> ${location.pastor_name}</p>` : ''}
-                ${location.organization ? `<p><strong>Organization:</strong> ${location.organization}</p>` : ''}
-                <p><strong>Address:</strong> ${location.address || 'No address'}</p>
-                <p><strong>Coordinates:</strong> ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}</p>
-            `)
-            .style('left', (event.pageX + 10) + 'px')
-            .style('top', (event.pageY - 10) + 'px');
+        this.styles.showTooltip(this.tooltip, event, location, 'location');
     }
     
     showTooltip(event, clergy, location) {
@@ -944,16 +1121,17 @@ class GeographicLineageVisualization {
     }
     
     hideTooltip() {
-        this.tooltip.style('opacity', 0);
+        this.styles.hideTooltip(this.tooltip);
     }
     
-    handleLocationClick(location) {
+    handleLocationClick(event, location) {
         console.log('=== LOCATION CLICKED ===');
         console.log('Location:', location.name);
         console.log('Type:', location.location_type);
         console.log('Coordinates:', [location.latitude, location.longitude]);
         
-        this.showLocationDetails(location);
+        // Use persistent tooltip instead of side panel
+        this.styles.showPersistentTooltip(event, location, 'location');
     }
     
     selectLocation(event, location) {
@@ -1221,7 +1399,7 @@ class GeographicLineageVisualization {
         
         try {
             // Fetch updated location data from the API endpoint
-            const response = await fetch('/api/geographic-locations');
+            const response = await fetch('/api/chapel-locations');
             const data = await response.json();
             
             if (data.success) {
@@ -1311,7 +1489,7 @@ class GeographicLineageVisualization {
             marker.on('click', (event) => {
                 console.log('Location clicked:', locationData.name);
                 event.stopPropagation();
-                this.handleLocationClick(locationData);
+                this.handleLocationClick(event, locationData);
             });
             
             // Add hover effects
@@ -1346,7 +1524,7 @@ class GeographicLineageVisualization {
             marker.on('click', (event) => {
                 console.log('Location clicked:', locationData.name);
                 event.stopPropagation();
-                this.handleLocationClick(locationData);
+                this.handleLocationClick(event, locationData);
             });
             
             // Add hover effects (will be enabled when visible)
@@ -1464,8 +1642,8 @@ class GeographicLineageVisualization {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing Geographic Lineage Visualization');
-    window.geographicVisualization = new GeographicLineageVisualization();
+    console.log('Initializing Chapel View Visualization');
+    window.geographicVisualization = new ChapelViewVisualization();
     
     // Add test function to global scope for debugging
     window.testCountryColors = function() {
@@ -1686,4 +1864,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Make the class globally available
-window.GeographicLineageVisualization = GeographicLineageVisualization;
+window.ChapelViewVisualization = ChapelViewVisualization;

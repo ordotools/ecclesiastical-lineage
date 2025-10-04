@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Geographic Lineage - Episcopal Lineage{% endblock %}
+{% block title %}Chapel View - Episcopal Lineage{% endblock %}
 
 {% block full_content %}
 <script>
@@ -482,16 +482,18 @@
 <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
 <script src="https://unpkg.com/topojson@3"></script>
 <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
+<!-- Centralized styling system -->
+<script src="{{ url_for('static', filename='js/locationMarkerStyles.js') }}"></script>
 <!-- Include the new clean clergy form controller -->
 <script src="{{ url_for('static', filename='js/clergy-form-controller.js') }}"></script>
 <script>
 window.linksData = {{ links_json | safe }};
 window.nodesData = {{ nodes_json | safe }};
-console.log('Geographic template rendered at:', new Date().toISOString());
+console.log('Chapel view template rendered at:', new Date().toISOString());
 console.log('Template links count:', window.linksData ? window.linksData.length : 'undefined');
 console.log('Template nodes count:', window.nodesData ? window.nodesData.length : 'undefined');
 </script>
-<script src="{{ url_for('static', filename='js/geographicLineage.js') }}?v={{ range(1000, 9999) | random }}"></script>
+<script src="{{ url_for('static', filename='js/chapelView.js') }}?v={{ range(1000, 9999) | random }}"></script>
 <script src="{{ url_for('static', filename='js/chapelGlobeOverlay.js') }}?v={{ range(1000, 9999) | random }}"></script>
 
 <!-- Add Clergy Button Handler -->
@@ -593,6 +595,42 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endif %}
+
+<!-- Side Menu Toggle Handler -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize side menu toggle functionality
+    const sideMenuToggle = document.getElementById('side-menu-toggle');
+    const sideMenu = document.getElementById('side-menu');
+
+    if (sideMenuToggle && sideMenu) {
+        sideMenuToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            sideMenu.classList.toggle('expanded');
+            
+            // Update toggle button icon
+            const icon = sideMenuToggle.querySelector('i');
+            if (sideMenu.classList.contains('expanded')) {
+                icon.className = 'fas fa-times';
+                sideMenuToggle.setAttribute('aria-label', 'Close side menu');
+            } else {
+                icon.className = 'fas fa-bars';
+                sideMenuToggle.setAttribute('aria-label', 'Open side menu');
+            }
+        });
+        
+        // Close side menu when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!sideMenu.contains(event.target) && !sideMenuToggle.contains(event.target)) {
+                sideMenu.classList.remove('expanded');
+                const icon = sideMenuToggle.querySelector('i');
+                icon.className = 'fas fa-bars';
+                sideMenuToggle.setAttribute('aria-label', 'Open side menu');
+            }
+        });
+    }
+});
+</script>
 
 <!-- Chapel Overlay Control Handlers -->
 <script>

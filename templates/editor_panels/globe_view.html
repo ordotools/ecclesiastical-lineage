@@ -7,12 +7,30 @@
 {% else %}
         <div id="globe-container" style="width: 100%; height: 100%; position: relative; background: #000011; overflow: hidden;">
             <!-- Globe will be rendered here by D3.js -->
+            
+            <!-- Mobile control buttons -->
+            <div class="globe-controls-mobile" style="display: none;">
+                <button class="globe-control-btn" id="reset-zoom-mobile" title="Reset View">
+                    <i class="fas fa-home"></i>
+                </button>
+                <button class="globe-control-btn" id="center-graph-mobile" title="Center Globe">
+                    <i class="fas fa-crosshairs"></i>
+                </button>
+                <button class="globe-control-btn" id="zoom-in-mobile" title="Zoom In">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button class="globe-control-btn" id="zoom-out-mobile" title="Zoom Out">
+                    <i class="fas fa-minus"></i>
+                </button>
+            </div>
         </div>
 
 <!-- Include necessary scripts for globe functionality -->
 <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
 <script src="https://unpkg.com/topojson@3"></script>
-<script src="{{ url_for('static', filename='js/geographicLineage.js') }}"></script>
+<!-- Centralized styling system -->
+<script src="{{ url_for('static', filename='js/locationMarkerStyles.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chapelView.js') }}"></script>
 
 <script>
 (function() {
@@ -30,8 +48,8 @@
     
     // Wait for the script to load and then initialize
     function waitForScriptAndInitialize() {
-        if (typeof window.GeographicLineageVisualization === 'undefined') {
-            console.log('GeographicLineageVisualization not yet loaded, retrying...');
+        if (typeof window.ChapelViewVisualization === 'undefined') {
+            console.log('ChapelViewVisualization not yet loaded, retrying...');
             setTimeout(waitForScriptAndInitialize, 100);
             return;
         }
@@ -48,11 +66,75 @@
         }
         
         // Initialize the globe visualization
-        window.geographicVisualization = new GeographicLineageVisualization();
+        window.geographicVisualization = new ChapelViewVisualization();
         window.geographicVisualization.init();
+        
+        // Setup mobile controls
+        setupMobileControls();
         
         // The globe visualization already displays location markers, so no need for chapel overlay
         console.log('Globe view initialized successfully with', nodesData.length, 'chapel locations');
+    }
+    
+    // Setup mobile controls
+    function setupMobileControls() {
+        // Show mobile controls on mobile devices
+        function checkMobileAndShowControls() {
+            const isMobile = window.innerWidth <= 768;
+            const mobileControls = document.querySelector('.globe-controls-mobile');
+            
+            if (mobileControls) {
+                mobileControls.style.display = isMobile ? 'flex' : 'none';
+            }
+        }
+        
+        // Check on load and resize
+        checkMobileAndShowControls();
+        window.addEventListener('resize', checkMobileAndShowControls);
+        
+        // Add event listeners for mobile control buttons
+        const resetBtn = document.getElementById('reset-zoom-mobile');
+        const centerBtn = document.getElementById('center-graph-mobile');
+        const zoomInBtn = document.getElementById('zoom-in-mobile');
+        const zoomOutBtn = document.getElementById('zoom-out-mobile');
+        
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (window.geographicVisualization) {
+                    window.geographicVisualization.resetView();
+                }
+            });
+        }
+        
+        if (centerBtn) {
+            centerBtn.addEventListener('click', () => {
+                if (window.geographicVisualization) {
+                    window.geographicVisualization.centerGlobe();
+                }
+            });
+        }
+        
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', () => {
+                if (window.geographicVisualization) {
+                    const currentScale = window.geographicVisualization.projection.scale();
+                    const newScale = Math.min(3, currentScale * 1.2);
+                    window.geographicVisualization.projection.scale(newScale);
+                    window.geographicVisualization.updateGlobe();
+                }
+            });
+        }
+        
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', () => {
+                if (window.geographicVisualization) {
+                    const currentScale = window.geographicVisualization.projection.scale();
+                    const newScale = Math.max(0.5, currentScale * 0.8);
+                    window.geographicVisualization.projection.scale(newScale);
+                    window.geographicVisualization.updateGlobe();
+                }
+            });
+        }
     }
     
     // Start waiting for the script

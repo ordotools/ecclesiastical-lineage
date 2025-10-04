@@ -44,10 +44,10 @@ def chapel_list_panel():
     """HTMX endpoint for the left panel chapel list"""
     user = User.query.get(session['user_id']) if 'user_id' in session else None
     
-    # Get all active locations (chapels) from the database
+    # Get all active locations (chapels) from the database with organization relationship
     # Filter for church-related location types
     church_types = ['church', 'cathedral', 'chapel', 'monastery', 'seminary', 'abbey']
-    locations = Location.query.filter(
+    locations = Location.query.options(db.joinedload(Location.organization_obj)).filter(
         Location.is_active == True,
         Location.deleted == False,
         Location.location_type.in_(church_types)

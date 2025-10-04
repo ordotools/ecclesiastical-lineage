@@ -220,6 +220,8 @@ def add_location():
             )
             
             if is_ajax:
+                # Load the organization relationship for the response
+                db.session.refresh(location)
                 return jsonify({
                     'success': True,
                     'message': 'Location added successfully!',
@@ -236,6 +238,8 @@ def add_location():
                         'location_type': location.location_type,
                         'pastor_name': location.pastor_name,
                         'organization': location.organization,
+                        'organization_id': location.organization_id,
+                        'organization_name': location.organization_obj.name if location.organization_obj else None,
                         'notes': location.notes,
                         'deleted': location.deleted
                     }
@@ -316,6 +320,8 @@ def edit_location(location_id):
             )
             
             if is_ajax:
+                # Load the organization relationship for the response
+                db.session.refresh(location)
                 return jsonify({
                     'success': True,
                     'message': 'Location updated successfully!',
@@ -332,6 +338,8 @@ def edit_location(location_id):
                         'location_type': location.location_type,
                         'pastor_name': location.pastor_name,
                         'organization': location.organization,
+                        'organization_id': location.organization_id,
+                        'organization_name': location.organization_obj.name if location.organization_obj else None,
                         'notes': location.notes,
                         'deleted': location.deleted
                     }

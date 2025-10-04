@@ -41,13 +41,13 @@ class LocationMarkerStyles {
                 zIndex: 1000
             },
             hidden: {
-                radius: 8,
+                radius: 5,
                 strokeColor: '#ffffff',
-                strokeWidth: 3,
+                strokeWidth: 1,
                 opacity: 0,
                 cursor: 'pointer',
                 zIndex: 1000,
-                pointerEvents: 'none'
+                pointerEvents: 'none'   
             }
         };
 

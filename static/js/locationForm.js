@@ -787,8 +787,8 @@ function addChapelToGlobe(location) {
         return;
     }
     
-    // Use centralized styling for color determination
-    const styles = new LocationMarkerStyles();
+    // Use centralized styling for color determination - use existing styles instance if available
+    const styles = window.geographicVisualization?.styles || new LocationMarkerStyles();
     const color = styles.getLocationColorWithOrganization(location.location_type, location.organization, location);
     
     // Create location data object
@@ -923,8 +923,8 @@ function updateChapelInGlobe(location) {
         return;
     }
     
-    // Use centralized styling for color determination
-    const styles = new LocationMarkerStyles();
+    // Use centralized styling for color determination - use existing styles instance if available
+    const styles = window.geographicVisualization?.styles || new LocationMarkerStyles();
     const color = styles.getLocationColorWithOrganization(location.location_type, location.organization, location);
     
     // Create location data object

@@ -126,29 +126,130 @@
 .right-panel .form-grid {
     grid-template-columns: 1fr 1fr !important;
     gap: 0.75em !important;
-    grid-auto-rows: min-content;
+    grid-auto-rows: min-content !important;
+    align-items: start !important;
+    height: auto !important;
 }
 
 /* Photo Section Styling */
 .right-panel .photo-section {
-    min-height: 280px;
-    height: 100%;
+    grid-column: 1 !important;
+    grid-row: 4 / 7 !important;
+    height: auto !important;
+    min-height: 240px !important;
+    max-height: 240px !important;
 }
 
 .right-panel .photo-container {
-    min-height: 220px !important;
+    min-height: 200px !important;
+    height: 200px !important;
+    max-height: 200px !important;
     padding: 0.75em !important;
     border: 2px dashed rgba(255, 255, 255, 0.3);
     border-radius: 8px;
     transition: border-color 0.2s ease, background-color 0.2s ease;
-    height: 100%;
     display: flex !important;
     flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 .right-panel .photo-container.drag-over {
     border-color: rgba(255, 255, 255, 0.8);
     background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Image preview styling */
+.right-panel #imagePreview {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    border: 2px dashed rgba(255, 255, 255, 0.3) !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    overflow: hidden !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+}
+
+/* When image is present, remove border and padding */
+.right-panel #imagePreview.has-image {
+    border: none !important;
+    padding: 0 !important;
+}
+
+.right-panel #imagePreview img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: 6px !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+}
+
+/* Overlay controls - positioned at bottom of image */
+.right-panel .image-controls {
+    position: absolute !important;
+    bottom: 8px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    display: flex !important;
+    gap: 6px !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    padding: 6px 8px !important;
+    border-radius: 20px !important;
+    opacity: 0 !important;
+    transition: opacity 0.2s ease !important;
+    z-index: 100 !important;
+    pointer-events: auto !important;
+}
+
+/* Show controls on hover */
+.right-panel #imagePreview:hover .image-controls {
+    opacity: 1 !important;
+}
+
+.right-panel .btn-upload,
+.right-panel .btn-crop,
+.right-panel .btn-remove {
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: none !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    font-size: 14px !important;
+}
+
+.right-panel .btn-upload:hover,
+.right-panel .btn-crop:hover,
+.right-panel .btn-remove:hover {
+    transform: scale(1.1) !important;
+}
+
+.right-panel .btn-upload {
+    background: #28a745 !important;
+    color: white !important;
+}
+
+.right-panel .btn-crop {
+    background: #ffc107 !important;
+    color: #212529 !important;
+}
+
+.right-panel .btn-remove {
+    background: #dc3545 !important;
+    color: white !important;
 }
 
 .right-panel .photo-controls {
@@ -171,8 +272,41 @@
     margin-bottom: 0;
     display: flex !important;
     flex-direction: column !important;
-    height: 100% !important;
-    justify-content: space-between !important;
+    height: auto !important;
+    min-height: auto !important;
+    justify-content: flex-start !important;
+    align-self: start !important;
+}
+
+/* Specific grid positioning for form fields */
+.right-panel #rankField {
+    grid-column: 2 !important;
+    grid-row: 4 !important;
+}
+
+.right-panel #birthField {
+    grid-column: 2 !important;
+    grid-row: 5 !important;
+}
+
+.right-panel #deathField {
+    grid-column: 2 !important;
+    grid-row: 6 !important;
+}
+
+.right-panel #notesField {
+    grid-column: 1 / -1 !important;
+    grid-row: 7 !important;
+}
+
+.right-panel #ordinationsField {
+    grid-column: 1 / -1 !important;
+    grid-row: 8 !important;
+}
+
+.right-panel #consecrationsField {
+    grid-column: 1 / -1 !important;
+    grid-row: 9 !important;
 }
 
 .right-panel .form-field label {

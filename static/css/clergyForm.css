@@ -8,8 +8,8 @@
 }
 
 .image-preview {
-    width: 200px !important;
-    height: 200px !important;
+    width: 100% !important;
+    height: 100% !important;
     border: 2px dashed #dee2e6 !important;
     border-radius: 8px !important;
     display: flex !important;
@@ -18,8 +18,10 @@
     background-color: #f8f9fa !important;
     overflow: hidden !important;
     position: relative !important;
-    margin: 0 auto !important;
+    margin: 0 !important;
     box-sizing: border-box !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
 }
 
 .placeholder-silhouette {
@@ -422,8 +424,8 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .image-preview {
-        width: 150px !important;
-        height: 150px !important;
+        width: 100% !important;
+        height: 100% !important;
     }
     
     .placeholder-silhouette {
@@ -781,8 +783,8 @@ textarea.form-control {
     }
     
     .image-preview {
-        width: 120px !important;
-        height: 120px !important;
+        width: 100% !important;
+        height: 100% !important;
     }
 }
 

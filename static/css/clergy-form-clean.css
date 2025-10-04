@@ -137,8 +137,375 @@
 
 .form-control:focus {
     outline: none;
+}
+
+/* ===== DARK THEME STYLES ===== */
+/* Form wrapper and header */
+.form-wrapper {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+}
+
+.form-header {
+    margin-bottom: 1.5em;
+    padding-bottom: 0.75em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.form-title {
+    margin: 0;
+    color: white;
+    font-weight: 500;
+    font-size: 1.1em;
+    opacity: 0.95;
+}
+
+.form-content {
+    /* Container for form content */
+}
+
+/* Dark theme form grid */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75em;
+    align-items: start;
+}
+
+/* Dark theme form fields */
+.form-field {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: auto;
+    justify-content: flex-start;
+    align-self: start;
+}
+
+.form-field.full-width {
+    grid-column: 1 / -1;
+}
+
+/* Dark theme labels */
+.form-label {
+    display: block;
+    margin-bottom: 0.25em;
+    font-weight: 500;
+    color: white;
+    font-size: 0.85em;
+    flex-shrink: 0;
+}
+
+.form-label.required::after {
+    content: " *";
+    color: #e74c3c;
+}
+
+/* Dark theme form controls */
+.form-control,
+input[type="text"],
+input[type="date"],
+input[type="email"],
+input[type="tel"],
+input[type="url"],
+select,
+textarea {
+    width: 100%;
+    padding: 0.5em;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 0.9em;
+    color: white;
+    flex: 1;
+    box-sizing: border-box;
+}
+
+.form-control:focus,
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Dark theme buttons */
+button,
+.btn {
+    padding: 0.5em 1em;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+    transition: all 0.2s ease;
+}
+
+button:hover,
+.btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Dark theme form sections */
+.form-section {
+    margin-top: 1em;
+    padding: 0.75em;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.form-section h5 {
+    margin: 0 0 0.75em 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.95em;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding-bottom: 0.5em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.form-section h5 i {
+    opacity: 0.8;
+}
+
+/* Ordination and Consecration specific styling */
+.ordination-entry,
+.consecration-entry {
+    padding: 0.6em;
+    margin-bottom: 0.6em;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.ordination-entry input,
+.ordination-entry textarea,
+.ordination-entry select,
+.consecration-entry input,
+.consecration-entry textarea,
+.consecration-entry select {
+    font-size: 0.75em;
+    padding: 0.3em;
+}
+
+.ordination-entry label,
+.consecration-entry label {
+    font-size: 0.75em;
+    margin-bottom: 0.2em;
+}
+
+.ordination-entry .btn-remove,
+.consecration-entry .btn-remove {
+    background: #dc3545;
+    color: white;
+    font-size: 0.75em;
+    padding: 0.3em 0.6em;
+}
+
+/* Dark theme photo section */
+.photo-section {
+    position: relative;
+    height: auto;
+    min-height: 240px;
+    max-height: 240px;
+}
+
+.photo-container {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 1em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    position: relative;
+    z-index: 10;
+    min-height: 200px;
+    height: 200px;
+    max-height: 200px;
+}
+
+.photo-container.drag-over {
+    border-color: rgba(255, 255, 255, 0.8);
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Dark theme image preview */
+#imagePreview {
+    width: 100%;
+    height: 100%;
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+    flex-grow: 0;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+#imagePreview.has-image {
+    border: none;
+    padding: 0;
+}
+
+#imagePreview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.image-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 3em;
+}
+
+/* Dark theme image controls overlay */
+.image-controls {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 6px 8px;
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 100;
+    pointer-events: auto;
+}
+
+#imagePreview:hover .image-controls {
+    opacity: 1;
+}
+
+.btn-upload,
+.btn-crop,
+.btn-remove {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.btn-upload:hover,
+.btn-crop:hover,
+.btn-remove:hover {
+    transform: scale(1.1);
+}
+
+.btn-upload {
+    background: #28a745;
+    color: white;
+}
+
+.btn-crop {
+    background: #ffc107;
+    color: #212529;
+}
+
+.btn-remove {
+    background: #dc3545;
+    color: white;
+}
+
+/* Dark theme input groups */
+.organization-input-group {
+    display: flex;
+    gap: 0.5em;
+    align-items: stretch;
+    flex: 1;
+}
+
+.organization-input-group select {
+    flex: 1;
+}
+
+.btn-add {
+    white-space: nowrap;
+    font-size: 0.8em;
+    padding: 0.5em 0.75em;
+}
+
+/* Grid positioning for specific fields */
+#nameField {
+    grid-column: 1 / -1;
+    grid-row: 1;
+}
+
+#papalNameField {
+    grid-column: 1 / -1;
+    grid-row: 2;
+}
+
+#organizationField {
+    grid-column: 1 / -1;
+    grid-row: 3;
+}
+
+#photoField {
+    grid-column: 1;
+    grid-row: 4 / 7;
+}
+
+#rankField {
+    grid-column: 2;
+    grid-row: 4;
+}
+
+#birthField {
+    grid-column: 2;
+    grid-row: 5;
+}
+
+#deathField {
+    grid-column: 2;
+    grid-row: 6;
+}
+
+#notesField {
+    grid-column: 1 / -1;
+    grid-row: 7;
+}
+
+#ordinationsField {
+    grid-column: 1 / -1;
+    grid-row: 8;
+}
+
+#consecrationsField {
+    grid-column: 1 / -1;
+    grid-row: 9;
 }
 
 .form-control:invalid {
@@ -243,11 +610,20 @@
     background: #f8f9fa;
     overflow: hidden;
     position: relative;
+    /* Fixed size - prevents growing/shrinking */
+    flex-shrink: 0;
+    flex-grow: 0;
 }
 
 .image-placeholder {
     font-size: 4rem;
     color: #6c757d;
+}
+
+/* When image is present, remove border and padding */
+.image-preview.has-image {
+    border: none;
+    padding: 0;
 }
 
 .image-preview img {
@@ -257,22 +633,47 @@
     border-radius: 6px;
 }
 
+/* Overlay controls - positioned at bottom of image */
 .image-controls {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    justify-content: center;
-    gap: 0.5rem;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 6px 8px;
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 10;
+}
+
+/* Show controls on hover */
+.image-preview:hover .image-controls {
+    opacity: 1;
 }
 
 .btn-upload,
 .btn-crop,
 .btn-remove {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     padding: 0;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.btn-upload:hover,
+.btn-crop:hover,
+.btn-remove:hover {
+    transform: scale(1.1);
 }
 
 .btn-upload {
@@ -419,8 +820,8 @@
     }
     
     .image-preview {
-        width: 150px;
-        height: 150px;
+        width: 200px;
+        height: 200px;
     }
     
     .form-grid {
@@ -463,8 +864,8 @@
 
 @media (max-width: 576px) {
     .image-preview {
-        width: 120px;
-        height: 120px;
+        width: 200px;
+        height: 200px;
     }
     
     .image-placeholder {

@@ -876,21 +876,9 @@ class ImageEditor {
         const imagePreview = document.getElementById('imagePreview');
         if (!imagePreview) return;
         
-        imagePreview.innerHTML = `
-            <img src="${imageData}" alt="Preview" class="preview-image" id="previewImage">
-            <div class="image-tools-overlay">
-                <input type="file" class="form-control" id="clergyImage" name="clergy_image" accept="image/*" style="display: none;">
-                <button type="button" class="btn btn-icon btn-upload" id="uploadBtn" title="Upload Image">
-                    <i class="fas fa-upload"></i>
-                </button>
-                <button type="button" class="btn btn-icon btn-crop" id="cropExistingBtn" title="Edit Image">
-                    <i class="fas fa-crop"></i>
-                </button>
-                <button type="button" class="btn btn-icon btn-remove" id="removeImageBtn" title="Remove Image">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
+        // Add has-image class to remove border and padding
+        imagePreview.classList.add('has-image');
+        imagePreview.innerHTML = `<img src="${imageData}" alt="Preview" class="preview-image" id="previewImage">`;
         
         // Re-attach event listeners
         this.reattachFormEventListeners();
@@ -904,6 +892,19 @@ class ImageEditor {
         const newUploadBtn = document.getElementById('uploadBtn');
         const newCropBtn = document.getElementById('cropExistingBtn');
         const newRemoveBtn = document.getElementById('removeImageBtn');
+        
+        // Check if there's an existing image and add has-image class
+        const imagePreview = document.getElementById('imagePreview');
+        if (imagePreview) {
+            const existingImage = imagePreview.querySelector('img');
+            if (existingImage) {
+                imagePreview.classList.add('has-image');
+                if (newCropBtn) newCropBtn.style.display = 'inline-flex';
+                if (newRemoveBtn) newRemoveBtn.style.display = 'inline-flex';
+            } else {
+                imagePreview.classList.remove('has-image');
+            }
+        }
         
         // Remove existing listeners first to prevent duplication
         if (newImageInput) {

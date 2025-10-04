@@ -9,6 +9,33 @@ import requests
 
 main_bp = Blueprint('main', __name__)
 
+def _get_location_color(location):
+    """Get color for a location based on organization first, then location type"""
+    # First try to get color from the linked Organization table
+    if location.organization_obj and location.organization_obj.color:
+        return location.organization_obj.color
+    
+    # Fall back to legacy organization text field
+    if location.organization:
+        # Try to find matching organization in database
+        org = Organization.query.filter_by(name=location.organization).first()
+        if org and org.color:
+            return org.color
+    
+    # Fall back to location type color
+    location_type_colors = {
+        'church': '#27ae60',      # Green for churches
+        'organization': '#3498db', # Blue for organizations
+        'address': '#e74c3c',     # Red for addresses
+        'cathedral': '#9b59b6',   # Purple for cathedrals
+        'monastery': '#f39c12',   # Orange for monasteries
+        'seminary': '#1abc9c',    # Teal for seminaries
+        'chapel': '#e74c3c',      # Red for chapels
+        'abbey': '#8e44ad'        # Dark purple for abbeys
+    }
+    
+    return location_type_colors.get(location.location_type, '#95a5a6')
+
 # Main landing page - now shows lineage visualization
 @main_bp.route('/')
 def index():
@@ -20,8 +47,8 @@ def chapel_view():
     current_app.logger.info("=== CHAPEL_VIEW ROUTE CALLED ===")
     
     try:
-        # Get all active locations for the visualization
-        all_locations = Location.query.filter(Location.is_active == True, Location.deleted == False).all()
+        # Get all active locations for the visualization with organization relationship
+        all_locations = Location.query.options(db.joinedload(Location.organization_obj)).filter(Location.is_active == True, Location.deleted == False).all()
         
         # Log current data status
         current_app.logger.info(f"Found {len(all_locations)} locations in database")
@@ -34,17 +61,8 @@ def chapel_view():
         for location in all_locations:
             # Only include locations that have coordinates
             if location.has_coordinates():
-                # Determine color based on location type
-                color_map = {
-                    'church': '#27ae60',      # Green for churches
-                    'organization': '#3498db', # Blue for organizations
-                    'address': '#e74c3c',     # Red for addresses
-                    'cathedral': '#9b59b6',   # Purple for cathedrals
-                    'monastery': '#f39c12',   # Orange for monasteries
-                    'seminary': '#1abc9c'     # Teal for seminaries
-                }
-                
-                node_color = color_map.get(location.location_type, '#95a5a6')
+                # Determine color based on organization first, then location type
+                node_color = _get_location_color(location)
                 
                 nodes.append({
                     'id': location.id,
@@ -52,6 +70,8 @@ def chapel_view():
                     'location_type': location.location_type,
                     'pastor_name': location.pastor_name,
                     'organization': location.organization,
+                    'organization_id': location.organization_id,
+                    'organization_name': location.organization_obj.name if location.organization_obj else None,
                     'address': location.get_full_address(),
                     'city': location.city,
                     'country': location.country,
@@ -96,8 +116,8 @@ def chapel_view():
 def api_chapel_locations():
     """API endpoint to get location data for chapel view visualization"""
     try:
-        # Get all active locations for the visualization
-        all_locations = Location.query.filter(Location.is_active == True, Location.deleted == False).all()
+        # Get all active locations for the visualization with organization relationship
+        all_locations = Location.query.options(db.joinedload(Location.organization_obj)).filter(Location.is_active == True, Location.deleted == False).all()
         
         # Prepare data for D3.js visualization
         nodes = []
@@ -106,17 +126,8 @@ def api_chapel_locations():
         for location in all_locations:
             # Only include locations that have coordinates
             if location.has_coordinates():
-                # Determine color based on location type
-                color_map = {
-                    'church': '#27ae60',      # Green for churches
-                    'organization': '#3498db', # Blue for organizations
-                    'address': '#e74c3c',     # Red for addresses
-                    'cathedral': '#9b59b6',   # Purple for cathedrals
-                    'monastery': '#f39c12',   # Orange for monasteries
-                    'seminary': '#1abc9c'     # Teal for seminaries
-                }
-                
-                node_color = color_map.get(location.location_type, '#95a5a6')
+                # Determine color based on organization first, then location type
+                node_color = _get_location_color(location)
                 
                 nodes.append({
                     'id': location.id,
@@ -124,6 +135,8 @@ def api_chapel_locations():
                     'location_type': location.location_type,
                     'pastor_name': location.pastor_name,
                     'organization': location.organization,
+                    'organization_id': location.organization_id,
+                    'organization_name': location.organization_obj.name if location.organization_obj else None,
                     'address': location.get_full_address(),
                     'city': location.city,
                     'country': location.country,
@@ -162,6 +175,13 @@ def add_location():
     """Add a new location"""
     if request.method == 'POST':
         try:
+            # Handle organization_id
+            organization_id = request.form.get('organization_id')
+            if organization_id:
+                organization_id = int(organization_id)
+            else:
+                organization_id = None
+            
             location = Location(
                 name=request.form['name'],
                 address=request.form.get('street_address'),  # Map street_address to address field
@@ -173,7 +193,8 @@ def add_location():
                 longitude=float(request.form['longitude']) if request.form.get('longitude') else None,
                 location_type=request.form.get('location_type', 'church'),
                 pastor_name=request.form.get('pastor_name'),
-                organization=request.form.get('organization'),
+                organization=request.form.get('organization'),  # Keep legacy field
+                organization_id=organization_id,  # New foreign key field
                 notes=request.form.get('notes'),
                 deleted=request.form.get('deleted') == 'true',
                 created_by=session.get('user_id')
@@ -242,7 +263,9 @@ def add_location():
             else:
                 flash('Error adding location. Please try again.', 'error')
     
-    return render_template('location_form.html', location=None)
+    # Get organizations for dropdown
+    organizations = Organization.query.all()
+    return render_template('location_form.html', location=None, organizations=organizations)
 
 @main_bp.route('/locations/<int:location_id>/edit', methods=['GET', 'POST'])
 @require_permission('manage_metadata')
@@ -252,6 +275,13 @@ def edit_location(location_id):
     
     if request.method == 'POST':
         try:
+            # Handle organization_id
+            organization_id = request.form.get('organization_id')
+            if organization_id:
+                organization_id = int(organization_id)
+            else:
+                organization_id = None
+            
             location.name = request.form['name']
             location.address = request.form.get('street_address')  # Map street_address to address field
             location.city = request.form.get('city')
@@ -262,7 +292,8 @@ def edit_location(location_id):
             location.longitude = float(request.form['longitude']) if request.form.get('longitude') else None
             location.location_type = request.form.get('location_type', 'church')
             location.pastor_name = request.form.get('pastor_name')
-            location.organization = request.form.get('organization')
+            location.organization = request.form.get('organization')  # Keep legacy field
+            location.organization_id = organization_id  # New foreign key field
             location.notes = request.form.get('notes')
             location.deleted = request.form.get('deleted') == 'true'
             
@@ -328,7 +359,9 @@ def edit_location(location_id):
             else:
                 flash('Error updating location. Please try again.', 'error')
     
-    return render_template('location_form.html', location=location)
+    # Get organizations for dropdown
+    organizations = Organization.query.all()
+    return render_template('location_form.html', location=location, organizations=organizations)
 
 @main_bp.route('/locations/<int:location_id>/delete', methods=['POST'])
 @require_permission('manage_metadata')
@@ -1519,6 +1552,36 @@ def process_cropped_image():
         current_app.logger.error(f"Error processing cropped image: {e}")
         import traceback
         current_app.logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+@main_bp.route('/api/organizations')
+def api_organizations():
+    """API endpoint to get organization data with colors"""
+    try:
+        # Get all organizations
+        organizations = Organization.query.all()
+        
+        org_data = []
+        for org in organizations:
+            org_data.append({
+                'id': org.id,
+                'name': org.name,
+                'abbreviation': org.abbreviation,
+                'description': org.description,
+                'color': org.color
+            })
+        
+        return jsonify({
+            'success': True,
+            'organizations': org_data,
+            'count': len(org_data)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting organization data: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

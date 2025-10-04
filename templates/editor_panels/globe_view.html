@@ -65,9 +65,9 @@
             window.geographicVisualization = null;
         }
         
-        // Initialize the globe visualization
+        // Initialize the globe visualization with async organization color loading
         window.geographicVisualization = new ChapelViewVisualization();
-        window.geographicVisualization.init();
+        // Don't call init() directly - the constructor calls initAsync() which loads organization colors first
         
         // Setup mobile controls
         setupMobileControls();

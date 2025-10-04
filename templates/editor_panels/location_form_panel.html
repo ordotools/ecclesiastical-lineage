@@ -90,6 +90,26 @@
                 </div>
             </div>
             
+            <!-- Organization -->
+            <div>
+                <label for="organization_id" style="display: block; margin-bottom: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">Organization</label>
+                <select id="organization_id" name="organization_id"
+                        style="width: 100%; padding: 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; font-size: 0.9em;">
+                    <option value="">Select an organization...</option>
+                    {% for org in organizations %}
+                    <option value="{{ org.id }}" 
+                            {% if location and location.organization_id == org.id %}selected{% endif %}
+                            data-color="{{ org.color }}"
+                            data-name="{{ org.name }}">
+                        {{ org.name }}{% if org.abbreviation %} ({{ org.abbreviation }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                <!-- Keep legacy organization field for backward compatibility -->
+                <input type="hidden" id="organization" name="organization" 
+                       value="{% if location %}{{ location.organization }}{% endif %}">
+            </div>
+            
             <!-- Pastor/Leader Name -->
             <div style="position: relative;">
                 <label for="pastor_name" style="display: block; margin-bottom: 0.5em; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">Pastor Name</label>
@@ -150,5 +170,26 @@
         </div>
     </form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Update legacy organization field when organization dropdown changes
+    const organizationSelect = document.getElementById('organization_id');
+    const organizationHidden = document.getElementById('organization');
+    
+    if (organizationSelect && organizationHidden) {
+        organizationSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                // Update the legacy organization field with the organization name
+                organizationHidden.value = selectedOption.dataset.name || '';
+            } else {
+                // Clear the legacy organization field if no organization is selected
+                organizationHidden.value = '';
+            }
+        });
+    }
+});
+</script>
 
 <!-- Location form panel - JavaScript will be loaded by main editor page -->

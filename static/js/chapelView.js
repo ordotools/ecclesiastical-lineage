@@ -21,6 +21,9 @@ class ChapelViewVisualization {
         // Initialize centralized styling
         this.styles = new LocationMarkerStyles();
         
+        // Load organization colors from database
+        this.loadOrganizationColors();
+        
         // Country color palette - traditional paper map colors
         this.countryColors = {
             // Europe - muted earth tones
@@ -164,7 +167,32 @@ class ChapelViewVisualization {
             'Barcelona': { lat: 41.3851, lng: 2.1734, name: 'Barcelona' }
         };
         
+        this.initAsync();
+    }
+    
+    async initAsync() {
+        // Load organization colors first
+        await this.loadOrganizationColors();
+        
+        // Then initialize the visualization
         this.init();
+    }
+    
+    async loadOrganizationColors() {
+        try {
+            console.log('Loading organization colors from database...');
+            const response = await fetch('/api/organizations');
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log(`Loaded ${data.count} organizations with colors`);
+                this.styles.updateOrganizationColors(data.organizations);
+            } else {
+                console.error('Failed to load organization colors:', data.error);
+            }
+        } catch (error) {
+            console.error('Error loading organization colors:', error);
+        }
     }
     
     getDetailLevel() {
@@ -1259,16 +1287,8 @@ class ChapelViewVisualization {
         }
         console.log('Found aside panel:', asidePanel);
         
-        const locationTypeColors = {
-            'church': '#27ae60',
-            'cathedral': '#9b59b6', 
-            'monastery': '#f39c12',
-            'seminary': '#1abc9c',
-            'organization': '#3498db',
-            'address': '#e74c3c'
-        };
-        
-        const color = locationTypeColors[location.location_type] || '#95a5a6';
+        // Use organization-based color if available, fall back to location type color
+        const color = this.styles.getLocationColorWithOrganization(location.location_type, location.organization, location);
         
         asidePanel.innerHTML = `
             <div class="card">
@@ -1292,10 +1312,10 @@ class ChapelViewVisualization {
                     </div>
                     ` : ''}
                     
-                    ${location.organization ? `
+                    ${(location.organization || location.organization_name) ? `
                     <div class="mb-2">
                         <strong>Organization:</strong><br>
-                        <span class="text-muted">${location.organization}</span>
+                        <span class="text-muted">${location.organization_name || location.organization}</span>
                     </div>
                     ` : ''}
                     
@@ -1613,7 +1633,7 @@ class ChapelViewVisualization {
             marker.on('mouseout', (event) => {
                 d3.select(event.target)
                     .attr('r', 8);
-                this.hideLocationTooltip();
+                this.hideTooltip();
             });
         } else {
             // Location is on the back side of the globe, create hidden marker
@@ -1648,7 +1668,7 @@ class ChapelViewVisualization {
             marker.on('mouseout', (event) => {
                 d3.select(event.target)
                     .attr('r', 8);
-                this.hideLocationTooltip();
+                this.hideTooltip();
             });
         }
         
@@ -1708,7 +1728,7 @@ class ChapelViewVisualization {
         existingMarker.on('click', (event) => {
             console.log('Location clicked:', locationData.name);
             event.stopPropagation();
-            this.handleLocationClick(locationData);
+            this.handleLocationClick(event, locationData);
         });
         
         // Update hover handlers with new data
@@ -1721,7 +1741,7 @@ class ChapelViewVisualization {
         existingMarker.on('mouseout', (event) => {
             d3.select(event.target)
                 .attr('r', 8);
-            this.hideLocationTooltip();
+            this.hideTooltip();
         });
         
         console.log('Single location node updated successfully');

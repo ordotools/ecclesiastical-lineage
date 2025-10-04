@@ -64,6 +64,10 @@ def chapel_form_panel(location_id=None):
     user = User.query.get(session['user_id']) if 'user_id' in session else None
     print(f"User: {user}, Location ID: {location_id}")
     
+    # Get organizations for dropdown
+    organizations = Organization.query.all()
+    print(f"Found {len(organizations)} organizations for dropdown")
+    
     location = None
     if location_id:
         location = Location.query.get(location_id)
@@ -71,7 +75,7 @@ def chapel_form_panel(location_id=None):
             return "Location not found", 404
     
     try:
-        result = render_template('editor_panels/location_form_panel.html', user=user, location=location)
+        result = render_template('editor_panels/location_form_panel.html', user=user, location=location, organizations=organizations)
         print("Chapel form template rendered successfully")
         return result
     except Exception as e:
@@ -184,8 +188,8 @@ def visualization_panel():
 def globe_view_panel():
     """HTMX endpoint for the center panel globe view"""
     try:
-        # Get all active locations (chapels, churches, etc.) for the globe visualization
-        all_locations = Location.query.filter(Location.is_active == True, Location.deleted == False).all()
+        # Get all active locations (chapels, churches, etc.) for the globe visualization with organization relationship
+        all_locations = Location.query.options(db.joinedload(Location.organization_obj)).filter(Location.is_active == True, Location.deleted == False).all()
         
         # Prepare data for D3.js globe visualization
         nodes = []
@@ -195,18 +199,11 @@ def globe_view_panel():
         for location in all_locations:
             # Only include locations that have coordinates
             if location.has_coordinates():
-                # Determine color based on location type
-                color_map = {
-                    'church': '#27ae60',      # Green for churches
-                    'organization': '#3498db', # Blue for organizations
-                    'address': '#e74c3c',     # Red for addresses
-                    'cathedral': '#9b59b6',   # Purple for cathedrals
-                    'monastery': '#f39c12',   # Orange for monasteries
-                    'seminary': '#1abc9c',    # Teal for seminaries
-                    'chapel': '#e67e22'       # Orange for chapels
-                }
+                # Import the color function from main.py
+                from routes.main import _get_location_color
                 
-                node_color = color_map.get(location.location_type, '#95a5a6')
+                # Determine color based on organization first, then location type
+                node_color = _get_location_color(location)
                 
                 nodes.append({
                     'id': location.id,
@@ -214,6 +211,8 @@ def globe_view_panel():
                     'location_type': location.location_type,
                     'pastor_name': location.pastor_name,
                     'organization': location.organization,
+                    'organization_id': location.organization_id,
+                    'organization_name': location.organization_obj.name if location.organization_obj else None,
                     'address': location.get_full_address(),
                     'city': location.city,
                     'country': location.country,

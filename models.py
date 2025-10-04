@@ -284,7 +284,8 @@ class Location(db.Model):
     longitude = db.Column(db.Float, nullable=True)  # For precise positioning
     location_type = db.Column(db.String(50), nullable=False, default='church')  # church, organization, address, etc.
     pastor_name = db.Column(db.String(200), nullable=True)  # Current pastor/leader
-    organization = db.Column(db.String(200), nullable=True)  # Associated organization
+    organization = db.Column(db.String(200), nullable=True)  # Associated organization (legacy text field)
+    organization_id = db.Column(db.Integer, db.ForeignKey('organization.id'), nullable=True)  # Foreign key to Organization table
     notes = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
     deleted = db.Column(db.Boolean, default=False)
@@ -292,6 +293,7 @@ class Location(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     creator = db.relationship('User', backref='created_locations')
+    organization_obj = db.relationship('Organization', backref='locations')  # Relationship to Organization table
 
     def __repr__(self):
         return f'<Location {self.name}>'

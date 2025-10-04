@@ -20,7 +20,25 @@ class ChapelGlobeOverlay {
     init() {
         console.log('Initializing Chapel Globe Overlay');
         this.createOverlayGroup();
+        this.loadOrganizationColors();
         this.loadTestData();
+    }
+    
+    async loadOrganizationColors() {
+        try {
+            console.log('Loading organization colors from database...');
+            const response = await fetch('/api/organizations');
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log(`Loaded ${data.count} organizations with colors`);
+                this.styles.updateOrganizationColors(data.organizations);
+            } else {
+                console.error('Failed to load organization colors:', data.error);
+            }
+        } catch (error) {
+            console.error('Error loading organization colors:', error);
+        }
     }
     
     createOverlayGroup() {
@@ -38,12 +56,13 @@ class ChapelGlobeOverlay {
     }
     
     loadTestData() {
-        // Load test chapel data
+        // Load test chapel data with organizations to demonstrate organization-based coloring
         this.chapelData = [
             {
                 id: 'vatican',
                 name: 'St. Peter\'s Basilica',
                 type: 'cathedral',
+                organization: 'Roman Catholic',
                 lat: 41.9022,
                 lng: 12.4539,
                 city: 'Vatican City',
@@ -55,6 +74,7 @@ class ChapelGlobeOverlay {
                 id: 'notre-dame',
                 name: 'Notre-Dame de Paris',
                 type: 'cathedral',
+                organization: 'Roman Catholic',
                 lat: 48.8530,
                 lng: 2.3499,
                 city: 'Paris',
@@ -66,12 +86,37 @@ class ChapelGlobeOverlay {
                 id: 'westminster',
                 name: 'Westminster Abbey',
                 type: 'abbey',
+                organization: 'Anglican',
                 lat: 51.4994,
                 lng: -0.1274,
                 city: 'London',
                 country: 'United Kingdom',
                 description: 'Gothic abbey church',
                 yearFounded: 960
+            },
+            {
+                id: 'st-basil',
+                name: 'St. Basil\'s Cathedral',
+                type: 'cathedral',
+                organization: 'Orthodox',
+                lat: 55.7525,
+                lng: 37.6231,
+                city: 'Moscow',
+                country: 'Russia',
+                description: 'Russian Orthodox cathedral',
+                yearFounded: 1555
+            },
+            {
+                id: 'st-pauls',
+                name: 'St. Paul\'s Cathedral',
+                type: 'cathedral',
+                organization: 'Anglican',
+                lat: 51.5138,
+                lng: -0.0984,
+                city: 'London',
+                country: 'United Kingdom',
+                description: 'Anglican cathedral',
+                yearFounded: 1675
             }
         ];
         
@@ -103,11 +148,14 @@ class ChapelGlobeOverlay {
                 const chapelGroup = d3.select(this);
                 const normalStyle = self.styles.getChapelStyle('normal');
                 
+                // Get organization-based color if available
+                const orgColor = self.styles.getLocationColorWithOrganization(d.type, d.organization, d) || normalStyle.fillColor;
+                
                 // Outer glow
                 chapelGroup.append('circle')
                     .attr('class', self.styles.getCSSClass('chapelGlow'))
                     .attr('r', normalStyle.glowRadius)
-                    .attr('fill', normalStyle.fillColor)
+                    .attr('fill', orgColor)
                     .attr('opacity', normalStyle.glowOpacity)
                     .style('filter', 'blur(2px)')
                     .style('pointer-events', 'none');
@@ -116,7 +164,7 @@ class ChapelGlobeOverlay {
                 chapelGroup.append('circle')
                     .attr('class', self.styles.getCSSClass('chapelDot'))
                     .attr('r', normalStyle.radius)
-                    .attr('fill', normalStyle.fillColor)
+                    .attr('fill', orgColor)
                     .attr('stroke', normalStyle.strokeColor)
                     .attr('stroke-width', normalStyle.strokeWidth)
                     .attr('opacity', normalStyle.opacity)
@@ -238,13 +286,16 @@ class ChapelGlobeOverlay {
         const chapelGroup = d3.select(event.target.parentNode);
         const hoverStyle = this.styles.getChapelStyle('hover');
         
+        // Get organization-based color if available
+        const orgColor = this.styles.getLocationColorWithOrganization(chapel.type, chapel.organization, chapel) || hoverStyle.fillColor;
+        
         chapelGroup.select('.' + this.styles.getCSSClass('chapelGlow'))
             .attr('r', hoverStyle.glowRadius)
             .attr('opacity', hoverStyle.glowOpacity);
             
         chapelGroup.select('.' + this.styles.getCSSClass('chapelDot'))
             .attr('r', hoverStyle.radius)
-            .attr('fill', hoverStyle.fillColor)
+            .attr('fill', orgColor)
             .attr('stroke-width', hoverStyle.strokeWidth)
             .attr('opacity', hoverStyle.opacity);
         
@@ -261,13 +312,16 @@ class ChapelGlobeOverlay {
         const chapelGroup = d3.select(event.target.parentNode);
         const normalStyle = this.styles.getChapelStyle('normal');
         
+        // Get organization-based color if available
+        const orgColor = this.styles.getLocationColorWithOrganization(chapel.type, chapel.organization, chapel) || normalStyle.fillColor;
+        
         chapelGroup.select('.' + this.styles.getCSSClass('chapelGlow'))
             .attr('r', normalStyle.glowRadius)
             .attr('opacity', normalStyle.glowOpacity);
             
         chapelGroup.select('.' + this.styles.getCSSClass('chapelDot'))
             .attr('r', normalStyle.radius)
-            .attr('fill', normalStyle.fillColor)
+            .attr('fill', orgColor)
             .attr('stroke-width', normalStyle.strokeWidth)
             .attr('opacity', normalStyle.opacity);
         
@@ -289,12 +343,15 @@ class ChapelGlobeOverlay {
             const prevGroup = this.chapelOverlayGroup.select(`[data-chapel-id="${this.selectedChapel.id}"]`);
             const normalStyle = this.styles.getChapelStyle('normal');
             
+            // Get organization-based color if available
+            const prevOrgColor = this.styles.getLocationColorWithOrganization(this.selectedChapel.type, this.selectedChapel.organization, this.selectedChapel) || normalStyle.fillColor;
+            
             prevGroup.select('.' + this.styles.getCSSClass('chapelGlow'))
                 .attr('r', normalStyle.glowRadius)
                 .attr('opacity', normalStyle.glowOpacity);
             prevGroup.select('.' + this.styles.getCSSClass('chapelDot'))
                 .attr('r', normalStyle.radius)
-                .attr('fill', normalStyle.fillColor)
+                .attr('fill', prevOrgColor)
                 .attr('stroke-width', normalStyle.strokeWidth)
                 .attr('opacity', normalStyle.opacity);
         }
@@ -304,13 +361,16 @@ class ChapelGlobeOverlay {
         const chapelGroup = this.chapelOverlayGroup.select(`[data-chapel-id="${chapel.id}"]`);
         const selectedStyle = this.styles.getChapelStyle('selected');
         
+        // Get organization-based color if available
+        const orgColor = this.styles.getLocationColorWithOrganization(chapel.type, chapel.organization, chapel) || selectedStyle.fillColor;
+        
         chapelGroup.select('.' + this.styles.getCSSClass('chapelGlow'))
             .attr('r', selectedStyle.glowRadius)
             .attr('opacity', selectedStyle.glowOpacity);
             
         chapelGroup.select('.' + this.styles.getCSSClass('chapelDot'))
             .attr('r', selectedStyle.radius)
-            .attr('fill', selectedStyle.fillColor)
+            .attr('fill', orgColor)
             .attr('stroke-width', selectedStyle.strokeWidth)
             .attr('opacity', selectedStyle.opacity);
         

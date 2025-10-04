@@ -15,7 +15,10 @@ class LocationMarkerStyles {
             'abbey': '#8e44ad'        // Dark purple for abbeys
         };
 
-        // Default color for unknown types
+        // Organization color mapping - populated from database
+        this.organizationColors = {};
+
+        // Default color for unknown types/organizations
         this.defaultColor = '#95a5a6';
 
         // Location marker styling configuration
@@ -223,6 +226,65 @@ class LocationMarkerStyles {
     }
 
     /**
+     * Get color for an organization
+     * @param {string} organization - The organization name
+     * @returns {string} - The color hex code
+     */
+    getOrganizationColor(organization) {
+        if (!organization) return null;
+        return this.organizationColors[organization] || null;
+    }
+
+    /**
+     * Get color for a location based on organization first, then type
+     * @param {string} locationType - The type of location
+     * @param {string|object} organization - The organization name or organization object with id and name
+     * @param {object} locationData - The full location data object (optional)
+     * @returns {string} - The color hex code
+     */
+    getLocationColorWithOrganization(locationType, organization = null, locationData = null) {
+        // If we have full location data with organization_id and organization_name, use that
+        if (locationData && locationData.organization_id && locationData.organization_name) {
+            const orgColor = this.getOrganizationColor(locationData.organization_name);
+            if (orgColor) {
+                return orgColor;
+            }
+        }
+        
+        // First try to get organization color from organization parameter
+        if (organization) {
+            if (typeof organization === 'object' && organization.name) {
+                const orgColor = this.getOrganizationColor(organization.name);
+                if (orgColor) {
+                    return orgColor;
+                }
+            } else if (typeof organization === 'string') {
+                const orgColor = this.getOrganizationColor(organization);
+                if (orgColor) {
+                    return orgColor;
+                }
+            }
+        }
+        
+        // Fall back to location type color
+        return this.getLocationColor(locationType);
+    }
+
+    /**
+     * Update organization colors from database data
+     * @param {Array} organizations - Array of organization objects with name and color properties
+     */
+    updateOrganizationColors(organizations) {
+        if (!organizations || !Array.isArray(organizations)) return;
+        
+        organizations.forEach(org => {
+            if (org.name && org.color) {
+                this.organizationColors[org.name] = org.color;
+            }
+        });
+    }
+
+    /**
      * Get color for a chapel type
      * @param {string} chapelType - The type of chapel
      * @returns {string} - The color hex code
@@ -355,7 +417,7 @@ class LocationMarkerStyles {
                     ${data.yearFounded ? `<p style="${this.getInlineStyle(this.tooltipStyles.chapelContent)}"><strong>Founded:</strong> ${data.yearFounded}</p>` : ''}
                     ${data.description ? `<p style="${this.getInlineStyle(this.tooltipStyles.chapelContent)}"><strong>Description:</strong> ${data.description}</p>` : ''}
                     ${data.pastor_name ? `<p style="${this.getInlineStyle(this.tooltipStyles.chapelContent)}"><strong>Pastor:</strong> ${data.pastor_name}</p>` : ''}
-                    ${data.organization ? `<p style="${this.getInlineStyle(this.tooltipStyles.chapelContent)}"><strong>Organization:</strong> ${data.organization}</p>` : ''}
+                    ${(data.organization || data.organization_name) ? `<p style="${this.getInlineStyle(this.tooltipStyles.chapelContent)}"><strong>Organization:</strong> ${data.organization_name || data.organization}</p>` : ''}
                     ${lat && lng ? `<p style="${this.getInlineStyle(this.tooltipStyles.chapelContent)}"><strong>Coordinates:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>` : ''}
                     ${actions}
                 </div>
@@ -387,7 +449,7 @@ class LocationMarkerStyles {
                     <p style="${this.getInlineStyle(this.tooltipStyles.content)}"><strong>Type:</strong> ${type}</p>
                     <p style="${this.getInlineStyle(this.tooltipStyles.content)}"><strong>Location:</strong> ${city}, ${country}</p>
                     ${data.pastor_name ? `<p style="${this.getInlineStyle(this.tooltipStyles.content)}"><strong>Pastor:</strong> ${data.pastor_name}</p>` : ''}
-                    ${data.organization ? `<p style="${this.getInlineStyle(this.tooltipStyles.content)}"><strong>Organization:</strong> ${data.organization}</p>` : ''}
+                    ${(data.organization || data.organization_name) ? `<p style="${this.getInlineStyle(this.tooltipStyles.content)}"><strong>Organization:</strong> ${data.organization_name || data.organization}</p>` : ''}
                     ${data.description ? `<p style="${this.getInlineStyle(this.tooltipStyles.content)}"><strong>Description:</strong> ${data.description}</p>` : ''}
                     ${data.address ? `<p style="${this.getInlineStyle(this.tooltipStyles.content)}"><strong>Address:</strong> ${data.address}</p>` : ''}
                     ${lat && lng ? `<p style="${this.getInlineStyle(this.tooltipStyles.content)}"><strong>Coordinates:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>` : ''}

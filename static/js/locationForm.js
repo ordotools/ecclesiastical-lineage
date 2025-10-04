@@ -789,7 +789,7 @@ function addChapelToGlobe(location) {
     
     // Use centralized styling for color determination
     const styles = new LocationMarkerStyles();
-    const color = styles.getLocationColor(location.location_type);
+    const color = styles.getLocationColorWithOrganization(location.location_type, location.organization, location);
     
     // Create location data object
     const locationData = {
@@ -798,6 +798,8 @@ function addChapelToGlobe(location) {
         location_type: location.location_type,
         pastor_name: location.pastor_name,
         organization: location.organization,
+        organization_id: location.organization_id,
+        organization_name: location.organization_name,
         address: location.address,
         city: location.city,
         country: location.country,
@@ -923,7 +925,7 @@ function updateChapelInGlobe(location) {
     
     // Use centralized styling for color determination
     const styles = new LocationMarkerStyles();
-    const color = styles.getLocationColor(location.location_type);
+    const color = styles.getLocationColorWithOrganization(location.location_type, location.organization, location);
     
     // Create location data object
     const locationData = {
@@ -932,6 +934,8 @@ function updateChapelInGlobe(location) {
         location_type: location.location_type,
         pastor_name: location.pastor_name,
         organization: location.organization,
+        organization_id: location.organization_id,
+        organization_name: location.organization_name,
         address: location.address,
         city: location.city,
         country: location.country,

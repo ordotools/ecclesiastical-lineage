@@ -184,6 +184,53 @@ class ChapelGlobeOverlay {
             .on('mouseover', (event, d) => this.onChapelHover(event, d))
             .on('mouseout', (event, d) => this.onChapelOut(event, d))
             .on('click', (event, d) => this.onChapelClick(event, d));
+        
+        // Add touch event support for mobile devices
+        this.addTouchEventListeners();
+    }
+    
+    addTouchEventListeners() {
+        const chapelDots = this.chapelOverlayGroup.selectAll('.chapel-dot');
+        
+        // Touch events for mobile interaction
+        chapelDots
+            .on('touchstart', (event, d) => {
+                event.preventDefault();
+                this.touchStartTime = Date.now();
+                this.touchStartPosition = this.getTouchPosition(event.touches[0]);
+            })
+            .on('touchend', (event, d) => {
+                event.preventDefault();
+                
+                // Check if this was a tap (quick touch and release)
+                if (this.touchStartTime && Date.now() - this.touchStartTime < 300) {
+                    const touch = event.changedTouches[0];
+                    const touchPosition = this.getTouchPosition(touch);
+                    const startPosition = this.touchStartPosition;
+                    
+                    // Check if the touch didn't move much (tap vs drag)
+                    const distance = Math.sqrt(
+                        Math.pow(touchPosition[0] - startPosition[0], 2) + 
+                        Math.pow(touchPosition[1] - startPosition[1], 2)
+                    );
+                    
+                    if (distance < 10) { // 10px threshold for tap
+                        this.onChapelClick(event, d);
+                    }
+                }
+            })
+            .on('touchmove', (event, d) => {
+                // Prevent default to avoid scrolling
+                event.preventDefault();
+            });
+    }
+    
+    getTouchPosition(touch) {
+        const rect = this.globe.svg.node().getBoundingClientRect();
+        return [
+            touch.clientX - rect.left,
+            touch.clientY - rect.top
+        ];
     }
     
     onChapelHover(event, chapel) {

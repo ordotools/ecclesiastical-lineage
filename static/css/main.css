@@ -1607,4 +1607,115 @@ input, textarea, [contenteditable], .content-area, .clergy-row, .table, .card-bo
   .minimal-title-btn i {
     display: none;
   }
+}
+
+/* Mobile touch support for globe */
+@media (max-width: 768px) {
+  /* Globe container mobile optimizations */
+  #globe-container {
+    touch-action: none; /* Prevent default touch behaviors */
+    -webkit-touch-callout: none; /* Disable iOS callout */
+    -webkit-user-select: none; /* Disable text selection */
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Globe SVG mobile optimizations */
+  .globe-svg {
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Location markers mobile touch improvements */
+  .location-marker {
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on iOS */
+  }
+  
+  /* Chapel markers mobile touch improvements */
+  .chapel-marker circle {
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Improve touch target size for mobile */
+  .location-marker {
+    min-width: 44px; /* iOS recommended minimum touch target */
+    min-height: 44px;
+  }
+  
+  .chapel-marker circle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  /* Visual feedback for touch interactions */
+  .globe-svg.dragging {
+    cursor: grabbing;
+    transition: transform 0.1s ease-out;
+  }
+  
+  .globe-svg:not(.dragging) {
+    cursor: grab;
+    transition: transform 0.2s ease-out;
+  }
+  
+  /* Touch feedback for location markers */
+  .location-marker:active {
+    transform: scale(1.2);
+    transition: transform 0.1s ease-out;
+  }
+  
+  .chapel-marker circle:active {
+    transform: scale(1.2);
+    transition: transform 0.1s ease-out;
+  }
+  
+  /* Prevent zoom on double tap */
+  .globe-svg {
+    touch-action: manipulation;
+  }
+  
+  /* Mobile-specific globe controls */
+  .globe-controls-mobile {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .globe-control-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #2c3e50;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+    touch-action: manipulation;
+  }
+  
+  .globe-control-btn:active {
+    transform: scale(0.95);
+    background: rgba(255, 255, 255, 1);
+  }
+  
+  .globe-control-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
 } 

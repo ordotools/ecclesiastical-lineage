@@ -1176,7 +1176,7 @@ class ChapelViewVisualization {
                     
                     ${location.pastor_name ? `
                     <div class="mb-2">
-                        <strong>Pastor/Leader:</strong><br>
+                        <strong>Pastor:</strong><br>
                         <span class="text-muted">${location.pastor_name}</span>
                     </div>
                     ` : ''}

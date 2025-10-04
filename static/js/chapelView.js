@@ -16,9 +16,13 @@ class ChapelViewVisualization {
         this.isDragging = false;
         this.lastMousePosition = null;
         this.clipAngle = 90; // Clip angle for backface culling
+        this.manualDetailLevel = null; // For testing - can override connection-based detail level
         
         // Initialize centralized styling
         this.styles = new LocationMarkerStyles();
+        
+        // Load organization colors from database
+        this.loadOrganizationColors();
         
         // Country color palette - traditional paper map colors
         this.countryColors = {
@@ -163,7 +167,49 @@ class ChapelViewVisualization {
             'Barcelona': { lat: 41.3851, lng: 2.1734, name: 'Barcelona' }
         };
         
+        this.initAsync();
+    }
+    
+    async initAsync() {
+        // Load organization colors first
+        await this.loadOrganizationColors();
+        
+        // Then initialize the visualization
         this.init();
+    }
+    
+    async loadOrganizationColors() {
+        try {
+            console.log('Loading organization colors from database...');
+            const response = await fetch('/api/organizations');
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log(`Loaded ${data.count} organizations with colors`);
+                this.styles.updateOrganizationColors(data.organizations);
+            } else {
+                console.error('Failed to load organization colors:', data.error);
+            }
+        } catch (error) {
+            console.error('Error loading organization colors:', error);
+        }
+    }
+    
+    getDetailLevel() {
+        // Check if manual detail level is set (for testing)
+        if (this.manualDetailLevel) {
+            console.log('Using manual detail level:', this.manualDetailLevel);
+            return this.manualDetailLevel;
+        }
+        
+        // Return detail level based on connection speed
+        if (this.connectionSpeed === 'fast') {
+            return 'high';
+        } else if (this.connectionSpeed === 'medium') {
+            return 'medium';
+        } else {
+            return 'low';
+        }
     }
     
     getCountryColor(countryName, index = 0) {
@@ -445,16 +491,73 @@ class ChapelViewVisualization {
             .attr('stop-opacity', 0);
     }
     
+    async detectConnectionSpeed() {
+        // Use Network Information API if available
+        if ('connection' in navigator) {
+            const connection = navigator.connection;
+            const effectiveType = connection.effectiveType;
+            
+            console.log('Network effective type:', effectiveType);
+            
+            if (effectiveType === '4g' || effectiveType === '5g') {
+                return 'fast';
+            } else if (effectiveType === '3g') {
+                return 'medium';
+            } else {
+                return 'slow';
+            }
+        }
+        
+        // Fallback: Test download speed with a small image
+        try {
+            const startTime = performance.now();
+            const testImage = new Image();
+            
+            return new Promise((resolve) => {
+                testImage.onload = () => {
+                    const endTime = performance.now();
+                    const duration = endTime - startTime;
+                    
+                    // Rough speed estimation based on load time
+                    if (duration < 500) {
+                        resolve('fast');
+                    } else if (duration < 1500) {
+                        resolve('medium');
+                    } else {
+                        resolve('slow');
+                    }
+                };
+                
+                testImage.onerror = () => {
+                    resolve('slow'); // Default to slow if test fails
+                };
+                
+                // Use a small test image (1KB)
+                testImage.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+            });
+        } catch (error) {
+            console.warn('Connection speed detection failed:', error);
+            return 'medium'; // Default fallback
+        }
+    }
+    
     async loadWorldData() {
         try {
-            // Try multiple data sources for world map - using working sources
-            let world;
+            // Detect connection speed and choose appropriate data source
+            const connectionSpeed = await this.detectConnectionSpeed();
+            console.log('Detected connection speed:', connectionSpeed);
+            
+            // Store connection speed for rendering optimization
+            this.connectionSpeed = connectionSpeed;
+            
+            // Define data sources - use working sources
             const dataSources = [
                 'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson',
-                'https://unpkg.com/world-atlas@1/world/110m.json',
-                'https://raw.githubusercontent.com/d3/d3-geo/master/test/data/world-110m.json'
+                'https://raw.githubusercontent.com/d3/d3-geo/master/test/data/world-110m.json',
+                'https://unpkg.com/world-atlas@1/world/110m.json'
             ];
             
+            let world;
             for (const url of dataSources) {
                 try {
                     console.log(`Trying to load world data from: ${url}`);
@@ -506,9 +609,45 @@ class ChapelViewVisualization {
                 console.log('Available properties:', Object.keys(worldData.features[0].properties || {}));
             }
             
+            // Apply detail level based on connection speed
+            const detailLevel = this.getDetailLevel();
+            console.log('Rendering world map with detail level:', detailLevel);
+            
+            // Advanced filtering based on detail level
+            let featuresToRender = worldData.features;
+            const totalFeatures = worldData.features.length;
+            
+            if (detailLevel === 'low') {
+                // Low detail: Only major countries and continents
+                featuresToRender = worldData.features.filter(d => {
+                    const area = d3.geoArea(d);
+                    const countryName = d.properties?.NAME || d.properties?.name || d.properties?.NAME_EN || '';
+                    
+                    // Keep only large countries and major landmasses
+                    return area > 0.005 || 
+                           ['United States of America', 'Canada', 'Brazil', 'Australia', 'China', 'India', 'Russia', 'Argentina'].includes(countryName);
+                });
+            } else if (detailLevel === 'medium') {
+                // Medium detail: Filter out very small islands and territories
+                featuresToRender = worldData.features.filter(d => {
+                    const area = d3.geoArea(d);
+                    const countryName = d.properties?.NAME || d.properties?.name || d.properties?.NAME_EN || '';
+                    
+                    // Keep countries above threshold or important small countries
+                    return area > 0.0005 || 
+                           ['Vatican', 'Monaco', 'San Marino', 'Liechtenstein', 'Andorra', 'Malta', 'Cyprus'].includes(countryName);
+                });
+            }
+            // High detail: Render all features
+            
+            console.log(`Detail level: ${detailLevel}`);
+            console.log(`Total features: ${totalFeatures}`);
+            console.log(`Features to render: ${featuresToRender.length}`);
+            console.log(`Filtered out: ${totalFeatures - featuresToRender.length} features`);
+            
             // Draw world map with individual country colors
             this.g.selectAll('.country-path')
-                .data(worldData.features)
+                .data(featuresToRender)
                 .enter()
                 .append('path')
                 .attr('class', 'country-path')
@@ -519,9 +658,9 @@ class ChapelViewVisualization {
                     // console.log(`Country ${i}: ${countryName}, Color: ${color}`);
                     return color;
                 })
-                .attr('stroke', '#4A3E33')
-                .attr('stroke-width', 0.3)
-                .attr('opacity', 1)
+                .attr('stroke', detailLevel === 'high' ? '#4A3E33' : detailLevel === 'medium' ? '#6B5B47' : '#8B7355')
+                .attr('stroke-width', detailLevel === 'high' ? 0.3 : detailLevel === 'medium' ? 0.8 : 1.5)
+                .attr('opacity', detailLevel === 'high' ? 1 : detailLevel === 'medium' ? 0.9 : 0.8)
                 .on('mouseover', (event, d) => {
                     const countryName = d.properties.NAME || d.properties.name || d.properties.NAME_EN || d.properties.name_en || d.properties.ADMIN || d.properties.ADMIN_EN || 'Unknown';
                     this.showCountryTooltip(event, countryName);
@@ -787,8 +926,8 @@ class ChapelViewVisualization {
                         const deltaX = currentMousePosition[0] - this.lastMousePosition[0];
                         const deltaY = currentMousePosition[1] - this.lastMousePosition[1];
                         
-                        this.rotation[0] += deltaX * 0.5;
-                        this.rotation[1] -= deltaY * 0.5;
+                        this.rotation[0] += deltaX * 0.15;
+                        this.rotation[1] -= deltaY * 0.15;
                         
                         this.projection.rotate(this.rotation);
                         this.updateGlobe();
@@ -1148,16 +1287,8 @@ class ChapelViewVisualization {
         }
         console.log('Found aside panel:', asidePanel);
         
-        const locationTypeColors = {
-            'church': '#27ae60',
-            'cathedral': '#9b59b6', 
-            'monastery': '#f39c12',
-            'seminary': '#1abc9c',
-            'organization': '#3498db',
-            'address': '#e74c3c'
-        };
-        
-        const color = locationTypeColors[location.location_type] || '#95a5a6';
+        // Use organization-based color if available, fall back to location type color
+        const color = this.styles.getLocationColorWithOrganization(location.location_type, location.organization, location);
         
         asidePanel.innerHTML = `
             <div class="card">
@@ -1181,10 +1312,10 @@ class ChapelViewVisualization {
                     </div>
                     ` : ''}
                     
-                    ${location.organization ? `
+                    ${(location.organization || location.organization_name) ? `
                     <div class="mb-2">
                         <strong>Organization:</strong><br>
-                        <span class="text-muted">${location.organization}</span>
+                        <span class="text-muted">${location.organization_name || location.organization}</span>
                     </div>
                     ` : ''}
                     
@@ -1502,7 +1633,7 @@ class ChapelViewVisualization {
             marker.on('mouseout', (event) => {
                 d3.select(event.target)
                     .attr('r', 8);
-                this.hideLocationTooltip();
+                this.hideTooltip();
             });
         } else {
             // Location is on the back side of the globe, create hidden marker
@@ -1537,7 +1668,7 @@ class ChapelViewVisualization {
             marker.on('mouseout', (event) => {
                 d3.select(event.target)
                     .attr('r', 8);
-                this.hideLocationTooltip();
+                this.hideTooltip();
             });
         }
         
@@ -1597,7 +1728,7 @@ class ChapelViewVisualization {
         existingMarker.on('click', (event) => {
             console.log('Location clicked:', locationData.name);
             event.stopPropagation();
-            this.handleLocationClick(locationData);
+            this.handleLocationClick(event, locationData);
         });
         
         // Update hover handlers with new data
@@ -1610,7 +1741,7 @@ class ChapelViewVisualization {
         existingMarker.on('mouseout', (event) => {
             d3.select(event.target)
                 .attr('r', 8);
-            this.hideLocationTooltip();
+            this.hideTooltip();
         });
         
         console.log('Single location node updated successfully');
@@ -1637,6 +1768,27 @@ class ChapelViewVisualization {
         existingMarker.remove();
         
         console.log('Single location node removed successfully');
+    }
+    
+    // Cleanup method for reloading the globe
+    cleanup() {
+        console.log('Cleaning up ChapelViewVisualization...');
+        
+        // Remove SVG and all its contents
+        if (this.svg && this.svg.node()) {
+            this.svg.remove();
+        }
+        
+        // Clear references
+        this.svg = null;
+        this.g = null;
+        this.tooltip = null;
+        
+        // Reset state
+        this.isDragging = false;
+        this.lastMousePosition = null;
+        
+        console.log('ChapelViewVisualization cleanup complete');
     }
 }
 

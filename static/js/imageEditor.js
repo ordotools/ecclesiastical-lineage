@@ -47,22 +47,10 @@ class ImageEditor {
      * Initialize all event listeners
      */
     initializeEventListeners() {
-        // Toolbar buttons (only rotate)
-        document.getElementById('rotateLeftBtn')?.addEventListener('click', () => this.rotateLeft());
-        document.getElementById('rotateRightBtn')?.addEventListener('click', () => this.rotateRight());
-        
         // Footer buttons
         document.getElementById('resetImageBtn')?.addEventListener('click', () => this.resetImage());
         document.getElementById('previewBtn')?.addEventListener('click', () => this.showPreview());
         document.getElementById('applyChangesBtn')?.addEventListener('click', () => this.applyChanges());
-        
-        // Settings
-        document.getElementById('outputQuality')?.addEventListener('input', (e) => this.updateQuality(e.target.value));
-        
-        // Output size checkboxes
-        document.getElementById('sizeLineage')?.addEventListener('change', (e) => this.updateOutputSizes('lineage', e.target.checked));
-        document.getElementById('sizeDetail')?.addEventListener('change', (e) => this.updateOutputSizes('detail', e.target.checked));
-        document.getElementById('sizeOriginal')?.addEventListener('click', (e) => this.updateOutputSizes('original', e.target.checked));
         
         // Modal close events
         const imageEditorModal = document.getElementById('imageEditorModal');
@@ -276,8 +264,8 @@ class ImageEditor {
             wheelZoomRatio: 0.1,
             minCropBoxWidth: 50,
             minCropBoxHeight: 50,
-            maxCropBoxWidth: 400, // Limit maximum crop box size
-            maxCropBoxHeight: 400,
+            maxCropBoxWidth: 2000, // Much larger maximum crop box size
+            maxCropBoxHeight: 2000,
             // Force square aspect ratio - disable aspect ratio changes
             aspectRatio: 1,
             cropBoxResizable: true,
@@ -289,6 +277,7 @@ class ImageEditor {
                 this.cropper.reset();
                 // Set constraints to prevent crop box from extending beyond container
                 this.setCropConstraints();
+                // Crop initialization complete
             },
             crop: () => {
                 this.updateCropDimensions();
@@ -327,13 +316,7 @@ class ImageEditor {
      */
     updateCropDimensions() {
         if (!this.cropper) return;
-
-        const cropData = this.cropper.getData();
-        const cropWidthElement = document.getElementById('cropWidth');
-        const cropHeightElement = document.getElementById('cropHeight');
-
-        if (cropWidthElement) cropWidthElement.value = Math.round(cropData.width);
-        if (cropHeightElement) cropHeightElement.value = Math.round(cropData.height);
+        // No longer needed since sidebar was removed
     }
     
     /**
@@ -345,8 +328,8 @@ class ImageEditor {
         const containerData = this.cropper.getContainerData();
         const canvasData = this.cropper.getCanvasData();
         
-        // Calculate maximum crop box size based on container
-        const maxSize = Math.min(containerData.width * 0.8, containerData.height * 0.8, 400);
+        // Calculate maximum crop box size based on container (no 400px limit)
+        const maxSize = Math.min(containerData.width * 0.95, containerData.height * 0.95);
         
         // Update cropper with new constraints
         this.cropper.setCropBoxData({
@@ -366,8 +349,8 @@ class ImageEditor {
         const containerData = this.cropper.getContainerData();
         const cropData = this.cropper.getData();
         
-        // Calculate maximum allowed size and position
-        const maxSize = Math.min(containerData.width * 0.8, containerData.height * 0.8, 400);
+        // Calculate maximum allowed size and position (no 400px limit)
+        const maxSize = Math.min(containerData.width * 0.95, containerData.height * 0.95);
         const maxLeft = containerData.width - cropData.width;
         const maxTop = containerData.height - cropData.height;
         
@@ -893,21 +876,9 @@ class ImageEditor {
         const imagePreview = document.getElementById('imagePreview');
         if (!imagePreview) return;
         
-        imagePreview.innerHTML = `
-            <img src="${imageData}" alt="Preview" class="preview-image" id="previewImage">
-            <div class="image-tools-overlay">
-                <input type="file" class="form-control" id="clergyImage" name="clergy_image" accept="image/*" style="display: none;">
-                <button type="button" class="btn btn-icon btn-upload" id="uploadBtn" title="Upload Image">
-                    <i class="fas fa-upload"></i>
-                </button>
-                <button type="button" class="btn btn-icon btn-crop" id="cropExistingBtn" title="Edit Image">
-                    <i class="fas fa-crop"></i>
-                </button>
-                <button type="button" class="btn btn-icon btn-remove" id="removeImageBtn" title="Remove Image">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
+        // Add has-image class to remove border and padding
+        imagePreview.classList.add('has-image');
+        imagePreview.innerHTML = `<img src="${imageData}" alt="Preview" class="preview-image" id="previewImage">`;
         
         // Re-attach event listeners
         this.reattachFormEventListeners();
@@ -921,6 +892,19 @@ class ImageEditor {
         const newUploadBtn = document.getElementById('uploadBtn');
         const newCropBtn = document.getElementById('cropExistingBtn');
         const newRemoveBtn = document.getElementById('removeImageBtn');
+        
+        // Check if there's an existing image and add has-image class
+        const imagePreview = document.getElementById('imagePreview');
+        if (imagePreview) {
+            const existingImage = imagePreview.querySelector('img');
+            if (existingImage) {
+                imagePreview.classList.add('has-image');
+                if (newCropBtn) newCropBtn.style.display = 'inline-flex';
+                if (newRemoveBtn) newRemoveBtn.style.display = 'inline-flex';
+            } else {
+                imagePreview.classList.remove('has-image');
+            }
+        }
         
         // Remove existing listeners first to prevent duplication
         if (newImageInput) {

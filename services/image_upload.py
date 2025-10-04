@@ -42,9 +42,16 @@ class ImageUploadService:
         
         # Image size configurations
         self.image_sizes = {
-            'lineage': (48, 48),      # Small version for visualization
+            'lineage': (64, 64),      # Small version for visualization (increased from 48x48)
             'detail': (320, 320),     # Large version for detail view
             'original': None          # Keep original size (max 25MB)
+        }
+        
+        # Quality settings for different image types
+        self.quality_settings = {
+            'lineage': 85,    # Lower quality for small images
+            'detail': 90,     # High quality for detail view
+            'original': 95    # Highest quality for original
         }
         
         # Maximum file size for original images (25MB)
@@ -306,7 +313,9 @@ class ImageUploadService:
                 'original_size': len(image_data),
                 'cropped_dimensions': f"{image.width}x{image.height}",
                 'timestamp': datetime.now().isoformat(),
-                'quality': 95
+                'quality_settings': self.quality_settings,
+                'compression_optimized': True,
+                'progressive_jpeg': True
             }
             
             current_app.logger.info(f"Processed cropped image for clergy {clergy_id}: {list(urls.keys())}")
@@ -326,7 +335,7 @@ class ImageUploadService:
             }
 
     def _create_resized_version(self, image, clergy_id, size_type, target_size):
-        """Create a resized version of the image"""
+        """Create a resized version of the image with optimized compression"""
         try:
             current_app.logger.info(f"Creating {size_type} version with target size {target_size}")
             
@@ -335,15 +344,56 @@ class ImageUploadService:
                 current_app.logger.error("Backblaze B2 not configured - cannot create resized version")
                 return None
             
-            # Resize image
+            # Convert to RGB if necessary (for JPEG compatibility)
+            if image.mode in ('RGBA', 'LA', 'P'):
+                # Create a white background for transparent images
+                background = Image.new('RGB', image.size, (255, 255, 255))
+                if image.mode == 'P':
+                    image = image.convert('RGBA')
+                background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                image = background
+            elif image.mode != 'RGB':
+                image = image.convert('RGB')
+            
+            # Resize image with high-quality resampling
             resized_image = image.resize(target_size, Image.Resampling.LANCZOS)
             current_app.logger.info(f"Image resized to {resized_image.width}x{resized_image.height}")
             
-            # Convert to bytes with high quality
+            # Get quality setting for this image type
+            quality = self.quality_settings.get(size_type, 90)
+            
+            # Convert to bytes with optimized compression
             output = BytesIO()
-            resized_image.save(output, format='JPEG', quality=95, optimize=True)
+            
+            # Use progressive JPEG for better web loading
+            resized_image.save(
+                output, 
+                format='JPEG', 
+                quality=quality, 
+                optimize=True,
+                progressive=True
+            )
             resized_data = output.getvalue()
-            current_app.logger.info(f"Resized image data size: {len(resized_data)} bytes")
+            current_app.logger.info(f"Resized image data size: {len(resized_data)} bytes (quality: {quality})")
+            
+            # If file is still too large, try reducing quality further
+            max_size = 500 * 1024  # 500KB max for lineage, 1MB for detail
+            if size_type == 'detail':
+                max_size = 1024 * 1024  # 1MB for detail images
+                
+            if len(resized_data) > max_size and quality > 60:
+                current_app.logger.info(f"Image too large ({len(resized_data)} bytes), reducing quality")
+                quality = max(60, quality - 15)
+                output = BytesIO()
+                resized_image.save(
+                    output, 
+                    format='JPEG', 
+                    quality=quality, 
+                    optimize=True,
+                    progressive=True
+                )
+                resized_data = output.getvalue()
+                current_app.logger.info(f"Reduced quality to {quality}, new size: {len(resized_data)} bytes")
             
             # Generate unique filename
             object_key = self._generate_object_key(clergy_id, size_type, '.jpg')

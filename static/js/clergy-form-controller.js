@@ -613,6 +613,8 @@ class ClergyFormController {
         const removeBtn = document.getElementById('removeBtn');
         
         if (preview) {
+            // Add has-image class to remove border and padding
+            preview.classList.add('has-image');
             preview.innerHTML = `<img src="${imageSrc}" alt="Clergy photo">`;
         }
         
@@ -631,6 +633,8 @@ class ClergyFormController {
         const removeBtn = document.getElementById('removeBtn');
         
         if (preview) {
+            // Remove has-image class to restore border and padding
+            preview.classList.remove('has-image');
             preview.innerHTML = '<div class="image-placeholder"><i class="fas fa-user"></i></div>';
         }
         

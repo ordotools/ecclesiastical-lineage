@@ -119,8 +119,20 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="organization" class="form-label">Organization</label>
-                                    <input type="text" class="form-control" id="organization" name="organization" 
+                                    <label for="organization_id" class="form-label">Organization</label>
+                                    <select class="form-select" id="organization_id" name="organization_id">
+                                        <option value="">Select an organization...</option>
+                                        {% for org in organizations %}
+                                        <option value="{{ org.id }}" 
+                                                {{ 'selected' if location and location.organization_id == org.id else '' }}
+                                                data-color="{{ org.color }}"
+                                                data-name="{{ org.name }}">
+                                            {{ org.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <!-- Keep legacy organization field for backward compatibility -->
+                                    <input type="hidden" id="organization" name="organization" 
                                            value="{{ location.organization if location else '' }}">
                                 </div>
                             </div>
@@ -148,6 +160,22 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Update legacy organization field when organization dropdown changes
+    const organizationSelect = document.getElementById('organization_id');
+    const organizationHidden = document.getElementById('organization');
+    
+    if (organizationSelect && organizationHidden) {
+        organizationSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                // Update the legacy organization field with the organization name
+                organizationHidden.value = selectedOption.dataset.name || '';
+            } else {
+                // Clear the legacy organization field if no organization is selected
+                organizationHidden.value = '';
+            }
+        });
+    }
     const addressInput = document.getElementById('address');
     const latitudeInput = document.getElementById('latitude');
     const longitudeInput = document.getElementById('longitude');

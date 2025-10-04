@@ -787,17 +787,9 @@ function addChapelToGlobe(location) {
         return;
     }
     
-    // Determine color based on location type
-    const colorMap = {
-        'church': '#27ae60',      // Green for churches
-        'cathedral': '#9b59b6',   // Purple for cathedrals
-        'chapel': '#e74c3c',      // Red for chapels
-        'monastery': '#f39c12',   // Orange for monasteries
-        'seminary': '#1abc9c',    // Teal for seminaries
-        'abbey': '#8e44ad'        // Dark purple for abbeys
-    };
-    
-    const color = colorMap[location.location_type] || '#95a5a6';
+    // Use centralized styling for color determination
+    const styles = new LocationMarkerStyles();
+    const color = styles.getLocationColor(location.location_type);
     
     // Create location data object
     const locationData = {
@@ -929,17 +921,9 @@ function updateChapelInGlobe(location) {
         return;
     }
     
-    // Determine color based on location type
-    const colorMap = {
-        'church': '#27ae60',      // Green for churches
-        'cathedral': '#9b59b6',   // Purple for cathedrals
-        'chapel': '#e74c3c',      // Red for chapels
-        'monastery': '#f39c12',   // Orange for monasteries
-        'seminary': '#1abc9c',    // Teal for seminaries
-        'abbey': '#8e44ad'        // Dark purple for abbeys
-    };
-    
-    const color = colorMap[location.location_type] || '#95a5a6';
+    // Use centralized styling for color determination
+    const styles = new LocationMarkerStyles();
+    const color = styles.getLocationColor(location.location_type);
     
     // Create location data object
     const locationData = {

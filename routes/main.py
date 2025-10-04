@@ -14,10 +14,10 @@ main_bp = Blueprint('main', __name__)
 def index():
     return lineage_visualization()
 
-# Geographic lineage visualization
-@main_bp.route('/geographic')
-def geographic_lineage():
-    current_app.logger.info("=== GEOGRAPHIC_LINEAGE ROUTE CALLED ===")
+# Chapel view visualization
+@main_bp.route('/chapel-view')
+def chapel_view():
+    current_app.logger.info("=== CHAPEL_VIEW ROUTE CALLED ===")
     
     try:
         # Get all active locations for the visualization
@@ -61,7 +61,7 @@ def geographic_lineage():
                     'notes': location.notes
                 })
         
-        current_app.logger.info(f"Geographic visualization: {len(nodes)} location nodes created")
+        current_app.logger.info(f"Chapel view visualization: {len(nodes)} location nodes created")
         
         # Safely serialize data to JSON
         try:
@@ -72,29 +72,29 @@ def geographic_lineage():
             current_app.logger.error(f"Error serializing data to JSON: {e}")
             raise e
             
-        current_app.logger.info(f"=== RENDERING GEOGRAPHIC TEMPLATE WITH {len(nodes)} NODES AND {len(links)} LINKS ===")
+        current_app.logger.info(f"=== RENDERING CHAPEL_VIEW TEMPLATE WITH {len(nodes)} NODES AND {len(links)} LINKS ===")
         
         # Get current user if logged in
         user = None
         if 'user_id' in session:
             user = User.query.get(session['user_id'])
         
-        return render_template('geographic_lineage.html', 
+        return render_template('chapel_view.html', 
                              nodes_json=nodes_json, 
                              links_json=links_json,
                              user=user)
     except Exception as e:
-        current_app.logger.error(f"Error in geographic lineage visualization: {e}")
-        error_message = f"Error loading geographic visualization: {str(e)}"
-        return render_template('geographic_lineage.html', 
+        current_app.logger.error(f"Error in chapel view visualization: {e}")
+        error_message = f"Error loading chapel view visualization: {str(e)}"
+        return render_template('chapel_view.html', 
                              nodes_json='[]', 
                              links_json='[]',
                              error_message=error_message,
                              user=None)
 
-@main_bp.route('/api/geographic-locations')
-def api_geographic_locations():
-    """API endpoint to get location data for geographic visualization"""
+@main_bp.route('/api/chapel-locations')
+def api_chapel_locations():
+    """API endpoint to get location data for chapel view visualization"""
     try:
         # Get all active locations for the visualization
         all_locations = Location.query.filter(Location.is_active == True, Location.deleted == False).all()

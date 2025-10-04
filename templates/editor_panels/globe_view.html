@@ -12,7 +12,9 @@
 <!-- Include necessary scripts for globe functionality -->
 <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
 <script src="https://unpkg.com/topojson@3"></script>
-<script src="{{ url_for('static', filename='js/geographicLineage.js') }}"></script>
+<!-- Centralized styling system -->
+<script src="{{ url_for('static', filename='js/locationMarkerStyles.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chapelView.js') }}"></script>
 
 <script>
 (function() {
@@ -30,8 +32,8 @@
     
     // Wait for the script to load and then initialize
     function waitForScriptAndInitialize() {
-        if (typeof window.GeographicLineageVisualization === 'undefined') {
-            console.log('GeographicLineageVisualization not yet loaded, retrying...');
+        if (typeof window.ChapelViewVisualization === 'undefined') {
+            console.log('ChapelViewVisualization not yet loaded, retrying...');
             setTimeout(waitForScriptAndInitialize, 100);
             return;
         }
@@ -48,7 +50,7 @@
         }
         
         // Initialize the globe visualization
-        window.geographicVisualization = new GeographicLineageVisualization();
+        window.geographicVisualization = new ChapelViewVisualization();
         window.geographicVisualization.init();
         
         // The globe visualization already displays location markers, so no need for chapel overlay

@@ -981,9 +981,21 @@ class ChapelViewVisualization {
     setupTouchEvents() {
         const svgNode = this.svg.node();
         
+        // Remove any existing touch event listeners to avoid duplicates
+        if (this.touchEventListeners) {
+            this.touchEventListeners.forEach(({ event, handler, options }) => {
+                svgNode.removeEventListener(event, handler, options);
+            });
+        }
+        
+        this.touchEventListeners = [];
+        
         // Touch start
-        svgNode.addEventListener('touchstart', (event) => {
+        const touchStartHandler = (event) => {
             event.preventDefault();
+            event.stopPropagation();
+            
+            console.log('Touch start:', event.touches.length, 'touches');
             
             if (event.touches.length === 1) {
                 // Single touch - start rotation
@@ -995,25 +1007,32 @@ class ChapelViewVisualization {
                 
                 // Check if touching a location marker
                 const target = event.target;
-                if (target.classList.contains('location-marker')) {
+                if (target.classList.contains('location-marker') || target.closest('.location-marker')) {
                     // Don't start rotation if touching a marker
+                    console.log('Touching location marker, not starting rotation');
                     this.touchState.isTouching = false;
                     return;
                 }
                 
+                console.log('Starting touch rotation');
                 this.svg.classed('dragging', true);
             } else if (event.touches.length === 2) {
                 // Two touches - start pinch zoom
+                console.log('Starting pinch zoom');
                 this.touchState.isPinching = true;
                 this.touchState.isTouching = false;
                 this.touchState.lastPinchDistance = this.getPinchDistance(event.touches);
                 this.touchState.lastPinchCenter = this.getPinchCenter(event.touches);
             }
-        }, { passive: false });
+        };
+        
+        svgNode.addEventListener('touchstart', touchStartHandler, { passive: false });
+        this.touchEventListeners.push({ event: 'touchstart', handler: touchStartHandler, options: { passive: false } });
         
         // Touch move
-        svgNode.addEventListener('touchmove', (event) => {
+        const touchMoveHandler = (event) => {
             event.preventDefault();
+            event.stopPropagation();
             
             if (this.touchState.isTouching && event.touches.length === 1) {
                 // Single touch rotation
@@ -1021,14 +1040,19 @@ class ChapelViewVisualization {
                 const deltaX = currentTouchPosition[0] - this.touchState.lastTouchPosition[0];
                 const deltaY = currentTouchPosition[1] - this.touchState.lastTouchPosition[1];
                 
-                this.rotation[0] += deltaX * 0.5;
-                this.rotation[1] -= deltaY * 0.5;
-                
-                this.projection.rotate(this.rotation);
-                this.updateGlobe();
-                this.updateRotationIndicator();
-                
-                this.touchState.lastTouchPosition = currentTouchPosition;
+                // Only rotate if there's significant movement (avoid accidental rotation)
+                if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+                    console.log('Touch rotation:', deltaX, deltaY);
+                    
+                    this.rotation[0] += deltaX * 0.6;
+                    this.rotation[1] -= deltaY * 0.6;
+                    
+                    this.projection.rotate(this.rotation);
+                    this.updateGlobe();
+                    this.updateRotationIndicator();
+                    
+                    this.touchState.lastTouchPosition = currentTouchPosition;
+                }
             } else if (this.touchState.isPinching && event.touches.length === 2) {
                 // Two finger pinch zoom
                 const currentPinchDistance = this.getPinchDistance(event.touches);
@@ -1039,6 +1063,8 @@ class ChapelViewVisualization {
                     const currentScale = this.projection.scale();
                     const newScale = Math.max(0.5, Math.min(3, currentScale * scaleChange));
                     
+                    console.log('Pinch zoom:', scaleChange, 'new scale:', newScale);
+                    
                     this.projection.scale(newScale);
                     this.updateGlobe();
                 }
@@ -1046,14 +1072,21 @@ class ChapelViewVisualization {
                 this.touchState.lastPinchDistance = currentPinchDistance;
                 this.touchState.lastPinchCenter = currentPinchCenter;
             }
-        }, { passive: false });
+        };
+        
+        svgNode.addEventListener('touchmove', touchMoveHandler, { passive: false });
+        this.touchEventListeners.push({ event: 'touchmove', handler: touchMoveHandler, options: { passive: false } });
         
         // Touch end
-        svgNode.addEventListener('touchend', (event) => {
+        const touchEndHandler = (event) => {
             event.preventDefault();
+            event.stopPropagation();
+            
+            console.log('Touch end:', event.touches.length, 'touches remaining');
             
             if (event.touches.length === 0) {
                 // All touches ended
+                console.log('All touches ended');
                 this.touchState.isTouching = false;
                 this.touchState.isPinching = false;
                 this.touchState.lastTouchPosition = null;
@@ -1063,26 +1096,36 @@ class ChapelViewVisualization {
                 
                 // Check for tap (quick touch and release)
                 if (this.touchState.touchStartTime && Date.now() - this.touchState.touchStartTime < 300) {
+                    console.log('Handling tap');
                     this.handleTap(event);
                 }
             } else if (event.touches.length === 1 && this.touchState.isPinching) {
                 // Switched from pinch to single touch
+                console.log('Switched from pinch to single touch');
                 this.touchState.isPinching = false;
                 this.touchState.isTouching = true;
                 this.touchState.lastTouchPosition = this.getTouchPosition(event.touches[0]);
             }
-        }, { passive: false });
+        };
+        
+        svgNode.addEventListener('touchend', touchEndHandler, { passive: false });
+        this.touchEventListeners.push({ event: 'touchend', handler: touchEndHandler, options: { passive: false } });
         
         // Prevent default touch behaviors that might interfere
-        svgNode.addEventListener('touchcancel', (event) => {
+        const touchCancelHandler = (event) => {
             event.preventDefault();
+            event.stopPropagation();
+            console.log('Touch cancelled');
             this.touchState.isTouching = false;
             this.touchState.isPinching = false;
             this.touchState.lastTouchPosition = null;
             this.touchState.lastPinchDistance = null;
             this.touchState.lastPinchCenter = null;
             this.svg.classed('dragging', false);
-        }, { passive: false });
+        };
+        
+        svgNode.addEventListener('touchcancel', touchCancelHandler, { passive: false });
+        this.touchEventListeners.push({ event: 'touchcancel', handler: touchCancelHandler, options: { passive: false } });
     }
     
     getTouchPosition(touch) {
@@ -1773,6 +1816,14 @@ class ChapelViewVisualization {
     // Cleanup method for reloading the globe
     cleanup() {
         console.log('Cleaning up ChapelViewVisualization...');
+        
+        // Clean up touch event listeners
+        if (this.touchEventListeners && this.svg && this.svg.node()) {
+            this.touchEventListeners.forEach(({ event, handler, options }) => {
+                this.svg.node().removeEventListener(event, handler, options);
+            });
+            this.touchEventListeners = [];
+        }
         
         // Remove SVG and all its contents
         if (this.svg && this.svg.node()) {

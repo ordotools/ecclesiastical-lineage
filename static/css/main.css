@@ -1619,6 +1619,8 @@ input, textarea, [contenteditable], .content-area, .clergy-row, .table, .card-bo
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
+    -webkit-overflow-scrolling: touch; /* Enable smooth scrolling on iOS */
+    overscroll-behavior: none; /* Prevent overscroll bounce */
   }
   
   /* Globe SVG mobile optimizations */
@@ -1629,6 +1631,10 @@ input, textarea, [contenteditable], .content-area, .clergy-row, .table, .card-bo
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+    /* Ensure the SVG can receive touch events */
+    pointer-events: all;
   }
   
   /* Location markers mobile touch improvements */
@@ -1676,9 +1682,9 @@ input, textarea, [contenteditable], .content-area, .clergy-row, .table, .card-bo
     transition: transform 0.1s ease-out;
   }
   
-  /* Prevent zoom on double tap */
+  /* Prevent zoom on double tap - removed conflicting touch-action */
   .globe-svg {
-    touch-action: manipulation;
+    /* touch-action: none is already set above for this class */
   }
   
   /* Mobile-specific globe controls */

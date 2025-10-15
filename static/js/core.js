@@ -1,4 +1,4 @@
-// Core visualization module with D3 setup and elkjs layered layout
+// Core visualization module with D3 force layout
 import { 
   LINK_DISTANCE, 
   CHARGE_STRENGTH, 
@@ -17,6 +17,7 @@ import {
 } from './constants.js';
 import { handleNodeClick } from './modals.js';
 import { applyPriestFilter, updateTimelinePositions, applyBackboneOnlyFilter } from './filters.js';
+import { renderStatusBadges } from './statusBadges.js';
 
 // Function to check if a rank is a bishop rank
 // This will be updated to use the server-side bishop flag in the future
@@ -28,320 +29,6 @@ function isBishopRank(rankValue) {
          lowerRank.includes('archbishop') || 
          lowerRank.includes('cardinal') ||
          lowerRank.includes('patriarch');
-}
-
-// Layout mode: 'layered' (elkjs) or 'force' (original)
-let layoutMode = 'force'; // Default to force layout
-let elk = null;
-let elkEnabled = false; // ELK is disabled by default
-
-// Function to toggle ELK layout
-export function toggleELKLayout() {
-  elkEnabled = !elkEnabled;
-  console.log('ELK layout toggled:', elkEnabled ? 'enabled' : 'disabled');
-  
-  // Update the UI toggles if they exist
-  const toggle = document.getElementById('elk-layout-toggle');
-  const mobileToggle = document.getElementById('elk-layout-toggle-mobile');
-  
-  if (toggle) {
-    toggle.checked = elkEnabled;
-  }
-  if (mobileToggle) {
-    mobileToggle.checked = elkEnabled;
-  }
-  
-  // Reinitialize visualization with new layout
-  if (window.initializeVisualization) {
-    // Clear the existing visualization
-    const graphContainer = document.getElementById('graph-container');
-    if (graphContainer) {
-      graphContainer.innerHTML = '';
-    }
-    
-    // Reinitialize with new layout
-    window.initializeVisualization();
-  }
-  
-  return elkEnabled;
-}
-
-// Make toggleELKLayout available globally
-window.toggleELKLayout = toggleELKLayout;
-
-// Function to get current ELK status
-export function isELKEnabled() {
-  return elkEnabled;
-}
-
-// Function to compute layered layout using elkjs
-async function computeLayeredLayout(nodes, links) {
-  console.log('Computing layered layout with elkjs...');
-  
-  // Check if ELK is enabled
-  if (!elkEnabled) {
-    console.log('ELK layout is disabled, using force layout');
-    layoutMode = 'force';
-    return null;
-  }
-  
-  // Initialize ELK if not already done
-  if (!elk && typeof ELK !== 'undefined') {
-    try {
-      elk = new ELK();
-      console.log('ELK initialized successfully');
-    } catch (error) {
-      console.error('Failed to initialize ELK:', error);
-      elk = null;
-    }
-  }
-  
-  if (!elk) {
-    console.warn('ELK not available, falling back to force layout');
-    layoutMode = 'force';
-    return null;
-  }
-  
-  // Prepare data for elkjs
-  const elkNodes = nodes.map(node => {
-    // Validate node has required properties
-    if (!node.id) {
-      console.error('Node missing ID:', node);
-      return null;
-    }
-    
-    // Calculate layer based on event date (consecration for bishops, ordination for priests)
-    let layerDate = null;
-    if (node.rank && isBishopRank(node.rank) && node.consecration_date && node.consecration_date !== 'Not specified') {
-      layerDate = new Date(node.consecration_date);
-    } else if (node.ordination_date && node.ordination_date !== 'Not specified') {
-      layerDate = new Date(node.ordination_date);
-    }
-    
-    // Assign layer ID based on year (group by decade for better spacing)
-    let layerId = 'unknown';
-    if (layerDate && !isNaN(layerDate.getTime())) {
-      const year = layerDate.getFullYear();
-      layerId = `layer_${Math.floor(year / 10) * 10}`; // Group by decade
-    }
-    
-    return {
-      id: node.id.toString(),
-      width: OUTER_RADIUS * 2 + 20, // Node width including padding
-      height: OUTER_RADIUS * 2 + 20, // Node height including padding
-      properties: {
-        'elk.layered.layering.layerId': layerId
-      },
-      // Store original node data separately to avoid ELK property issues
-      originalNode: node
-    };
-  }).filter(node => node !== null); // Remove any null nodes
-  
-  const elkEdges = links.map((link, index) => {
-    // Validate link has required properties
-    if (!link.source || !link.target || !link.source.id || !link.target.id) {
-      console.error('Link missing source or target:', link);
-      return null;
-    }
-    
-    return {
-      id: `edge_${index}`,
-      sources: [link.source.id.toString()],
-      targets: [link.target.id.toString()],
-      // Store original link data separately to avoid ELK property issues
-      originalLink: link
-    };
-  }).filter(edge => edge !== null); // Remove any null edges
-  
-  // Debug: Log the data being passed to ELK
-  console.log('ELK Graph data:', {
-    nodeCount: elkNodes.length,
-    edgeCount: elkEdges.length,
-    sampleNode: elkNodes[0],
-    sampleEdge: elkEdges[0],
-    allNodeIds: elkNodes.map(n => n.id),
-    allEdgeSources: elkEdges.map(e => e.sources),
-    allEdgeTargets: elkEdges.map(e => e.targets)
-  });
-  
-  // Debug: Check for ID type mismatches
-  const nodeIdTypes = elkNodes.map(n => ({ id: n.id, type: typeof n.id }));
-  const edgeSourceTypes = elkEdges.flatMap(e => e.sources.map(id => ({ id, type: typeof id })));
-  const edgeTargetTypes = elkEdges.flatMap(e => e.targets.map(id => ({ id, type: typeof id })));
-  
-  console.log('ID type analysis:', {
-    nodeIdTypes: nodeIdTypes.slice(0, 5),
-    edgeSourceTypes: edgeSourceTypes.slice(0, 5),
-    edgeTargetTypes: edgeTargetTypes.slice(0, 5)
-  });
-  
-  // Check for potential issues
-  const nodeIds = new Set(elkNodes.map(n => n.id));
-  const invalidEdges = elkEdges.filter(edge => {
-    const sourceExists = edge.sources.every(id => nodeIds.has(id));
-    const targetExists = edge.targets.every(id => nodeIds.has(id));
-    return !sourceExists || !targetExists;
-  });
-  
-  if (invalidEdges.length > 0) {
-    console.error('Invalid edges found:', invalidEdges);
-    console.error('Available node IDs:', Array.from(nodeIds));
-    console.error('Edge sources:', elkEdges.map(e => e.sources));
-    console.error('Edge targets:', elkEdges.map(e => e.targets));
-  }
-  
-  // Filter out invalid edges before passing to ELK
-  const validEdges = elkEdges.filter(edge => {
-    const sourceExists = edge.sources.every(id => nodeIds.has(id));
-    const targetExists = edge.targets.every(id => nodeIds.has(id));
-    return sourceExists && targetExists;
-  });
-  
-  console.log(`Filtered out ${elkEdges.length - validEdges.length} invalid edges`);
-  
-  const elkGraph = {
-    id: 'root',
-    properties: {
-      'elk.algorithm': 'layered',
-      'elk.direction': 'RIGHT',
-      'elk.spacing.nodeNode': 80,
-      'elk.layered.spacing.nodeNodeBetweenLayers': 120
-    },
-    children: elkNodes,
-    edges: validEdges
-  };
-  
-  try {
-    // Test with a minimal graph first if we have issues
-    if (elkNodes.length > 50) {
-      console.log('Large graph detected, testing with simplified version first...');
-      // Create a test graph with only valid edges
-      const testNodeIds = new Set(elkNodes.slice(0, 5).map(n => n.id));
-      const testEdges = validEdges.filter(edge => {
-        const sourceExists = edge.sources.every(id => testNodeIds.has(id));
-        const targetExists = edge.targets.every(id => testNodeIds.has(id));
-        return sourceExists && targetExists;
-      }).slice(0, 3);
-      
-      const testGraph = {
-        id: 'test',
-        properties: {
-          'elk.algorithm': 'layered',
-          'elk.direction': 'RIGHT'
-        },
-        children: elkNodes.slice(0, 5), // Test with first 5 nodes
-        edges: testEdges    // Test with valid edges only
-      };
-      
-      try {
-        await elk.layout(testGraph);
-        console.log('ELK test with small graph succeeded');
-      } catch (testError) {
-        console.error('ELK test with small graph failed:', testError);
-        throw new Error('ELK cannot handle even small graphs: ' + testError.message);
-      }
-    }
-    
-    const layoutedGraph = await elk.layout(elkGraph);
-    console.log('ELK layout computation complete');
-    
-    // Apply computed positions back to nodes
-    layoutedGraph.children.forEach(elkNode => {
-      const originalNode = elkNode.originalNode;
-      originalNode.x = elkNode.x + elkNode.width / 2; // Center the node
-      originalNode.y = elkNode.y + elkNode.height / 2;
-      
-      // Debug invalid coordinates
-      if (!isFinite(originalNode.x) || !isFinite(originalNode.y)) {
-        console.warn('ELK returned invalid coordinates for node:', {
-          id: originalNode.id,
-          name: originalNode.name,
-          elkX: elkNode.x,
-          elkY: elkNode.y,
-          elkWidth: elkNode.width,
-          elkHeight: elkNode.height,
-          computedX: originalNode.x,
-          computedY: originalNode.y
-        });
-      }
-    });
-    
-    // Store edge routing information
-    layoutedGraph.edges.forEach(elkEdge => {
-      const originalLink = elkEdge.originalLink;
-      if (elkEdge.sections && elkEdge.sections.length > 0) {
-        originalLink.routing = elkEdge.sections[0];
-      }
-    });
-    
-    return layoutedGraph;
-  } catch (error) {
-    console.error('ELK layout failed:', error);
-    console.error('ELK error details:', {
-      message: error.message,
-      stack: error.stack,
-      graphData: {
-        nodeCount: elkNodes.length,
-        edgeCount: elkEdges.length,
-        hasInvalidEdges: invalidEdges.length > 0
-      }
-    });
-    
-    layoutMode = 'force';
-    
-    // Reset any partially computed coordinates
-    nodes.forEach(node => {
-      delete node.x;
-      delete node.y;
-    });
-    
-    return null;
-  }
-}
-
-// Function to render links with orthogonal routing
-function renderOrthogonalLinks(container, links) {
-  const linkGroup = container.append('g').attr('class', 'links');
-  
-  links.forEach((link, index) => {
-    const linkElement = linkGroup.append('g').attr('class', `link link-${index}`);
-    
-    if (link.routing && link.routing.bendPoints) {
-      // Create path with bend points
-      const points = [
-        { x: link.routing.startPoint.x, y: link.routing.startPoint.y },
-        ...link.routing.bendPoints,
-        { x: link.routing.endPoint.x, y: link.routing.endPoint.y }
-      ];
-      
-      const pathData = points.map((point, i) => `${i === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
-      
-      linkElement.append('path')
-        .attr('d', pathData)
-        .attr('stroke', link.color)
-        .attr('stroke-width', 2)
-        .attr('stroke-dasharray', link.dashed ? '5,5' : 'none')
-        .attr('fill', 'none')
-        .attr('marker-end', `url(#arrowhead-${link.color === BLACK_COLOR ? 'black' : 'green'})`)
-        .style('opacity', link.filtered ? 0 : 1)
-        .style('pointer-events', link.filtered ? 'none' : 'all');
-    } else {
-      // Fall back to straight line
-      linkElement.append('line')
-        .attr('x1', link.source.x)
-        .attr('y1', link.source.y)
-        .attr('x2', link.target.x)
-        .attr('y2', link.target.y)
-        .attr('stroke', link.color)
-        .attr('stroke-width', 2)
-        .attr('stroke-dasharray', link.dashed ? '5,5' : 'none')
-        .attr('marker-end', `url(#arrowhead-${link.color === BLACK_COLOR ? 'black' : 'green'})`)
-        .style('opacity', link.filtered ? 0 : 1)
-        .style('pointer-events', link.filtered ? 'none' : 'all');
-    }
-  });
-  
-  return linkGroup;
 }
 
 // Initialize the visualization
@@ -452,34 +139,8 @@ export async function initializeVisualization() {
     link.filtered = false; // Start with all links visible, filters will be applied later
   });
 
-  // Try layered layout first, fall back to force layout
-  let layoutResult = null;
-  if (layoutMode === 'layered') {
-    try {
-      layoutResult = await computeLayeredLayout(nodes, validLinks);
-      
-      // Validate that we got valid coordinates
-      const hasValidCoords = nodes.some(node => 
-        typeof node.x === 'number' && typeof node.y === 'number' && 
-        isFinite(node.x) && isFinite(node.y)
-      );
-      
-      if (!hasValidCoords) {
-        console.warn('Layered layout returned no valid coordinates, falling back to force layout');
-        layoutMode = 'force';
-        layoutResult = null;
-      }
-    } catch (error) {
-      console.error('Layered layout failed, falling back to force layout:', error);
-      layoutMode = 'force';
-      layoutResult = null;
-    }
-  }
-
-  // Process parallel links only for force layout
-  if (layoutMode === 'force') {
-    processParallelLinks(validLinks);
-  }
+  // Process parallel links for better visual separation
+  processParallelLinks(validLinks);
 
   // Create SVG container
   const svg = d3.select('#graph-container')
@@ -489,49 +150,6 @@ export async function initializeVisualization() {
     .attr('viewBox', [0, 0, width, height])
     .style('background', 'transparent')
     .style('overflow', 'visible');
-
-  // Calculate appropriate viewBox for layered layout
-  if (layoutMode === 'layered' && layoutResult) {
-    // Get bounds of the layered layout
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    let validNodes = 0;
-    
-    nodes.forEach(node => {
-      // Check if node has valid coordinates
-      if (typeof node.x === 'number' && typeof node.y === 'number' && 
-          !isNaN(node.x) && !isNaN(node.y) && 
-          isFinite(node.x) && isFinite(node.y)) {
-        minX = Math.min(minX, node.x - OUTER_RADIUS);
-        maxX = Math.max(maxX, node.x + OUTER_RADIUS);
-        minY = Math.min(minY, node.y - OUTER_RADIUS);
-        maxY = Math.max(maxY, node.y + OUTER_RADIUS);
-        validNodes++;
-      } else {
-        console.warn('Invalid node coordinates:', { id: node.id, x: node.x, y: node.y });
-      }
-    });
-    
-    // Fallback if no valid nodes found
-    if (validNodes === 0 || !isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
-      console.warn('No valid node coordinates found, using default viewBox');
-      svg.attr('viewBox', [0, 0, width, height]);
-    } else {
-      const padding = 100;
-      const layoutWidth = maxX - minX + 2 * padding;
-      const layoutHeight = maxY - minY + 2 * padding;
-      
-      // Ensure we have valid dimensions
-      if (layoutWidth > 0 && layoutHeight > 0 && isFinite(layoutWidth) && isFinite(layoutHeight)) {
-        // Update SVG to fit the layout
-        svg.attr('viewBox', [minX - padding, minY - padding, layoutWidth, layoutHeight]);
-      } else {
-        console.warn('Invalid layout dimensions, using default viewBox');
-        svg.attr('viewBox', [0, 0, width, height]);
-      }
-      
-      console.log('Layered layout bounds:', { minX, maxX, minY, maxY, layoutWidth, layoutHeight, validNodes });
-    }
-  }
 
   // Add zoom behavior
   const zoom = d3.zoom()
@@ -562,59 +180,49 @@ export async function initializeVisualization() {
     .attr('d', 'M0,-5L10,0L0,5')
     .attr('fill', d => d === 'arrowhead-black' ? BLACK_COLOR : GREEN_COLOR);
 
-  // Create force simulation only for force layout mode
-  let simulation = null;
-  if (layoutMode === 'force') {
-    simulation = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink(validLinks).id(d => d.id).distance(80)) // Reduced from LINK_DISTANCE for clustering
-      .force('charge', d3.forceManyBody().strength(-200)) // Reduced repulsion for clustering
-      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.5)) // Stronger centering force
-      .force('collision', d3.forceCollide().radius(COLLISION_RADIUS))
-      .force('radial', d3.forceRadial(150, width / 2, height / 2).strength(0.1)) // Radial clustering force
-      .alphaDecay(0.05) // Reduced for longer simulation
-      .velocityDecay(0.2); // Reduced for more movement
+  // Create force simulation
+  const simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(validLinks).id(d => d.id).distance(80)) // Reduced from LINK_DISTANCE for clustering
+    .force('charge', d3.forceManyBody().strength(-200)) // Reduced repulsion for clustering
+    .force('center', d3.forceCenter(width / 2, height / 2).strength(0.5)) // Stronger centering force
+    .force('collision', d3.forceCollide().radius(COLLISION_RADIUS))
+    .force('radial', d3.forceRadial(150, width / 2, height / 2).strength(0.1)) // Radial clustering force
+    .alphaDecay(0.05) // Reduced for longer simulation
+    .velocityDecay(0.2); // Reduced for more movement
 
-    // Add repulsion between bishops
-    const bishopNodes = nodes.filter(n => n.rank && isBishopRank(n.rank));
-    if (bishopNodes.length > 0) {
-      simulation.force('bishop-repulsion', d3.forceManyBody().strength(-800));
-    }
-    
-    // Override force functions to exclude filtered nodes from physics
-    simulation.force('link', d3.forceLink(validLinks.filter(l => !l.filtered)).id(d => d.id).distance(80)); // Use clustering distance
-    simulation.force('charge', d3.forceManyBody().strength(d => d.filtered ? 0 : -200)); // Use clustering charge strength
-    simulation.force('collision', d3.forceCollide().radius(d => d.filtered ? 0 : COLLISION_RADIUS));
+  // Add repulsion between bishops
+  const bishopNodes = nodes.filter(n => n.rank && isBishopRank(n.rank));
+  if (bishopNodes.length > 0) {
+    simulation.force('bishop-repulsion', d3.forceManyBody().strength(-800));
   }
+  
+  // Override force functions to exclude filtered nodes from physics
+  simulation.force('link', d3.forceLink(validLinks.filter(l => !l.filtered)).id(d => d.id).distance(80)); // Use clustering distance
+  simulation.force('charge', d3.forceManyBody().strength(d => d.filtered ? 0 : -200)); // Use clustering charge strength
+  simulation.force('collision', d3.forceCollide().radius(d => d.filtered ? 0 : COLLISION_RADIUS));
 
   // Store simulation globally for compatibility
   window.currentSimulation = simulation;
 
-  // Render links based on layout mode
-  let link;
-  if (layoutMode === 'layered') {
-    // Use orthogonal routing for layered layout
-    link = renderOrthogonalLinks(container, validLinks);
-  } else {
-    // Use straight lines for force layout
-    link = container.append('g')
-      .selectAll('line')
-      .data(validLinks)
-      .enter().append('line')
-      .attr('stroke', d => d.color)
-      .attr('stroke-width', 2)
-      .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
-      .style('opacity', d => d.filtered ? 0 : 1)
-      .style('pointer-events', d => d.filtered ? 'none' : 'all')
-      .attr('marker-end', d => {
-        if (d.color === BLACK_COLOR) {
-          return 'url(#arrowhead-black)';
-        } else if (d.color === GREEN_COLOR) {
-          return 'url(#arrowhead-green)';
-        } else {
-          return 'url(#arrowhead-green)';
-        }
-      });
-  }
+  // Render links with straight lines
+  const link = container.append('g')
+    .selectAll('line')
+    .data(validLinks)
+    .enter().append('line')
+    .attr('stroke', d => d.color)
+    .attr('stroke-width', 2)
+    .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
+    .style('opacity', d => d.filtered ? 0 : 1)
+    .style('pointer-events', d => d.filtered ? 'none' : 'all')
+    .attr('marker-end', d => {
+      if (d.color === BLACK_COLOR) {
+        return 'url(#arrowhead-black)';
+      } else if (d.color === GREEN_COLOR) {
+        return 'url(#arrowhead-green)';
+      } else {
+        return 'url(#arrowhead-green)';
+      }
+    });
 
 
   // Create nodes after links (so they render on top)
@@ -623,10 +231,10 @@ export async function initializeVisualization() {
     .data(nodes)
     .enter().append('g')
     .style('pointer-events', d => d.filtered ? 'none' : 'all')
-    .call(layoutMode === 'force' ? d3.drag()
+    .call(d3.drag()
       .on('start', dragstarted)
       .on('drag', dragged)
-      .on('end', dragended) : () => {});
+      .on('end', dragended));
 
   // Add node circles
   node.append('circle')
@@ -681,64 +289,49 @@ export async function initializeVisualization() {
   node.append('title')
     .text(d => `${d.name}\nRank: ${d.rank}\nOrganization: ${d.organization}`);
 
-  // Position nodes immediately for layered layout
-  if (layoutMode === 'layered') {
-    node.attr('transform', d => `translate(${d.x},${d.y})`)
+  // Render status badges around nodes
+  node.each(function(d) {
+    if (d.statuses && d.statuses.length > 0) {
+      renderStatusBadges(d3.select(this), d.statuses, OUTER_RADIUS);
+    }
+  });
+
+  // Update positions on simulation tick
+  simulation.on('tick', () => {
+    // Apply Y-axis constraints for timeline view
+    if (window.isTimelineViewEnabled) {
+      const timelineTop = 80;
+      const timelineBottom = height - 80;
+      
+      nodes.forEach(d => {
+        if (!d.filtered) {
+          if (d.y < timelineTop) d.y = timelineTop;
+          if (d.y > timelineBottom) d.y = timelineBottom;
+        }
+      });
+    }
+
+    // Update links
+    link
+      .attr('x1', d => d.source.x + (d.parallelOffset || 0))
+      .attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x + (d.parallelOffset || 0))
+      .attr('y2', d => d.target.y)
       .style('opacity', d => d.filtered ? 0 : 1)
       .style('pointer-events', d => d.filtered ? 'none' : 'all');
-      
-    // Add click handlers for layered layout (no drag)
-    node.on('click', function(event, d) {
-      if (!d.filtered) {
-        handleNodeClick(event, d);
-      }
-    });
-  }
 
-  // Update positions on simulation tick (force layout only)
-  if (simulation) {
-    simulation.on('tick', () => {
-      // Apply Y-axis constraints for timeline view
-      if (window.isTimelineViewEnabled) {
-        const timelineTop = 80;
-        const timelineBottom = height - 80;
-        
-        nodes.forEach(d => {
-          if (!d.filtered) {
-            if (d.y < timelineTop) d.y = timelineTop;
-            if (d.y > timelineBottom) d.y = timelineBottom;
-          }
-        });
-      }
+    // Update nodes
+    node
+      .attr('transform', d => `translate(${d.x},${d.y})`)
+      .style('opacity', d => d.filtered ? 0 : 1)
+      .style('pointer-events', d => d.filtered ? 'none' : 'all');
+  });
 
-      // Update links (force layout uses straight lines)
-      if (layoutMode === 'force' && link.attr) {
-        link
-          .attr('x1', d => d.source.x + (d.parallelOffset || 0))
-          .attr('y1', d => d.source.y)
-          .attr('x2', d => d.target.x + (d.parallelOffset || 0))
-          .attr('y2', d => d.target.y)
-          .style('opacity', d => d.filtered ? 0 : 1)
-          .style('pointer-events', d => d.filtered ? 'none' : 'all');
-      }
-
-      // Update nodes
-      node
-        .attr('transform', d => `translate(${d.x},${d.y})`)
-        .style('opacity', d => d.filtered ? 0 : 1)
-        .style('pointer-events', d => d.filtered ? 'none' : 'all');
-    });
-
-    // Stop simulation after it converges
-    simulation.on('end', () => {
-      console.log('Force simulation converged');
-      hideLoadingIndicator();
-    });
-  } else {
-    // For layered layout, hide loading indicator immediately
-    console.log('Layered layout complete');
+  // Stop simulation after it converges
+  simulation.on('end', () => {
+    console.log('Force simulation converged');
     hideLoadingIndicator();
-  }
+  });
 
   function hideLoadingIndicator() {
     const loadingIndicator = document.getElementById('loading-indicator');
@@ -754,7 +347,7 @@ export async function initializeVisualization() {
 
   console.timeEnd('Visualization initialization');
 
-  // Drag functions (only for force layout)
+  // Drag functions
   let isDragging = false;
   let dragStartPos = { x: 0, y: 0 };
   let dragThreshold = 100;
@@ -762,19 +355,19 @@ export async function initializeVisualization() {
   let maxClickDuration = 300;
 
   function dragstarted(event, d) {
-    if (d.filtered || layoutMode !== 'force') return;
+    if (d.filtered) return;
     
     isDragging = false;
     dragStartPos = { x: event.x, y: event.y };
     dragStartTime = Date.now();
     
-    if (!event.active && simulation) simulation.alphaTarget(0.3).restart();
+    if (!event.active) simulation.alphaTarget(0.3).restart();
     d.fx = d.x;
     d.fy = d.y;
   }
 
   function dragged(event, d) {
-    if (d.filtered || layoutMode !== 'force') return;
+    if (d.filtered) return;
     
     const dx = event.x - dragStartPos.x;
     const dy = event.y - dragStartPos.y;
@@ -789,9 +382,9 @@ export async function initializeVisualization() {
   }
 
   function dragended(event, d) {
-    if (d.filtered || layoutMode !== 'force') return;
+    if (d.filtered) return;
     
-    if (!event.active && simulation) simulation.alphaTarget(0);
+    if (!event.active) simulation.alphaTarget(0);
     d.fx = null;
     d.fy = null;
     
@@ -812,48 +405,8 @@ export async function initializeVisualization() {
   });
 
   document.getElementById('center-graph').addEventListener('click', () => {
-    if (layoutMode === 'force' && simulation) {
-      simulation.force('center', d3.forceCenter(width / 2, height / 2));
-      simulation.alpha(1).restart();
-    } else if (layoutMode === 'layered') {
-      // For layered layout, center the view on the graph bounds
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      let validNodes = 0;
-      
-      nodes.forEach(node => {
-        if (!node.filtered && typeof node.x === 'number' && typeof node.y === 'number' && 
-            !isNaN(node.x) && !isNaN(node.y) && isFinite(node.x) && isFinite(node.y)) {
-          minX = Math.min(minX, node.x - OUTER_RADIUS);
-          maxX = Math.max(maxX, node.x + OUTER_RADIUS);
-          minY = Math.min(minY, node.y - OUTER_RADIUS);
-          maxY = Math.max(maxY, node.y + OUTER_RADIUS);
-          validNodes++;
-        }
-      });
-      
-      if (validNodes > 0 && isFinite(minX) && isFinite(maxX) && isFinite(minY) && isFinite(maxY)) {
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-        const graphWidth = maxX - minX;
-        const graphHeight = maxY - minY;
-        
-        if (graphWidth > 0 && graphHeight > 0) {
-          const scale = Math.min(width / graphWidth, height / graphHeight) * 0.8;
-          const translateX = width / 2 - centerX * scale;
-          const translateY = height / 2 - centerY * scale;
-          
-          const transform = d3.zoomIdentity
-            .translate(translateX, translateY)
-            .scale(scale);
-          
-          svg.call(zoom.transform, transform);
-        }
-      } else {
-        console.warn('Cannot center graph: invalid node coordinates');
-        // Fallback to reset zoom
-        svg.call(zoom.transform, d3.zoomIdentity);
-      }
-    }
+    simulation.force('center', d3.forceCenter(width / 2, height / 2));
+    simulation.alpha(1).restart();
   });
 
   // Handle window resize
@@ -862,18 +415,15 @@ export async function initializeVisualization() {
     const newHeight = window.innerHeight - 76;
     svg.attr('width', newWidth).attr('height', newHeight);
     
-    if (layoutMode === 'force' && simulation) {
-      simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2));
-      simulation.alpha(1).restart();
-    }
+    simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2));
+    simulation.alpha(1).restart();
   });
 
   // Apply initial filters
   applyBackboneOnlyFilter();
   applyPriestFilter();
 
-  // Add layout mode toggle for testing
-  console.log(`Visualization initialized in ${layoutMode} mode`);
+  console.log('Visualization initialized with force layout');
 }
 
 // View zoom management functions

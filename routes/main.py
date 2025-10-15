@@ -2,7 +2,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from services import clergy as clergy_service
 from services.geocoding import geocoding_service
 from utils import audit_log, require_permission, require_permission_api, log_audit_event
-from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, Location
+from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, Location, Status
+from constants import GREEN_COLOR, BLACK_COLOR
 import json
 import base64
 import requests
@@ -467,6 +468,19 @@ def lineage_visualization():
                 except (json.JSONDecodeError, AttributeError):
                     pass
             
+            # Get clergy statuses
+            statuses_data = [
+                {
+                    'id': status.id,
+                    'name': status.name,
+                    'description': status.description,
+                    'icon': status.icon,
+                    'color': status.color,
+                    'badge_position': status.badge_position
+                }
+                for status in clergy.statuses
+            ]
+            
             nodes.append({
                 'id': clergy.id,
                 'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
@@ -478,7 +492,8 @@ def lineage_visualization():
                 'high_res_image_url': high_res_image_url,
                 'ordinations_count': len(clergy.ordinations),
                 'consecrations_count': len(clergy.consecrations),
-                'bio': clergy.notes
+                'bio': clergy.notes,
+                'statuses': statuses_data
             })
         
         # Create links for ordinations (black arrows)
@@ -490,7 +505,7 @@ def lineage_visualization():
                         'target': clergy.id,
                         'type': 'ordination',
                         'date': ordination.date.strftime('%Y-%m-%d') if ordination.date else '',
-                        'color': '#000000'
+                        'color': BLACK_COLOR
                     })
         
         # Create links for consecrations (green arrows)
@@ -502,7 +517,7 @@ def lineage_visualization():
                         'target': clergy.id,
                         'type': 'consecration',
                         'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
-                        'color': '#27ae60'
+                        'color': GREEN_COLOR
                     })
         
         # Create links for co-consecrations (dotted green arrows)
@@ -514,7 +529,7 @@ def lineage_visualization():
                         'target': clergy.id,
                         'type': 'co-consecration',
                         'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
-                        'color': '#27ae60',
+                        'color': GREEN_COLOR,
                         'dashed': True
                     })
         
@@ -678,6 +693,19 @@ def get_lineage_data():
                 except (json.JSONDecodeError, AttributeError):
                     pass
             
+            # Get clergy statuses
+            statuses_data = [
+                {
+                    'id': status.id,
+                    'name': status.name,
+                    'description': status.description,
+                    'icon': status.icon,
+                    'color': status.color,
+                    'badge_position': status.badge_position
+                }
+                for status in clergy.statuses
+            ]
+            
             nodes.append({
                 'id': clergy.id,
                 'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
@@ -689,7 +717,8 @@ def get_lineage_data():
                 'high_res_image_url': high_res_image_url,
                 'ordinations_count': len(clergy.ordinations),
                 'consecrations_count': len(clergy.consecrations),
-                'bio': clergy.notes
+                'bio': clergy.notes,
+                'statuses': statuses_data
             })
         
         # Create links for ordinations (black arrows)
@@ -701,7 +730,7 @@ def get_lineage_data():
                         'target': clergy.id,
                         'type': 'ordination',
                         'date': ordination.date.strftime('%Y-%m-%d') if ordination.date else '',
-                        'color': '#000000'
+                        'color': BLACK_COLOR
                     })
         
         # Create links for consecrations (green arrows)
@@ -713,7 +742,7 @@ def get_lineage_data():
                         'target': clergy.id,
                         'type': 'consecration',
                         'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
-                        'color': '#27ae60'
+                        'color': GREEN_COLOR
                     })
         
         # Create links for co-consecrations (dotted green arrows)
@@ -725,7 +754,7 @@ def get_lineage_data():
                         'target': clergy.id,
                         'type': 'co-consecration',
                         'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
-                        'color': '#27ae60',
+                        'color': GREEN_COLOR,
                         'dashed': True
                     })
         
@@ -1207,7 +1236,7 @@ def debug_lineage():
                         'target': clergy.id,
                         'type': 'ordination',
                         'date': ordination.date.strftime('%Y-%m-%d') if ordination.date else '',
-                        'color': '#000000'
+                        'color': BLACK_COLOR
                     })
         
         # Create links for consecrations (green arrows)
@@ -1219,7 +1248,7 @@ def debug_lineage():
                         'target': clergy.id,
                         'type': 'consecration',
                         'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
-                        'color': '#27ae60'
+                        'color': GREEN_COLOR
                     })
         
         return jsonify({
@@ -1420,6 +1449,7 @@ def add_clergy_from_lineage():
     
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
+    statuses = Status.query.order_by(Status.badge_position, Status.name).all()
     
     # Render the form template with proper cancel URL pointing back to lineage visualization
     return render_template('_clergy_form_modal.html',
@@ -1427,6 +1457,7 @@ def add_clergy_from_lineage():
                              'form_action': url_for('main.add_clergy_from_lineage'),
                              'ranks': ranks,
                              'organizations': organizations,
+                             'statuses': statuses,
                              'cancel_url': url_for('main.index')  # This is the key fix!
                          },
                          edit_mode=False,

@@ -283,7 +283,6 @@ export function initializeAside() {
       }
       
       // If we get here, it's an outside click and we should close the panel
-      console.log('Outside click - closing panel');
       clergyAside.classList.remove('expanded');
       // Center the graph when closing the panel
       centerGraphOnPanelClose();

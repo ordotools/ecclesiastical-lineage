@@ -21,6 +21,13 @@
     <!-- Centralized styling system -->
     <script src="{{ url_for('static', filename='js/locationMarkerStyles.js') }}"></script>
     <script src="{{ url_for('static', filename='js/locationForm.js') }}"></script>
+    <script type="module">
+        // Import color constants from constants.js and set CSS variables dynamically
+        // This ensures CSS variables always match the JavaScript constants
+        import { GREEN_COLOR, BLACK_COLOR } from '/static/js/constants.js';
+        document.documentElement.style.setProperty('--lineage-green', GREEN_COLOR);
+        document.documentElement.style.setProperty('--lineage-black', BLACK_COLOR);
+    </script>
     <script>
         // Make notification function globally available
         window.showNotification = function(message, type = 'info') {
@@ -390,9 +397,10 @@
         }
 
         /* D3 visualization CSS variables for colors */
+        /* Colors are set dynamically from constants.js via JavaScript */
         :root {
-            --lineage-green: #27ae60;
-            --lineage-black: #000000;
+            --lineage-green: #11451e;  /* Fallback - will be overridden by JS */
+            --lineage-black: #1c1c1c;  /* Fallback - will be overridden by JS */
         }
 
         /* Autocomplete dropdown styling */

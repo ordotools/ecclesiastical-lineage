@@ -591,9 +591,7 @@ class LocationMarkerStyles {
             .html(simpleHtml)
             .style('left', (event.pageX + 10) + 'px')
             .style('top', (event.pageY - 10) + 'px');
-        
-        console.log('Tooltip should now be visible');
-    }
+            }
 
     /**
      * Hide a regular tooltip

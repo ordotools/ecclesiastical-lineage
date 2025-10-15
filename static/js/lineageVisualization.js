@@ -8,25 +8,6 @@ import { initializeHTMXHandlers } from './modals.js';
 import { initializeVisualization } from './core.js';
 import { initializeSearch, buildSearchIndex, handleURLSearch } from './search.js';
 
-// Start the visualization
-console.log('Starting visualization initialization...');
-console.log('Available data:', { 
-  links: window.linksData ? window.linksData.length : 'undefined',
-  nodes: window.nodesData ? window.nodesData.length : 'undefined'
-});
-
-// Debug: Check if data is being overwritten
-console.log('Full window.linksData:', window.linksData);
-console.log('Full window.nodesData:', window.nodesData);
-
-// Debug: Log sample data
-if (window.linksData && window.linksData.length > 0) {
-  console.log('Sample link data:', window.linksData[0]);
-}
-if (window.nodesData && window.nodesData.length > 0) {
-  console.log('Sample node data:', window.nodesData[0]);
-}
-
 // Initialize all components
 async function initializeAll() {
   // Initialize UI components first

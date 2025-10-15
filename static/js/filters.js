@@ -26,9 +26,7 @@ const hidePriestsMobileCheckbox = document.getElementById('hide-priests-mobile')
 const backboneOnlyCheckbox = document.getElementById('backbone-only');
 const backboneOnlyMobileCheckbox = document.getElementById('backbone-only-mobile');
 
-// Wire up ELK layout controls and sync mobile/desktop
-const elkLayoutToggle = document.getElementById('elk-layout-toggle');
-const elkLayoutMobileToggle = document.getElementById('elk-layout-toggle-mobile');
+// ELK layout removed - these controls no longer exist
 
 // Timeline view state
 let isTimelineViewEnabled = false;
@@ -56,11 +54,7 @@ export function syncBackboneFilters() {
   }
 }
 
-export function syncELKLayoutFilters() {
-  if (elkLayoutToggle && elkLayoutMobileToggle) {
-    elkLayoutMobileToggle.checked = elkLayoutToggle.checked;
-  }
-}
+// syncELKLayoutFilters removed - ELK layout no longer supported
 
 // Function to parse dates and prepare timeline data
 export function prepareTimelineData(nodes) {
@@ -594,24 +588,5 @@ export function initializeFilters() {
     });
   }
 
-  // Sync ELK layout checkboxes when either changes
-  if (elkLayoutToggle) {
-    elkLayoutToggle.addEventListener('change', function() {
-      syncELKLayoutFilters();
-      // Import and call the toggle function from core.js
-      if (window.toggleELKLayout) {
-        window.toggleELKLayout();
-      }
-    });
-  }
-
-  if (elkLayoutMobileToggle) {
-    elkLayoutMobileToggle.addEventListener('change', function() {
-      syncELKLayoutFilters();
-      // Import and call the toggle function from core.js
-      if (window.toggleELKLayout) {
-        window.toggleELKLayout();
-      }
-    });
-  }
+  // ELK layout event listeners removed - feature no longer supported
 }

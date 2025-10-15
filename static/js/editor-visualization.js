@@ -28,9 +28,15 @@ var INNER_RADIUS = window.INNER_RADIUS;
 var IMAGE_SIZE = window.IMAGE_SIZE;
 var LABEL_DY = window.LABEL_DY;
 
-// Get color constants from CSS variables
-var GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim() || '#27ae60';
-var BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-black').trim() || '#000000';
+// Get color constants from CSS variables (set dynamically from constants.js)
+// Fallback to reading CSS variables which are set from constants.js module
+var GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim();
+var BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-black').trim();
+
+// If CSS variables aren't set yet (race condition), use hardcoded fallback
+// These should match constants.js
+if (!GREEN_COLOR) GREEN_COLOR = '#11451e';
+if (!BLACK_COLOR) BLACK_COLOR = '#1c1c1c';
 
 // Prevent duplicate class declarations
 if (typeof window.EditorVisualization === 'undefined') {

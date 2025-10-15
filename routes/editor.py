@@ -2,7 +2,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from services import clergy as clergy_service
 from services.clergy import permanently_delete_clergy_handler
 from utils import audit_log, require_permission, log_audit_event
-from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite, Location
+from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite, Location, Status
+from constants import GREEN_COLOR, BLACK_COLOR
 from datetime import datetime
 from sqlalchemy import text
 import json
@@ -146,7 +147,7 @@ def visualization_panel():
                         'source': ordination.ordaining_bishop.id,
                         'target': clergy.id,
                         'type': 'ordination',
-                        'color': '#000000',  # Black for ordinations
+                        'color': BLACK_COLOR,  # Black for ordinations
                         'date': ordination.date.isoformat() if ordination.date else None,
                         'is_sub_conditione': ordination.is_sub_conditione,
                         'is_doubtful': ordination.is_doubtful,
@@ -161,7 +162,7 @@ def visualization_panel():
                         'source': consecration.consecrator.id,
                         'target': clergy.id,
                         'type': 'consecration',
-                        'color': '#27ae60',  # Green for consecrations
+                        'color': GREEN_COLOR,  # Green for consecrations
                         'date': consecration.date.isoformat() if consecration.date else None,
                         'is_sub_conditione': consecration.is_sub_conditione,
                         'is_doubtful': consecration.is_doubtful,
@@ -247,6 +248,7 @@ def clergy_form_panel(clergy_id=None):
     # Get form data
     ranks = Rank.query.all()
     organizations = Organization.query.all()
+    statuses = Status.query.order_by(Status.badge_position, Status.name).all()
     
     # Debug: Log rank data
     print("=== RANK DEBUG ===")
@@ -256,13 +258,14 @@ def clergy_form_panel(clergy_id=None):
     
     # Create fields object for the form
     class FormFields:
-        def __init__(self, ranks, organizations):
+        def __init__(self, ranks, organizations, statuses):
             self.ranks = ranks
             self.organizations = organizations
+            self.statuses = statuses
             self.form_action = None
             self.cancel_url = None
     
-    fields = FormFields(ranks, organizations)
+    fields = FormFields(ranks, organizations, statuses)
     
     if clergy_id:
         # Edit mode - eagerly load ordination and consecration relationships
@@ -295,6 +298,7 @@ def clergy_form_content(clergy_id=None):
     # Get form data
     ranks = Rank.query.all()
     organizations = Organization.query.all()
+    statuses = Status.query.order_by(Status.badge_position, Status.name).all()
     
     # Debug: Log rank data
     print("=== RANK DEBUG (content) ===")
@@ -304,13 +308,14 @@ def clergy_form_content(clergy_id=None):
     
     # Create fields object for the form
     class FormFields:
-        def __init__(self, ranks, organizations):
+        def __init__(self, ranks, organizations, statuses):
             self.ranks = ranks
             self.organizations = organizations
+            self.statuses = statuses
             self.form_action = None
             self.cancel_url = None
     
-    fields = FormFields(ranks, organizations)
+    fields = FormFields(ranks, organizations, statuses)
     
     if clergy_id:
         # Edit mode - eagerly load ordination and consecration relationships

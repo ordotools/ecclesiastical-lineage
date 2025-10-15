@@ -98,6 +98,8 @@ class Clergy(db.Model):
     is_deleted = db.Column(db.Boolean, default=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
+    # Relationships
+    statuses = db.relationship('Status', secondary='clergy_statuses', backref='clergy_members')
 
     def was_alive_on(self, date):
         """Return True if this clergy was alive on the given date (or if date unknown, assume alive)."""
@@ -232,6 +234,27 @@ co_consecrators = db.Table('co_consecrators',
     db.Column('consecration_id', db.Integer, db.ForeignKey('consecration.id'), primary_key=True),
     db.Column('co_consecrator_id', db.Integer, db.ForeignKey('clergy.id'), primary_key=True)
 )
+
+# Association table for clergy statuses
+clergy_statuses = db.Table('clergy_statuses',
+    db.Column('clergy_id', db.Integer, db.ForeignKey('clergy.id'), primary_key=True),
+    db.Column('status_id', db.Integer, db.ForeignKey('status.id'), primary_key=True),
+    db.Column('created_at', db.DateTime, default=datetime.utcnow),
+    db.Column('created_by', db.Integer, db.ForeignKey('user.id'), nullable=True),
+    db.Column('notes', db.Text, nullable=True)
+)
+
+class Status(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    icon = db.Column(db.String(50), nullable=False)  # FontAwesome icon class
+    color = db.Column(db.String(7), nullable=False)  # Hex color
+    badge_position = db.Column(db.Integer, nullable=False, default=0)  # Position around node (0-7)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Status {self.name}>'
 
 class Ordination(db.Model):
     id = db.Column(db.Integer, primary_key=True)

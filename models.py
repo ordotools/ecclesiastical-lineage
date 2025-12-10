@@ -375,3 +375,19 @@ class AuditLog(db.Model):
 
     def __repr__(self):
         return f'<AuditLog {self.action} on {self.entity_type} by {self.user_id}>' 
+
+class WikiPage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=True) # Optional title, especially if linked to clergy
+    clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=True)
+    markdown = db.Column(db.Text, nullable=True) # The actual content
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    edit_count = db.Column(db.Integer, default=0)
+    last_editor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    # Relationships
+    clergy = db.relationship('Clergy', backref='wiki_page')
+    last_editor = db.relationship('User', backref='edited_wiki_pages')
+
+    def __repr__(self):
+        return f'<WikiPage {self.title or self.id}>'

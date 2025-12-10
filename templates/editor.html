@@ -21,6 +21,8 @@
     <!-- Centralized styling system -->
     <script src="{{ url_for('static', filename='js/locationMarkerStyles.js') }}"></script>
     <script src="{{ url_for('static', filename='js/locationForm.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/eventsPanel.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
         // Import color constants from constants.js and set CSS variables dynamically
         // This ensures CSS variables always match the JavaScript constants
@@ -890,6 +892,10 @@
         <!-- Bottom Panel: Metadata and Statistics -->
         <div class="panel bottom-panel">
             <div class="bottom-tabs">
+                <button class="bottom-tab" data-tab="events">
+                    <i class="fas fa-calendar-alt"></i>
+                    Events
+                </button>
                 <button class="bottom-tab active" data-tab="metadata">
                     <i class="fas fa-cogs"></i>
                     Metadata
@@ -934,6 +940,17 @@
                 <div class="loading-placeholder">
                     <div class="loading-spinner"></div>
                     Loading settings...
+                </div>
+            </div>
+
+            <div class="bottom-tab-content" id="events-content"
+                 hx-get="/editor/events"
+                 hx-trigger="revealed"
+                 hx-target="this"
+                 hx-swap="innerHTML">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div>
+                    Loading events...
                 </div>
             </div>
         </div>

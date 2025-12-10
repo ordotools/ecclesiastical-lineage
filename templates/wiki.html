@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}WikiLite - Knowledge Graph{% endblock %}
+
+{% block navbar %}{% endblock %}
+
+{% block extra_styles %}
+<link href="{{ url_for('static', filename='css/wiki.css') }}" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap"
+    rel="stylesheet">
+{% endblock %}
+
+{% block full_content %}
+<div class="wiki-wrapper">
+    <!-- Sidebar -->
+    <aside class="wiki-sidebar" id="wiki-sidebar">
+        <div class="wiki-sidebar-header">
+            <div class="wiki-dropdown-container">
+                <button id="wikiTitleBtn">
+                    <i class="fas fa-book-open" style="color: var(--wiki-primary-color);"></i>
+                    <span>WikiLite</span>
+                </button>
+                <div id="wikiDropdown">
+                    <a class="wiki-dropdown-item" href="/">
+                        <i class="fas fa-project-diagram me-2"></i>Lineage View
+                    </a>
+                    <a class="wiki-dropdown-item" href="/chapel-view">
+                        <i class="fas fa-globe me-2"></i>Chapel View
+                    </a>
+                    <a class="wiki-dropdown-item" href="/wiki">
+                        <i class="fas fa-book me-2"></i>WikiLite
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="wiki-sidebar-content">
+            <!-- Search -->
+            <div class="wiki-search-container">
+                <input type="text" id="wiki-search-input" class="wiki-search-input" placeholder="Search articles...">
+                <i class="fas fa-search wiki-search-icon"></i>
+            </div>
+
+            <!-- Nav -->
+            <div style="margin-bottom: 2rem;">
+                <button id="wiki-home-btn" class="wiki-nav-btn">
+                    <i class="far fa-file-alt" style="width: 16px;"></i> Main Page
+                </button>
+                <button id="wiki-random-btn" class="wiki-nav-btn">
+                    <i class="fas fa-random" style="width: 16px;"></i> Random Article
+                </button>
+                <button id="wiki-new-btn" class="wiki-nav-btn primary">
+                    <i class="fas fa-plus" style="width: 16px;"></i> New Page
+                </button>
+            </div>
+
+            <!-- Page List -->
+            <div>
+                <div class="wiki-page-list-header">All Pages</div>
+                <div id="wiki-pages-list" style="display: flex; flex-direction: column; gap: 2px;">
+                    <!-- JS Populated -->
+                </div>
+            </div>
+        </div>
+
+        <div
+            style="padding: 1rem; border-top: 1px solid var(--wiki-border-color); font-size: 0.75rem; color: #9ca3af; text-align: center;">
+            WikiLite v1.0
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="wiki-main">
+        <!-- Header -->
+        <header class="wiki-header">
+            <div class="wiki-header-left">
+                <button id="wiki-toggle-sidebar" class="btn-icon">
+                    <i class="fas fa-bars"></i>
+                </button>
+
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem;">
+                    <button id="wiki-back-btn" class="btn-icon" style="font-size: 0.75rem;">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <span style="color: #d1d5db;">|</span>
+                    <span id="wiki-main-title" style="font-weight: 600; color: #111827;">Loading...</span>
+                </div>
+            </div>
+
+            <div class="wiki-header-right">
+                <button id="wiki-edit-btn" class="btn-secondary">
+                    <i class="far fa-edit"></i> Edit
+                </button>
+
+                <button id="wiki-cancel-btn" class="btn-icon"
+                    style="font-size: 0.875rem; color: #4b5563; display: none;">
+                    Cancel
+                </button>
+                <button id="wiki-save-btn" class="btn-primary" style="display: none;">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </div>
+        </header>
+
+        <!-- Content -->
+        <div id="wiki-content-area" class="wiki-content-area">
+            <div class="wiki-article fade-in">
+                <!-- View Mode -->
+                <div id="wiki-view-container">
+                    <!-- JS Populated -->
+                </div>
+
+                <!-- Edit Mode -->
+                <div id="wiki-edit-container" class="wiki-editor" style="display: none;">
+                    <div class="edit-tip-box">
+                        <strong>Editing Tips:</strong>
+                        <ul style="margin-top: 0.5rem; margin-bottom: 0;">
+                            <li>Use <code># Header</code> for titles.</li>
+                            <li>Use <code>[[Page Title]]</code> to link to other pages.</li>
+                            <li>Use <code>**bold**</code> for bold text.</li>
+                            <li>Add citations roughly like <code>[^1]</code> and define at bottom
+                                <code>[^1]: Source</code>.
+                            </li>
+                        </ul>
+                    </div>
+                    <textarea id="wiki-textarea" class="wiki-textarea" placeholder="# Page Title..."></textarea>
+                </div>
+
+                <!-- Footer -->
+                <div class="wiki-footer">
+                    <span>Last updated: Just now</span>
+                    <div style="display: flex; gap: 1rem;">
+                        <span>Privacy Policy</span>
+                        <span>Terms</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/wiki.js') }}"></script>
+{% endblock %}

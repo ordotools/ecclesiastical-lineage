@@ -1,0 +1,76 @@
+<div class="events-table-wrapper" data-selected-clergy="{{ clergy.id if clergy else '' }}"
+     style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; padding: 0.75em;">
+    {% if clergy %}
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5em; flex-wrap: wrap; gap: 0.5em;">
+        <div style="color: rgba(255, 255, 255, 0.85); font-weight: 500;">
+            Events for {{ clergy.name }}
+        </div>
+        <div style="font-size: 0.8em; color: rgba(255, 255, 255, 0.6);">
+            {{ events|length }} recorded
+        </div>
+    </div>
+    {% endif %}
+
+    {% if clergy and events %}
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.82em;">
+        <thead>
+            <tr style="text-align: left; color: rgba(255, 255, 255, 0.7); font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.05em;">
+                <th style="padding: 0.5em 0.4em; border-bottom: 1px solid rgba(255, 255, 255, 0.08); min-width: 160px;">Date Range</th>
+                <th style="padding: 0.5em 0.4em; border-bottom: 1px solid rgba(255, 255, 255, 0.08); min-width: 180px;">Title</th>
+                <th style="padding: 0.5em 0.4em; border-bottom: 1px solid rgba(255, 255, 255, 0.08); min-width: 120px;">Type</th>
+                <th style="padding: 0.5em 0.4em; border-bottom: 1px solid rgba(255, 255, 255, 0.08); width: 50%;">Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in events %}
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                <td style="padding: 0.6em 0.4em; color: rgba(255, 255, 255, 0.95); white-space: nowrap;">
+                    {% set start_label = event.event_date.strftime('%b %d, %Y') if event.event_date else event.event_year %}
+                    {% set end_label = None %}
+                    {% if event.event_end_date %}
+                        {% set end_label = event.event_end_date.strftime('%b %d, %Y') %}
+                    {% elif event.event_end_year %}
+                        {% set end_label = event.event_end_year %}
+                    {% endif %}
+                    {% if start_label %}
+                        {{ start_label }}
+                        {% if end_label %}
+                            &ndash; {{ end_label }}
+                        {% endif %}
+                    {% else %}
+                        <span style="opacity: 0.6;">Date unknown</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 0.6em 0.4em; color: rgba(255, 255, 255, 0.9); font-weight: 500;">
+                    {{ event.title }}
+                </td>
+                <td style="padding: 0.6em 0.4em; color: rgba(255, 255, 255, 0.7);">
+                    {% if event.event_type %}
+                        {{ event.event_type }}
+                    {% else %}
+                        <span style="opacity: 0.6;">&mdash;</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 0.6em 0.4em; color: rgba(255, 255, 255, 0.85);">
+                    {% if event.description %}
+                        <div class="event-notes-markdown" data-markdown="{{ event.description|e }}"></div>
+                    {% else %}
+                        <span style="opacity: 0.6;">No additional details</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% elif clergy %}
+        <div style="padding: 1em; text-align: center; color: rgba(255, 255, 255, 0.6); font-size: 0.85em;">
+            <i class="fas fa-calendar-times" style="display: block; font-size: 1.5em; margin-bottom: 0.35em; opacity: 0.5;"></i>
+            No events recorded for {{ clergy.name }} yet. Add the first event above.
+        </div>
+    {% else %}
+        <div style="padding: 1em; text-align: center; color: rgba(255, 255, 255, 0.6); font-size: 0.85em;">
+            <i class="fas fa-user-circle" style="display: block; font-size: 1.5em; margin-bottom: 0.35em; opacity: 0.5;"></i>
+            Select a clergy member to review their event history.
+        </div>
+    {% endif %}
+</div>

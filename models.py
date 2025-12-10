@@ -100,6 +100,7 @@ class Clergy(db.Model):
 
     # Relationships
     statuses = db.relationship('Status', secondary='clergy_statuses', backref='clergy_members')
+    events = db.relationship('ClergyEvent', backref='clergy', cascade='all, delete-orphan')
 
     def was_alive_on(self, date):
         """Return True if this clergy was alive on the given date (or if date unknown, assume alive)."""
@@ -294,6 +295,25 @@ class Consecration(db.Model):
     
     def __repr__(self):
         return f'<Consecration {self.clergy.name if self.clergy else self.clergy_id} on {self.date}>'
+
+class ClergyEvent(db.Model):
+    __tablename__ = 'clergy_events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    event_type = db.Column(db.String(120), nullable=True)
+    event_date = db.Column(db.Date, nullable=True)
+    event_year = db.Column(db.Integer, nullable=False)
+    event_end_date = db.Column(db.Date, nullable=True)
+    event_end_year = db.Column(db.Integer, nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        clergy_name = self.clergy.name if self.clergy else self.clergy_id
+        return f'<ClergyEvent {self.title} for {clergy_name}>'
 
 class Location(db.Model):
     id = db.Column(db.Integer, primary_key=True)

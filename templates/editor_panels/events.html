@@ -1,0 +1,118 @@
+<!-- Clergy Events Panel -->
+<div id="clergyEventsPanel"
+     data-clergy='{{ clergy_options|tojson|safe }}'
+     data-event-types='{{ event_types|tojson|safe }}'
+     data-selected-clergy-id="{{ selected_clergy.id if selected_clergy else '' }}"
+     data-selected-clergy-name="{{ (selected_clergy.name if selected_clergy else '')|e }}"
+     style="padding: 0.75em; height: 100%; display: flex; flex-direction: column; gap: 0.75em;">
+    <div style="display: flex; justify-content: space-between; gap: 0.5em; align-items: flex-start; flex-wrap: wrap;">
+        <div style="flex: 1 1 260px;">
+            <h6 style="margin: 0; color: rgba(255, 255, 255, 0.95); font-size: 0.95em; font-weight: 600;">Clergy Events</h6>
+            <p style="margin: 0.25em 0 0 0; color: rgba(255, 255, 255, 0.6); font-size: 0.8em; line-height: 1.4;">
+                Track assignments, publications, ordinations, and other milestones. Choose a clergy from the left list or search below.
+            </p>
+        </div>
+        {% if selected_clergy %}
+        <div style="padding: 0.4em 0.75em; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.04); font-size: 0.78em; min-width: 180px;">
+            <div style="color: rgba(255, 255, 255, 0.55); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7em;">Focused On</div>
+            <div style="color: rgba(255, 255, 255, 0.92); font-weight: 600;">{{ selected_clergy.name }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <form id="clergy-event-form"
+          method="POST"
+          action="/editor/events/add"
+          style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; padding: 0.75em; display: flex; flex-direction: column; gap: 0.6em; font-size: 0.85em;"
+          novalidate>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6em;">
+            <div style="position: relative;">
+                <label for="clergySearchInput" style="display: block; margin-bottom: 0.2em; color: rgba(255, 255, 255, 0.75); font-weight: 500;">Clergy Member *</label>
+                <input type="text"
+                       id="clergySearchInput"
+                       placeholder="Type a name to fuzzy search"
+                       value="{{ selected_clergy.name if selected_clergy else '' }}"
+                       style="width: 100%; padding: 0.5em 0.75em; background: rgba(0,0,0,0.2); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 4px; color: rgba(255, 255, 255, 0.92); font-size: 0.9em;">
+                <input type="hidden" id="eventClergyId" name="clergy_id" value="{{ selected_clergy.id if selected_clergy else '' }}">
+                <div id="clergySearchDropdown" class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 30; display: none;"></div>
+                <div style="margin-top: 0.15em; font-size: 0.7em; color: rgba(255, 255, 255, 0.5);">
+                    Tip: selecting a clergy in the list above will auto-fill this field.
+                </div>
+            </div>
+            <div style="position: relative;">
+                <label for="eventTypeInput" style="display: block; margin-bottom: 0.2em; color: rgba(255, 255, 255, 0.75); font-weight: 500;">Event Type</label>
+                <input type="text"
+                       id="eventTypeInput"
+                       name="event_type"
+                       placeholder="Assignment, Publication, Ordination..."
+                       style="width: 100%; padding: 0.5em 0.75em; background: rgba(0,0,0,0.2); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 4px; color: rgba(255, 255, 255, 0.92); font-size: 0.9em;">
+                <div id="eventTypeDropdown" class="autocomplete-dropdown" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 30; display: none;"></div>
+                <div style="margin-top: 0.15em; font-size: 0.7em; color: rgba(255, 255, 255, 0.5);">
+                    Start typing to search existing event types. Press Enter to add a new one.
+                </div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.6em;">
+            <div>
+                <label for="eventStartDate" style="display: block; margin-bottom: 0.2em; color: rgba(255, 255, 255, 0.75); font-weight: 500;">Start Date</label>
+                <input type="date" id="eventStartDate" name="event_date"
+                       style="width: 100%; padding: 0.45em 0.6em; background: rgba(0,0,0,0.2); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 4px; color: rgba(255, 255, 255, 0.92);">
+            </div>
+            <div>
+                <label for="eventEndDate" style="display: block; margin-bottom: 0.2em; color: rgba(255, 255, 255, 0.75); font-weight: 500;">End Date</label>
+                <input type="date" id="eventEndDate" name="event_end_date"
+                       style="width: 100%; padding: 0.45em 0.6em; background: rgba(0,0,0,0.2); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 4px; color: rgba(255, 255, 255, 0.92);">
+            </div>
+            <div>
+                <label for="eventStartYear" style="display: block; margin-bottom: 0.2em; color: rgba(255, 255, 255, 0.75); font-weight: 500;">Start Year *</label>
+                <input type="number" id="eventStartYear" name="event_year" min="1" max="9999"
+                       placeholder="YYYY"
+                       style="width: 100%; padding: 0.45em 0.6em; background: rgba(0,0,0,0.2); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 4px; color: rgba(255, 255, 255, 0.92);">
+            </div>
+            <div>
+                <label for="eventEndYear" style="display: block; margin-bottom: 0.2em; color: rgba(255, 255, 255, 0.75); font-weight: 500;">End Year</label>
+                <input type="number" id="eventEndYear" name="event_end_year" min="1" max="9999"
+                       placeholder="YYYY"
+                       style="width: 100%; padding: 0.45em 0.6em; background: rgba(0,0,0,0.2); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 4px; color: rgba(255, 255, 255, 0.92);">
+            </div>
+        </div>
+
+        <div>
+            <label for="eventDescription" style="display: block; margin-bottom: 0.2em; color: rgba(255, 255, 255, 0.75); font-weight: 500;">Notes (Markdown supported)</label>
+            <textarea id="eventDescription" name="description" rows="3"
+                      placeholder="Include context, citations, or quotes. Markdown formatting (bold, italics, links, lists) is supported."
+                      style="width: 100%; padding: 0.5em 0.6em; background: rgba(0,0,0,0.2); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 4px; color: rgba(255, 255, 255, 0.92); resize: vertical;"></textarea>
+        </div>
+
+        <div style="display: flex; gap: 0.4em; flex-wrap: wrap;">
+            <button type="submit"
+                    style="flex: 1 1 180px; padding: 0.55em 0.9em; border-radius: 4px; border: 1px solid rgba(76, 175, 80, 0.5); background: rgba(76, 175, 80, 0.85); color: white; font-weight: 600; cursor: pointer; font-size: 0.9em;">
+                <i class="fas fa-plus-circle" style="margin-right: 0.35em;"></i>Add Event
+            </button>
+            <button type="reset"
+                    style="flex: 0 0 auto; padding: 0.55em 0.9em; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.85); cursor: pointer;">
+                Clear
+            </button>
+        </div>
+    </form>
+
+    <div id="events-message"
+         style="display: none; padding: 0.55em 0.7em; border-radius: 4px; font-size: 0.82em;"></div>
+
+    <div style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35em;">
+            <h6 style="margin: 0; font-size: 0.9em; color: rgba(255, 255, 255, 0.9); font-weight: 600;">Event History</h6>
+            <div style="display: flex; gap: 0.4em; align-items: center;">
+                <span id="eventRangeWarning" style="display: none; font-size: 0.75em; color: #f39c12;"></span>
+                <button type="button" id="refreshEventsButton"
+                        style="padding: 0.35em 0.75em; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.85); font-size: 0.78em; cursor: pointer;">
+                    <i class="fas fa-sync-alt" style="margin-right: 0.3em;"></i>Refresh
+                </button>
+            </div>
+        </div>
+        <div id="clergy-events-table" style="flex: 1; overflow-y: auto;">
+            {% include 'editor_panels/partials/clergy_events_table.html' %}
+        </div>
+    </div>
+</div>

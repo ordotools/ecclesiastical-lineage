@@ -59,7 +59,7 @@ def login():
 def logout():
     session.clear()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('main.index'))
+    return redirect(request.args.get('next') or url_for('main.index'))
 
 @auth_bp.route('/admin_invite_signup/<token>', methods=['GET', 'POST'])
 def admin_invite_signup(token):

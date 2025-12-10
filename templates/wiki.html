@@ -49,9 +49,11 @@
                 <button id="wiki-random-btn" class="wiki-nav-btn">
                     <i class="fas fa-random" style="width: 16px;"></i> Random Article
                 </button>
-                <button id="wiki-new-btn" class="wiki-nav-btn primary">
+                {% if session.get('user_id') %}
+                <button id="wiki-new-page-btn" class="wiki-nav-btn primary">
                     <i class="fas fa-plus" style="width: 16px;"></i> New Page
                 </button>
+                {% endif %}
             </div>
 
             <!-- Page List -->
@@ -88,9 +90,23 @@
             </div>
 
             <div class="wiki-header-right">
+                {% if session.get('user_id') %}
                 <button id="wiki-edit-btn" class="btn-secondary">
                     <i class="far fa-edit"></i> Edit
                 </button>
+                <div class="wiki-auth-actions"
+                    style="display: flex; gap: 0.5rem; border-left: 1px solid #e5e7eb; padding-left: 0.5rem; margin-left: 0.5rem;">
+                    <!-- Logout handled via link or button -->
+                    <a href="{{ url_for('auth.logout', next=request.path) }}" class="btn-secondary"
+                        style="color: #ef4444; border-color: #fca5a5;">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                </div>
+                {% else %}
+                <a href="{{ url_for('auth.login', next=request.path) }}" class="btn-primary">
+                    <i class="fas fa-sign-in-alt"></i> Login to Edit
+                </a>
+                {% endif %}
 
                 <button id="wiki-cancel-btn" class="btn-icon"
                     style="font-size: 0.875rem; color: #4b5563; display: none;">
@@ -112,6 +128,7 @@
 
                 <!-- Edit Mode -->
                 <div id="wiki-edit-container" class="wiki-editor" style="display: none;">
+                    <input type="text" id="wiki-edit-title-input" class="wiki-title-input" placeholder="Page Title">
                     <div class="edit-tip-box">
                         <strong>Editing Tips:</strong>
                         <ul style="margin-top: 0.5rem; margin-bottom: 0;">
@@ -137,6 +154,7 @@
             </div>
         </div>
     </main>
+
 </div>
 {% endblock %}
 

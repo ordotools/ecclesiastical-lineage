@@ -85,8 +85,8 @@ def login_handler():
             db.session.commit()
             flash(f'Welcome back, {username}!', 'success')
             if request.headers.get('HX-Request'):
-                return user, render_template('login_spinner.html', redirect_url=url_for('editor.editor'))
-            return user, redirect(url_for('editor.editor'))
+                return user, render_template('login_spinner.html', redirect_url=request.args.get('next') or url_for('editor.editor'))
+            return user, redirect(request.args.get('next') or url_for('editor.editor'))
         else:
             flash('Invalid username or password.', 'error')
             if request.headers.get('HX-Request'):

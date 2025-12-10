@@ -438,7 +438,32 @@
     text-align: left;
 }
 
+
 .wiki-dropdown-item:hover {
     background-color: #34495e;
     color: #fff;
+}
+
+/* Title Input */
+.wiki-title-input {
+    width: 100%;
+    font-size: 2.25rem;
+    font-weight: 700;
+    font-family: 'Merriweather', serif;
+    color: #111827;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    border: 1px solid var(--wiki-border-color);
+    border-radius: 0.375rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.wiki-title-input:focus {
+    border-color: var(--wiki-primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.wiki-title-input::placeholder {
+    color: #d1d5db;
 }

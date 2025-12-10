@@ -129,11 +129,12 @@ class WikiApp {
             editBtn: document.getElementById('wiki-edit-btn'),
             saveBtn: document.getElementById('wiki-save-btn'),
             cancelBtn: document.getElementById('wiki-cancel-btn'),
-            newBtn: document.getElementById('wiki-new-btn'),
+            newBtn: document.getElementById('wiki-new-page-btn'), // Updated ID
             randomBtn: document.getElementById('wiki-random-btn'),
             editContainer: document.getElementById('wiki-edit-container'),
             viewContainer: document.getElementById('wiki-view-container'),
             textarea: document.getElementById('wiki-textarea'),
+            titleInput: document.getElementById('wiki-edit-title-input'),
             homeBtn: document.getElementById('wiki-home-btn')
         };
 
@@ -204,13 +205,15 @@ class WikiApp {
 
         this.els.backBtn.addEventListener('click', () => this.handleBack());
 
-        this.els.editBtn.addEventListener('click', () => {
-            this.isEditing = true;
-            const page = this.getCurrentPage();
-            // If page content is missing (new page), provide default
-            this.els.textarea.value = page.content || `# ${page.title}\n\nStart writing...`;
-            this.render();
-        });
+        if (this.els.editBtn) {
+            this.els.editBtn.addEventListener('click', () => {
+                this.isEditing = true;
+                const page = this.getCurrentPage();
+                // If page content is missing (new page), provide default
+                this.els.textarea.value = page.content || `# ${page.title}\n\nStart writing...`;
+                this.render();
+            });
+        }
 
         this.els.cancelBtn.addEventListener('click', () => {
             this.isEditing = false;
@@ -221,7 +224,9 @@ class WikiApp {
             this.savePage();
         });
 
-        this.els.newBtn.addEventListener('click', () => this.handleCreateNew());
+        if (this.els.newBtn) {
+            this.els.newBtn.addEventListener('click', () => this.handleCreateNew());
+        }
 
         this.els.randomBtn.addEventListener('click', () => {
             const keys = Object.keys(this.pages);
@@ -321,28 +326,36 @@ class WikiApp {
         }
     }
 
+
     handleCreateNew() {
-        const title = prompt("Enter title for new page:");
-        if (title) {
-            this.navigate(title);
-            this.isEditing = true;
-            this.els.textarea.value = `# ${title}\n\nStart writing your article here...`;
-            this.render();
-        }
+        this.currentSlug = null; // Indicates new page mode
+        this.isEditing = true;
+
+        // Reset inputs
+        this.els.textarea.value = `## Introduction\n\nStart writing your article here...`;
+        this.els.titleInput.value = '';
+
+        this.render();
+        this.els.titleInput.focus();
     }
 
     async savePage() {
         const content = this.els.textarea.value;
-        const slug = this.currentSlug;
+        let slug = this.currentSlug;
 
-        // optimistic update
-        this.pages[slug] = {
-            ...this.pages[slug],
-            title: slug,
-            content: content
-        };
-        this.isEditing = false;
-        this.render();
+        // If new page, get slug from title input
+        if (!slug) {
+            const titleVal = this.els.titleInput.value.trim();
+            if (!titleVal) {
+                alert("Please enter a page title.");
+                this.els.titleInput.focus();
+                return;
+            }
+            slug = titleVal;
+        }
+
+        // optimistic update logic needs to handle clean switch if slug changed
+        // For now, let's just proceed with save.
 
         try {
             const res = await fetch('/api/wiki/save', {
@@ -357,12 +370,23 @@ class WikiApp {
             });
 
             if (!res.ok) {
-                alert('Failed to save page. Please try again.');
-                console.error('Save failed', await res.text());
-                // Revert to edit mode?
+                if (res.status === 401) {
+                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                    return;
+                }
+                const errText = await res.text();
+                alert('Failed to save page: ' + errText);
+                console.error('Save failed', errText);
             } else {
-                // Refresh list in case it was new
+                // Success
+                this.isEditing = false;
+                // Fetch the fresh data (including new timestamp)
+                await this.fetchPage(slug);
+                this.navigate(slug, false);
+
+                // Refresh sidebar list
                 this.fetchPageList();
+                // Render handled by navigate/fetchPage
             }
         } catch (err) {
             alert('Error saving page: ' + err.message);
@@ -465,30 +489,48 @@ class WikiApp {
             return;
         }
 
-        const page = this.getCurrentPage();
+        // Handle new page case where currentSlug might be null
+        const isNewPage = this.currentSlug === null;
+        const page = isNewPage ? { title: 'New Page', content: '' } : this.getCurrentPage();
 
         // Sidebar
         this.renderSidebarList();
 
         // Header State
         this.els.mainTitle.textContent = page.title;
+        // Disable back button if history is short OR if we are in 'new page' mode and history is 1 (just initial)
         this.els.backBtn.disabled = this.history.length <= 1;
-        this.els.backBtn.style.opacity = this.history.length <= 1 ? '0.3' : '1';
+        this.els.backBtn.style.opacity = this.els.backBtn.disabled ? '0.3' : '1';
 
         // Content
         if (this.isEditing) {
             this.els.viewContainer.style.display = 'none';
             this.els.editContainer.style.display = 'flex';
-            this.els.editBtn.style.display = 'none';
-            this.els.saveBtn.style.display = 'inline-flex';
-            this.els.cancelBtn.style.display = 'inline-block';
+            if (this.els.editBtn) this.els.editBtn.style.display = 'none';
+            if (this.els.saveBtn) this.els.saveBtn.style.display = 'inline-flex';
+            if (this.els.cancelBtn) this.els.cancelBtn.style.display = 'inline-block';
+
+            // Populate/Manage Template Input
+            if (isNewPage) {
+                this.els.titleInput.disabled = false;
+                // If it was already populated (by user typing before re-render?), keep it
+                // But generally render shouldn't wipe user input unless switching pages
+                // Simple check: if active element is input, don't overwrite? 
+                // Alternatively, only set value if it's empty to avoid fighting?
+                // For safety in this simple app, we can just set it if matches our expectations
+                // BUT, handleCreateNew cleared it.
+            } else {
+                this.els.titleInput.value = page.title;
+                this.els.titleInput.disabled = true; // Cannot edit title of existing page for now (simplification)
+            }
+
         } else {
             this.els.viewContainer.style.display = 'block';
             this.els.editContainer.style.display = 'none';
             this.els.viewContainer.innerHTML = this.renderContent(page.content);
-            this.els.editBtn.style.display = 'inline-flex';
-            this.els.saveBtn.style.display = 'none';
-            this.els.cancelBtn.style.display = 'none';
+            if (this.els.editBtn) this.els.editBtn.style.display = 'inline-flex';
+            if (this.els.saveBtn) this.els.saveBtn.style.display = 'none';
+            if (this.els.cancelBtn) this.els.cancelBtn.style.display = 'none';
 
             // Re-bind dynamic links
             this.els.viewContainer.querySelectorAll('.wiki-link').forEach(btn => {
@@ -497,6 +539,17 @@ class WikiApp {
                     this.navigate(target);
                 });
             });
+
+            // Update Footer Timestamp
+            const footer = document.querySelector('.wiki-footer span');
+            if (footer) {
+                if (page.updated_at) {
+                    const date = new Date(page.updated_at);
+                    footer.textContent = `Last updated: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                } else {
+                    footer.textContent = '';
+                }
+            }
         }
     }
 }
@@ -515,6 +568,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Handle "Last updated" and other static text
-    const footer = document.querySelector('.wiki-footer span');
-    if (footer) footer.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+    // const footer = document.querySelector('.wiki-footer span');
+    // if (footer) footer.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
 });

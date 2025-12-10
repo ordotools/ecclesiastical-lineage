@@ -104,4 +104,4 @@ echo "   Server will be available at: http://localhost:5001"
 echo "   Login with: admin/admin123"
 echo ""
 
-python3 app.py --port 5001
+./env/bin/python app.py --port 5001

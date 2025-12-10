@@ -109,12 +109,13 @@ She popularized the idea of machine-independent programming languages, which led
 class WikiApp {
     constructor(initialSlug = 'Main Page') {
         // State
-        this.pages = JSON.parse(localStorage.getItem('wiki_pages')) || INITIAL_PAGES;
+        this.pages = {}; // Cache
         this.history = [initialSlug];
         this.currentSlug = initialSlug;
         this.isEditing = false;
         this.searchQuery = '';
         this.isSidebarOpen = true;
+        this.isLoading = false;
 
         // Elements
         this.els = {
@@ -139,15 +140,27 @@ class WikiApp {
         this.init();
     }
 
-    init() {
+    async init() {
         this.bindEvents();
-        this.render();
+        await this.fetchPageList();
+
+        // Initial load
+        // Get slug from URL if it exists
+        const pathParts = window.location.pathname.split('/');
+        // /wiki/Something => ["", "wiki", "Something"]
+        if (pathParts.length > 2 && pathParts[1] === 'wiki') {
+            const slug = decodeURIComponent(pathParts.slice(2).join('/'));
+            if (slug) {
+                this.currentSlug = slug;
+                this.history = [slug];
+            }
+        }
+
+        this.navigate(this.currentSlug, false);
     }
 
     bindEvents() {
         // Navigation
-        this.els.startTime = Date.now();
-
         window.addEventListener('popstate', (e) => {
             if (e.state && e.state.slug) {
                 this.navigate(e.state.slug, false);
@@ -165,7 +178,7 @@ class WikiApp {
             // Update icon
             const icon = this.els.toggleSidebarBtn.querySelector('i');
             if (this.isSidebarOpen) {
-                icon.className = 'fas fa-arrow-left'; // assuming fontawesome exists
+                icon.className = 'fas fa-arrow-left';
             } else {
                 icon.className = 'fas fa-bars';
             }
@@ -193,7 +206,9 @@ class WikiApp {
 
         this.els.editBtn.addEventListener('click', () => {
             this.isEditing = true;
-            this.els.textarea.value = this.getCurrentPage().content;
+            const page = this.getCurrentPage();
+            // If page content is missing (new page), provide default
+            this.els.textarea.value = page.content || `# ${page.title}\n\nStart writing...`;
             this.render();
         });
 
@@ -207,32 +222,86 @@ class WikiApp {
         });
 
         this.els.newBtn.addEventListener('click', () => this.handleCreateNew());
-        this.els.randomBtn.addEventListener('click', () => this.handleRandom());
+
+        this.els.randomBtn.addEventListener('click', () => {
+            const keys = Object.keys(this.pages);
+            if (keys.length > 0) {
+                const randomKey = keys[Math.floor(Math.random() * keys.length)];
+                this.navigate(randomKey);
+            }
+        });
+
         this.els.homeBtn.addEventListener('click', () => this.navigate('Main Page'));
     }
 
     getCurrentPage() {
         return this.pages[this.currentSlug] || {
             title: this.currentSlug,
-            content: `# ${this.currentSlug}\n\nThis page does not exist yet. Click Edit to create it!`
+            content: null // Content managed by remote fetch now
         };
     }
 
-    navigate(slug, pushHistory = true) {
-        if (slug === this.currentSlug) return;
+    async fetchPageList() {
+        try {
+            const res = await fetch('/api/wiki/pages');
+            const titles = await res.json();
+            // Rebuild pages cache keys (content will be null until fetched)
+            titles.forEach(title => {
+                if (!this.pages[title]) {
+                    this.pages[title] = { title, content: null };
+                }
+            });
+            this.renderSidebarList();
+        } catch (err) {
+            console.error('Failed to fetch page list', err);
+        }
+    }
 
-        if (pushHistory) {
+    async fetchPage(slug) {
+        this.isLoading = true;
+        this.render(); // Show loading state
+
+        try {
+            const res = await fetch(`/api/wiki/page/${encodeURIComponent(slug)}`);
+            if (res.ok) {
+                const data = await res.json();
+                this.pages[slug] = data; // { title, content, updated_at, editor }
+            } else if (res.status === 404) {
+                // Page doesn't exist yet
+                this.pages[slug] = {
+                    title: slug,
+                    content: null, // Indicates New Page
+                    exists: false
+                };
+            }
+        } catch (err) {
+            console.error('Failed to fetch page', err);
+        } finally {
+            this.isLoading = false;
+            this.render();
+        }
+    }
+
+    navigate(slug, pushHistory = true) {
+        if (!slug) return;
+
+        if (pushHistory && slug !== this.currentSlug) {
             this.history.push(slug);
-            // Optional: update URL
-            // history.pushState({ slug }, '', `/wiki/${slug}`); 
+            history.pushState({ slug }, '', `/wiki/${slug}`);
         }
 
         this.currentSlug = slug;
         this.isEditing = false;
-        this.render();
+
+        // Check if we have content, if not fetch it
+        if (!this.pages[slug] || this.pages[slug].content === null) {
+            this.fetchPage(slug);
+        } else {
+            this.render();
+        }
 
         // Scroll to top
-        this.els.contentArea.scrollTop = 0;
+        if (this.els.contentArea) this.els.contentArea.scrollTop = 0;
     }
 
     handleBack() {
@@ -241,50 +310,67 @@ class WikiApp {
             const prev = this.history[this.history.length - 1];
             this.currentSlug = prev;
             this.isEditing = false;
-            this.render();
+            // Update URL
+            history.pushState({ slug: prev }, '', `/wiki/${prev}`);
+
+            if (!this.pages[prev] || this.pages[prev].content === null) {
+                this.fetchPage(prev);
+            } else {
+                this.render();
+            }
         }
     }
 
     handleCreateNew() {
         const title = prompt("Enter title for new page:");
         if (title) {
-            if (!this.pages[title]) {
-                const newPage = {
-                    title,
-                    content: `# ${title}\n\nStart writing your article here...`
-                };
-                this.pages[title] = newPage;
-                // Don't save to localStorage yet until they actually edit/save? 
-                // Or maybe just navigating to it is enough context.
-            }
             this.navigate(title);
             this.isEditing = true;
-            this.els.textarea.value = this.pages[title].content;
+            this.els.textarea.value = `# ${title}\n\nStart writing your article here...`;
             this.render();
         }
     }
 
-    handleRandom() {
-        const keys = Object.keys(this.pages);
-        const randomKey = keys[Math.floor(Math.random() * keys.length)];
-        this.navigate(randomKey);
-    }
-
-    savePage() {
+    async savePage() {
         const content = this.els.textarea.value;
-        this.pages[this.currentSlug] = {
-            title: this.currentSlug,
+        const slug = this.currentSlug;
+
+        // optimistic update
+        this.pages[slug] = {
+            ...this.pages[slug],
+            title: slug,
             content: content
         };
-
-        // Persist
-        localStorage.setItem('wiki_pages', JSON.stringify(this.pages));
-
         this.isEditing = false;
         this.render();
+
+        try {
+            const res = await fetch('/api/wiki/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: slug,
+                    content: content
+                })
+            });
+
+            if (!res.ok) {
+                alert('Failed to save page. Please try again.');
+                console.error('Save failed', await res.text());
+                // Revert to edit mode?
+            } else {
+                // Refresh list in case it was new
+                this.fetchPageList();
+            }
+        } catch (err) {
+            alert('Error saving page: ' + err.message);
+        }
     }
 
     parseWikiText(text) {
+        if (!text) return { contentLines: [], definitions: {} };
         const lines = text.split('\n');
         const definitions = {};
         const contentLines = [];
@@ -303,12 +389,13 @@ class WikiApp {
     }
 
     renderContent(content) {
+        if (!content) return '<div class="wiki-empty-state">Page does not exist yet. Click "Edit" to create it.</div>';
+
         const { contentLines, definitions } = this.parseWikiText(content);
         let html = '';
 
         const processText = (text) => {
             // Split by tokens: [[...]], **...**, [^...]
-            // Regex logic from React code
             const parts = text.split(/(\[\[.*?\]\])|(\*{2}.*?\*{2})|(\[\^\d+\])/g).filter(Boolean);
 
             return parts.map(part => {
@@ -316,10 +403,12 @@ class WikiApp {
                     const raw = part.slice(2, -2);
                     const [target, label] = raw.split('|');
                     const displayLabel = label || target;
+                    // Check if page exists in our known list (partial knowledge from list fetch)
                     const exists = !!this.pages[target];
+                    // Note: 'exists' check here is weak if we haven't fetched 'target' yet 
+                    // but we have fetched the full list of titles so it should be accurate enough.
                     const className = exists ? 'wiki-link exists' : 'wiki-link';
                     const title = exists ? `Go to ${target}` : 'Page does not exist yet';
-                    // Use data attribute for event delegation
                     return `<button class="${className}" data-target="${target}" title="${title}">${displayLabel}</button>`;
                 }
                 if (part.startsWith('**') && part.endsWith('**')) {
@@ -341,13 +430,6 @@ class WikiApp {
             if (line.trim() === '') return '<div style="height: 1rem;"></div>';
             return `<p>${processText(line)}</p>`;
         }).join('');
-
-        // Wrap list items if needed? For simplicity, we just output them. 
-        // A smarter parser would wrap them in <ul>, but the React code didn't actually wrap them in <ul>, 
-        // it just rendered <li> elements! Wait, that's invalid HTML. `<li>` must be in `<ul>` or `<ol>`.
-        // The React code: `return <li ...></li>`. It returned `li` directly inside the div.
-        // Browsers handle this by showing bullets anyway, usually. I will loosely follow or wrap.
-        // Let's just output them.
 
         html += renderedLines;
 
@@ -377,6 +459,12 @@ class WikiApp {
     }
 
     render() {
+        if (this.isLoading) {
+            this.els.mainTitle.textContent = "Loading...";
+            this.els.viewContainer.innerHTML = '<div style="padding: 2rem; text-align: center; color: #666;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+            return;
+        }
+
         const page = this.getCurrentPage();
 
         // Sidebar

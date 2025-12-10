@@ -4,11 +4,11 @@
 
 {% block full_content %}
 <script type="module">
-  // Import color constants from constants.js and set CSS variables dynamically
-  // This ensures CSS variables always match the JavaScript constants
-  import { GREEN_COLOR, BLACK_COLOR } from '/static/js/constants.js';
-  document.documentElement.style.setProperty('--lineage-green', GREEN_COLOR);
-  document.documentElement.style.setProperty('--lineage-black', BLACK_COLOR);
+    // Import color constants from constants.js and set CSS variables dynamically
+    // This ensures CSS variables always match the JavaScript constants
+    import { GREEN_COLOR, BLACK_COLOR } from '/static/js/constants.js';
+    document.documentElement.style.setProperty('--lineage-green', GREEN_COLOR);
+    document.documentElement.style.setProperty('--lineage-black', BLACK_COLOR);
 </script>
 <div class="full-viewport-container">
     <!-- Search Bar Overlay -->
@@ -16,8 +16,10 @@
         <div class="search-bar-container">
             <div class="search-bar-input-group">
                 <i class="fas fa-search search-bar-icon"></i>
-                <input type="text" id="overlay-search-input" class="search-bar-input" placeholder="Search clergy by name, rank, or organization..." autocomplete="off">
-                <button id="clear-overlay-search" class="search-bar-clear" type="button" style="display: none;" aria-label="Clear search">
+                <input type="text" id="overlay-search-input" class="search-bar-input"
+                    placeholder="Search clergy by name, rank, or organization..." autocomplete="off">
+                <button id="clear-overlay-search" class="search-bar-clear" type="button" style="display: none;"
+                    aria-label="Clear search">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -25,21 +27,22 @@
         </div>
     </div>
     <!-- Floating Menu Button (Mobile Only) -->
-    <button id="mobile-menu-btn" class="d-block d-md-none floating-menu-btn" aria-label="Open menu" style="position:fixed;bottom:20px;left:20px;z-index:1100;display:none;">
-      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-        <rect x="6" y="10" width="20" height="2.5" rx="1.2" fill="#2c3e50"/>
-        <rect x="6" y="15" width="20" height="2.5" rx="1.2" fill="#2c3e50"/>
-        <rect x="6" y="20" width="20" height="2.5" rx="1.2" fill="#2c3e50"/>
-      </svg>
+    <button id="mobile-menu-btn" class="d-block d-md-none floating-menu-btn" aria-label="Open menu"
+        style="position:fixed;bottom:20px;left:20px;z-index:1100;display:none;">
+        <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+            <rect x="6" y="10" width="20" height="2.5" rx="1.2" fill="#2c3e50" />
+            <rect x="6" y="15" width="20" height="2.5" rx="1.2" fill="#2c3e50" />
+            <rect x="6" y="20" width="20" height="2.5" rx="1.2" fill="#2c3e50" />
+        </svg>
     </button>
 
     <!-- Modal Overlay for Mobile Menu -->
     <div id="mobile-menu-modal" class="mobile-menu-modal" style="display:none;">
-      <div class="mobile-menu-modal-content">
-        <button id="close-mobile-menu" class="close-mobile-menu" aria-label="Close menu">&times;</button>
-        <div class="mobile-menu-legend-controls">
-          <!-- Legend -->
-          <!-- <div class="legend-visualization-mobile">
+        <div class="mobile-menu-modal-content">
+            <button id="close-mobile-menu" class="close-mobile-menu" aria-label="Close menu">&times;</button>
+            <div class="mobile-menu-legend-controls">
+                <!-- Legend -->
+                <!-- <div class="legend-visualization-mobile">
             <h6 class="fw-bold mb-2 text-dark">Lineage Types</h6>
             <div class="d-flex align-items-center mb-2">
                 <div style="width: 20px; height: 2px; background: var(--lineage-black); margin-right: 8px;"></div>
@@ -50,9 +53,9 @@
                 <small class="text-dark">Consecration</small>
             </div> -->
 
-          </div>
-          <!-- Search -->
-          <!-- <div class="visualization-search-mobile mt-3">
+            </div>
+            <!-- Search -->
+            <!-- <div class="visualization-search-mobile mt-3">
             <h6 class="fw-bold mb-2 text-dark">Search</h6>
             <div class="input-group">
               <input type="text" id="clergy-search-mobile" class="form-control form-control-sm" placeholder="Search clergy...">
@@ -62,9 +65,9 @@
             </div>
             <div id="search-results-mobile" class="search-results mt-2" style="display: none;"></div>
           </div> -->
-          
-          <!-- Controls -->
-          <!-- <div class="visualization-controls-mobile mt-3">
+
+            <!-- Controls -->
+            <!-- <div class="visualization-controls-mobile mt-3">
             <button id="reset-zoom-mobile" class="btn btn-sm btn-outline-secondary mb-2 w-100">
                 <i class="fas fa-search-plus me-1"></i>Reset Zoom
             </button>
@@ -72,8 +75,8 @@
                 <i class="fas fa-crosshairs me-1"></i>Center Graph
             </button>
           </div> -->
-          <!-- Filters -->
-          <!-- <div class="visualization-filters-mobile mt-3">
+            <!-- Filters -->
+            <!-- <div class="visualization-filters-mobile mt-3">
             <h6 class="fw-bold mb-2 text-dark">Filters</h6>
             <div class="filter-item">
               <label class="switch-label" for="hide-priests-mobile">
@@ -85,9 +88,9 @@
               </label>
             </div>
           </div> -->
-          
-          <!-- Views -->
-          <!-- <div class="visualization-views-mobile mt-3">
+
+            <!-- Views -->
+            <!-- <div class="visualization-views-mobile mt-3">
             <h6 class="fw-bold mb-2 text-dark">Views</h6> -->
             <!-- Timeline View - Temporarily disabled
             <div class="filter-item">
@@ -110,9 +113,9 @@
               </label>
             </div>
           </div> -->
-          
-          <!-- Layout Options -->
-          <!-- <div class="visualization-layout-mobile mt-3">
+
+            <!-- Layout Options -->
+            <!-- <div class="visualization-layout-mobile mt-3">
             <h6 class="fw-bold mb-2 text-dark">Layout</h6>
             <div class="filter-item">
               <label class="switch-label" for="elk-layout-toggle-mobile">
@@ -126,7 +129,7 @@
             <small class="text-muted">Experimental layered layout algorithm</small>
           </div>
         </div> -->
-      </div>
+        </div>
     </div>
 
     <!-- Side Menu -->
@@ -163,8 +166,8 @@
             </div>
         </div> -->
 
-        <!-- Filters -->
-        <!-- <div class="side-menu-card">
+    <!-- Filters -->
+    <!-- <div class="side-menu-card">
             <div class="card-header">
                 <h6 class="fw-bold mb-0 text-dark">Filters</h6>
             </div>
@@ -180,9 +183,9 @@
                 </div>
             </div>
         </div> -->
-        
-        <!-- Views -->
-        <!-- <div class="side-menu-card">
+
+    <!-- Views -->
+    <!-- <div class="side-menu-card">
             <div class="card-header">
                 <h6 class="fw-bold mb-0 text-dark">Views</h6>
             </div>
@@ -208,9 +211,9 @@
                 </div>
             </div>
         </div> -->
-        
-        <!-- Layout Options -->
-        <!-- <div class="side-menu-card">
+
+    <!-- Layout Options -->
+    <!-- <div class="side-menu-card">
             <div class="card-header">
                 <h6 class="fw-bold mb-0 text-dark">Layout</h6>
             </div>
@@ -227,9 +230,9 @@
                 <small class="text-muted">Experimental layered layout algorithm</small>
             </div>
         </div> -->
-        
-        <!-- Toggle Button - Positioned on the right side -->
-        <!-- <button id="side-menu-toggle" class="side-menu-toggle-btn" aria-label="Toggle side menu">
+
+    <!-- Toggle Button - Positioned on the right side -->
+    <!-- <button id="side-menu-toggle" class="side-menu-toggle-btn" aria-label="Toggle side menu">
             <i class="fas fa-bars"></i>
         </button>
     </div> -->
@@ -237,11 +240,7 @@
     <!-- Right Side Aside - Clergy Information Panel -->
     <div id="clergy-aside" class="clergy-aside">
         <!-- HTMX-powered clergy information panel -->
-        <div id="clergy-info-panel" 
-             hx-get="/clergy/info-panel" 
-             hx-trigger="load"
-             hx-target="this"
-             hx-swap="innerHTML">
+        <div id="clergy-info-panel" hx-get="/clergy/info-panel" hx-trigger="load" hx-target="this" hx-swap="innerHTML">
             <!-- Loading placeholder -->
             <div class="text-center p-4">
                 <div class="spinner-border text-primary" role="status">
@@ -267,7 +266,8 @@
     {% endif %}
 
     <!-- Loading Indicator -->
-    <div id="loading-indicator" class="position-fixed" style="top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1200;">
+    <div id="loading-indicator" class="position-fixed"
+        style="top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1200;">
         <div class="text-center">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">Loading...</span>
@@ -278,10 +278,11 @@
 
     <!-- Graph Container -->
     <div id="graph-container" class="graph-container-full"></div>
-    
+
     <!-- Error Message Display -->
     {% if error_message %}
-    <div class="alert alert-warning alert-dismissible fade show position-fixed" style="top: 20px; right: 20px; z-index: 1200;" role="alert">
+    <div class="alert alert-warning alert-dismissible fade show position-fixed"
+        style="top: 20px; right: 20px; z-index: 1200;" role="alert">
         <i class="fas fa-exclamation-triangle me-2"></i>
         {{ error_message }}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -289,11 +290,13 @@
     {% endif %}
 
     <!-- Clergy Form Modal -->
-    <div class="modal fade" id="clergyFormModal" tabindex="-1" aria-labelledby="clergyFormModalLabel" aria-hidden="true">
+    <div class="modal fade" id="clergyFormModal" tabindex="-1" aria-labelledby="clergyFormModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-xl" style="max-width: 95%; margin: 20px auto;">
             <div class="modal-content" style="border: none; box-shadow: none; background: transparent;">
                 <div class="modal-header" style="padding: 0; border: none; background: transparent;">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="position: absolute; top: 15px; right: 15px; z-index: 1050; background: transparent; border: none; font-size: 24px; color: #666; cursor: pointer; padding: 0; width: auto; height: auto; line-height: 1;">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
+                        style="position: absolute; top: 15px; right: 15px; z-index: 1050; background: transparent; border: none; font-size: 24px; color: #666; cursor: pointer; padding: 0; width: auto; height: auto; line-height: 1;">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
@@ -307,6 +310,7 @@
 {% endblock %}
 
 {% block extra_styles %}
+{% include '_custom_styles.html' %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visualizer.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/clergy-form-clean.css') }}">
 {% endblock %}
@@ -318,113 +322,114 @@
 <!-- Include the new clean clergy form controller -->
 <script src="{{ url_for('static', filename='js/clergy-form-controller.js') }}"></script>
 <script>
-window.linksData = {{ links_json | safe }};
-window.nodesData = {{ nodes_json | safe }};
-console.log('Template rendered at:', new Date().toISOString());
-console.log('Template links count:', window.linksData ? window.linksData.length : 'undefined');
-console.log('Template nodes count:', window.nodesData ? window.nodesData.length : 'undefined');
+    window.linksData = {{ links_json | safe }};
+    window.nodesData = {{ nodes_json | safe }};
+    console.log('Template rendered at:', new Date().toISOString());
+    console.log('Template links count:', window.linksData ? window.linksData.length : 'undefined');
+    console.log('Template nodes count:', window.nodesData ? window.nodesData.length : 'undefined');
 </script>
-<script type="module" src="{{ url_for('static', filename='js/lineageVisualization.js') }}?v={{ range(1000, 9999) | random }}"></script>
+<script type="module"
+    src="{{ url_for('static', filename='js/lineageVisualization.js') }}?v={{ range(1000, 9999) | random }}"></script>
 
 <!-- Add Clergy Button Handler -->
 {% if user and user.has_permission('add_clergy') %}
 <script>
-// Form JavaScript is now embedded in the form template itself
+    // Form JavaScript is now embedded in the form template itself
 
-document.addEventListener('DOMContentLoaded', function() {
-    const addClergyBtn = document.getElementById('addClergyFromLineageBtn');
-    if (addClergyBtn) {
-        addClergyBtn.addEventListener('click', function() {
-            // Load the add clergy form in the modal
-            fetch('{{ url_for("main.add_clergy_from_lineage") }}', {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.text())
-            .then(html => {
-                // Load the form into the modal
-                document.getElementById('clergyFormModalBody').innerHTML = html;
-                
-                // Manually execute any script tags in the loaded HTML
-                const scripts = document.getElementById('clergyFormModalBody').querySelectorAll('script');
-                scripts.forEach(script => {
-                    const newScript = document.createElement('script');
-                    newScript.textContent = script.textContent;
-                    document.head.appendChild(newScript);
-                    document.head.removeChild(newScript);
-                });
-                
-                // Initialize the form after HTML is loaded
-                setTimeout(() => {
-                    console.log('Initializing form after HTML load');
-                    
-                    // Reset the form initialization flags
-                    window.clergyFormInitialized = false;
-                    window.dynamicFormInitialized = false;
-                    
-                    // Initialize dynamic form system first (provides toggleConsecrationFields function)
-                    if (typeof window.initializeDynamicFormSystem === 'function') {
-                        console.log('Initializing dynamic form system');
-                        window.initializeDynamicFormSystem();
+    document.addEventListener('DOMContentLoaded', function () {
+        const addClergyBtn = document.getElementById('addClergyFromLineageBtn');
+        if (addClergyBtn) {
+            addClergyBtn.addEventListener('click', function () {
+                // Load the add clergy form in the modal
+                fetch('{{ url_for("main.add_clergy_from_lineage") }}', {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
                     }
-                    
-                    // Then initialize the clergy form
-                    if (typeof window.initializeClergyForm === 'function') {
-                        console.log('Initializing clergy form');
-                        window.initializeClergyForm();
-                    } else {
-                        // Fallback: trigger DOMContentLoaded event for clergyForm.js
-                        console.log('Triggering form initialization via DOMContentLoaded');
-                        const event = new Event('DOMContentLoaded');
-                        document.dispatchEvent(event);
-                    }
-                    
-                    // Initialize embedded form script (handles grid layout, form interactions)
-                    if (typeof window.initializeEmbeddedFormScript === 'function') {
-                        console.log('Initializing embedded form script');
-                        window.initializeEmbeddedFormScript();
-                    }
-                }, 50);
-                
-                // Show the modal
-                const modal = new bootstrap.Modal(document.getElementById('clergyFormModal'));
-                modal.show();
-                
-                // Update modal state after showing
-                setTimeout(() => {
-                    if (typeof window.setModalState === 'function') {
-                        window.setModalState(true);
-                    }
-                }, 100);
-                
-                // Listen for modal close events
-                document.getElementById('clergyFormModal').addEventListener('hidden.bs.modal', function() {
-                    if (typeof window.setModalState === 'function') {
-                        window.setModalState(false);
-                    }
-                });
-                
-                // Add simple modal overlay click handler
-                document.getElementById('clergyFormModal').addEventListener('click', function(e) {
-                    // Only close if clicking on the modal backdrop (not the modal content)
-                    if (e.target === this) {
-                        console.log('Modal backdrop clicked - closing modal');
-                        const modal = bootstrap.Modal.getInstance(this);
-                        if (modal) {
-                            modal.hide();
-                        }
-                    }
-                });
-            })
-            .catch(error => {
-                console.error('Error loading add clergy form:', error);
-                alert('Error loading add clergy form. Please try again.');
+                })
+                    .then(response => response.text())
+                    .then(html => {
+                        // Load the form into the modal
+                        document.getElementById('clergyFormModalBody').innerHTML = html;
+
+                        // Manually execute any script tags in the loaded HTML
+                        const scripts = document.getElementById('clergyFormModalBody').querySelectorAll('script');
+                        scripts.forEach(script => {
+                            const newScript = document.createElement('script');
+                            newScript.textContent = script.textContent;
+                            document.head.appendChild(newScript);
+                            document.head.removeChild(newScript);
+                        });
+
+                        // Initialize the form after HTML is loaded
+                        setTimeout(() => {
+                            console.log('Initializing form after HTML load');
+
+                            // Reset the form initialization flags
+                            window.clergyFormInitialized = false;
+                            window.dynamicFormInitialized = false;
+
+                            // Initialize dynamic form system first (provides toggleConsecrationFields function)
+                            if (typeof window.initializeDynamicFormSystem === 'function') {
+                                console.log('Initializing dynamic form system');
+                                window.initializeDynamicFormSystem();
+                            }
+
+                            // Then initialize the clergy form
+                            if (typeof window.initializeClergyForm === 'function') {
+                                console.log('Initializing clergy form');
+                                window.initializeClergyForm();
+                            } else {
+                                // Fallback: trigger DOMContentLoaded event for clergyForm.js
+                                console.log('Triggering form initialization via DOMContentLoaded');
+                                const event = new Event('DOMContentLoaded');
+                                document.dispatchEvent(event);
+                            }
+
+                            // Initialize embedded form script (handles grid layout, form interactions)
+                            if (typeof window.initializeEmbeddedFormScript === 'function') {
+                                console.log('Initializing embedded form script');
+                                window.initializeEmbeddedFormScript();
+                            }
+                        }, 50);
+
+                        // Show the modal
+                        const modal = new bootstrap.Modal(document.getElementById('clergyFormModal'));
+                        modal.show();
+
+                        // Update modal state after showing
+                        setTimeout(() => {
+                            if (typeof window.setModalState === 'function') {
+                                window.setModalState(true);
+                            }
+                        }, 100);
+
+                        // Listen for modal close events
+                        document.getElementById('clergyFormModal').addEventListener('hidden.bs.modal', function () {
+                            if (typeof window.setModalState === 'function') {
+                                window.setModalState(false);
+                            }
+                        });
+
+                        // Add simple modal overlay click handler
+                        document.getElementById('clergyFormModal').addEventListener('click', function (e) {
+                            // Only close if clicking on the modal backdrop (not the modal content)
+                            if (e.target === this) {
+                                console.log('Modal backdrop clicked - closing modal');
+                                const modal = bootstrap.Modal.getInstance(this);
+                                if (modal) {
+                                    modal.hide();
+                                }
+                            }
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error loading add clergy form:', error);
+                        alert('Error loading add clergy form. Please try again.');
+                    });
             });
-        });
-    }
-});
+        }
+    });
 </script>
 {% endif %}
-{% endblock %} 
+{% endblock %}

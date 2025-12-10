@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +10,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/imageEditor.css') }}" rel="stylesheet">
+    {% include '_custom_styles.html' %}
     <link href="{{ url_for('static', filename='css/clergy-form-clean.css') }}" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -32,7 +34,7 @@
     </script>
     <script>
         // Make notification function globally available
-        window.showNotification = function(message, type = 'info') {
+        window.showNotification = function (message, type = 'info') {
             // Create notification container if it doesn't exist
             let notificationContainer = document.getElementById('notification-container');
             if (!notificationContainer) {
@@ -332,8 +334,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         /* Override form styles for the right panel */
@@ -342,7 +349,7 @@
         }
 
         /* Make the clergy form fit nicely in the right panel */
-        .right-panel .panel-content > div {
+        .right-panel .panel-content>div {
             background: transparent;
             border: none;
             box-shadow: none;
@@ -378,8 +385,12 @@
         }
 
         /* Style overrides for nested content */
-        .panel-content h1, .panel-content h2, .panel-content h3, 
-        .panel-content h4, .panel-content h5, .panel-content h6 {
+        .panel-content h1,
+        .panel-content h2,
+        .panel-content h3,
+        .panel-content h4,
+        .panel-content h5,
+        .panel-content h6 {
             color: rgba(255, 255, 255, 0.9);
         }
 
@@ -401,8 +412,10 @@
         /* D3 visualization CSS variables for colors */
         /* Colors are set dynamically from constants.js via JavaScript */
         :root {
-            --lineage-green: #11451e;  /* Fallback - will be overridden by JS */
-            --lineage-black: #1c1c1c;  /* Fallback - will be overridden by JS */
+            --lineage-green: #11451e;
+            /* Fallback - will be overridden by JS */
+            --lineage-black: #1c1c1c;
+            /* Fallback - will be overridden by JS */
         }
 
         /* Autocomplete dropdown styling */
@@ -707,7 +720,10 @@
         }
 
         /* Allow text selection in form inputs and text areas */
-        input, textarea, select, [contenteditable="true"] {
+        input,
+        textarea,
+        select,
+        [contenteditable="true"] {
             -webkit-user-select: text;
             -moz-user-select: text;
             -ms-user-select: text;
@@ -754,29 +770,31 @@
                 padding: 0 0.5em;
                 font-size: 0.8em;
             }
-            
+
             .status-left {
                 gap: 0.75em;
             }
-            
+
             .status-stats {
                 gap: 0.5em;
             }
-            
+
             .status-stat {
                 font-size: 0.8em;
             }
-            
+
             .logout-btn span {
-                display: none; /* Hide "Logout" text on mobile, keep only icon */
+                display: none;
+                /* Hide "Logout" text on mobile, keep only icon */
             }
         }
 
         @media (max-width: 480px) {
             .status-stats {
-                display: none; /* Hide stats on very small screens */
+                display: none;
+                /* Hide stats on very small screens */
             }
-            
+
             .db-status-tooltip {
                 font-size: 0.8em;
                 padding: 0.5em 0.75em;
@@ -786,6 +804,7 @@
     </style>
     {% block extra_styles %}{% endblock %}
 </head>
+
 <body>
     <!-- Status Bar -->
     <div class="status-bar">
@@ -814,7 +833,7 @@
         </div>
         <div class="status-right">
             {% if user %}
-                <span class="user-info">{{ user.username }}</span>
+            <span class="user-info">{{ user.username }}</span>
             {% endif %}
             <a href="{{ url_for('auth.logout') }}" class="logout-btn" title="Logout">
                 <i class="fas fa-sign-out-alt"></i>
@@ -830,11 +849,8 @@
                 <i class="fas fa-users"></i>
                 Clergy List
             </div>
-            <div class="panel-content" 
-                 hx-get="/editor/clergy-list"
-                 hx-trigger="load"
-                 hx-target="this"
-                 hx-swap="innerHTML">
+            <div class="panel-content" hx-get="/editor/clergy-list" hx-trigger="load" hx-target="this"
+                hx-swap="innerHTML">
                 <div class="loading-placeholder">
                     <div class="loading-spinner"></div>
                     Loading clergy list...
@@ -848,22 +864,18 @@
                 <i class="fas fa-sitemap"></i>
                 Lineage Visualization
                 <!-- Chapel List Toggle Button -->
-                <button id="chapelListToggle" 
-                        style="margin-left: auto; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); 
+                <button id="chapelListToggle" style="margin-left: auto; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); 
                                border-radius: 3px; color: rgba(255, 255, 255, 0.8); padding: 0.2em 0.4em; 
                                font-size: 0.65em; cursor: pointer; transition: all 0.2s ease;"
-                        onmouseover="this.style.background='rgba(255, 255, 255, 0.15)'; this.style.borderColor='rgba(255, 255, 255, 0.4)'"
-                        onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.borderColor='rgba(255, 255, 255, 0.3)'"
-                        onclick="console.log('=== CHAPEL BUTTON CLICKED ==='); toggleChapelList()"
-                        title="Toggle Chapel List">
+                    onmouseover="this.style.background='rgba(255, 255, 255, 0.15)'; this.style.borderColor='rgba(255, 255, 255, 0.4)'"
+                    onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.borderColor='rgba(255, 255, 255, 0.3)'"
+                    onclick="console.log('=== CHAPEL BUTTON CLICKED ==='); toggleChapelList()"
+                    title="Toggle Chapel List">
                     <i class="fas fa-church"></i> Chapel
                 </button>
             </div>
-            <div id="visualization-panel-content" class="panel-content"
-                 hx-get="/editor/visualization"
-                 hx-trigger="load"
-                 hx-target="this"
-                 hx-swap="innerHTML">
+            <div id="visualization-panel-content" class="panel-content" hx-get="/editor/visualization" hx-trigger="load"
+                hx-target="this" hx-swap="innerHTML">
                 <div class="loading-placeholder">
                     <div class="loading-spinner"></div>
                     Loading visualization...
@@ -877,11 +889,8 @@
                 <i class="fas fa-edit"></i>
                 Clergy Form
             </div>
-            <div class="panel-content"
-                 hx-get="/editor/clergy-form"
-                 hx-trigger="load"
-                 hx-target="this"
-                 hx-swap="innerHTML">
+            <div class="panel-content" hx-get="/editor/clergy-form" hx-trigger="load" hx-target="this"
+                hx-swap="innerHTML">
                 <div class="loading-placeholder">
                     <div class="loading-spinner"></div>
                     Select a clergy member to edit...
@@ -909,45 +918,33 @@
                     Settings
                 </button>
             </div>
-            
-            <div class="bottom-tab-content active" id="metadata-content"
-                 hx-get="/editor/metadata"
-                 hx-trigger="load"
-                 hx-target="this"
-                 hx-swap="innerHTML">
+
+            <div class="bottom-tab-content active" id="metadata-content" hx-get="/editor/metadata" hx-trigger="load"
+                hx-target="this" hx-swap="innerHTML">
                 <div class="loading-placeholder">
                     <div class="loading-spinner"></div>
                     Loading metadata...
                 </div>
             </div>
-            
-            <div class="bottom-tab-content" id="statistics-content"
-                 hx-get="/editor/statistics"
-                 hx-trigger="revealed"
-                 hx-target="this"
-                 hx-swap="innerHTML">
+
+            <div class="bottom-tab-content" id="statistics-content" hx-get="/editor/statistics" hx-trigger="revealed"
+                hx-target="this" hx-swap="innerHTML">
                 <div class="loading-placeholder">
                     <div class="loading-spinner"></div>
                     Loading statistics...
                 </div>
             </div>
-            
-            <div class="bottom-tab-content" id="settings-content"
-                 hx-get="/editor/settings"
-                 hx-trigger="revealed"
-                 hx-target="this"
-                 hx-swap="innerHTML">
+
+            <div class="bottom-tab-content" id="settings-content" hx-get="/editor/settings" hx-trigger="revealed"
+                hx-target="this" hx-swap="innerHTML">
                 <div class="loading-placeholder">
                     <div class="loading-spinner"></div>
                     Loading settings...
                 </div>
             </div>
 
-            <div class="bottom-tab-content" id="events-content"
-                 hx-get="/editor/events"
-                 hx-trigger="revealed"
-                 hx-target="this"
-                 hx-swap="innerHTML">
+            <div class="bottom-tab-content" id="events-content" hx-get="/editor/events" hx-trigger="revealed"
+                hx-target="this" hx-swap="innerHTML">
                 <div class="loading-placeholder">
                     <div class="loading-spinner"></div>
                     Loading events...
@@ -958,12 +955,12 @@
 
     <script>
         // Bottom panel tab switching functionality
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const bottomTabs = document.querySelectorAll('.bottom-tab');
             const bottomTabContents = document.querySelectorAll('.bottom-tab-content');
 
             bottomTabs.forEach(tab => {
-                tab.addEventListener('click', function() {
+                tab.addEventListener('click', function () {
                     const targetTab = this.dataset.tab;
 
                     // Remove active class from all tabs and contents
@@ -985,9 +982,9 @@
         });
 
         // Global event listeners for panel updates
-        document.body.addEventListener('htmx:afterRequest', function(evt) {
+        document.body.addEventListener('htmx:afterRequest', function (evt) {
             console.log('HTMX request completed for:', evt.target);
-            
+
             // Check if this was a clergy-related operation that should refresh visualization
             const target = evt.target;
             const isClergyListUpdate = target.closest('.left-panel') && target.querySelector('.clergy-item');
@@ -998,20 +995,20 @@
                 evt.detail.xhr.responseURL.includes('/clergy/delete') ||
                 evt.detail.xhr.responseURL.includes('/clergy/27/edit')
             );
-            
+
             // Also check for clergy form content updates
             const isClergyFormContentUpdate = target.closest('.right-panel') && target.querySelector('form[id="clergyForm"]');
-            
+
             // Check if this is just a clergy selection (not an actual update)
-            const isClergySelection = evt.detail.xhr && evt.detail.xhr.responseURL && 
-                (evt.detail.xhr.responseURL.includes('/editor/clergy-form/') || 
-                 evt.detail.xhr.responseURL.includes('/editor/clergy-form-content/') ||
-                 evt.detail.xhr.responseURL === window.location.origin + '/editor/clergy-form' ||
-                 evt.detail.xhr.responseURL === window.location.origin + '/editor/clergy-form-content') && 
+            const isClergySelection = evt.detail.xhr && evt.detail.xhr.responseURL &&
+                (evt.detail.xhr.responseURL.includes('/editor/clergy-form/') ||
+                    evt.detail.xhr.responseURL.includes('/editor/clergy-form-content/') ||
+                    evt.detail.xhr.responseURL === window.location.origin + '/editor/clergy-form' ||
+                    evt.detail.xhr.responseURL === window.location.origin + '/editor/clergy-form-content') &&
                 !evt.detail.xhr.responseURL.includes('/clergy/add') &&
                 !evt.detail.xhr.responseURL.includes('/clergy/edit') &&
                 !evt.detail.xhr.responseURL.includes('/clergy/delete');
-            
+
             // Debug logging
             if (evt.detail.xhr && evt.detail.xhr.responseURL) {
                 console.log('=== HTMX REQUEST DEBUG ===');
@@ -1025,12 +1022,12 @@
                 console.log('Will refresh visualization:', !isClergySelection && (isClergyListUpdate || isClergyFormUpdate || isClergyFormContentUpdate || isClergyAPI));
                 console.log('========================');
             }
-            
+
             // Only refresh visualization for actual updates, not selections
             // Be more restrictive - only refresh for actual API calls that modify data
             if (!isClergySelection && isClergyAPI) {
                 console.log('Clergy API update detected, refreshing visualization...');
-                
+
                 // Soft refresh of visualization panel
                 const visualizationTarget = document.getElementById('visualization-panel-content');
                 if (visualizationTarget && typeof htmx !== 'undefined') {
@@ -1061,7 +1058,7 @@
         });
 
         // Listen for clergy selection events to update the form panel
-        document.body.addEventListener('clergySeleced', function(evt) {
+        document.body.addEventListener('clergySeleced', function (evt) {
             const clergyId = evt.detail.clergyId;
             if (clergyId) {
                 // Update the clergy form panel
@@ -1073,9 +1070,9 @@
         });
 
         // Listen for clergy update events to refresh visualization
-        document.body.addEventListener('clergyUpdated', function(evt) {
+        document.body.addEventListener('clergyUpdated', function (evt) {
             console.log('Clergy update event received:', evt.detail);
-            
+
             // Only refresh visualization for actual updates, not selections
             if (evt.detail && evt.detail.action && (evt.detail.action === 'updated' || evt.detail.action === 'created' || evt.detail.action === 'deleted')) {
                 // Refresh visualization panel with delay and error handling
@@ -1109,7 +1106,7 @@
         // Custom event for when a clergy member is selected
         function selectClergy(clergyId) {
             console.log('Global selectClergy called with:', clergyId);
-            
+
             // Load clergy form for editing
             if (clergyId) {
                 htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
@@ -1123,7 +1120,7 @@
                     swap: 'innerHTML'
                 });
             }
-            
+
             // Dispatch custom event for any other listeners
             document.body.dispatchEvent(new CustomEvent('clergySeleced', {
                 detail: { clergyId: clergyId }
@@ -1165,7 +1162,7 @@
                     const statusText = document.getElementById('db-status-text');
                     const statusTitle = document.getElementById('db-status-title');
                     const statusDetails = document.getElementById('db-status-details');
-                    
+
                     if (data.status === 'connected') {
                         statusDot.className = 'status-dot green';
                         statusText.textContent = 'Connected';
@@ -1197,22 +1194,22 @@
         }
 
         // Update status bar on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             updateStatusBar();
-            
+
             // Update status bar every 30 seconds
             setInterval(updateStatusBar, 30000);
         });
 
         // Update status bar when clergy data changes
-        document.body.addEventListener('htmx:afterRequest', function(evt) {
+        document.body.addEventListener('htmx:afterRequest', function (evt) {
             // Check if this was a clergy-related operation
             const isClergyAPI = evt.detail.xhr && evt.detail.xhr.responseURL && (
                 evt.detail.xhr.responseURL.includes('/clergy/add') ||
                 evt.detail.xhr.responseURL.includes('/clergy/edit') ||
                 evt.detail.xhr.responseURL.includes('/clergy/delete')
             );
-            
+
             if (isClergyAPI) {
                 // Update clergy count after clergy changes
                 setTimeout(() => {
@@ -1423,7 +1420,7 @@
             document.getElementById('user-management-modal').style.display = 'none';
         }
 
-        window.openMetadataManagementModal = function() {
+        window.openMetadataManagementModal = function () {
             const modal = document.getElementById('metadata-management-modal');
             const content = document.getElementById('metadata-management-content');
 
@@ -1478,7 +1475,7 @@
         }
 
         // Close modals with Escape key
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 closeUserManagementModal();
                 closeMetadataManagementModal();
@@ -1486,56 +1483,56 @@
                 closeAuditLogsModal();
             }
         });
-        
+
         // State tracking for chapel list toggle
         let isChapelListVisible = false;
         let isGlobeViewVisible = false;
-        
+
         // Function to toggle chapel list and globe view
         function toggleChapelList() {
             console.log('=== TOGGLE CHAPEL LIST CALLED ===');
             console.log('Toggling chapel list, current state:', isChapelListVisible, 'globe view:', isGlobeViewVisible);
-            
+
             const leftPanel = document.querySelector('.left-panel .panel-content');
             const centerPanel = document.querySelector('#visualization-panel-content');
             const rightPanel = document.querySelector('.right-panel .panel-content');
             const rightPanelHeader = document.querySelector('.right-panel .panel-header');
-            
+
             console.log('Panel elements found:', {
                 leftPanel: !!leftPanel,
                 centerPanel: !!centerPanel,
                 rightPanel: !!rightPanel,
                 rightPanelHeader: !!rightPanelHeader
             });
-            
+
             if (!leftPanel || !centerPanel || !rightPanel) {
                 console.error('Required panels not found');
                 return;
             }
-            
+
             const panelHeader = document.querySelector('.left-panel .panel-header');
             const toggleButton = document.getElementById('chapelListToggle');
-            
+
             if (!isChapelListVisible && !isGlobeViewVisible) {
                 // Switch to chapel list and globe view
                 console.log('Switching to chapel list and globe view...');
-                
+
                 // Update the left panel header
                 if (panelHeader) {
                     panelHeader.innerHTML = '<i class="fas fa-church"></i> Chapel List';
                 }
-                
+
                 // Update the right panel header to show Chapel Form
                 if (rightPanelHeader) {
                     rightPanelHeader.innerHTML = '<i class="fas fa-church"></i> Chapel Form';
                 }
-                
+
                 // Update button to show "Back to List" state
                 if (toggleButton) {
                     toggleButton.innerHTML = '<i class="fas fa-list"></i> Back to List';
                     toggleButton.title = 'Return to Clergy List';
                 }
-                
+
                 // Load chapel list content
                 htmx.ajax('GET', '/editor/chapel-list', {
                     target: leftPanel,
@@ -1546,17 +1543,17 @@
                 }).catch(error => {
                     console.error('Error switching to chapel list:', error);
                 });
-                
+
                 // Load chapel form content
                 console.log('Loading chapel form into right panel...');
                 console.log('Right panel element:', rightPanel);
                 console.log('Right panel current content:', rightPanel.innerHTML.substring(0, 200) + '...');
-                
+
                 // Add timeout to detect if request hangs
                 const timeoutId = setTimeout(() => {
                     console.error('Chapel form request timed out after 5 seconds');
                 }, 5000);
-                
+
                 // Try using fetch instead of htmx.ajax
                 fetch('/editor/chapel-form')
                     .then(response => {
@@ -1575,9 +1572,9 @@
                         // Remove the hx-trigger attribute to prevent auto-loading
                         rightPanel.removeAttribute('hx-trigger');
                         rightPanel.removeAttribute('hx-get');
-                        
+
                         // Trigger location form initialization after a short delay
-                        setTimeout(function() {
+                        setTimeout(function () {
                             if (typeof initializeLocationForm === 'function') {
                                 console.log('Manually triggering location form initialization...');
                                 if (initializeLocationForm() || (typeof checkForLocationForms === 'function' && checkForLocationForms())) {
@@ -1590,7 +1587,7 @@
                                 // Retry a few times
                                 let retries = 0;
                                 const maxRetries = 10;
-                                const retryInterval = setInterval(function() {
+                                const retryInterval = setInterval(function () {
                                     retries++;
                                     if (typeof initializeLocationForm === 'function') {
                                         console.log('initializeLocationForm function found, initializing...');
@@ -1611,7 +1608,7 @@
                         console.error('Error switching to chapel form:', error);
                         console.error('Error details:', error.message, error.stack);
                     });
-                
+
                 // Load globe view content
                 htmx.ajax('GET', '/editor/globe-view', {
                     target: centerPanel,
@@ -1625,23 +1622,23 @@
             } else {
                 // Switch back to clergy list and lineage graph
                 console.log('Switching back to clergy list and lineage graph...');
-                
+
                 // Update the left panel header
                 if (panelHeader) {
                     panelHeader.innerHTML = '<i class="fas fa-users"></i> Clergy List';
                 }
-                
+
                 // Update the right panel header back to Clergy Form
                 if (rightPanelHeader) {
                     rightPanelHeader.innerHTML = '<i class="fas fa-edit"></i> Clergy Form';
                 }
-                
+
                 // Update button to show "Chapel" state
                 if (toggleButton) {
                     toggleButton.innerHTML = '<i class="fas fa-church"></i> Chapel';
                     toggleButton.title = 'Toggle Chapel List';
                 }
-                
+
                 // Load clergy list content
                 htmx.ajax('GET', '/editor/clergy-list', {
                     target: leftPanel,
@@ -1652,7 +1649,7 @@
                 }).catch(error => {
                     console.error('Error switching back to clergy list:', error);
                 });
-                
+
                 // Load clergy form content
                 htmx.ajax('GET', '/editor/clergy-form', {
                     target: rightPanel,
@@ -1665,7 +1662,7 @@
                 }).catch(error => {
                     console.error('Error switching back to clergy form:', error);
                 });
-                
+
                 // Load lineage graph content
                 htmx.ajax('GET', '/editor/visualization', {
                     target: centerPanel,
@@ -1678,13 +1675,14 @@
                 });
             }
         }
-        
+
         // Make function globally available
         window.toggleChapelList = toggleChapelList;
-        
+
         // Test if function is available
         console.log('toggleChapelList function defined:', typeof window.toggleChapelList);
         console.log('Function available:', window.toggleChapelList);
     </script>
 </body>
+
 </html>

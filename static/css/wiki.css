@@ -21,13 +21,10 @@
 
 .wiki-wrapper {
     display: flex;
-    height: calc(100vh - 56px);
-    /* Adjust for main navbar if present */
+    height: 100vh;
     background-color: var(--wiki-bg-color);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     overflow: hidden;
-    margin-top: 56px;
-    /* Offset for fixed main navbar */
 }
 
 /* Sidebar */
@@ -50,7 +47,6 @@
     padding: 1rem;
     border-bottom: 1px solid var(--wiki-border-color);
     background-color: #f9fafb;
-    /* gray-50 */
     display: flex;
     align-items: center;
     justify-content: space-between;

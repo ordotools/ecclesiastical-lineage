@@ -128,7 +128,11 @@
 
                 <!-- Edit Mode -->
                 <div id="wiki-edit-container" class="wiki-editor" style="display: none;">
-                    <input type="text" id="wiki-edit-title-input" class="wiki-title-input" placeholder="Page Title">
+                    <div class="wiki-title-container" style="position: relative;">
+                        <input type="text" id="wiki-edit-title-input" class="wiki-title-input"
+                            placeholder="Page Title or Clergy Name" autocomplete="off">
+                        <div id="wiki-clergy-dropdown" class="wiki-clergy-dropdown" style="display: none;"></div>
+                    </div>
                     <div class="edit-tip-box">
                         <strong>Editing Tips:</strong>
                         <ul style="margin-top: 0.5rem; margin-bottom: 0;">
@@ -159,5 +163,6 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
 <script src="{{ url_for('static', filename='js/wiki.js') }}"></script>
 {% endblock %}

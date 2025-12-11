@@ -116,6 +116,9 @@ class WikiApp {
         this.searchQuery = '';
         this.isSidebarOpen = true;
         this.isLoading = false;
+        this.isLoading = false;
+        this.selectedClergyId = null; // Track selected clergy ID
+        this.allClergy = []; // Store all clergy for client-side search
 
         // Elements
         this.els = {
@@ -135,6 +138,7 @@ class WikiApp {
             viewContainer: document.getElementById('wiki-view-container'),
             textarea: document.getElementById('wiki-textarea'),
             titleInput: document.getElementById('wiki-edit-title-input'),
+            clergyDropdown: document.getElementById('wiki-clergy-dropdown'),
             homeBtn: document.getElementById('wiki-home-btn')
         };
 
@@ -143,7 +147,10 @@ class WikiApp {
 
     async init() {
         this.bindEvents();
-        await this.fetchPageList();
+        await Promise.all([
+            this.fetchPageList(),
+            this.fetchAllClergy()
+        ]);
 
         // Initial load
         // Get slug from URL if it exists
@@ -172,6 +179,23 @@ class WikiApp {
             this.searchQuery = e.target.value;
             this.renderSidebarList();
         });
+
+        // Clergy Autocomplete on Title Input
+        if (this.els.titleInput) {
+            this.els.titleInput.addEventListener('input', (e) => {
+                const query = e.target.value;
+                // Client-side fuzzy search
+                this.selectedClergyId = null;
+                this.performClergySearch(query);
+            });
+
+            // Hide dropdown on blur / click outside
+            document.addEventListener('click', (e) => {
+                if (this.els.clergyDropdown && !this.els.titleInput.contains(e.target) && !this.els.clergyDropdown.contains(e.target)) {
+                    this.els.clergyDropdown.style.display = 'none';
+                }
+            });
+        }
 
         this.els.toggleSidebarBtn.addEventListener('click', () => {
             this.isSidebarOpen = !this.isSidebarOpen;
@@ -271,6 +295,9 @@ class WikiApp {
             if (res.ok) {
                 const data = await res.json();
                 this.pages[slug] = data; // { title, content, updated_at, editor }
+                if (data.clergy_id) {
+                    this.selectedClergyId = data.clergy_id;
+                }
             } else if (res.status === 404) {
                 // Page doesn't exist yet
                 this.pages[slug] = {
@@ -299,6 +326,7 @@ class WikiApp {
         this.isEditing = false;
 
         // Check if we have content, if not fetch it
+        this.selectedClergyId = null; // Reset selection on nav
         if (!this.pages[slug] || this.pages[slug].content === null) {
             this.fetchPage(slug);
         } else {
@@ -334,6 +362,7 @@ class WikiApp {
         // Reset inputs
         this.els.textarea.value = `## Introduction\n\nStart writing your article here...`;
         this.els.titleInput.value = '';
+        this.selectedClergyId = null;
 
         this.render();
         this.els.titleInput.focus();
@@ -365,7 +394,8 @@ class WikiApp {
                 },
                 body: JSON.stringify({
                     title: slug,
-                    content: content
+                    content: content,
+                    clergy_id: this.selectedClergyId
                 })
             });
 
@@ -383,14 +413,74 @@ class WikiApp {
                 // Fetch the fresh data (including new timestamp)
                 await this.fetchPage(slug);
                 this.navigate(slug, false);
-
-                // Refresh sidebar list
-                this.fetchPageList();
-                // Render handled by navigate/fetchPage
             }
         } catch (err) {
             alert('Error saving page: ' + err.message);
         }
+    }
+
+    async fetchAllClergy() {
+        try {
+            console.log('Fetching all clergy...');
+            const res = await fetch('/api/wiki/all-clergy');
+            if (res.ok) {
+                this.allClergy = await res.json();
+                console.log('Fetched clergy count:', this.allClergy.length);
+            } else {
+                console.error('Failed to fetch clergy:', res.status);
+            }
+        } catch (err) {
+            console.error('Failed to fetch all clergy', err);
+        }
+    }
+
+    performClergySearch(query) {
+        console.log('Performing search for:', query);
+        if (!query || query.length < 2) {
+            this.els.clergyDropdown.style.display = 'none';
+            return;
+        }
+
+        if (!window.fuzzySearch) {
+            console.error('fuzzySearch not loaded');
+            return;
+        }
+
+        // Use the shared fuzzySearch function
+        // fuzzySearch(list, query, keyFn) returns [{item, score}, ...]
+        console.log('Calling fuzzySearch with list size:', this.allClergy.length);
+        const results = window.fuzzySearch(this.allClergy, query, item => item.name);
+        console.log('Fuzzy search results:', results.length);
+
+        // Take top 10 results
+        const topResults = results.slice(0, 10).map(r => r.item);
+
+        this.renderClergyDropdown(topResults);
+    }
+
+    renderClergyDropdown(results) {
+        if (results.length === 0) {
+            this.els.clergyDropdown.style.display = 'none';
+            return;
+        }
+
+        this.els.clergyDropdown.innerHTML = results.map(c => `
+            <div class="wiki-clergy-item" data-id="${c.id}" data-name="${c.name}">
+                <span class="wiki-clergy-name">${c.name}</span>
+                <span class="wiki-clergy-rank">${c.rank}</span>
+            </div>
+        `).join('');
+
+        this.els.clergyDropdown.style.display = 'block';
+
+        // Add click listeners
+        this.els.clergyDropdown.querySelectorAll('.wiki-clergy-item').forEach(item => {
+            item.addEventListener('click', () => {
+                this.selectedClergyId = item.dataset.id;
+                this.els.titleInput.value = item.dataset.name;
+                this.els.clergyDropdown.style.display = 'none';
+            });
+        });
     }
 
     parseWikiText(text) {

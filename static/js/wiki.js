@@ -261,6 +261,115 @@ class WikiApp {
         });
 
         this.els.homeBtn.addEventListener('click', () => this.navigate('Main Page'));
+
+        // Article Autocomplete Logic
+        this.els.articleDropdown = document.getElementById('wiki-article-dropdown');
+        if (this.els.textarea && this.els.articleDropdown) {
+            this.els.textarea.addEventListener('input', (e) => {
+                const cursor = this.els.textarea.selectionStart;
+                const text = this.els.textarea.value;
+                const sub = text.substring(0, cursor);
+                const match = sub.match(/\[\[([^\]]*)$/);
+
+                if (match) {
+                    const query = match[1];
+                    this.performArticleSearch(query);
+                } else {
+                    this.els.articleDropdown.style.display = 'none';
+                }
+            });
+
+            // Hide on click outside
+            document.addEventListener('click', (e) => {
+                if (!this.els.articleDropdown.contains(e.target) && e.target !== this.els.textarea) {
+                    this.els.articleDropdown.style.display = 'none';
+                }
+            });
+        }
+    }
+
+    performArticleSearch(query) {
+        if (!window.fuzzySearch) return;
+
+        // Ensure we have a flat list of titles
+        const titles = Object.keys(this.pages);
+
+        let results;
+        if (!query) {
+            // Show all if query is empty
+            results = titles.map(t => ({ item: t, score: 0 }));
+        } else {
+            results = window.fuzzySearch(titles, query);
+        }
+
+        const topResults = results.slice(0, 10).map(r => r.item);
+
+        // Calculate caret coordinates
+        const coords = getCaretCoordinates(this.els.textarea, this.els.textarea.selectionStart);
+
+        // Since .wiki-autocomplete-dropdown is position: absolute relative to the textarea's container,
+        // we just need the local coordinates relative to the top-left of the textarea content area.
+        // We subtract scrollTop/scrollLeft to account for the textarea being scrolled.
+
+        const pos = {
+            top: coords.top - this.els.textarea.scrollTop,
+            left: coords.left - this.els.textarea.scrollLeft
+        };
+
+        // Debug
+        // console.log('Dropdown Pos (Local):', pos, 'Coords:', coords);
+
+        this.renderArticleDropdown(topResults, query, pos);
+    }
+
+    renderArticleDropdown(results, query, pos) {
+        if (results.length === 0) {
+            if (this.els.articleDropdown) this.els.articleDropdown.style.display = 'none';
+            return;
+        }
+
+        this.els.articleDropdown.innerHTML = results.map(title => `
+            <div class="wiki-autocomplete-item" data-title="${title}">
+                <i class="fas fa-file-alt" style="margin-right: 8px; color: #9ca3af;"></i>${title}
+            </div>
+        `).join('');
+
+        this.els.articleDropdown.style.display = 'block';
+
+        if (pos) {
+            // Add a buffer for line height (~20px)
+            const lineHeight = 24;
+            if (this.els.articleDropdown) {
+                this.els.articleDropdown.style.top = (pos.top + lineHeight) + 'px';
+                this.els.articleDropdown.style.left = pos.left + 'px';
+            }
+
+            // Basic viewport boundary check could go here
+        }
+
+        // Add click listeners
+        this.els.articleDropdown.querySelectorAll('.wiki-autocomplete-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.insertArticleLink(item.dataset.title, query);
+            });
+        });
+    }
+
+    insertArticleLink(title, query) {
+        const cursor = this.els.textarea.selectionStart;
+        const text = this.els.textarea.value;
+        const before = text.substring(0, cursor - query.length - 2); // -2 for [[
+        const after = text.substring(cursor);
+
+        this.els.textarea.value = `${before}[[${title}]]${after}`;
+        this.els.articleDropdown.style.display = 'none';
+
+        // Reset cursor position
+        const newCursorPos = before.length + title.length + 4; // +4 for [[ ]]
+        this.els.textarea.setSelectionRange(newCursorPos, newCursorPos);
+        this.els.textarea.focus();
     }
 
     getCurrentPage() {
@@ -594,6 +703,7 @@ class WikiApp {
 
         // Content
         if (this.isEditing) {
+            if (this.els.contentArea) this.els.contentArea.classList.add('wiki-editing-mode');
             this.els.viewContainer.style.display = 'none';
             this.els.editContainer.style.display = 'flex';
             if (this.els.editBtn) this.els.editBtn.style.display = 'none';
@@ -615,6 +725,7 @@ class WikiApp {
             }
 
         } else {
+            if (this.els.contentArea) this.els.contentArea.classList.remove('wiki-editing-mode');
             this.els.viewContainer.style.display = 'block';
             this.els.editContainer.style.display = 'none';
             this.els.viewContainer.innerHTML = this.renderContent(page.content);
@@ -661,3 +772,125 @@ document.addEventListener('DOMContentLoaded', () => {
     // const footer = document.querySelector('.wiki-footer span');
     // if (footer) footer.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
 });
+
+/**
+ * Mirror Div Helper to find caret coordinates (Robust Version)
+ * Replicates the textarea exactly to find the pixel position of the caret.
+ */
+function getCaretCoordinates(element, position) {
+    const debug = false; // Set to true to see the red overlay
+
+    // The properties that we must copy to ensure the mirror div 
+    // renders text exactly the same way as the textarea.
+    const properties = [
+        'direction',
+        'boxSizing',
+        'width',
+        'height',
+        'overflowX',
+        'overflowY',
+
+        'borderTopWidth',
+        'borderRightWidth',
+        'borderBottomWidth',
+        'borderLeftWidth',
+        'borderStyle',
+
+        'paddingTop',
+        'paddingRight',
+        'paddingBottom',
+        'paddingLeft',
+
+        // Font appearance
+        'fontStyle',
+        'fontVariant',
+        'fontWeight',
+        'fontStretch',
+        'fontSize',
+        'fontSizeAdjust',
+        'lineHeight',
+        'fontFamily',
+
+        'textAlign',
+        'textTransform',
+        'textIndent',
+        'textDecoration',
+
+        'letterSpacing',
+        'wordSpacing',
+
+        'tabSize',
+        'MozTabSize'
+    ];
+
+    // 1. Create the mirror div if it doesn't exist
+    let div = document.getElementById('input-textarea-caret-position-mirror-div');
+    if (!div) {
+        div = document.createElement('div');
+        div.id = 'input-textarea-caret-position-mirror-div';
+        document.body.appendChild(div);
+    }
+
+    const style = div.style;
+    const computed = window.getComputedStyle(element);
+
+    // 2. Apply basic positioning styles
+    style.whiteSpace = 'pre-wrap';
+    if (element.nodeName !== 'INPUT')
+        style.wordWrap = 'break-word';  // only for textarea-like
+
+    // Position off-screen by default, or overlay for debug
+    style.position = 'absolute';
+    if (!debug) {
+        style.visibility = 'hidden';
+        // We don't really move it offscreen to avoid layout thrashing impacting scroll?
+        // Actually, let's keep it top/left 0 but hidden.
+        style.top = '0';
+        style.left = '0';
+    } else {
+        style.visibility = 'visible';
+        style.backgroundColor = 'rgba(255,0,0,0.3)';
+        style.zIndex = '99999';
+        style.pointerEvents = 'none';
+
+        // Match screen position for visual verification
+        const rect = element.getBoundingClientRect();
+        style.top = (rect.top + window.scrollY) + 'px';
+        style.left = (rect.left + window.scrollX) + 'px';
+    }
+
+    // 3. Copy all relevant properties
+    properties.forEach(prop => {
+        style[prop] = computed[prop];
+    });
+
+    // 4. Special handling for Firefox and scrollbars
+    if (window.mozInnerScreenX != null) {
+        // Firefox lies about the overflow property for textareas: https://bugzilla.mozilla.org/show_bug.cgi?id=984275
+        if (element.scrollHeight > parseInt(computed.height))
+            style.overflowY = 'scroll';
+    } else {
+        style.overflow = 'hidden'; // Ensure we don't actually show scrollbars in mirror
+    }
+
+    // 5. Content Update
+    div.textContent = element.value.substring(0, position);
+
+    const span = document.createElement('span');
+    span.textContent = element.value.substring(position) || '.';
+    span.style.backgroundColor = debug ? 'lime' : 'transparent';
+    div.appendChild(span);
+
+    // 6. Calculate coordinates relative to the div
+    const coordinates = {
+        top: span.offsetTop + parseInt(computed['borderTopWidth']),
+        left: span.offsetLeft + parseInt(computed['borderLeftWidth']),
+        height: parseInt(computed['lineHeight'])
+    };
+
+    if (debug) {
+        console.log('Caret Coordinates:', coordinates);
+    }
+
+    return coordinates;
+}

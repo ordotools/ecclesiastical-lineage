@@ -139,7 +139,10 @@ class WikiApp {
             textarea: document.getElementById('wiki-textarea'),
             titleInput: document.getElementById('wiki-edit-title-input'),
             clergyDropdown: document.getElementById('wiki-clergy-dropdown'),
-            homeBtn: document.getElementById('wiki-home-btn')
+            homeBtn: document.getElementById('wiki-home-btn'),
+            authorSelect: document.getElementById('wiki-author-select'),
+            visibleToggle: document.getElementById('wiki-visible-toggle'),
+            deletedToggle: document.getElementById('wiki-deleted-toggle')
         };
 
         this.init();
@@ -149,7 +152,8 @@ class WikiApp {
         this.bindEvents();
         await Promise.all([
             this.fetchPageList(),
-            this.fetchAllClergy()
+            this.fetchAllClergy(),
+            this.fetchUsers() // New: fetch users for author select
         ]);
 
         // Initial load
@@ -504,7 +508,10 @@ class WikiApp {
                 body: JSON.stringify({
                     title: slug,
                     content: content,
-                    clergy_id: this.selectedClergyId
+                    clergy_id: this.selectedClergyId,
+                    is_visible: this.els.visibleToggle ? this.els.visibleToggle.checked : true,
+                    is_deleted: this.els.deletedToggle ? this.els.deletedToggle.checked : false,
+                    author_id: this.els.authorSelect ? this.els.authorSelect.value : null
                 })
             });
 
@@ -590,6 +597,26 @@ class WikiApp {
                 this.els.clergyDropdown.style.display = 'none';
             });
         });
+    }
+
+    async fetchUsers() {
+        try {
+            const res = await fetch('/api/wiki/users');
+            if (res.ok) {
+                const users = await res.json();
+                this.renderAuthorSelect(users);
+            }
+        } catch (err) {
+            console.error('Failed to fetch users', err);
+        }
+    }
+
+    renderAuthorSelect(users) {
+        if (!this.els.authorSelect) return;
+        const currentVal = this.els.authorSelect.value;
+        this.els.authorSelect.innerHTML = '<option value="">Select Author...</option>' +
+            users.map(u => `<option value="${u.id}">${u.full_name || u.username}</option>`).join('');
+        this.els.authorSelect.value = currentVal; // Restore if any (though render usually overwrites)
     }
 
     parseWikiText(text) {
@@ -723,6 +750,11 @@ class WikiApp {
                 this.els.titleInput.value = page.title;
                 this.els.titleInput.disabled = true; // Cannot edit title of existing page for now (simplification)
             }
+
+            // Populate Metadata Controls
+            if (this.els.visibleToggle) this.els.visibleToggle.checked = page.is_visible !== false; // Default true
+            if (this.els.deletedToggle) this.els.deletedToggle.checked = page.is_deleted === true;
+            if (this.els.authorSelect) this.els.authorSelect.value = page.author_id || '';
 
         } else {
             if (this.els.contentArea) this.els.contentArea.classList.remove('wiki-editing-mode');

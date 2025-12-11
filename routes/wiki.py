@@ -32,7 +32,10 @@ def get_page(slug):
             'content': page.markdown,
             'updated_at': page.updated_at.isoformat() if page.updated_at else None,
             'editor': page.last_editor.username if page.last_editor else None,
-            'clergy_id': page.clergy_id
+            'clergy_id': page.clergy_id,
+            'is_visible': page.is_visible,
+            'is_deleted': page.is_deleted,
+            'author_id': page.author_id
         })
     else:
         return jsonify(None), 404
@@ -50,6 +53,16 @@ def get_all_clergy():
         'organization': c.organization
     } for c in all_clergy])
 
+@wiki_bp.route('/api/wiki/users', methods=['GET'])
+def get_users():
+    """Get all users for author selection."""
+    users = User.query.with_entities(User.id, User.username, User.full_name).all()
+    return jsonify([{
+        'id': u.id,
+        'username': u.username,
+        'full_name': u.full_name
+    } for u in users])
+
 @wiki_bp.route('/api/wiki/save', methods=['POST'])
 def save_page():
     """Save or update a wiki page."""
@@ -61,6 +74,11 @@ def save_page():
     slug = data.get('title')
     content = data.get('content')
     clergy_id = data.get('clergy_id')
+    is_visible = data.get('is_visible', True)
+    is_deleted = data.get('is_deleted', False)
+    author_id = data.get('author_id')
+    if author_id == "":
+        author_id = None
 
     if not slug or not content:
         return jsonify({'error': 'Title and content are required'}), 400
@@ -89,13 +107,22 @@ def save_page():
         page.updated_at = datetime.utcnow()
         if clergy_id:
              page.clergy_id = clergy_id
+        
+        # Update metadata
+        page.is_visible = is_visible
+        page.is_deleted = is_deleted
+        page.author_id = author_id
+
     else:
         page = WikiPage(
             title=slug,
             markdown=content,
             edit_count=1,
             last_editor_id=user_id,
-            clergy_id=clergy_id
+            clergy_id=clergy_id,
+            is_visible=is_visible,
+            is_deleted=is_deleted,
+            author_id=author_id
         )
         db.session.add(page)
     

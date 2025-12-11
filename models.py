@@ -383,11 +383,16 @@ class WikiPage(db.Model):
     markdown = db.Column(db.Text, nullable=True) # The actual content
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     edit_count = db.Column(db.Integer, default=0)
+    is_visible = db.Column(db.Boolean, default=True)
+    category = db.Column(db.String(100), nullable=True)
+    is_deleted = db.Column(db.Boolean, default=False)
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     last_editor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
     # Relationships
     clergy = db.relationship('Clergy', backref='wiki_page')
-    last_editor = db.relationship('User', backref='edited_wiki_pages')
+    author = db.relationship('User', foreign_keys=[author_id], backref='authored_wiki_pages')
+    last_editor = db.relationship('User', foreign_keys=[last_editor_id], backref='edited_wiki_pages')
 
     def __repr__(self):
         return f'<WikiPage {self.title or self.id}>'

@@ -118,7 +118,9 @@ class WikiApp {
         this.isLoading = false;
         this.isLoading = false;
         this.selectedClergyId = null; // Track selected clergy ID
+        this.selectedClergyId = null; // Track selected clergy ID
         this.allClergy = []; // Store all clergy for client-side search
+        this.editorSlug = null; // Track which page is currently loaded in the editor
 
         // Elements
         this.els = {
@@ -236,9 +238,6 @@ class WikiApp {
         if (this.els.editBtn) {
             this.els.editBtn.addEventListener('click', () => {
                 this.isEditing = true;
-                const page = this.getCurrentPage();
-                // If page content is missing (new page), provide default
-                this.els.textarea.value = page.content || `# ${page.title}\n\nStart writing...`;
                 this.render();
             });
         }
@@ -386,11 +385,20 @@ class WikiApp {
     async fetchPageList() {
         try {
             const res = await fetch('/api/wiki/pages');
-            const titles = await res.json();
-            // Rebuild pages cache keys (content will be null until fetched)
-            titles.forEach(title => {
-                if (!this.pages[title]) {
-                    this.pages[title] = { title, content: null };
+            const pageList = await res.json();
+            // Rebuild pages cache or merge
+            pageList.forEach(pageData => {
+                if (!this.pages[pageData.title]) {
+                    this.pages[pageData.title] = {
+                        title: pageData.title,
+                        content: null,
+                        is_visible: pageData.is_visible,
+                        is_deleted: pageData.is_deleted
+                    };
+                } else {
+                    // Update metadata if exists
+                    this.pages[pageData.title].is_visible = pageData.is_visible;
+                    this.pages[pageData.title].is_deleted = pageData.is_deleted;
                 }
             });
             this.renderSidebarList();
@@ -430,19 +438,29 @@ class WikiApp {
     navigate(slug, pushHistory = true) {
         if (!slug) return;
 
+        // Capture current edit state
+        const wasEditing = this.isEditing;
+
         if (pushHistory && slug !== this.currentSlug) {
             this.history.push(slug);
             history.pushState({ slug }, '', `/wiki/${slug}`);
         }
 
         this.currentSlug = slug;
-        this.isEditing = false;
+
+        // Maintain edit mode if we were editing AND we effectively can edit (e.g. not logged out)
+        // We can check if editBtn or saveBtn exists in DOM as a proxy for permissions
+        const canEdit = !!(this.els.editBtn || this.els.saveBtn);
+        this.isEditing = wasEditing && canEdit;
 
         // Check if we have content, if not fetch it
         this.selectedClergyId = null; // Reset selection on nav
         if (!this.pages[slug] || this.pages[slug].content === null) {
             this.fetchPage(slug);
         } else {
+            // If we are maintaining edit mode for a page we already have, 
+            // we need to ensure the textarea is populated correctly in render()
+            // render() handles this by grabbing content from this.pages[slug]
             this.render();
         }
 
@@ -473,7 +491,6 @@ class WikiApp {
         this.isEditing = true;
 
         // Reset inputs
-        this.els.textarea.value = `## Introduction\n\nStart writing your article here...`;
         this.els.titleInput.value = '';
         this.selectedClergyId = null;
 
@@ -496,8 +513,22 @@ class WikiApp {
             slug = titleVal;
         }
 
-        // optimistic update logic needs to handle clean switch if slug changed
-        // For now, let's just proceed with save.
+        // DEBUG: Check toggle state
+        console.log('SavePage Debug:', {
+            hasToggle: !!this.els.visibleToggle,
+            checked: this.els.visibleToggle ? this.els.visibleToggle.checked : 'N/A',
+            deleted: this.els.deletedToggle ? this.els.deletedToggle.checked : 'N/A'
+        });
+
+        const payload = {
+            title: slug,
+            content: content,
+            clergy_id: this.selectedClergyId,
+            is_visible: this.els.visibleToggle ? this.els.visibleToggle.checked : true,
+            is_deleted: this.els.deletedToggle ? this.els.deletedToggle.checked : false,
+            author_id: this.els.authorSelect ? this.els.authorSelect.value : null
+        };
+        console.log('SavePage Payload:', payload);
 
         try {
             const res = await fetch('/api/wiki/save', {
@@ -505,14 +536,7 @@ class WikiApp {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    title: slug,
-                    content: content,
-                    clergy_id: this.selectedClergyId,
-                    is_visible: this.els.visibleToggle ? this.els.visibleToggle.checked : true,
-                    is_deleted: this.els.deletedToggle ? this.els.deletedToggle.checked : false,
-                    author_id: this.els.authorSelect ? this.els.authorSelect.value : null
-                })
+                body: JSON.stringify(payload)
             });
 
             if (!res.ok) {
@@ -698,13 +722,47 @@ class WikiApp {
     }
 
     renderSidebarList() {
-        const filtered = Object.keys(this.pages).filter(p =>
-            p.toLowerCase().includes(this.searchQuery.toLowerCase())
-        );
+        // Check if logged in by presence of auth-only elements (e.g. New Page button or Edit button)
+        // newBtn is good proxy as it's for auth users
+        const isLoggedIn = !!this.els.newBtn;
 
-        this.els.pagesList.innerHTML = filtered.map(slug => {
+        const filtered = Object.values(this.pages).filter(p => {
+            // Filter by search
+            const matchesSearch = p.title.toLowerCase().includes(this.searchQuery.toLowerCase());
+
+            // Visibility Logic:
+            let isVisible = true;
+
+            // Deleted pages: Only show if actively editing
+            if (p.is_deleted && !this.isEditing) {
+                isVisible = false;
+            }
+
+            // Hidden (invisible) pages:
+            // Show if editing OR if logged in
+            // Hide if anonymous AND not visible
+            if (!p.is_visible) {
+                if (!this.isEditing && !isLoggedIn) {
+                    isVisible = false;
+                }
+            }
+
+            return matchesSearch && isVisible;
+        });
+
+        // Sort alphabetically
+        filtered.sort((a, b) => a.title.localeCompare(b.title));
+
+        this.els.pagesList.innerHTML = filtered.map(page => {
+            const slug = page.title;
             const active = this.currentSlug === slug ? 'active' : '';
-            return `<button class="wiki-page-link ${active}" data-slug="${slug}">${slug}</button>`;
+            // Icon for hidden pages
+            const iconHtml = !page.is_visible ? '<i class="fas fa-eye-slash" style="margin-right: 6px; font-size: 0.75rem; opacity: 0.7;"></i>' : '';
+
+            return `<button class="wiki-page-link ${active}" data-slug="${slug}" style="display: flex; align-items: center;">
+                ${iconHtml}
+                <span class="truncate-text" style="flex: 1; text-align: left; pointer-events: none;">${slug}</span>
+            </button>`;
         }).join('');
     }
 
@@ -751,12 +809,27 @@ class WikiApp {
                 this.els.titleInput.disabled = true; // Cannot edit title of existing page for now (simplification)
             }
 
+            // Populate Textarea if we switched pages (or entered edit mode)
+            // We use editorSlug to track what is currently in the textarea so we don't overwrite user typing
+            // if render() is called for other reasons (though currently it shouldn't be called mid-edit).
+            const effectiveSlug = isNewPage ? '__NEW_PAGE__' : this.currentSlug;
+
+            if (this.editorSlug !== effectiveSlug) {
+                if (isNewPage) {
+                    this.els.textarea.value = `## Introduction\n\nStart writing your article here...`;
+                } else {
+                    this.els.textarea.value = page.content || `# ${page.title}\n\nStart writing...`;
+                }
+                this.editorSlug = effectiveSlug;
+            }
+
             // Populate Metadata Controls
             if (this.els.visibleToggle) this.els.visibleToggle.checked = page.is_visible !== false; // Default true
             if (this.els.deletedToggle) this.els.deletedToggle.checked = page.is_deleted === true;
             if (this.els.authorSelect) this.els.authorSelect.value = page.author_id || '';
 
         } else {
+            this.editorSlug = null; // Reset editor tracking when leaving edit mode
             if (this.els.contentArea) this.els.contentArea.classList.remove('wiki-editing-mode');
             this.els.viewContainer.style.display = 'block';
             this.els.editContainer.style.display = 'none';

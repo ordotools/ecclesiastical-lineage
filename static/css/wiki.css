@@ -513,6 +513,115 @@
     padding: 2px 6px;
 }
 
+/* Metadata Controls */
+.wiki-metadata-controls {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    background-color: #ffffff;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--wiki-border-color);
+    border-radius: 0.375rem;
+}
+
+.wiki-control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.wiki-control-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--wiki-text-secondary);
+    user-select: none;
+}
+
+/* Custom Select */
+.wiki-select {
+    appearance: none;
+    background-color: #f9fafb;
+    border: 1px solid var(--wiki-border-color);
+    border-radius: 0.375rem;
+    padding: 0.375rem 2rem 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--wiki-text-primary);
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    min-width: 180px;
+    transition: all 0.2s;
+}
+
+.wiki-select:hover {
+    background-color: white;
+    border-color: #d1d5db;
+}
+
+.wiki-select:focus {
+    background-color: white;
+    border-color: var(--wiki-primary-color);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Custom Toggle */
+.wiki-toggle-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    vertical-align: middle;
+}
+
+.wiki-toggle-wrapper input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.wiki-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #e5e7eb;
+    transition: .3s;
+    border-radius: 20px;
+}
+
+.wiki-toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.wiki-toggle-wrapper input:checked+.wiki-toggle-slider {
+    background-color: var(--wiki-primary-color);
+}
+
+.wiki-toggle-wrapper input:checked+.wiki-toggle-slider:before {
+    transform: translateX(16px);
+}
+
+/* Danger variant (for deleted toggle) */
+.wiki-toggle-wrapper.danger input:checked+.wiki-toggle-slider {
+    background-color: #ef4444;
+}
+
 /* Full Screen Edit Mode */
 .wiki-autocomplete-dropdown {
     position: absolute;
@@ -585,4 +694,83 @@
 
 .wiki-content-area.wiki-editing-mode .wiki-footer {
     display: none;
+}
+
+/* Dashboard Table */
+.wiki-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 1rem;
+    background: white;
+    border: 1px solid var(--wiki-border-color);
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+.wiki-table th,
+.wiki-table td {
+    padding: 1rem 1.5rem;
+    text-align: left;
+    border-bottom: 1px solid var(--wiki-border-color);
+    vertical-align: middle;
+}
+
+.wiki-table th {
+    background-color: #f9fafb;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--wiki-text-secondary);
+}
+
+.wiki-table tr:last-child td {
+    border-bottom: none;
+}
+
+.wiki-table tr:hover td {
+    background-color: #f9fafb;
+}
+
+.action-btn {
+    padding: 0.375rem 0.625rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    border: 1px solid #d1d5db;
+    background: white;
+    color: var(--wiki-text-secondary);
+    margin-right: 0.5rem;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background-color: #f3f4f6;
+    color: var(--wiki-text-primary);
+    border-color: #9ca3af;
+}
+
+.badge {
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+}
+
+.badge-success {
+    background-color: #dcfce7;
+    color: #15803d;
+}
+
+.badge-warning {
+    background-color: #fef9c3;
+    color: #a16207;
+}
+
+.badge-danger {
+    background-color: #fee2e2;
+    color: #b91c1c;
 }

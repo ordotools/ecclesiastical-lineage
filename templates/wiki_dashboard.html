@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Wiki Dashboard{% endblock %}
+
+{% block navbar %}{% endblock %}
+
+{% block extra_styles %}
+<link href="{{ url_for('static', filename='css/wiki.css') }}" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap"
+    rel="stylesheet">
+{% endblock %}
+
+{% block full_content %}
+<div class="wiki-wrapper">
+    <!-- Sidebar -->
+    <aside class="wiki-sidebar" id="wiki-sidebar">
+        <div class="wiki-sidebar-header">
+            <div class="wiki-dropdown-container">
+                <button id="wikiTitleBtn">
+                    <i class="fas fa-book-open" style="color: var(--wiki-primary-color);"></i>
+                    <span>ClergyWiki</span>
+                </button>
+                <div id="wikiDropdown">
+                    <a class="wiki-dropdown-item" href="/">
+                        <i class="fas fa-project-diagram me-2"></i>Lineage View
+                    </a>
+                    <a class="wiki-dropdown-item" href="/chapel-view">
+                        <i class="fas fa-globe me-2"></i>Chapel View
+                    </a>
+                    <a class="wiki-dropdown-item" href="/wiki">
+                        <i class="fas fa-book me-2"></i>ClergyWiki
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="wiki-sidebar-content">
+            <!-- Search (Disabled or limited on dashboard?) - Kept for visual consistency -->
+            <div class="wiki-search-container" style="opacity: 0.5; pointer-events: none;">
+                <input type="text" class="wiki-search-input" placeholder="Search articles...">
+                <i class="fas fa-search wiki-search-icon"></i>
+            </div>
+
+            <!-- Nav -->
+            <div style="margin-bottom: 2rem;">
+                <a href="/wiki" class="wiki-nav-btn">
+                    <i class="far fa-file-alt" style="width: 16px;"></i> Back to Wiki
+                </a>
+            </div>
+
+            <!-- Dashboard Info -->
+            <div>
+                <div class="wiki-page-list-header">Dashboard</div>
+                <div style="padding: 0 0.75rem; font-size: 0.875rem; color: #4b5563;">
+                    Only authorized editors can view this page.
+                </div>
+            </div>
+        </div>
+
+        <div
+            style="padding: 1rem; border-top: 1px solid var(--wiki-border-color); font-size: 0.75rem; color: #9ca3af; text-align: center;">
+            ClergyWiki v1.0
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="wiki-main">
+        <!-- Header -->
+        <header class="wiki-header">
+            <div class="wiki-header-left">
+                <span id="wiki-main-title" style="font-weight: 600; color: #111827;">Article Management</span>
+            </div>
+
+            <div class="wiki-header-right">
+                <a href="{{ url_for('auth.logout', next=request.path) }}" class="btn-secondary"
+                    style="color: #ef4444; border-color: #fca5a5;">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </div>
+        </header>
+
+        <!-- Content -->
+        <div class="wiki-content-area">
+            <div style="max-width: 1000px; margin: 0 auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h1 style="font-size: 1.5rem; font-weight: 700; color: #111827;">All Articles</h1>
+                    <span class="badge badge-success">{{ pages|length }} Articles</span>
+                </div>
+
+                <table class="wiki-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Author</th>
+                            <th>Last Editor</th>
+                            <th>Updated</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for page in pages %}
+                        <tr>
+                            <td>
+                                <a href="/wiki/{{ page.title }}"
+                                    style="font-weight: 500; color: #2563eb; text-decoration: none;">
+                                    {{ page.title }}
+                                </a>
+                            </td>
+                            <td>{{ page.author.username if page.author else '-' }}</td>
+                            <td>{{ page.last_editor.username if page.last_editor else '-' }}</td>
+                            <td>{{ page.updated_at.strftime('%Y-%m-%d') if page.updated_at else '-' }}</td>
+                            <td>
+                                {% if page.is_deleted %}
+                                <span class="badge badge-danger">Deleted</span>
+                                {% elif not page.is_visible %}
+                                <span class="badge badge-warning">Invisible</span>
+                                {% else %}
+                                <span class="badge badge-success">Visible</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div style="display: flex;">
+                                    <a href="/wiki/{{ page.title }}" class="action-btn" title="View"><i
+                                            class="fas fa-eye"></i></a>
+                                    <button class="action-btn" onclick="toggleVisibility({{ page.id }})"
+                                        title="Toggle Visibility">
+                                        <i class="fas {{ 'fa-eye-slash' if page.is_visible else 'fa-eye' }}"></i>
+                                    </button>
+                                    {% if page.is_deleted %}
+                                    <button class="action-btn" onclick="restorePage({{ page.id }})" title="Restore">
+                                        <i class="fas fa-trash-restore"></i>
+                                    </button>
+                                    {% else %}
+                                    <button class="action-btn" onclick="deletePage({{ page.id }})" title="Delete"
+                                        style="color: #ef4444;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Dropdown Logic (Reused)
+    const wikiTitleBtn = document.getElementById('wikiTitleBtn');
+    const wikiDropdown = document.getElementById('wikiDropdown');
+    if (wikiTitleBtn && wikiDropdown) {
+        wikiTitleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const isVisible = wikiDropdown.style.display === 'block';
+            wikiDropdown.style.display = isVisible ? 'none' : 'block';
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!wikiTitleBtn.contains(e.target) && !wikiDropdown.contains(e.target)) {
+                wikiDropdown.style.display = 'none';
+            }
+        });
+    }
+
+    async function toggleVisibility(id) {
+        if (!confirm('Toggle visibility for this page?')) return;
+        try {
+            const res = await fetch(`/api/wiki/page/${id}/toggle-visibility`, { method: 'POST' });
+            if (res.ok) window.location.reload();
+            else alert('Failed');
+        } catch (e) { alert('Error: ' + e); }
+    }
+
+    async function deletePage(id) {
+        if (!confirm('Are you sure you want to delete this page?')) return;
+        try {
+            const res = await fetch(`/api/wiki/page/${id}/delete`, { method: 'POST' });
+            if (res.ok) window.location.reload();
+            else alert('Failed');
+        } catch (e) { alert('Error: ' + e); }
+    }
+
+    async function restorePage(id) {
+        if (!confirm('Restore this page?')) return;
+        try {
+            const res = await fetch(`/api/wiki/page/${id}/restore`, { method: 'POST' });
+            if (res.ok) window.location.reload();
+            else alert('Failed');
+        } catch (e) { alert('Error: ' + e); }
+    }
+</script>
+{% endblock %}

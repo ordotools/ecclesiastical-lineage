@@ -97,6 +97,9 @@
                 <div class="wiki-auth-actions"
                     style="display: flex; gap: 0.5rem; border-left: 1px solid #e5e7eb; padding-left: 0.5rem; margin-left: 0.5rem;">
                     <!-- Logout handled via link or button -->
+                    <a href="/wiki/dashboard" class="btn-secondary">
+                        <i class="fas fa-list"></i> Manage Articles
+                    </a>
                     <a href="{{ url_for('auth.logout', next=request.path) }}" class="btn-secondary"
                         style="color: #ef4444; border-color: #fca5a5;">
                         <i class="fas fa-sign-out-alt"></i> Logout
@@ -135,32 +138,30 @@
                     </div>
 
                     <!-- Metadata Controls -->
-                    <div class="wiki-metadata-controls"
-                        style="display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap;">
+
+                    <div class="wiki-metadata-controls">
                         <div class="wiki-control-group">
-                            <label for="wiki-author-select"
-                                style="font-size: 0.875rem; color: #4b5563; font-weight: 500;">Author:</label>
-                            <select id="wiki-author-select" class="form-select"
-                                style="padding: 0.25rem 0.5rem; border: 1px solid #d1d5db; border-radius: 4px;">
+                            <label for="wiki-author-select" class="wiki-control-label">Author:</label>
+                            <select id="wiki-author-select" class="wiki-select">
                                 <option value="">Select Author...</option>
                                 <!-- Populated via JS -->
                             </select>
                         </div>
 
-                        <div class="wiki-control-group" style="display: flex; align-items: center; gap: 0.5rem;">
-                            <label class="switch">
+                        <div class="wiki-control-group">
+                            <label class="wiki-toggle-wrapper">
                                 <input type="checkbox" id="wiki-visible-toggle" checked>
-                                <span class="slider round"></span>
+                                <span class="wiki-toggle-slider"></span>
                             </label>
-                            <span style="font-size: 0.875rem; color: #4b5563;">Visible</span>
+                            <span class="wiki-control-label">Visible</span>
                         </div>
 
-                        <div class="wiki-control-group" style="display: flex; align-items: center; gap: 0.5rem;">
-                            <label class="switch">
+                        <div class="wiki-control-group">
+                            <label class="wiki-toggle-wrapper danger">
                                 <input type="checkbox" id="wiki-deleted-toggle">
-                                <span class="slider round" style="background-color: #ef4444;"></span>
+                                <span class="wiki-toggle-slider"></span>
                             </label>
-                            <span style="font-size: 0.875rem; color: #ef4444;">Deleted</span>
+                            <span class="wiki-control-label" style="color: #ef4444;">Deleted</span>
                         </div>
                     </div>
                     <div class="edit-tip-box">

@@ -147,6 +147,13 @@ class WikiApp {
             deletedToggle: document.getElementById('wiki-deleted-toggle')
         };
 
+        // Debug Element Binding
+        console.log('WikiApp Elements:', {
+            saveBtn: !!this.els.saveBtn,
+            visibleToggle: !!this.els.visibleToggle,
+            deletedToggle: !!this.els.deletedToggle
+        });
+
         this.init();
     }
 
@@ -248,6 +255,7 @@ class WikiApp {
         });
 
         this.els.saveBtn.addEventListener('click', () => {
+            console.log('Save button clicked');
             this.savePage();
         });
 
@@ -415,6 +423,7 @@ class WikiApp {
             const res = await fetch(`/api/wiki/page/${encodeURIComponent(slug)}`);
             if (res.ok) {
                 const data = await res.json();
+                console.log('FetchPage Data:', data);
                 this.pages[slug] = data; // { title, content, updated_at, editor }
                 if (data.clergy_id) {
                     this.selectedClergyId = data.clergy_id;
@@ -506,7 +515,11 @@ class WikiApp {
         if (!slug) {
             const titleVal = this.els.titleInput.value.trim();
             if (!titleVal) {
-                alert("Please enter a page title.");
+                if (window.showNotification) {
+                    window.showNotification("Please enter a page title.", "error");
+                } else {
+                    alert("Please enter a page title.");
+                }
                 this.els.titleInput.focus();
                 return;
             }
@@ -545,7 +558,11 @@ class WikiApp {
                     return;
                 }
                 const errText = await res.text();
-                alert('Failed to save page: ' + errText);
+                if (window.showNotification) {
+                    window.showNotification('Failed to save page: ' + errText, 'error');
+                } else {
+                    alert('Failed to save page: ' + errText);
+                }
                 console.error('Save failed', errText);
             } else {
                 // Success
@@ -553,11 +570,19 @@ class WikiApp {
                 // Fetch the fresh data (including new timestamp)
                 await this.fetchPage(slug);
                 this.navigate(slug, false);
+                if (window.showNotification) {
+                    window.showNotification('Page saved successfully!', 'success');
+                }
             }
         } catch (err) {
-            alert('Error saving page: ' + err.message);
+            if (window.showNotification) {
+                window.showNotification('Error saving page: ' + err.message, 'error');
+            } else {
+                alert('Error saving page: ' + err.message);
+            }
         }
     }
+
 
     async fetchAllClergy() {
         try {
@@ -824,6 +849,7 @@ class WikiApp {
             }
 
             // Populate Metadata Controls
+            console.log('Render Metadata:', { is_visible: page.is_visible, is_deleted: page.is_deleted });
             if (this.els.visibleToggle) this.els.visibleToggle.checked = page.is_visible !== false; // Default true
             if (this.els.deletedToggle) this.els.deletedToggle.checked = page.is_deleted === true;
             if (this.els.authorSelect) this.els.authorSelect.value = page.author_id || '';
@@ -999,3 +1025,8 @@ function getCaretCoordinates(element, position) {
 
     return coordinates;
 }
+
+// Initialize the app
+document.addEventListener('DOMContentLoaded', () => {
+    window.wikiApp = new WikiApp();
+});

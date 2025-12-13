@@ -153,7 +153,8 @@
                                 <input type="checkbox" id="wiki-visible-toggle" checked>
                                 <span class="wiki-toggle-slider"></span>
                             </label>
-                            <span class="wiki-control-label">Visible</span>
+                            <label for="wiki-visible-toggle" class="wiki-control-label"
+                                style="cursor: pointer;">Visible</label>
                         </div>
 
                         <div class="wiki-control-group">
@@ -161,7 +162,8 @@
                                 <input type="checkbox" id="wiki-deleted-toggle">
                                 <span class="wiki-toggle-slider"></span>
                             </label>
-                            <span class="wiki-control-label" style="color: #ef4444;">Deleted</span>
+                            <label for="wiki-deleted-toggle" class="wiki-control-label"
+                                style="color: #ef4444; cursor: pointer;">Deleted</label>
                         </div>
                     </div>
                     <div class="edit-tip-box">
@@ -197,6 +199,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
-<script src="{{ url_for('static', filename='js/wiki.js') }}"></script>
+<script src="{{ url_for('static', filename='js/wiki.js') }}?v={{ range(1, 10000) | random }}"></script>
 {% endblock %}

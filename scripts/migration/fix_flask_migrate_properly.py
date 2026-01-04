@@ -12,7 +12,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Add the project root to the Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Current file is in scripts/migration/
+# Project root is ../../
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+sys.path.insert(0, project_root)
 
 from app import app, db
 from flask_migrate import stamp, current

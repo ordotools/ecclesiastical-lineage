@@ -143,7 +143,7 @@ def fix_flask_migrate():
             
             # Stamp to target revision
             print(f"📋 Stamping to {target_revision}...")
-            stamp(target_revision)
+            stamp(revision=target_revision)
             
             # Verify the stamp worked
             try:

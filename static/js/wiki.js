@@ -144,7 +144,8 @@ class WikiApp {
             homeBtn: document.getElementById('wiki-home-btn'),
             authorSelect: document.getElementById('wiki-author-select'),
             visibleToggle: document.getElementById('wiki-visible-toggle'),
-            deletedToggle: document.getElementById('wiki-deleted-toggle')
+            deletedToggle: document.getElementById('wiki-deleted-toggle'),
+            backdrop: document.getElementById('wiki-backdrop') // Backdrop for syntax highlighting
         };
 
         // Debug Element Binding
@@ -155,6 +156,11 @@ class WikiApp {
         });
 
         this.init();
+
+        // Initialize Syntax Highlighter
+        if (window.WikiSyntaxHighlighter && this.els.textarea && this.els.backdrop) {
+            this.highlighter = new WikiSyntaxHighlighter(this.els.textarea, this.els.backdrop);
+        }
     }
 
     async init() {
@@ -381,6 +387,9 @@ class WikiApp {
         const newCursorPos = before.length + title.length + 4; // +4 for [[ ]]
         this.els.textarea.setSelectionRange(newCursorPos, newCursorPos);
         this.els.textarea.focus();
+
+        // Prevent sync glitch (invisible text) by forcing highlighter update
+        if (this.highlighter) this.highlighter.sync();
     }
 
     getCurrentPage() {
@@ -846,6 +855,8 @@ class WikiApp {
                     this.els.textarea.value = page.content || `# ${page.title}\n\nStart writing...`;
                 }
                 this.editorSlug = effectiveSlug;
+                // Trigger syntax highlighter sync
+                if (this.highlighter) this.highlighter.sync();
             }
 
             // Populate Metadata Controls

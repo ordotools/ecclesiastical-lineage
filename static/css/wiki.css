@@ -770,7 +770,140 @@
     color: #a16207;
 }
 
-.badge-danger {
-    background-color: #fee2e2;
-    color: #b91c1c;
+
+/* --- Syntax Highlighter (Backdrop Trick) --- */
+
+.wiki-editor-container {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* Ensure no double scrollbars */
+}
+
+.wiki-backdrop,
+.wiki-textarea {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 1rem;
+    margin: 0;
+    border: 1px solid var(--wiki-border-color);
+    border-radius: 0.375rem;
+    font-family: monospace;
+    /* Must match exactly */
+    font-size: 0.875rem;
+    /* Must match exactly */
+    line-height: 1.6;
+    /* Must match exactly */
+    letter-spacing: normal;
+    box-sizing: border-box;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: auto;
+    resize: none;
+    text-align: left;
+}
+
+.wiki-backdrop {
+    z-index: 1;
+    color: #374151;
+    /* Default text color */
+    background-color: white;
+    pointer-events: none;
+    /* Let clicks pass through */
+    border-color: transparent;
+    /* Textarea handles border */
+}
+
+.wiki-textarea {
+    z-index: 2;
+    color: transparent;
+    /* Hide text but keep caret */
+    background-color: transparent;
+    caret-color: black;
+    /* Keep caret visible */
+    border-color: var(--wiki-border-color);
+    /* Visible border */
+}
+
+/* Fix for Safari/Chrome selection color */
+.wiki-textarea::selection {
+    background-color: rgba(37, 99, 235, 0.2);
+    /* Light blue selection */
+    color: transparent;
+}
+
+/* Highlighting Classes */
+.h-header {
+    font-weight: bold;
+    color: #111827;
+    font-size: 1.1em;
+    /* slight increase */
+}
+
+.h-bold {
+    font-weight: bold;
+    color: #000;
+}
+
+.h-italic {
+    font-style: italic;
+    color: #4b5563;
+}
+
+.h-link {
+    color: #2563eb;
+    /* Blue link color */
+    font-weight: 500;
+}
+
+.h-citation {
+    color: #2563eb;
+    vertical-align: super;
+    font-size: 0.75em;
+}
+
+/* Ensure backdrop extends full height for scrolling */
+.wiki-backdrop {
+    padding-bottom: 2rem;
+    /* Add some buffer */
+}
+
+/* Expanded Markdown Highlighting */
+.h-list {
+    color: #059669;
+    /* emerald-600 */
+}
+
+.h-quote {
+    color: #6b7280;
+    /* gray-500 */
+    font-style: italic;
+}
+
+.h-hr {
+    color: #d1d5db;
+    /* gray-300 */
+    border-bottom: 2px solid #e5e7eb;
+    display: inline-block;
+    width: 100%;
+    font-weight: bold;
+}
+
+.h-code-inline {
+    background-color: #f3f4f6;
+    color: #dc2626;
+    /* red-600 */
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.h-code-block {
+    color: #dc2626;
+    background-color: #f3f4f6;
+    display: block;
 }

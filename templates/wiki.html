@@ -138,13 +138,11 @@
                     </div>
 
                     <!-- Metadata Controls -->
-
                     <div class="wiki-metadata-controls">
                         <div class="wiki-control-group">
-                            <label for="wiki-author-select" class="wiki-control-label">Author:</label>
+                            <i class="fas fa-user-edit" style="color: #6b7280;"></i>
                             <select id="wiki-author-select" class="wiki-select">
                                 <option value="">Select Author...</option>
-                                <!-- Populated via JS -->
                             </select>
                         </div>
 
@@ -153,8 +151,7 @@
                                 <input type="checkbox" id="wiki-visible-toggle" checked>
                                 <span class="wiki-toggle-slider"></span>
                             </label>
-                            <label for="wiki-visible-toggle" class="wiki-control-label"
-                                style="cursor: pointer;">Visible</label>
+                            <span class="wiki-control-label">Visible</span>
                         </div>
 
                         <div class="wiki-control-group">
@@ -162,23 +159,23 @@
                                 <input type="checkbox" id="wiki-deleted-toggle">
                                 <span class="wiki-toggle-slider"></span>
                             </label>
-                            <label for="wiki-deleted-toggle" class="wiki-control-label"
-                                style="color: #ef4444; cursor: pointer;">Deleted</label>
+                            <span class="wiki-control-label">Deleted</span>
                         </div>
                     </div>
+
                     <div class="edit-tip-box">
-                        <strong>Editing Tips:</strong>
-                        <ul style="margin-top: 0.5rem; margin-bottom: 0;">
-                            <li>Use <code># Header</code> for titles.</li>
-                            <li>Use <code>[[Page Title]]</code> to link to other pages.</li>
-                            <li>Use <code>**bold**</code> for bold text.</li>
-                            <li>Add citations roughly like <code>[^1]</code> and define at bottom
-                                <code>[^1]: Source</code>.
-                            </li>
-                        </ul>
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Tip:</strong> Use markdown for formatting.
+                        <code>[[Page Name]]</code> for links,
+                        <code>**bold**</code>,
+                        <code>*italic*</code>.
+                        Citations: <code>[^1]</code> and <code>[^1]: Source</code>.
                     </div>
-                    <div style="position: relative; flex: 1; display: flex; flex-direction: column;">
+
+                    <div class="wiki-editor-container">
+                        <div id="wiki-backdrop" class="wiki-backdrop"></div>
                         <textarea id="wiki-textarea" class="wiki-textarea" placeholder="# Page Title..."></textarea>
+                        <!-- Article Autocomplete Dropdown -->
                         <div id="wiki-article-dropdown" class="wiki-autocomplete-dropdown" style="display: none;"></div>
                     </div>
                 </div>
@@ -202,4 +199,5 @@
 <script type="module" src="{{ url_for('static', filename='js/utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
 <script src="{{ url_for('static', filename='js/wiki.js') }}?v={{ range(1, 10000) | random }}"></script>
+<script src="{{ url_for('static', filename='js/syntax_highlighter.js') }}"></script>
 {% endblock %}

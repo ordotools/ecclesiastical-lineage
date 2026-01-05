@@ -402,22 +402,6 @@ class ClergySpritePosition(db.Model):
     
     def __repr__(self):
         return f'<ClergySpritePosition clergy_id={self.clergy_id} sprite_sheet_id={self.sprite_sheet_id} pos=({self.x_position},{self.y_position})>'
-        parts = []
-        if self.address:
-            parts.append(self.address)
-        if self.city:
-            parts.append(self.city)
-        if self.state_province:
-            parts.append(self.state_province)
-        if self.postal_code:
-            parts.append(self.postal_code)
-        if self.country:
-            parts.append(self.country)
-        return ', '.join(parts)
-
-    def has_coordinates(self):
-        """Check if location has valid coordinates"""
-        return self.latitude is not None and self.longitude is not None
 
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)

@@ -1043,17 +1043,9 @@
             }
         });
 
-        // Listen for clergy selection events to update the form panel
-        document.body.addEventListener('clergySeleced', function (evt) {
-            const clergyId = evt.detail.clergyId;
-            if (clergyId) {
-                // Update the clergy form panel
-                htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
-                    target: '.right-panel .panel-content',
-                    swap: 'innerHTML'
-                });
-            }
-        });
+        // Note: clergySeleced event is dispatched by selectClergy() but form loading
+        // is now handled directly in selectClergy() to avoid duplicate requests
+        // This listener is kept only for potential third-party listeners
 
         // Listen for clergy update events to refresh visualization
         document.body.addEventListener('clergyUpdated', function (evt) {
@@ -1089,22 +1081,39 @@
         });
 
         // Custom event for when a clergy member is selected
+        // Debounce to prevent duplicate requests
+        let selectClergyTimeout = null;
+        let lastSelectedClergyId = null;
+        
         function selectClergy(clergyId) {
-
-
-            // Load clergy form for editing
-            if (clergyId) {
-                htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
-                    target: '.right-panel .panel-content',
-                    swap: 'innerHTML'
-                });
-            } else {
-                // Load empty form for adding new clergy
-                htmx.ajax('GET', '/editor/clergy-form', {
-                    target: '.right-panel .panel-content',
-                    swap: 'innerHTML'
-                });
+            // Debounce duplicate requests within 100ms
+            if (selectClergyTimeout) {
+                clearTimeout(selectClergyTimeout);
             }
+            
+            // Skip if same clergy selected
+            if (lastSelectedClergyId === clergyId && clergyId !== null) {
+                console.log('Same clergy already selected, skipping reload');
+                return;
+            }
+            
+            selectClergyTimeout = setTimeout(() => {
+                lastSelectedClergyId = clergyId;
+                
+                // Load form content directly (skip intermediate template to avoid nested HTMX)
+                if (clergyId) {
+                    htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
+                        target: '.right-panel .panel-content',
+                        swap: 'innerHTML'
+                    });
+                } else {
+                    // Load empty form for adding new clergy
+                    htmx.ajax('GET', '/editor/clergy-form-content', {
+                        target: '.right-panel .panel-content',
+                        swap: 'innerHTML'
+                    });
+                }
+            }, 50);
 
             // Dispatch custom event for any other listeners
             document.body.dispatchEvent(new CustomEvent('clergySeleced', {

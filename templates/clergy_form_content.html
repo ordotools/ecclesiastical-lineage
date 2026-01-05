@@ -374,14 +374,18 @@ function isClergySwitching() {
     
     {% if edit_mode and clergy %}
     const newClergyId = {{ clergy.id }};
-    if (window.currentClergyId !== newClergyId) {
+    const oldClergyId = window.currentClergyId;
+    const isSwitching = window.currentClergyId !== newClergyId;
+    if (isSwitching) {
         window.currentClergyId = newClergyId;
         return true;
     }
     return false;
     {% else %}
     // For new clergy (not edit mode), always reset
-    if (window.currentClergyId !== null) {
+    const oldClergyId = window.currentClergyId;
+    const isSwitching = window.currentClergyId !== null;
+    if (isSwitching) {
         window.currentClergyId = null;
         return true;
     }
@@ -394,7 +398,8 @@ function initializeFormFromRank() {
     console.log('🔧 INIT: initializeFormFromRank called');
     
     // Only reset population flags if we're switching to a different clergy record
-    if (isClergySwitching()) {
+    const switching = isClergySwitching();
+    if (switching) {
         console.log('🔧 INIT: Switching clergy, resetting population flags');
         resetPopulationFlags();
     }

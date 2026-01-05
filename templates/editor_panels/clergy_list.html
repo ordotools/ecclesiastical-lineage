@@ -336,14 +336,14 @@ function selectClergyFromList(clergyId) {
     if (typeof window.selectClergy === 'function') {
         window.selectClergy(clergyId);
     } else {
-        // Fallback: load form directly
+        // Fallback: load form content directly (skip intermediate template)
         if (clergyId) {
-            htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
+            htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
                 target: '.right-panel .panel-content',
                 swap: 'innerHTML'
             });
         } else {
-            htmx.ajax('GET', '/editor/clergy-form', {
+            htmx.ajax('GET', '/editor/clergy-form-content', {
                 target: '.right-panel .panel-content',
                 swap: 'innerHTML'
             });

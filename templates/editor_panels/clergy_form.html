@@ -1209,12 +1209,12 @@ function switchToEditMode(clergyId) {
     
     // Use the same mechanism as selecting a clergy member for editing
     // This will trigger the proper HTMX request to load the edit form
-    if (typeof selectClergy === 'function') {
-        selectClergy(clergyId);
+    if (typeof window.selectClergy === 'function') {
+        window.selectClergy(clergyId);
     } else {
         console.error('selectClergy function not found, falling back to manual approach');
-        // Fallback: manually trigger the HTMX request
-        htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
+        // Fallback: manually trigger the HTMX request (use direct content endpoint)
+        htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
             target: '.right-panel .panel-content',
             swap: 'innerHTML'
         });
@@ -1231,12 +1231,12 @@ function clearFormForNewEntry() {
     
     // Use the same mechanism as the "Add New Clergy" button
     // This will trigger the proper HTMX request to load the empty form
-    if (typeof selectClergy === 'function') {
-        selectClergy(null);
+    if (typeof window.selectClergy === 'function') {
+        window.selectClergy(null);
     } else {
         console.error('selectClergy function not found, falling back to manual approach');
-        // Fallback: manually trigger the HTMX request
-        htmx.ajax('GET', '/editor/clergy-form', {
+        // Fallback: manually trigger the HTMX request (use direct content endpoint)
+        htmx.ajax('GET', '/editor/clergy-form-content', {
             target: '.right-panel .panel-content',
             swap: 'innerHTML'
         });

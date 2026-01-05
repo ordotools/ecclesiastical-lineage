@@ -409,6 +409,222 @@ function centerGraphOnPanelClose() {
   }
 }
 
+// Initialize filter menu (bottom menu)
+export function initializeFilterMenu() {
+  console.log('Initializing filter menu...');
+  
+  // Wait a bit to ensure DOM is ready
+  const tryInit = () => {
+    const organizationsBtn = document.getElementById('organizations-dropdown-btn');
+    const organizationsMenu = document.getElementById('organizations-dropdown-menu');
+    const viewPriestsToggle = document.getElementById('view-priests-toggle');
+    const highlightLineageToggle = document.getElementById('highlight-lineage-toggle');
+
+    console.log('Filter menu elements:', {
+      organizationsBtn: !!organizationsBtn,
+      organizationsMenu: !!organizationsMenu,
+      viewPriestsToggle: !!viewPriestsToggle,
+      highlightLineageToggle: !!highlightLineageToggle
+    });
+
+    // If elements don't exist yet, try again after a short delay
+    if (!organizationsBtn || !organizationsMenu || !viewPriestsToggle) {
+      console.log('Filter menu elements not found, retrying...');
+      setTimeout(tryInit, 100);
+      return;
+    }
+
+    // Continue with initialization
+    initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriestsToggle, highlightLineageToggle);
+  };
+
+  tryInit();
+}
+
+function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriestsToggle, highlightLineageToggle) {
+
+  // Initialize organizations dropdown
+  if (organizationsBtn && organizationsMenu) {
+    console.log('Initializing organizations dropdown...');
+    // Toggle dropdown on button click
+    organizationsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      organizationsMenu.classList.toggle('show');
+    });
+
+    // Close dropdown when clicking outside
+    // Use capture phase to ensure it runs before other click handlers
+    document.addEventListener('click', (e) => {
+      if (organizationsMenu.classList.contains('show') && 
+          !organizationsBtn.contains(e.target) && 
+          !organizationsMenu.contains(e.target)) {
+        organizationsMenu.classList.remove('show');
+      }
+    }, true);
+
+    // Handle organization selection
+    organizationsMenu.addEventListener('click', async (e) => {
+      const item = e.target.closest('.filter-dropdown-item');
+      if (item) {
+        const selectedOrg = item.dataset.org;
+        console.log('Organization selected:', selectedOrg);
+        
+        // Remove active class from all items
+        organizationsMenu.querySelectorAll('.filter-dropdown-item').forEach(i => {
+          i.classList.remove('active');
+        });
+        // Add active class to selected item
+        item.classList.add('active');
+        // Update button text
+        const orgName = selectedOrg === 'all' ? 'Organizations' : item.textContent.trim();
+        organizationsBtn.innerHTML = `${orgName} <i class="fas fa-chevron-down ms-1"></i>`;
+        // Close dropdown
+        organizationsMenu.classList.remove('show');
+        
+        // Apply organization filter
+        try {
+          const { applyOrganizationFilter } = await import('./filters.js');
+          applyOrganizationFilter(selectedOrg);
+          console.log('Organization filter applied:', selectedOrg);
+        } catch (error) {
+          console.error('Error applying organization filter:', error);
+        }
+      }
+    });
+
+    // Fetch and populate organizations
+    console.log('Fetching organizations from /api/organizations...');
+    console.log('Dropdown container:', organizationsMenu);
+    fetch('/api/organizations')
+      .then(response => {
+        console.log('Organizations API response status:', response.status);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Organizations API data:', data);
+        console.log('Data success:', data.success);
+        console.log('Organizations array:', data.organizations);
+        console.log('Organizations count:', data.organizations ? data.organizations.length : 0);
+        
+        if (data.success && data.organizations && Array.isArray(data.organizations)) {
+          const dropdownContainer = organizationsMenu;
+          console.log('Dropdown container found:', !!dropdownContainer);
+          
+          // Find the divider
+          const divider = dropdownContainer.querySelector('.dropdown-divider');
+          console.log('Divider found:', !!divider);
+          
+          // Clear existing organization items (keep "All Organizations" and divider)
+          const allItems = dropdownContainer.querySelectorAll('.filter-dropdown-item');
+          console.log('Existing items before clearing:', allItems.length);
+          allItems.forEach(item => {
+            if (item.dataset.org !== 'all') {
+              console.log('Removing item:', item.dataset.org);
+              item.remove();
+            }
+          });
+          
+          console.log(`Adding ${data.organizations.length} organizations to dropdown`);
+          
+          // Create a document fragment for better performance
+          const fragment = document.createDocumentFragment();
+          
+          // Add organizations to dropdown - insert after divider
+          data.organizations.forEach((org, index) => {
+            const orgItem = document.createElement('div');
+            orgItem.className = 'filter-dropdown-item';
+            orgItem.dataset.org = org.name;
+            orgItem.innerHTML = `<span>${org.name}${org.abbreviation ? ` (${org.abbreviation})` : ''}</span>`;
+            fragment.appendChild(orgItem);
+            console.log(`Prepared organization ${index + 1}/${data.organizations.length}:`, org.name);
+          });
+          
+          // Insert fragment after divider
+          if (divider) {
+            // Insert after divider
+            if (divider.nextSibling) {
+              dropdownContainer.insertBefore(fragment, divider.nextSibling);
+            } else {
+              // Divider is last element, append after it
+              dropdownContainer.appendChild(fragment);
+            }
+          } else {
+            // No divider, just append
+            dropdownContainer.appendChild(fragment);
+          }
+          
+          console.log('Fragment inserted into dropdown');
+          
+          // Verify items were added
+          const finalItems = dropdownContainer.querySelectorAll('.filter-dropdown-item');
+          console.log('Final item count:', finalItems.length);
+          console.log('Final items:', Array.from(finalItems).map(item => ({
+            text: item.textContent.trim(),
+            dataset: item.dataset.org
+          })));
+          
+          // Also log the HTML structure
+          console.log('Dropdown HTML after insertion:', dropdownContainer.innerHTML.substring(0, 500));
+          
+          console.log('Organizations added to dropdown successfully');
+        } else {
+          console.warn('Organizations API returned unsuccessful response:', data);
+          console.warn('Response structure:', {
+            hasSuccess: 'success' in data,
+            successValue: data.success,
+            hasOrganizations: 'organizations' in data,
+            organizationsType: typeof data.organizations,
+            isArray: Array.isArray(data.organizations)
+          });
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching organizations:', error);
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack
+        });
+      });
+  } else {
+    console.warn('Organizations dropdown elements not found');
+  }
+
+  // Initialize view priests toggle - wire it up to the filter system
+  if (viewPriestsToggle) {
+    console.log('Initializing view priests toggle...');
+    // Import applyPriestFilter to wire up the toggle
+    import('./filters.js').then(({ applyPriestFilter }) => {
+      viewPriestsToggle.addEventListener('change', (e) => {
+        console.log('View priests toggle changed:', e.target.checked);
+        // Apply the filter using the existing filter system
+        applyPriestFilter();
+      });
+      console.log('View priests toggle event listener added');
+    }).catch(error => {
+      console.error('Error importing filters module:', error);
+    });
+  } else {
+    console.warn('View priests toggle not found');
+  }
+
+  // Initialize highlight lineage toggle (no action yet, just UI)
+  if (highlightLineageToggle) {
+    console.log('Initializing highlight lineage toggle...');
+    highlightLineageToggle.addEventListener('change', (e) => {
+      // TODO: Implement highlight lineage logic
+      console.log('Highlight lineage toggle:', e.target.checked);
+    });
+    console.log('Highlight lineage toggle event listener added');
+  } else {
+    console.warn('Highlight lineage toggle not found');
+  }
+  
+  console.log('Filter menu initialization complete');
+}
+
 // Initialize all UI components
 export function initializeUI() {
   // Set up event listeners
@@ -420,6 +636,7 @@ export function initializeUI() {
   initializeMobileControls();
   initializeSideMenu();
   initializeAside();
+  initializeFilterMenu();
   
   // Initialize mobile display
   handleMobileMenuDisplay();

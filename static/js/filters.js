@@ -35,6 +35,9 @@ let timelineData = null;
 // Backbone-only view state
 let isBackboneOnlyEnabled = true; // Start with backbone mode enabled
 
+// Organization filter state
+let selectedOrganization = null; // null means "all organizations"
+
 export function syncPriestFilters() {
   if (hidePriestsCheckbox && hidePriestsMobileCheckbox) {
     hidePriestsMobileCheckbox.checked = hidePriestsCheckbox.checked;
@@ -448,19 +451,35 @@ export function applyBackboneOnlyFilter() {
   }
 }
 
-// Function to update combined filter state (priest + backbone filters)
+// Function to update combined filter state (priest + backbone + organization filters)
 function updateCombinedFilters() {
   if (!window.currentNodes || !window.currentLinks) return;
   
-  const shouldHidePriests = hidePriestsCheckbox ? hidePriestsCheckbox.checked : true;
+  // Check for both old and new toggle elements
+  const viewPriestsToggle = document.getElementById('view-priests-toggle');
+  let shouldHidePriests = true; // Default to hiding priests
   
-  // Update node visibility
+  if (hidePriestsCheckbox) {
+    // Old toggle: checked = hide priests
+    shouldHidePriests = hidePriestsCheckbox.checked;
+  } else if (viewPriestsToggle) {
+    // New toggle: checked = show priests (inverse of hide)
+    shouldHidePriests = !viewPriestsToggle.checked;
+  }
+  
+  // Update node visibility - combine priest filter and organization filter
   window.currentNodes.forEach(node => {
     const isPriest = node.rank && node.rank.toLowerCase() === 'priest';
-    node.filtered = isPriest && shouldHidePriests;
+    const priestFiltered = isPriest && shouldHidePriests;
+    
+    // Apply organization filter
+    const orgFiltered = selectedOrganization !== null && node.organization !== selectedOrganization;
+    
+    // Combine filters
+    node.filtered = priestFiltered || orgFiltered;
   });
   
-  // Update link visibility - combine priest filter and backbone filter
+  // Update link visibility - combine priest filter, backbone filter, and organization filter
   window.currentLinks.forEach(link => {
     const sourceIsPriest = link.source.rank && link.source.rank.toLowerCase() === 'priest';
     const targetIsPriest = link.target.rank && link.target.rank.toLowerCase() === 'priest';
@@ -472,8 +491,13 @@ function updateCombinedFilters() {
     // Apply backbone filter
     const backboneFiltered = link.backboneFiltered || false;
     
-    // Combine filters
-    link.filtered = priestFiltered || backboneFiltered;
+    // Apply organization filter - hide links if either source or target is filtered by organization
+    const sourceOrgFiltered = selectedOrganization !== null && link.source.organization !== selectedOrganization;
+    const targetOrgFiltered = selectedOrganization !== null && link.target.organization !== selectedOrganization;
+    const orgFiltered = sourceOrgFiltered || targetOrgFiltered;
+    
+    // Combine all filters
+    link.filtered = priestFiltered || backboneFiltered || orgFiltered;
   });
   
   // Update force simulation if available
@@ -484,9 +508,60 @@ function updateCombinedFilters() {
     window.currentSimulation.force('collision', d3.forceCollide().radius(d => d.filtered ? 0 : 60));
     window.currentSimulation.alpha(1).restart();
   }
+  
+  // Update visualization immediately to reflect filtered state
+  // The tick function will continue to update, but we want immediate feedback
+  updateVisualizationFilters();
+}
+
+// Function to update visualization elements based on filter state
+function updateVisualizationFilters() {
+  if (!window.currentNodes || !window.currentLinks) return;
+  
+  const svg = d3.select('#graph-container svg');
+  if (svg.empty()) return;
+  
+  // Update links - select all line elements (links are rendered as lines)
+  const links = svg.selectAll('line');
+  if (!links.empty() && links.data) {
+    links
+      .style('opacity', function() {
+        const d = d3.select(this).datum();
+        return d && d.filtered ? 0 : 1;
+      })
+      .style('pointer-events', function() {
+        const d = d3.select(this).datum();
+        return d && d.filtered ? 'none' : 'all';
+      });
+  }
+  
+  // Update nodes - select g elements that contain circles (node groups)
+  // Nodes are rendered as g elements containing circles
+  const nodes = svg.selectAll('g').filter(function() {
+    return d3.select(this).select('circle').size() > 0;
+  });
+  
+  if (!nodes.empty() && nodes.data) {
+    nodes
+      .style('opacity', function() {
+        const d = d3.select(this).datum();
+        return d && d.filtered ? 0 : 1;
+      })
+      .style('pointer-events', function() {
+        const d = d3.select(this).datum();
+        return d && d.filtered ? 'none' : 'all';
+      });
+  }
 }
 
 export function applyPriestFilter() {
+  updateCombinedFilters();
+}
+
+// Function to apply organization filter
+export function applyOrganizationFilter(organizationName) {
+  selectedOrganization = organizationName === 'all' || !organizationName ? null : organizationName;
+  window.selectedOrganization = selectedOrganization; // Store globally for reference
   updateCombinedFilters();
 }
 

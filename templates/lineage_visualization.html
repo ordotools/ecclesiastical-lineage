@@ -306,6 +306,47 @@
             </div>
         </div>
     </div>
+
+    <!-- Bottom Filter Menu -->
+    <div id="lineage-filter-menu" class="lineage-filter-menu">
+        <div class="filter-menu-content">
+            <!-- View Priests Toggle -->
+            <div class="filter-menu-item">
+                <label class="filter-toggle-label" for="view-priests-toggle">
+                    <span class="filter-label-text">View Priests</span>
+                    <label class="filter-switch">
+                        <input type="checkbox" id="view-priests-toggle" checked>
+                        <span class="filter-slider"></span>
+                    </label>
+                </label>
+            </div>
+
+            <!-- Organizations Dropdown -->
+            <div class="filter-menu-item dropdown">
+                <button class="btn minimal-action-btn filter-dropdown-btn" id="organizations-dropdown-btn" type="button">
+                    Organizations <i class="fas fa-chevron-down ms-1"></i>
+                </button>
+                <div class="dropdown-menu filter-dropdown-menu" id="organizations-dropdown-menu">
+                    <div class="dropdown-item filter-dropdown-item" data-org="all">
+                        <span>All Organizations</span>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <!-- Organizations will be populated via JavaScript -->
+                </div>
+            </div>
+
+            <!-- Highlight Lineage Toggle -->
+            <div class="filter-menu-item">
+                <label class="filter-toggle-label" for="highlight-lineage-toggle">
+                    <span class="filter-label-text">Highlight Lineage</span>
+                    <label class="filter-switch">
+                        <input type="checkbox" id="highlight-lineage-toggle">
+                        <span class="filter-slider"></span>
+                    </label>
+                </label>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 

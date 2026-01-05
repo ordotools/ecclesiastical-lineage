@@ -1496,19 +1496,18 @@ input, textarea, [contenteditable], .content-area, .clergy-row, .table, .card-bo
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.6) !important;
-  /* border-radius: 20px !important; */
+  border-radius: 20px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   color: #2c3e50 !important;
+  font-size: 0.85rem;
   font-weight: 500;
   transition: all 0.3s ease;
-  border-radius: 20px;
   padding: 8px 16px;
 }
 
 .minimal-title-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
   background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
   color: #2c3e50 !important;
   text-decoration: none;
 }
@@ -1518,18 +1517,18 @@ input, textarea, [contenteditable], .content-area, .clergy-row, .table, .card-bo
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  border-radius: 20px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   color: #2c3e50 !important;
+  font-size: 0.85rem;
   font-weight: 500;
   transition: all 0.3s ease;
-  border-radius: 20px;
-  padding: 8px 12px;
+  padding: 8px 16px;
 }
 
 .minimal-action-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
   background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
   color: #2c3e50 !important;
   text-decoration: none;
 }

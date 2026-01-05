@@ -610,14 +610,22 @@ function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriests
     console.warn('View priests toggle not found');
   }
 
-  // Initialize highlight lineage toggle (no action yet, just UI)
+  // Initialize highlight lineage toggle
   if (highlightLineageToggle) {
     console.log('Initializing highlight lineage toggle...');
-    highlightLineageToggle.addEventListener('change', (e) => {
-      // TODO: Implement highlight lineage logic
-      console.log('Highlight lineage toggle:', e.target.checked);
+    import('./highlightLineage.js').then(({ setHighlightMode, clearHighlight }) => {
+      highlightLineageToggle.addEventListener('change', (e) => {
+        const enabled = e.target.checked;
+        console.log('Highlight lineage toggle:', enabled);
+        setHighlightMode(enabled);
+        if (!enabled) {
+          clearHighlight();
+        }
+      });
+      console.log('Highlight lineage toggle event listener added');
+    }).catch(error => {
+      console.error('Error importing highlightLineage module:', error);
     });
-    console.log('Highlight lineage toggle event listener added');
   } else {
     console.warn('Highlight lineage toggle not found');
   }

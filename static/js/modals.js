@@ -5,9 +5,21 @@ import { showNotification, showLoadingSpinner, hideLoadingSpinner, getCurrentCle
 import { setModalState, getModalState } from './ui.js';
 
 // Node click handler function
-export function handleNodeClick(event, d) {
+export async function handleNodeClick(event, d) {
   // Prevent click if node is filtered
   if (d.filtered) return;
+  
+  // Check if highlight mode is enabled
+  try {
+    const { isHighlightMode, highlightLineageChain } = await import('./highlightLineage.js');
+    if (isHighlightMode()) {
+      // Highlight the lineage chain
+      highlightLineageChain(d);
+      return; // Don't show panel in highlight mode
+    }
+  } catch (error) {
+    console.error('Error importing highlightLineage module:', error);
+  }
   
   // Store current clergy ID for relationship loading
   window.currentClergyId = d.id;

@@ -1416,18 +1416,18 @@ def get_sprite_sheet():
                     'error': 'Image storage not configured'
                 }), 500
             
-            # Get all active clergy with images
+            # Get all active clergy (include ALL clergy, placeholders will be used for those without images)
             all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
-            clergy_with_images = [c for c in all_clergy if c.image_data or c.image_url]
             
-            if not clergy_with_images:
+            if not all_clergy:
                 return jsonify({
                     'success': False,
-                    'error': 'No clergy with images found'
+                    'error': 'No clergy found'
                 }), 404
             
             # Create sprite sheet (this will save to database)
-            result = image_upload_service.create_sprite_sheet(clergy_with_images)
+            # Placeholders will be automatically added for clergy without images
+            result = image_upload_service.create_sprite_sheet(all_clergy)
             
             if result['success']:
                 return jsonify({

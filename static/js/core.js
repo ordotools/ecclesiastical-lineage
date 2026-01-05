@@ -257,45 +257,21 @@ export async function initializeVisualization() {
         const spriteUrl = spriteSheetData.url;
         const mapping = spriteSheetData.mapping || {};
         
-        // Create patterns for each clergy member that has an image
+        // Create clipPaths for each clergy member that has a position in the sprite sheet
+        // We'll use direct image elements with clipPaths instead of patterns to prevent tiling
         nodes.forEach((d) => {
-          if (d.image_url) {
-            // Try both string and number keys since JSON might convert keys
-            const position = mapping[d.id] || mapping[String(d.id)] || mapping[Number(d.id)];
-            
-            if (position && Array.isArray(position) && position.length === 2) {
-              const [x, y] = position;
-              
-              // Create pattern with userSpaceOnUse for precise pixel positioning
-              // Pattern size matches IMAGE_SIZE (circle diameter) to prevent tiling
-              const pattern = defs.append('pattern')
-                .attr('id', `avatar-${d.id}`)
-                .attr('width', IMAGE_SIZE)
-                .attr('height', IMAGE_SIZE)
-                .attr('patternUnits', 'userSpaceOnUse')
-                .attr('patternContentUnits', 'userSpaceOnUse')
-                .attr('x', 0)
-                .attr('y', 0);
-              
-              // Create a clipPath to constrain the image to the pattern bounds
-              const clipId = `clip-avatar-${d.id}`;
-              const clipPath = defs.append('clipPath')
-                .attr('id', clipId);
-              clipPath.append('rect')
-                .attr('width', IMAGE_SIZE)
-                .attr('height', IMAGE_SIZE);
-              
-              // Image is positioned to show the correct thumbnail from the sprite sheet
-              // The image shows the full sprite sheet, offset to display the correct thumbnail
-              pattern.append('image')
-                .attr('xlink:href', spriteUrl)
-                .attr('width', spriteSheetData.sprite_width)
-                .attr('height', spriteSheetData.sprite_height)
-                .attr('x', -x)
-                .attr('y', -y)
-                .attr('clip-path', `url(#${clipId})`)
-                .attr('preserveAspectRatio', 'none');
-            }
+          // Try both string and number keys since JSON might convert keys
+          const position = mapping[d.id] || mapping[String(d.id)] || mapping[Number(d.id)];
+          
+          if (position && Array.isArray(position) && position.length === 2) {
+            // Create a circular clipPath for the node image (works for both real images and placeholders)
+            const clipId = `clip-avatar-${d.id}`;
+            const clipPath = defs.append('clipPath')
+              .attr('id', clipId);
+            clipPath.append('circle')
+              .attr('r', IMAGE_SIZE/2)
+              .attr('cx', 0)
+              .attr('cy', 0);
           }
         });
       }
@@ -411,16 +387,16 @@ export async function initializeVisualization() {
     .attr('cx', 0)
     .attr('cy', 0);
 
-  // Add white background circle for images
-  node.append('circle')
+  // Add white background circle for images (will be updated after sprite sheet loads)
+  const bgCircle = node.append('circle')
     .attr('r', IMAGE_SIZE/2)
     .attr('fill', 'rgba(255, 255, 255, 1)')
     .attr('cx', 0)
     .attr('cy', 0)
     .style('opacity', d => d.image_url ? 1 : 0);
 
-  // Add border circle for images
-  node.append('circle')
+  // Add border circle for images (will be updated after sprite sheet loads)
+  const borderCircle = node.append('circle')
     .attr('r', IMAGE_SIZE/2)
     .attr('fill', 'none')
     .attr('stroke', 'rgba(0, 0, 0, 1)')
@@ -429,27 +405,64 @@ export async function initializeVisualization() {
     .attr('cy', 0)
     .style('opacity', d => d.image_url ? 1 : 0);
 
-  // Add clergy images with sprite sheet patterns or fallback to individual images
+  // Add clergy images with sprite sheet or fallback to individual images
   if (spriteSheetData && spriteSheetData.success) {
-    // Use sprite sheet patterns
-    node.append('circle')
-      .attr('r', IMAGE_SIZE/2)
-      .attr('fill', d => {
-        if (d.image_url && spriteSheetData.mapping) {
-          // Try both string and number keys since JSON might convert keys
+    // Use sprite sheet with direct image elements and clipPaths
+    // Show sprite for ALL clergy that have a position in the mapping (including placeholders)
+    node.append('image')
+      .attr('xlink:href', d => {
+        if (spriteSheetData.mapping) {
           const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
           if (position && Array.isArray(position) && position.length === 2) {
-            return `url(#avatar-${d.id})`;
+            return spriteSheetData.url;
           }
         }
-        return 'transparent';
+        return '';
       })
-      .attr('cx', 0)
-      .attr('cy', 0)
-      .style('opacity', d => {
-        if (d.image_url && spriteSheetData.mapping) {
+      .attr('x', d => {
+        if (spriteSheetData.mapping) {
           const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
-          return (position && Array.isArray(position) && position.length === 2) ? 1 : 0;
+          if (position && Array.isArray(position) && position.length === 2) {
+            const [x] = position;
+            // Position image so the sprite thumbnail is centered at node (0,0)
+            return -x - IMAGE_SIZE/2;
+          }
+        }
+        return 0;
+      })
+      .attr('y', d => {
+        if (spriteSheetData.mapping) {
+          const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
+          if (position && Array.isArray(position) && position.length === 2) {
+            const [, y] = position;
+            // Position image so the sprite thumbnail is centered at node (0,0)
+            return -y - IMAGE_SIZE/2;
+          }
+        }
+        return 0;
+      })
+      .attr('width', spriteSheetData.sprite_width)
+      .attr('height', spriteSheetData.sprite_height)
+      .attr('clip-path', d => {
+        if (spriteSheetData.mapping) {
+          const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
+          if (position && Array.isArray(position) && position.length === 2) {
+            return `url(#clip-avatar-${d.id})`;
+          }
+        }
+        return 'none';
+      })
+      .attr('preserveAspectRatio', 'none')
+      .style('pointer-events', 'none') // Make sprite images unclickable so they don't interfere with node interactions
+      .style('opacity', d => {
+        if (spriteSheetData.mapping) {
+          const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
+          if (position && Array.isArray(position) && position.length === 2) {
+            // Update background and border circles to show for nodes with sprite positions (including placeholders)
+            bgCircle.filter(node => node.id === d.id).style('opacity', 1);
+            borderCircle.filter(node => node.id === d.id).style('opacity', 1);
+            return 1;
+          }
         }
         return 0;
       });
@@ -462,6 +475,7 @@ export async function initializeVisualization() {
       .attr('width', IMAGE_SIZE)
       .attr('height', IMAGE_SIZE)
       .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`)
+      .style('pointer-events', 'none') // Make images unclickable so they don't interfere with node interactions
       .style('opacity', d => d.image_url ? 1 : 0)
       .on('error', function() {
         d3.select(this).style('opacity', 0);

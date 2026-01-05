@@ -28,10 +28,10 @@ import { renderStatusBadges } from './statusBadges.js';
 // --- Force Simulation Parameters ---
 const SIMULATION_CONFIG = {
   // Link force: controls the ideal distance between connected nodes
-  linkDistance: 80,                    // Ideal distance between linked nodes (pixels)
+  linkDistance: 150,                    // Ideal distance between linked nodes (pixels)
   
   // Charge force: controls node repulsion/attraction
-  chargeStrength: -200,               // Negative = repulsion, positive = attraction
+  chargeStrength: -300,               // Negative = repulsion, positive = attraction
   
   // Center force: pulls nodes toward the center of the viewport
   centerStrength: 0.5,                 // Strength of centering force (0-1)
@@ -47,7 +47,7 @@ const SIMULATION_CONFIG = {
   bishopRepulsionStrength: -800,      // Stronger repulsion for bishops
   
   // Simulation decay: controls how quickly the simulation settles
-  alphaDecay: 0.05,                    // Rate at which simulation cools down (0-1, lower = longer)
+  alphaDecay: 0.10,                    // Rate at which simulation cools down (0-1, lower = longer)
   velocityDecay: 0.2,                  // Friction/damping for node movement (0-1, lower = more movement)
   
   // Alpha target: controls simulation restart behavior
@@ -67,7 +67,7 @@ const DRAG_CONFIG = {
 
 // --- Link Visual Parameters ---
 const LINK_CONFIG = {
-  strokeWidth: 2,                      // Width of link lines (pixels)
+  strokeWidth: 3,                      // Width of link lines (pixels)
   parallelOffset: 8                    // Spacing between parallel links (pixels)
 };
 
@@ -211,7 +211,7 @@ export async function initializeVisualization() {
 
   // Add zoom behavior
   const zoom = d3.zoom()
-    .scaleExtent([0.01, 4])
+    .scaleExtent([0.5, 2])
     .on('zoom', function(event) {
       container.attr('transform', event.transform);
       updateTimelinePositions(event.transform);
@@ -231,7 +231,7 @@ export async function initializeVisualization() {
     .enter().append('marker')
     .attr('id', d => d)
     .attr('viewBox', '0 -5 10 10')
-    .attr('refX', OUTER_RADIUS * 0.95)
+    .attr('refX', OUTER_RADIUS * 0.71)
     .attr('refY', 0)
     .attr('markerWidth', 8)
     .attr('markerHeight', 8)
@@ -241,38 +241,38 @@ export async function initializeVisualization() {
     .attr('fill', d => d === 'arrowhead-black' ? BLACK_COLOR : GREEN_COLOR);
 
   // Add filter for inset shadow on images
-  const filter = defs.append('filter')
-    .attr('id', 'image-inset-shadow')
-    .attr('x', '-50%')
-    .attr('y', '-50%')
-    .attr('width', '200%')
-    .attr('height', '200%');
+  // const filter = defs.append('filter')
+  //   .attr('id', 'image-inset-shadow')
+  //   .attr('x', '-50%')
+  //   .attr('y', '-50%')
+  //   .attr('width', '200%')
+  //   .attr('height', '200%');
   
-  filter.append('feGaussianBlur')
-    .attr('in', 'SourceAlpha')
-    .attr('stdDeviation', '3')
-    .attr('result', 'blur');
+  // filter.append('feGaussianBlur')
+  //   .attr('in', 'SourceAlpha')
+  //   .attr('stdDeviation', '3')
+  //   .attr('result', 'blur');
   
-  filter.append('feOffset')
-    .attr('in', 'blur')
-    .attr('dx', '4')
-    .attr('dy', '4')
-    .attr('result', 'offsetBlur');
+  // filter.append('feOffset')
+  //   .attr('in', 'blur')
+  //   .attr('dx', '4')
+  //   .attr('dy', '4')
+  //   .attr('result', 'offsetBlur');
   
-  filter.append('feFlood')
-    .attr('flood-color', 'rgba(0, 0, 0, 0.15)')
-    .attr('result', 'flood');
+  // filter.append('feFlood')
+  //   .attr('flood-color', 'rgba(0, 0, 0, 0.15)')
+  //   .attr('result', 'flood');
   
-  filter.append('feComposite')
-    .attr('in', 'flood')
-    .attr('in2', 'offsetBlur')
-    .attr('operator', 'in')
-    .attr('result', 'shadow');
+  // filter.append('feComposite')
+  //   .attr('in', 'flood')
+  //   .attr('in2', 'offsetBlur')
+  //   .attr('operator', 'in')
+  //   .attr('result', 'shadow');
   
-  filter.append('feComposite')
-    .attr('in', 'SourceGraphic')
-    .attr('in2', 'shadow')
-    .attr('operator', 'over');
+  // filter.append('feComposite')
+  //   .attr('in', 'SourceGraphic')
+  //   .attr('in2', 'shadow')
+  //   .attr('operator', 'over');
 
   // Create force simulation with configured parameters
   const simulation = d3.forceSimulation(nodes)
@@ -335,7 +335,7 @@ export async function initializeVisualization() {
     .attr('r', OUTER_RADIUS)
     .attr('fill', d => d.org_color)
     .attr('stroke', d => d.rank_color)
-    .attr('stroke-width', 3);
+    .attr('stroke-width', 1); // Reduced from 3 to 1 for smaller nodes
 
   // Add rank indicator
   node.append('circle')
@@ -357,7 +357,7 @@ export async function initializeVisualization() {
     .attr('r', IMAGE_SIZE/2)
     .attr('fill', 'none')
     .attr('stroke', 'rgba(0, 0, 0, 1)')
-    .attr('stroke-width', '1px')
+    .attr('stroke-width', '0.5px') // Reduced from 1px to 0.5px for smaller nodes
     .attr('cx', 0)
     .attr('cy', 0)
     .style('opacity', d => d.image_url ? 1 : 0);
@@ -370,21 +370,21 @@ export async function initializeVisualization() {
     .attr('width', IMAGE_SIZE)
     .attr('height', IMAGE_SIZE)
     .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`)
-    .attr('filter', 'url(#image-inset-shadow)')
+    // .attr('filter', 'url(#image-inset-shadow)')
     .style('opacity', d => d.image_url ? 1 : 0)
     .on('error', function() {
       d3.select(this).style('opacity', 0);
     });
 
   // Add fallback placeholder icon when no image is available
-  node.append('text')
-    .attr('text-anchor', 'middle')
-    .attr('dominant-baseline', 'middle')
-    .style('font-size', '12px')
-    .style('fill', '#666')
-    .style('pointer-events', 'none')
-    .style('opacity', d => d.image_url ? 0 : 1)
-    .text('👤');
+  // node.append('text')
+  //   .attr('text-anchor', 'middle')
+  //   .attr('dominant-baseline', 'middle')
+  //   .style('font-size', '12px')
+  //   .style('fill', '#666')
+  //   .style('pointer-events', 'none')
+  //   .style('opacity', d => d.image_url ? 0 : 1)
+  //   .text('👤');
 
   // Add labels
   node.append('text')
@@ -442,7 +442,7 @@ export async function initializeVisualization() {
 
   // Stop simulation after it converges
   simulation.on('end', () => {
-    console.log('Force simulation converged');
+    // console.log('Force simulation converged');
     hideLoadingIndicator();
   });
 
@@ -643,7 +643,7 @@ export function setClergyInfoViewDistance() {
     
     // Calculate the center point of the current view
     const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight - 76; // Account for navbar height
+    const viewportHeight = window.innerHeight; // - 76; // Account for navbar height
     const viewCenterX = viewportWidth / 2;
     const viewCenterY = viewportHeight / 2;
     

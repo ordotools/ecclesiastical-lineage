@@ -1,6 +1,7 @@
 // Modal module for clergy forms and editing
 import { showNotification, showLoadingSpinner, hideLoadingSpinner, getCurrentClergyId } from './utils.js';
-import { setClergyInfoViewDistance } from './core.js';
+// DISABLED: setClergyInfoViewDistance - not used, was causing graph to shift
+// import { setClergyInfoViewDistance } from './core.js';
 import { setModalState, getModalState } from './ui.js';
 
 // Node click handler function
@@ -26,9 +27,10 @@ export function handleNodeClick(event, d) {
     updateClergyPanelContent(d);
     
     // Center the selected node in the viewport with a small delay to ensure aside is expanded
-    setTimeout(() => {
-      centerNodeInViewport(d);
-    }, 100);
+    // DISABLED: Node centering on click
+    // setTimeout(() => {
+    //   centerNodeInViewport(d);
+    // }, 100);
     
     // Load clergy relationships
     loadClergyRelationships(d.id);

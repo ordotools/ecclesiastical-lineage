@@ -19,6 +19,64 @@ import { handleNodeClick } from './modals.js';
 import { applyPriestFilter, updateTimelinePositions, applyBackboneOnlyFilter } from './filters.js';
 import { renderStatusBadges } from './statusBadges.js';
 
+// ============================================================================
+// VISUALIZATION CONFIGURATION
+// ============================================================================
+// All tunable parameters for the force-directed graph visualization
+// Adjust these values to modify the behavior and appearance of the graph
+
+// --- Force Simulation Parameters ---
+const SIMULATION_CONFIG = {
+  // Link force: controls the ideal distance between connected nodes
+  linkDistance: 80,                    // Ideal distance between linked nodes (pixels)
+  
+  // Charge force: controls node repulsion/attraction
+  chargeStrength: -200,               // Negative = repulsion, positive = attraction
+  
+  // Center force: pulls nodes toward the center of the viewport
+  centerStrength: 0.5,                 // Strength of centering force (0-1)
+  
+  // Collision force: prevents nodes from overlapping
+  collisionRadius: COLLISION_RADIUS,   // Minimum distance between node centers
+  
+  // Radial force: creates circular clustering effect
+  radialRadius: 150,                   // Radius of radial clustering (pixels)
+  radialStrength: 0.1,                 // Strength of radial force (0-1)
+  
+  // Bishop repulsion: extra repulsion between bishop-rank nodes
+  bishopRepulsionStrength: -800,      // Stronger repulsion for bishops
+  
+  // Simulation decay: controls how quickly the simulation settles
+  alphaDecay: 0.05,                    // Rate at which simulation cools down (0-1, lower = longer)
+  velocityDecay: 0.2,                  // Friction/damping for node movement (0-1, lower = more movement)
+  
+  // Alpha target: controls simulation restart behavior
+  alphaTargetOnDrag: 0.3,              // Target alpha when dragging starts
+  alphaTargetOnRestart: 1.0            // Target alpha when manually restarting
+};
+
+// --- Drag and Click Detection Parameters ---
+const DRAG_CONFIG = {
+  // Click detection: movement threshold based on node size
+  dragThreshold: OUTER_RADIUS,        // Half node diameter - movement less than this = click
+  maxClickDuration: 300,               // Maximum time (ms) for a click vs drag
+  
+  // Ease-off animation: how simulation slows down after drag ends
+  easeOffDuration: 250                 // Time (ms) to gradually stop simulation after drag
+};
+
+// --- Link Visual Parameters ---
+const LINK_CONFIG = {
+  strokeWidth: 2,                      // Width of link lines (pixels)
+  parallelOffset: 8                    // Spacing between parallel links (pixels)
+};
+
+// --- Node Visual Parameters ---
+// (Most node visual parameters are imported from constants.js:
+//  OUTER_RADIUS, INNER_RADIUS, IMAGE_SIZE, LABEL_DY)
+
+// ============================================================================
+
 // Function to check if a rank is a bishop rank
 // This will be updated to use the server-side bishop flag in the future
 function isBishopRank(rankValue) {
@@ -117,7 +175,7 @@ export async function initializeVisualization() {
           return (typeOrder[a.type] || 0) - (typeOrder[b.type] || 0);
         });
         
-        const offset = 8;
+        const offset = LINK_CONFIG.parallelOffset;
         const totalOffset = (group.length - 1) * offset / 2;
         group.forEach((link, index) => {
           link.parallelOffset = (index * offset) - totalOffset;
@@ -165,8 +223,10 @@ export async function initializeVisualization() {
   // Create container group for zoom
   const container = svg.append('g');
 
-  // Add arrow markers
-  container.append('defs').selectAll('marker')
+  // Add arrow markers and filters
+  const defs = container.append('defs');
+  
+  defs.selectAll('marker')
     .data(['arrowhead-black', 'arrowhead-green'])
     .enter().append('marker')
     .attr('id', d => d)
@@ -180,26 +240,60 @@ export async function initializeVisualization() {
     .attr('d', 'M0,-5L10,0L0,5')
     .attr('fill', d => d === 'arrowhead-black' ? BLACK_COLOR : GREEN_COLOR);
 
-  // Create force simulation
+  // Add filter for inset shadow on images
+  const filter = defs.append('filter')
+    .attr('id', 'image-inset-shadow')
+    .attr('x', '-50%')
+    .attr('y', '-50%')
+    .attr('width', '200%')
+    .attr('height', '200%');
+  
+  filter.append('feGaussianBlur')
+    .attr('in', 'SourceAlpha')
+    .attr('stdDeviation', '3')
+    .attr('result', 'blur');
+  
+  filter.append('feOffset')
+    .attr('in', 'blur')
+    .attr('dx', '4')
+    .attr('dy', '4')
+    .attr('result', 'offsetBlur');
+  
+  filter.append('feFlood')
+    .attr('flood-color', 'rgba(0, 0, 0, 0.15)')
+    .attr('result', 'flood');
+  
+  filter.append('feComposite')
+    .attr('in', 'flood')
+    .attr('in2', 'offsetBlur')
+    .attr('operator', 'in')
+    .attr('result', 'shadow');
+  
+  filter.append('feComposite')
+    .attr('in', 'SourceGraphic')
+    .attr('in2', 'shadow')
+    .attr('operator', 'over');
+
+  // Create force simulation with configured parameters
   const simulation = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(validLinks).id(d => d.id).distance(80)) // Reduced from LINK_DISTANCE for clustering
-    .force('charge', d3.forceManyBody().strength(-200)) // Reduced repulsion for clustering
-    .force('center', d3.forceCenter(width / 2, height / 2).strength(0.5)) // Stronger centering force
-    .force('collision', d3.forceCollide().radius(COLLISION_RADIUS))
-    .force('radial', d3.forceRadial(150, width / 2, height / 2).strength(0.1)) // Radial clustering force
-    .alphaDecay(0.05) // Reduced for longer simulation
-    .velocityDecay(0.2); // Reduced for more movement
+    .force('link', d3.forceLink(validLinks).id(d => d.id).distance(SIMULATION_CONFIG.linkDistance))
+    .force('charge', d3.forceManyBody().strength(SIMULATION_CONFIG.chargeStrength))
+    .force('center', d3.forceCenter(width / 2, height / 2).strength(SIMULATION_CONFIG.centerStrength))
+    .force('collision', d3.forceCollide().radius(SIMULATION_CONFIG.collisionRadius))
+    .force('radial', d3.forceRadial(SIMULATION_CONFIG.radialRadius, width / 2, height / 2).strength(SIMULATION_CONFIG.radialStrength))
+    .alphaDecay(SIMULATION_CONFIG.alphaDecay)
+    .velocityDecay(SIMULATION_CONFIG.velocityDecay);
 
   // Add repulsion between bishops
   const bishopNodes = nodes.filter(n => n.rank && isBishopRank(n.rank));
   if (bishopNodes.length > 0) {
-    simulation.force('bishop-repulsion', d3.forceManyBody().strength(-800));
+    simulation.force('bishop-repulsion', d3.forceManyBody().strength(SIMULATION_CONFIG.bishopRepulsionStrength));
   }
   
   // Override force functions to exclude filtered nodes from physics
-  simulation.force('link', d3.forceLink(validLinks.filter(l => !l.filtered)).id(d => d.id).distance(80)); // Use clustering distance
-  simulation.force('charge', d3.forceManyBody().strength(d => d.filtered ? 0 : -200)); // Use clustering charge strength
-  simulation.force('collision', d3.forceCollide().radius(d => d.filtered ? 0 : COLLISION_RADIUS));
+  simulation.force('link', d3.forceLink(validLinks.filter(l => !l.filtered)).id(d => d.id).distance(SIMULATION_CONFIG.linkDistance));
+  simulation.force('charge', d3.forceManyBody().strength(d => d.filtered ? 0 : SIMULATION_CONFIG.chargeStrength));
+  simulation.force('collision', d3.forceCollide().radius(d => d.filtered ? 0 : SIMULATION_CONFIG.collisionRadius));
 
   // Store simulation globally for compatibility
   window.currentSimulation = simulation;
@@ -210,7 +304,7 @@ export async function initializeVisualization() {
     .data(validLinks)
     .enter().append('line')
     .attr('stroke', d => d.color)
-    .attr('stroke-width', 2)
+    .attr('stroke-width', LINK_CONFIG.strokeWidth)
     .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
     .style('opacity', d => d.filtered ? 0 : 1)
     .style('pointer-events', d => d.filtered ? 'none' : 'all')
@@ -250,6 +344,24 @@ export async function initializeVisualization() {
     .attr('cx', 0)
     .attr('cy', 0);
 
+  // Add white background circle for images
+  node.append('circle')
+    .attr('r', IMAGE_SIZE/2)
+    .attr('fill', 'rgba(255, 255, 255, 1)')
+    .attr('cx', 0)
+    .attr('cy', 0)
+    .style('opacity', d => d.image_url ? 1 : 0);
+
+  // Add border circle for images
+  node.append('circle')
+    .attr('r', IMAGE_SIZE/2)
+    .attr('fill', 'none')
+    .attr('stroke', 'rgba(0, 0, 0, 1)')
+    .attr('stroke-width', '1px')
+    .attr('cx', 0)
+    .attr('cy', 0)
+    .style('opacity', d => d.image_url ? 1 : 0);
+
   // Add clergy images with proper clipping
   node.append('image')
     .attr('xlink:href', d => d.image_url || '')
@@ -258,6 +370,7 @@ export async function initializeVisualization() {
     .attr('width', IMAGE_SIZE)
     .attr('height', IMAGE_SIZE)
     .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`)
+    .attr('filter', 'url(#image-inset-shadow)')
     .style('opacity', d => d.image_url ? 1 : 0)
     .on('error', function() {
       d3.select(this).style('opacity', 0);
@@ -278,7 +391,7 @@ export async function initializeVisualization() {
     .attr('dy', LABEL_DY)
     .attr('text-anchor', 'middle')
     .style('font-size', '12px')
-    .style('font-weight', 'bold')
+    .style('font-weight', '500')
     .style('pointer-events', 'none')
     .style('fill', '#ffffff')
     .style('filter', 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))')
@@ -347,21 +460,30 @@ export async function initializeVisualization() {
 
   console.timeEnd('Visualization initialization');
 
-  // Drag functions
+  // Drag functions - use configuration values
   let isDragging = false;
   let dragStartPos = { x: 0, y: 0 };
-  let dragThreshold = 100;
   let dragStartTime = 0;
-  let maxClickDuration = 300;
+  let easeOffTimeout = null;
 
   function dragstarted(event, d) {
     if (d.filtered) return;
+    
+    // Clear any pending ease-off timeout
+    if (easeOffTimeout) {
+      clearTimeout(easeOffTimeout);
+      easeOffTimeout = null;
+    }
     
     isDragging = false;
     dragStartPos = { x: event.x, y: event.y };
     dragStartTime = Date.now();
     
-    if (!event.active) simulation.alphaTarget(0.3).restart();
+    // Start simulation when drag starts to allow smooth node movement
+    // We'll stop it immediately if it turns out to be just a click
+    if (!event.active) {
+      simulation.alphaTarget(SIMULATION_CONFIG.alphaTargetOnDrag).restart();
+    }
     d.fx = d.x;
     d.fy = d.y;
   }
@@ -373,7 +495,8 @@ export async function initializeVisualization() {
     const dy = event.y - dragStartPos.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
-    if (distance > dragThreshold) {
+    // Track if actual dragging occurred (movement exceeds threshold)
+    if (distance > DRAG_CONFIG.dragThreshold) {
       isDragging = true;
     }
     
@@ -384,17 +507,59 @@ export async function initializeVisualization() {
   function dragended(event, d) {
     if (d.filtered) return;
     
-    if (!event.active) simulation.alphaTarget(0);
+    // Calculate final distance moved
+    const dx = event.x - dragStartPos.x;
+    const dy = event.y - dragStartPos.y;
+    const finalDistance = Math.sqrt(dx * dx + dy * dy);
+    
+    const dragDuration = Date.now() - dragStartTime;
+    // A click is: short duration AND movement less than the drag threshold
+    const wasQuickClick = dragDuration < DRAG_CONFIG.maxClickDuration && finalDistance <= DRAG_CONFIG.dragThreshold;
+    
+    // Release the node position lock
     d.fx = null;
     d.fy = null;
     
-    const dragDuration = Date.now() - dragStartTime;
-    const wasQuickClick = dragDuration < maxClickDuration && !isDragging;
-    
-    if (wasQuickClick) {
-      setTimeout(() => {
-        handleNodeClick(event, d);
-      }, 50);
+    // Handle based on whether it was a click or drag
+    if (!event.active) {
+      if (wasQuickClick) {
+        // For quick clicks, stop the simulation immediately
+        // (it was started in dragstarted but we need to stop it now)
+        simulation.alphaTarget(0);
+        
+        // Handle the click without affecting simulation further
+        setTimeout(() => {
+          handleNodeClick(event, d);
+        }, 50);
+      } else {
+        // For actual drags, ease off the simulation gradually
+        // Gradually reduce alphaTarget to 0 over configured duration
+        const startAlpha = simulation.alphaTarget();
+        const startTime = Date.now();
+        const duration = DRAG_CONFIG.easeOffDuration;
+        
+        function easeOff() {
+          const elapsed = Date.now() - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          
+          // Ease out: start fast, slow down at the end
+          const eased = 1 - Math.pow(1 - progress, 3); // cubic ease-out
+          const currentAlpha = startAlpha * (1 - eased);
+          
+          simulation.alphaTarget(currentAlpha);
+          
+          if (progress < 1) {
+            easeOffTimeout = setTimeout(easeOff, 16); // ~60fps
+          } else {
+            // Fully stopped
+            simulation.alphaTarget(0);
+            easeOffTimeout = null;
+          }
+        }
+        
+        // Start easing off
+        easeOff();
+      }
     }
   }
 
@@ -406,17 +571,27 @@ export async function initializeVisualization() {
 
   document.getElementById('center-graph').addEventListener('click', () => {
     simulation.force('center', d3.forceCenter(width / 2, height / 2));
-    simulation.alpha(1).restart();
+    simulation.alpha(SIMULATION_CONFIG.alphaTargetOnRestart).restart();
   });
 
-  // Handle window resize
+  // Handle window resize - only restart simulation on actual window size changes
+  let lastWindowWidth = window.innerWidth;
+  let lastWindowHeight = window.innerHeight;
   window.addEventListener('resize', function() {
     const newWidth = window.innerWidth;
     const newHeight = window.innerHeight - 76;
-    svg.attr('width', newWidth).attr('height', newHeight);
     
-    simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2));
-    simulation.alpha(1).restart();
+    // Only restart simulation if actual window dimensions changed
+    // (not just layout changes from panel expansion)
+    if (newWidth !== lastWindowWidth || newHeight !== (lastWindowHeight - 76)) {
+      lastWindowWidth = newWidth;
+      lastWindowHeight = newHeight;
+      
+      svg.attr('width', newWidth).attr('height', newHeight);
+      
+      simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2));
+      simulation.alpha(1).restart();
+    }
   });
 
   // Apply initial filters

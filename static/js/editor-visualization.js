@@ -166,8 +166,10 @@ class EditorVisualization {
     }
 
     renderVisualization() {
-        // Add arrow markers - matching lineage visualization
-        this.g.append('defs').selectAll('marker')
+        // Add arrow markers and filters - matching lineage visualization
+        const defs = this.g.append('defs');
+        
+        defs.selectAll('marker')
             .data(['arrowhead-black', 'arrowhead-green'])
             .enter().append('marker')
             .attr('id', d => d)
@@ -180,6 +182,40 @@ class EditorVisualization {
             .append('path')
             .attr('d', 'M0,-5L10,0L0,5')
             .attr('fill', d => d === 'arrowhead-black' ? BLACK_COLOR : GREEN_COLOR);
+
+        // Add filter for inset shadow on images
+        const filter = defs.append('filter')
+            .attr('id', 'image-inset-shadow')
+            .attr('x', '-50%')
+            .attr('y', '-50%')
+            .attr('width', '200%')
+            .attr('height', '200%');
+        
+        filter.append('feGaussianBlur')
+            .attr('in', 'SourceAlpha')
+            .attr('stdDeviation', '3')
+            .attr('result', 'blur');
+        
+        filter.append('feOffset')
+            .attr('in', 'blur')
+            .attr('dx', '4')
+            .attr('dy', '4')
+            .attr('result', 'offsetBlur');
+        
+        filter.append('feFlood')
+            .attr('flood-color', 'rgba(0, 0, 0, 0.15)')
+            .attr('result', 'flood');
+        
+        filter.append('feComposite')
+            .attr('in', 'flood')
+            .attr('in2', 'offsetBlur')
+            .attr('operator', 'in')
+            .attr('result', 'shadow');
+        
+        filter.append('feComposite')
+            .attr('in', 'SourceGraphic')
+            .attr('in2', 'shadow')
+            .attr('operator', 'over');
 
         // Process parallel links - matching lineage visualization
         this.processParallelLinks();
@@ -228,6 +264,24 @@ class EditorVisualization {
             .attr('cx', 0)
             .attr('cy', 0);
 
+        // Add white background circle for images - matching lineage visualization
+        this.node.append('circle')
+            .attr('r', IMAGE_SIZE/2)
+            .attr('fill', 'rgba(255, 255, 255, 1)')
+            .attr('cx', 0)
+            .attr('cy', 0)
+            .style('opacity', d => d.image_url ? 1 : 0);
+
+        // Add border circle for images - matching lineage visualization
+        this.node.append('circle')
+            .attr('r', IMAGE_SIZE/2)
+            .attr('fill', 'none')
+            .attr('stroke', 'rgba(0, 0, 0, 1)')
+            .attr('stroke-width', '1px')
+            .attr('cx', 0)
+            .attr('cy', 0)
+            .style('opacity', d => d.image_url ? 1 : 0);
+
         // Add clergy images with proper clipping - matching lineage visualization
         this.node.append('image')
             .attr('xlink:href', d => d.image_url || '')
@@ -236,6 +290,7 @@ class EditorVisualization {
             .attr('width', IMAGE_SIZE)
             .attr('height', IMAGE_SIZE)
             .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`)
+            .attr('filter', 'url(#image-inset-shadow)')
             .style('opacity', d => d.image_url ? 1 : 0)
             .on('error', function() {
                 d3.select(this).style('opacity', 0);
@@ -256,7 +311,7 @@ class EditorVisualization {
             .attr('dy', LABEL_DY)
             .attr('text-anchor', 'middle')
             .style('font-size', '12px')
-            .style('font-weight', 'bold')
+            .style('font-weight', '500')
             .style('pointer-events', 'none')
             .style('fill', '#ffffff')
             .style('filter', 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))')

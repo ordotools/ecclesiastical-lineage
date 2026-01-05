@@ -284,8 +284,8 @@ export function initializeAside() {
       
       // If we get here, it's an outside click and we should close the panel
       clergyAside.classList.remove('expanded');
-      // Center the graph when closing the panel
-      centerGraphOnPanelClose();
+      // DISABLED: Center the graph when closing the panel - prevents graph movement
+      // centerGraphOnPanelClose();
     });
     
     // Add keyboard event handler to prevent closing on keypress when modal is open
@@ -309,7 +309,8 @@ export function initializeAside() {
         // Close the panel
         console.log('Escape key - closing panel');
         clergyAside.classList.remove('expanded');
-        centerGraphOnPanelClose();
+        // DISABLED: Center the graph when closing the panel - prevents graph movement
+        // centerGraphOnPanelClose();
       }
     });
   }

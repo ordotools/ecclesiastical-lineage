@@ -5,6 +5,35 @@ from datetime import datetime
 import json
 from .image_upload import get_image_upload_service
 
+
+def _regenerate_sprite_sheet():
+    """Helper function to regenerate the sprite sheet after clergy changes"""
+    try:
+        image_upload_service = get_image_upload_service()
+        if not image_upload_service.backblaze_configured:
+            return
+        
+        # Get all active clergy with images
+        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+        
+        # Filter to only clergy with images
+        clergy_with_images = [c for c in all_clergy if c.image_data or c.image_url]
+        
+        if not clergy_with_images:
+            return
+        
+        # Create sprite sheet (this will save to database and mark old ones as not current)
+        result = image_upload_service.create_sprite_sheet(clergy_with_images)
+        
+        if result['success']:
+            print(f"Sprite sheet regenerated: {result['url']} (saved to database)")
+        else:
+            print(f"Failed to regenerate sprite sheet: {result.get('error', 'Unknown error')}")
+    except Exception as e:
+        print(f"Error in sprite sheet regeneration: {e}")
+        import traceback
+        traceback.print_exc()
+
 def set_clergy_display_name(clergy):
     """Set the display name for a clergy member based on their rank and papal name."""
     if clergy.rank.lower() == 'pope':
@@ -136,6 +165,14 @@ def create_clergy_from_form(form):
                     pass  # Skip invalid status IDs
     
     db.session.commit()
+    
+    # Generate sprite sheet after successful save
+    try:
+        _regenerate_sprite_sheet()
+    except Exception as e:
+        print(f"Warning: Failed to regenerate sprite sheet: {e}")
+        # Don't fail the form submission if sprite generation fails
+    
     return clergy
 
 def create_ordinations_from_form(clergy, form):
@@ -633,6 +670,14 @@ def edit_clergy_handler(clergy_id):
                     clergy.deleted_at = None
                 
                 db.session.commit()
+                
+                # Generate sprite sheet after successful save
+                try:
+                    _regenerate_sprite_sheet()
+                except Exception as e:
+                    print(f"Warning: Failed to regenerate sprite sheet: {e}")
+                    # Don't fail the form submission if sprite generation fails
+                
                 log_audit_event(
                     action='update',
                     entity_type='clergy',

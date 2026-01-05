@@ -354,6 +354,65 @@ class Location(db.Model):
             parts.append(self.postal_code)
         if self.country:
             parts.append(self.country)
+        return ', '.join(parts) if parts else ''
+
+    def has_coordinates(self):
+        """Check if location has valid coordinates"""
+        return self.latitude is not None and self.longitude is not None
+
+
+class SpriteSheet(db.Model):
+    """Track sprite sheet versions"""
+    __tablename__ = 'sprite_sheets'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.Text, nullable=False)  # Public URL of the sprite sheet
+    object_key = db.Column(db.String(500), nullable=False)  # Backblaze object key
+    thumbnail_size = db.Column(db.Integer, nullable=False, default=48)  # Size of each thumbnail
+    images_per_row = db.Column(db.Integer, nullable=False, default=20)  # Thumbnails per row
+    sprite_width = db.Column(db.Integer, nullable=False)  # Total width of sprite sheet
+    sprite_height = db.Column(db.Integer, nullable=False)  # Total height of sprite sheet
+    num_images = db.Column(db.Integer, nullable=False)  # Number of images in sprite sheet
+    is_current = db.Column(db.Boolean, default=True)  # Mark the current/latest sprite sheet
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    positions = db.relationship('ClergySpritePosition', backref='sprite_sheet', cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<SpriteSheet {self.id} - {self.num_images} images - {"CURRENT" if self.is_current else "OLD"}>'
+
+
+class ClergySpritePosition(db.Model):
+    """Track each clergy member's position in a sprite sheet"""
+    __tablename__ = 'clergy_sprite_positions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False)
+    sprite_sheet_id = db.Column(db.Integer, db.ForeignKey('sprite_sheets.id'), nullable=False)
+    x_position = db.Column(db.Integer, nullable=False)  # X coordinate in pixels
+    y_position = db.Column(db.Integer, nullable=False)  # Y coordinate in pixels
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    clergy = db.relationship('Clergy', backref='sprite_positions')
+    
+    # Unique constraint: one position per clergy per sprite sheet
+    __table_args__ = (db.UniqueConstraint('clergy_id', 'sprite_sheet_id', name='_clergy_sprite_uc'),)
+    
+    def __repr__(self):
+        return f'<ClergySpritePosition clergy_id={self.clergy_id} sprite_sheet_id={self.sprite_sheet_id} pos=({self.x_position},{self.y_position})>'
+        parts = []
+        if self.address:
+            parts.append(self.address)
+        if self.city:
+            parts.append(self.city)
+        if self.state_province:
+            parts.append(self.state_province)
+        if self.postal_code:
+            parts.append(self.postal_code)
+        if self.country:
+            parts.append(self.country)
         return ', '.join(parts)
 
     def has_coordinates(self):

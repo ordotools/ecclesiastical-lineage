@@ -240,6 +240,73 @@ export async function initializeVisualization() {
     .attr('d', 'M0,-5L10,0L0,5')
     .attr('fill', d => d === 'arrowhead-black' ? BLACK_COLOR : GREEN_COLOR);
 
+  // Load sprite sheet and create patterns (before creating nodes)
+  let spriteSheetData = null;
+  try {
+    const spriteResponse = await fetch('/api/sprite-sheet');
+    if (spriteResponse.ok) {
+      const contentType = spriteResponse.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await spriteResponse.text();
+        console.warn('Sprite sheet endpoint returned non-JSON response:', contentType, text.substring(0, 200));
+        throw new Error('Invalid response type');
+      }
+      spriteSheetData = await spriteResponse.json();
+      if (spriteSheetData && spriteSheetData.success) {
+        const thumbnailSize = spriteSheetData.thumbnail_size || 48;
+        const spriteUrl = spriteSheetData.url;
+        const mapping = spriteSheetData.mapping || {};
+        
+        // Create patterns for each clergy member that has an image
+        nodes.forEach((d) => {
+          if (d.image_url) {
+            // Try both string and number keys since JSON might convert keys
+            const position = mapping[d.id] || mapping[String(d.id)] || mapping[Number(d.id)];
+            
+            if (position && Array.isArray(position) && position.length === 2) {
+              const [x, y] = position;
+              
+              // Create pattern with userSpaceOnUse for precise pixel positioning
+              // Pattern size matches IMAGE_SIZE (circle diameter) to prevent tiling
+              const pattern = defs.append('pattern')
+                .attr('id', `avatar-${d.id}`)
+                .attr('width', IMAGE_SIZE)
+                .attr('height', IMAGE_SIZE)
+                .attr('patternUnits', 'userSpaceOnUse')
+                .attr('patternContentUnits', 'userSpaceOnUse')
+                .attr('x', 0)
+                .attr('y', 0);
+              
+              // Create a clipPath to constrain the image to the pattern bounds
+              const clipId = `clip-avatar-${d.id}`;
+              const clipPath = defs.append('clipPath')
+                .attr('id', clipId);
+              clipPath.append('rect')
+                .attr('width', IMAGE_SIZE)
+                .attr('height', IMAGE_SIZE);
+              
+              // Image is positioned to show the correct thumbnail from the sprite sheet
+              // The image shows the full sprite sheet, offset to display the correct thumbnail
+              pattern.append('image')
+                .attr('xlink:href', spriteUrl)
+                .attr('width', spriteSheetData.sprite_width)
+                .attr('height', spriteSheetData.sprite_height)
+                .attr('x', -x)
+                .attr('y', -y)
+                .attr('clip-path', `url(#${clipId})`)
+                .attr('preserveAspectRatio', 'none');
+            }
+          }
+        });
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load sprite sheet, falling back to individual images:', error);
+    if (error.message) {
+      console.warn('Error details:', error.message);
+    }
+  }
+
   // Add filter for inset shadow on images
   // const filter = defs.append('filter')
   //   .attr('id', 'image-inset-shadow')
@@ -362,19 +429,44 @@ export async function initializeVisualization() {
     .attr('cy', 0)
     .style('opacity', d => d.image_url ? 1 : 0);
 
-  // Add clergy images with proper clipping
-  node.append('image')
-    .attr('xlink:href', d => d.image_url || '')
-    .attr('x', -IMAGE_SIZE/2)
-    .attr('y', -IMAGE_SIZE/2)
-    .attr('width', IMAGE_SIZE)
-    .attr('height', IMAGE_SIZE)
-    .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`)
-    // .attr('filter', 'url(#image-inset-shadow)')
-    .style('opacity', d => d.image_url ? 1 : 0)
-    .on('error', function() {
-      d3.select(this).style('opacity', 0);
-    });
+  // Add clergy images with sprite sheet patterns or fallback to individual images
+  if (spriteSheetData && spriteSheetData.success) {
+    // Use sprite sheet patterns
+    node.append('circle')
+      .attr('r', IMAGE_SIZE/2)
+      .attr('fill', d => {
+        if (d.image_url && spriteSheetData.mapping) {
+          // Try both string and number keys since JSON might convert keys
+          const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
+          if (position && Array.isArray(position) && position.length === 2) {
+            return `url(#avatar-${d.id})`;
+          }
+        }
+        return 'transparent';
+      })
+      .attr('cx', 0)
+      .attr('cy', 0)
+      .style('opacity', d => {
+        if (d.image_url && spriteSheetData.mapping) {
+          const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
+          return (position && Array.isArray(position) && position.length === 2) ? 1 : 0;
+        }
+        return 0;
+      });
+  } else {
+    // Fallback to individual images
+    node.append('image')
+      .attr('xlink:href', d => d.image_url || '')
+      .attr('x', -IMAGE_SIZE/2)
+      .attr('y', -IMAGE_SIZE/2)
+      .attr('width', IMAGE_SIZE)
+      .attr('height', IMAGE_SIZE)
+      .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`)
+      .style('opacity', d => d.image_url ? 1 : 0)
+      .on('error', function() {
+        d3.select(this).style('opacity', 0);
+      });
+  }
 
   // Add fallback placeholder icon when no image is available
   // node.append('text')
@@ -563,16 +655,22 @@ export async function initializeVisualization() {
     }
   }
 
-  // Control button handlers
-  document.getElementById('reset-zoom').addEventListener('click', () => {
-    svg.call(zoom.transform, d3.zoomIdentity);
-    updateTimelinePositions(d3.zoomIdentity);
-  });
+  // Control button handlers (only if buttons exist)
+  const resetZoomBtn = document.getElementById('reset-zoom');
+  if (resetZoomBtn) {
+    resetZoomBtn.addEventListener('click', () => {
+      svg.call(zoom.transform, d3.zoomIdentity);
+      updateTimelinePositions(d3.zoomIdentity);
+    });
+  }
 
-  document.getElementById('center-graph').addEventListener('click', () => {
-    simulation.force('center', d3.forceCenter(width / 2, height / 2));
-    simulation.alpha(SIMULATION_CONFIG.alphaTargetOnRestart).restart();
-  });
+  const centerGraphBtn = document.getElementById('center-graph');
+  if (centerGraphBtn) {
+    centerGraphBtn.addEventListener('click', () => {
+      simulation.force('center', d3.forceCenter(width / 2, height / 2));
+      simulation.alpha(SIMULATION_CONFIG.alphaTargetOnRestart).restart();
+    });
+  }
 
   // Handle window resize - only restart simulation on actual window size changes
   let lastWindowWidth = window.innerWidth;

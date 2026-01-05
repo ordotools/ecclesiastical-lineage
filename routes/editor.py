@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from services import clergy as clergy_service
 from services.clergy import permanently_delete_clergy_handler
 from utils import audit_log, require_permission, log_audit_event
-from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite, Location, Status, ClergyEvent
+from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite, Location, Status, ClergyEvent, SpriteSheet, ClergySpritePosition
 from constants import GREEN_COLOR, BLACK_COLOR
 from datetime import datetime
 from sqlalchemy import text
@@ -1381,6 +1381,78 @@ def api_db_status():
                 'details': f'Query error: {str(e)[:50]}...',
                 'error': str(e)
             })
+
+@editor_bp.route('/api/sprite-sheet')
+def get_sprite_sheet():
+    """API endpoint to get the current sprite sheet URL and mapping"""
+    try:
+        # Get the current sprite sheet from database
+        sprite_sheet = SpriteSheet.query.filter_by(is_current=True).first()
+        
+        if sprite_sheet:
+            # Get all positions for this sprite sheet
+            positions = ClergySpritePosition.query.filter_by(sprite_sheet_id=sprite_sheet.id).all()
+            
+            # Build mapping dictionary
+            mapping = {pos.clergy_id: (pos.x_position, pos.y_position) for pos in positions}
+            
+            return jsonify({
+                'success': True,
+                'url': sprite_sheet.url,
+                'mapping': mapping,
+                'thumbnail_size': sprite_sheet.thumbnail_size,
+                'images_per_row': sprite_sheet.images_per_row,
+                'sprite_width': sprite_sheet.sprite_width,
+                'sprite_height': sprite_sheet.sprite_height
+            })
+        else:
+            # No sprite sheet exists - generate on demand
+            from services.image_upload import get_image_upload_service
+            
+            image_upload_service = get_image_upload_service()
+            if not image_upload_service.backblaze_configured:
+                return jsonify({
+                    'success': False,
+                    'error': 'Image storage not configured'
+                }), 500
+            
+            # Get all active clergy with images
+            all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+            clergy_with_images = [c for c in all_clergy if c.image_data or c.image_url]
+            
+            if not clergy_with_images:
+                return jsonify({
+                    'success': False,
+                    'error': 'No clergy with images found'
+                }), 404
+            
+            # Create sprite sheet (this will save to database)
+            result = image_upload_service.create_sprite_sheet(clergy_with_images)
+            
+            if result['success']:
+                return jsonify({
+                    'success': True,
+                    'url': result['url'],
+                    'mapping': result['mapping'],
+                    'thumbnail_size': result['thumbnail_size'],
+                    'images_per_row': result['images_per_row'],
+                    'sprite_width': result['sprite_width'],
+                    'sprite_height': result['sprite_height']
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': result.get('error', 'Failed to create sprite sheet')
+                }), 500
+                
+    except Exception as e:
+        current_app.logger.error(f"Error getting sprite sheet: {e}")
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @editor_bp.route('/editor/metadata/organization/<int:org_id>/delete', methods=['DELETE', 'POST'])
 def delete_organization(org_id):

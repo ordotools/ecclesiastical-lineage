@@ -9,8 +9,9 @@ import os
 import uuid
 import base64
 import json
+import requests
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageFilter
 from flask import current_app
 from botocore.exceptions import ClientError
 from datetime import datetime
@@ -654,6 +655,196 @@ class ImageUploadService:
             '.webp': 'image/webp'
         }
         return content_types.get(file_extension.lower(), 'image/jpeg')
+    
+    def create_sprite_sheet(self, clergy_list, images_per_row=20, thumbnail_size=48):
+        """
+        Create an optimized sprite sheet from clergy thumbnail images
+        
+        Args:
+            clergy_list: List of Clergy objects with image_data or image_url
+            images_per_row (int): Number of thumbnails per row in sprite sheet
+            thumbnail_size (int): Size of each thumbnail in pixels
+            
+        Returns:
+            dict: Contains 'success', 'url', 'error', 'mapping' keys
+                  mapping is a dict of {clergy_id: (x, y)} positions in sprite
+        """
+        try:
+            if not self.backblaze_configured:
+                return {
+                    'success': False,
+                    'error': 'Backblaze B2 not configured'
+                }
+            
+            # Collect thumbnail URLs and clergy IDs
+            image_paths = []
+            clergy_mapping = {}  # Maps index to clergy_id
+            
+            for idx, clergy in enumerate(clergy_list):
+                # Skip clergy without images
+                if not clergy.image_data and not clergy.image_url:
+                    continue
+                
+                # Get lineage thumbnail URL (48x48 or 64x64)
+                thumbnail_url = None
+                if clergy.image_data:
+                    try:
+                        image_data = json.loads(clergy.image_data)
+                        thumbnail_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
+                    except (json.JSONDecodeError, AttributeError):
+                        pass
+                
+                # Fallback to image_url if no image_data
+                if not thumbnail_url:
+                    thumbnail_url = clergy.image_url
+                
+                if thumbnail_url:
+                    image_paths.append(thumbnail_url)
+                    clergy_mapping[idx] = clergy.id
+            
+            if not image_paths:
+                return {
+                    'success': False,
+                    'error': 'No images found to create sprite sheet'
+                }
+            
+            num_images = len(image_paths)
+            rows = (num_images + images_per_row - 1) // images_per_row
+            
+            sprite_width = images_per_row * thumbnail_size
+            sprite_height = rows * thumbnail_size
+            
+            # Create sprite sheet
+            sprite = Image.new('RGB', (sprite_width, sprite_height), (255, 255, 255))
+            
+            # Download and paste each thumbnail
+            position_mapping = {}  # Maps clergy_id to (x, y) position
+            for idx, thumbnail_url in enumerate(image_paths):
+                try:
+                    # Download thumbnail
+                    response = requests.get(thumbnail_url, timeout=10)
+                    response.raise_for_status()
+                    
+                    # Open image
+                    img = Image.open(BytesIO(response.content))
+                    
+                    # Resize to thumbnail size if needed
+                    if img.size != (thumbnail_size, thumbnail_size):
+                        img = img.resize((thumbnail_size, thumbnail_size), Image.Resampling.LANCZOS)
+                    
+                    # Convert to RGB if necessary
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    
+                    # Calculate position
+                    x = (idx % images_per_row) * thumbnail_size
+                    y = (idx // images_per_row) * thumbnail_size
+                    
+                    # Paste into sprite
+                    sprite.paste(img, (x, y))
+                    
+                    # Store position mapping
+                    clergy_id = clergy_mapping[idx]
+                    position_mapping[clergy_id] = (x, y)
+                    
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to process thumbnail {idx} ({thumbnail_url}): {e}")
+                    # Fill with white square as placeholder
+                    x = (idx % images_per_row) * thumbnail_size
+                    y = (idx // images_per_row) * thumbnail_size
+                    placeholder = Image.new('RGB', (thumbnail_size, thumbnail_size), (255, 255, 255))
+                    sprite.paste(placeholder, (x, y))
+            
+            # Optimize sprite sheet for file size
+            # Optional: blur slightly to help compression
+            sprite = sprite.filter(ImageFilter.SMOOTH)
+            
+            # Reduce colors
+            sprite = sprite.convert('P', palette=Image.ADAPTIVE, colors=128)
+            sprite = sprite.convert('RGB')
+            
+            # Save to bytes with aggressive compression
+            output = BytesIO()
+            sprite.save(
+                output,
+                'JPEG',
+                quality=65,
+                optimize=True,
+                progressive=True,  # Progressive JPEG
+                subsampling='4:2:0'  # Aggressive chroma subsampling
+            )
+            sprite_data = output.getvalue()
+            
+            # Upload sprite sheet to Backblaze B2
+            object_key = f"sprites/clergy_sprite_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=object_key,
+                Body=sprite_data,
+                ContentType='image/jpeg'
+            )
+            
+            # Get public URL
+            sprite_url = self.config.get_public_url(object_key)
+            
+            current_app.logger.info(f"Created sprite sheet: {sprite_url} ({len(sprite_data)} bytes, {num_images} images)")
+            
+            # Save sprite sheet to database
+            from models import SpriteSheet, ClergySpritePosition, db
+            
+            # Mark all existing sprite sheets as not current
+            SpriteSheet.query.update({SpriteSheet.is_current: False})
+            
+            # Create new sprite sheet record
+            sprite_sheet = SpriteSheet(
+                url=sprite_url,
+                object_key=object_key,
+                thumbnail_size=thumbnail_size,
+                images_per_row=images_per_row,
+                sprite_width=sprite_width,
+                sprite_height=sprite_height,
+                num_images=num_images,
+                is_current=True
+            )
+            db.session.add(sprite_sheet)
+            db.session.flush()  # Get the ID
+            
+            # Create position records for each clergy member
+            for clergy_id, (x, y) in position_mapping.items():
+                position = ClergySpritePosition(
+                    clergy_id=clergy_id,
+                    sprite_sheet_id=sprite_sheet.id,
+                    x_position=x,
+                    y_position=y
+                )
+                db.session.add(position)
+            
+            db.session.commit()
+            
+            current_app.logger.info(f"Saved sprite sheet {sprite_sheet.id} with {len(position_mapping)} positions to database")
+            
+            return {
+                'success': True,
+                'url': sprite_url,
+                'mapping': position_mapping,
+                'object_key': object_key,
+                'sprite_width': sprite_width,
+                'sprite_height': sprite_height,
+                'thumbnail_size': thumbnail_size,
+                'images_per_row': images_per_row,
+                'num_images': num_images,
+                'sprite_sheet_id': sprite_sheet.id
+            }
+            
+        except Exception as e:
+            current_app.logger.error(f"Failed to create sprite sheet: {e}")
+            import traceback
+            current_app.logger.error(f"Traceback: {traceback.format_exc()}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
 
 
 # Global instance

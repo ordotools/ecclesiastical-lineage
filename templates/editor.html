@@ -869,7 +869,6 @@
                                font-size: 0.65em; cursor: pointer; transition: all 0.2s ease;"
                     onmouseover="this.style.background='rgba(255, 255, 255, 0.15)'; this.style.borderColor='rgba(255, 255, 255, 0.4)'"
                     onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.borderColor='rgba(255, 255, 255, 0.3)'"
-                    onclick="console.log('=== CHAPEL BUTTON CLICKED ==='); toggleChapelList()"
                     title="Toggle Chapel List">
                     <i class="fas fa-church"></i> Chapel
                 </button>
@@ -983,7 +982,6 @@
 
         // Global event listeners for panel updates
         document.body.addEventListener('htmx:afterRequest', function (evt) {
-            console.log('HTMX request completed for:', evt.target);
 
             // Check if this was a clergy-related operation that should refresh visualization
             const target = evt.target;
@@ -1009,24 +1007,12 @@
                 !evt.detail.xhr.responseURL.includes('/clergy/edit') &&
                 !evt.detail.xhr.responseURL.includes('/clergy/delete');
 
-            // Debug logging
-            if (evt.detail.xhr && evt.detail.xhr.responseURL) {
-                console.log('=== HTMX REQUEST DEBUG ===');
-                console.log('HTMX request URL:', evt.detail.xhr.responseURL);
-                console.log('Target element:', evt.target);
-                console.log('Is clergy selection:', isClergySelection);
-                console.log('Is clergy list update:', isClergyListUpdate);
-                console.log('Is clergy form update:', isClergyFormUpdate);
-                console.log('Is clergy form content update:', isClergyFormContentUpdate);
-                console.log('Is clergy API:', isClergyAPI);
-                console.log('Will refresh visualization:', !isClergySelection && (isClergyListUpdate || isClergyFormUpdate || isClergyFormContentUpdate || isClergyAPI));
-                console.log('========================');
-            }
+            
 
             // Only refresh visualization for actual updates, not selections
             // Be more restrictive - only refresh for actual API calls that modify data
             if (!isClergySelection && isClergyAPI) {
-                console.log('Clergy API update detected, refreshing visualization...');
+                
 
                 // Soft refresh of visualization panel
                 const visualizationTarget = document.getElementById('visualization-panel-content');
@@ -1040,9 +1026,9 @@
                                 target: specificTarget,
                                 swap: 'innerHTML'
                             }).then(() => {
-                                console.log('Global visualization refresh completed');
+                                
                             }).catch(error => {
-                                console.error('Global visualization refresh failed:', error);
+                                
                             });
                         }
                     }, 100);
@@ -1053,7 +1039,7 @@
                     });
                 }
             } else if (isClergySelection) {
-                console.log('Clergy selection detected, skipping visualization refresh');
+                
             }
         });
 
@@ -1071,7 +1057,6 @@
 
         // Listen for clergy update events to refresh visualization
         document.body.addEventListener('clergyUpdated', function (evt) {
-            console.log('Clergy update event received:', evt.detail);
 
             // Only refresh visualization for actual updates, not selections
             if (evt.detail && evt.detail.action && (evt.detail.action === 'updated' || evt.detail.action === 'created' || evt.detail.action === 'deleted')) {
@@ -1086,9 +1071,9 @@
                                 target: specificTarget,
                                 swap: 'innerHTML'
                             }).then(() => {
-                                console.log('Visualization refreshed after clergy update');
+
                             }).catch(error => {
-                                console.error('Visualization refresh failed after clergy update:', error);
+
                             });
                         }
                     } else {
@@ -1099,13 +1084,13 @@
                     }
                 }, 150);
             } else {
-                console.log('Clergy selection event received, skipping visualization refresh');
+
             }
         });
 
         // Custom event for when a clergy member is selected
         function selectClergy(clergyId) {
-            console.log('Global selectClergy called with:', clergyId);
+
 
             // Load clergy form for editing
             if (clergyId) {
@@ -1490,21 +1475,12 @@
 
         // Function to toggle chapel list and globe view
         function toggleChapelList() {
-            console.log('=== TOGGLE CHAPEL LIST CALLED ===');
-            console.log('Toggling chapel list, current state:', isChapelListVisible, 'globe view:', isGlobeViewVisible);
-
             const leftPanel = document.querySelector('.left-panel .panel-content');
             const centerPanel = document.querySelector('#visualization-panel-content');
             const rightPanel = document.querySelector('.right-panel .panel-content');
             const rightPanelHeader = document.querySelector('.right-panel .panel-header');
 
-            console.log('Panel elements found:', {
-                leftPanel: !!leftPanel,
-                centerPanel: !!centerPanel,
-                rightPanel: !!rightPanel,
-                rightPanelHeader: !!rightPanelHeader
-            });
-
+            
             if (!leftPanel || !centerPanel || !rightPanel) {
                 console.error('Required panels not found');
                 return;
@@ -1514,8 +1490,6 @@
             const toggleButton = document.getElementById('chapelListToggle');
 
             if (!isChapelListVisible && !isGlobeViewVisible) {
-                // Switch to chapel list and globe view
-                console.log('Switching to chapel list and globe view...');
 
                 // Update the left panel header
                 if (panelHeader) {
@@ -1538,16 +1512,10 @@
                     target: leftPanel,
                     swap: 'innerHTML'
                 }).then(() => {
-                    console.log('Successfully switched to chapel list');
                     isChapelListVisible = true;
                 }).catch(error => {
                     console.error('Error switching to chapel list:', error);
                 });
-
-                // Load chapel form content
-                console.log('Loading chapel form into right panel...');
-                console.log('Right panel element:', rightPanel);
-                console.log('Right panel current content:', rightPanel.innerHTML.substring(0, 200) + '...');
 
                 // Add timeout to detect if request hangs
                 const timeoutId = setTimeout(() => {
@@ -1557,7 +1525,7 @@
                 // Try using fetch instead of htmx.ajax
                 fetch('/editor/chapel-form')
                     .then(response => {
-                        console.log('Chapel form fetch response:', response);
+
                         if (!response.ok) {
                             throw new Error(`HTTP error! status: ${response.status}`);
                         }
@@ -1565,10 +1533,7 @@
                     })
                     .then(html => {
                         clearTimeout(timeoutId);
-                        console.log('Chapel form HTML received:', html.substring(0, 200) + '...');
                         rightPanel.innerHTML = html;
-                        console.log('Right panel content after load:', rightPanel.innerHTML.substring(0, 200) + '...');
-                        console.log('Successfully switched to chapel form');
                         // Remove the hx-trigger attribute to prevent auto-loading
                         rightPanel.removeAttribute('hx-trigger');
                         rightPanel.removeAttribute('hx-get');
@@ -1576,23 +1541,17 @@
                         // Trigger location form initialization after a short delay
                         setTimeout(function () {
                             if (typeof initializeLocationForm === 'function') {
-                                console.log('Manually triggering location form initialization...');
                                 if (initializeLocationForm() || (typeof checkForLocationForms === 'function' && checkForLocationForms())) {
-                                    console.log('Location form initialized successfully');
                                 } else {
-                                    console.log('Location form not found yet');
                                 }
                             } else {
-                                console.log('initializeLocationForm function not available yet, retrying...');
                                 // Retry a few times
                                 let retries = 0;
                                 const maxRetries = 10;
                                 const retryInterval = setInterval(function () {
                                     retries++;
                                     if (typeof initializeLocationForm === 'function') {
-                                        console.log('initializeLocationForm function found, initializing...');
                                         if (initializeLocationForm() || (typeof checkForLocationForms === 'function' && checkForLocationForms())) {
-                                            console.log('Location form initialized successfully');
                                             clearInterval(retryInterval);
                                         }
                                     } else if (retries >= maxRetries) {
@@ -1614,14 +1573,11 @@
                     target: centerPanel,
                     swap: 'innerHTML'
                 }).then(() => {
-                    console.log('Successfully switched to globe view');
                     isGlobeViewVisible = true;
                 }).catch(error => {
                     console.error('Error switching to globe view:', error);
                 });
             } else {
-                // Switch back to clergy list and lineage graph
-                console.log('Switching back to clergy list and lineage graph...');
 
                 // Update the left panel header
                 if (panelHeader) {
@@ -1644,7 +1600,6 @@
                     target: leftPanel,
                     swap: 'innerHTML'
                 }).then(() => {
-                    console.log('Successfully switched back to clergy list');
                     isChapelListVisible = false;
                 }).catch(error => {
                     console.error('Error switching back to clergy list:', error);
@@ -1655,7 +1610,6 @@
                     target: rightPanel,
                     swap: 'innerHTML'
                 }).then(() => {
-                    console.log('Successfully switched back to clergy form');
                     // Restore the hx-trigger attributes for clergy form
                     rightPanel.setAttribute('hx-trigger', 'load');
                     rightPanel.setAttribute('hx-get', '/editor/clergy-form');
@@ -1668,7 +1622,6 @@
                     target: centerPanel,
                     swap: 'innerHTML'
                 }).then(() => {
-                    console.log('Successfully switched back to lineage graph');
                     isGlobeViewVisible = false;
                 }).catch(error => {
                     console.error('Error switching back to lineage graph:', error);
@@ -1679,9 +1632,6 @@
         // Make function globally available
         window.toggleChapelList = toggleChapelList;
 
-        // Test if function is available
-        console.log('toggleChapelList function defined:', typeof window.toggleChapelList);
-        console.log('Function available:', window.toggleChapelList);
     </script>
 </body>
 

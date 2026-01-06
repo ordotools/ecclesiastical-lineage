@@ -10,6 +10,11 @@ import requests
 
 main_bp = Blueprint('main', __name__)
 
+# Lightweight health check for keep-alive pings (no DB hit)
+@main_bp.route('/health')
+def health():
+    return 'ok', 200
+
 def _get_location_color(location):
     """Get color for a location based on organization first, then location type"""
     # First try to get color from the linked Organization table

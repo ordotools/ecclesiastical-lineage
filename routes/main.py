@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, Response, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, Response, make_response, g
 from services import clergy as clergy_service
 from services.geocoding import geocoding_service
 from utils import audit_log, require_permission, require_permission_api, log_audit_event
@@ -407,30 +407,28 @@ def view_location(location_id):
 
 # Lineage visualization (moved from /lineage_visualization to root)
 def lineage_visualization():
-    current_app.logger.info("=== LINEAGE_VISUALIZATION ROUTE CALLED ===")
+    current_app.logger.debug("=== LINEAGE_VISUALIZATION ROUTE CALLED ===")
     
     # Allow both logged-in and non-logged-in users to view lineage visualization
     
     try:
-        # Check if we have any ordination/consecration data
-        ordination_count = Ordination.query.count()
-        consecration_count = Consecration.query.count()
-        
-        # Log current data status
-        current_app.logger.info(f"Found {ordination_count} ordinations and {consecration_count} consecrations in database")
-        
         # Allow both logged-in and non-logged-in users to view lineage visualization
         # Get only active (non-deleted) clergy for the visualization with relationships loaded
         from sqlalchemy.orm import joinedload
         all_clergy = Clergy.query.options(
             joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
             joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
-            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators),
+            joinedload(Clergy.statuses)  # Eager load statuses to prevent N+1 queries
         ).filter(Clergy.is_deleted != True).all()
         
-        # Get all organizations and ranks for color lookup
-        organizations = {org.name: org.color for org in Organization.query.all()}
-        ranks = {rank.name: rank.color for rank in Rank.query.all()}
+        # Cache organizations and ranks in Flask g object for request duration
+        if not hasattr(g, 'organizations'):
+            g.organizations = {org.name: org.color for org in Organization.query.all()}
+        if not hasattr(g, 'ranks'):
+            g.ranks = {rank.name: rank.color for rank in Rank.query.all()}
+        organizations = g.organizations
+        ranks = g.ranks
 
         # SVG placeholder (simple person icon, base64-encoded)
         placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="24" r="14" fill="#bdc3c7"/><ellipse cx="32" cy="50" rx="20" ry="12" fill="#bdc3c7"/></svg>'''
@@ -445,28 +443,28 @@ def lineage_visualization():
             org_color = organizations.get(clergy.organization) or '#2c3e50'
             rank_color = ranks.get(clergy.rank) or '#888888'
             
-            # Get image URL - prefer lineage size for visualization, fallback to original
-            image_url = placeholder_data_url
+            # Parse image_data JSON once and cache the result
+            image_data = None
             if clergy.image_data:
                 try:
                     image_data = json.loads(clergy.image_data)
-                    # Use lineage size (48x48) for visualization performance
-                    image_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
                 except (json.JSONDecodeError, AttributeError):
                     pass
+            
+            # Get image URL - prefer lineage size for visualization, fallback to original
+            image_url = placeholder_data_url
+            if image_data:
+                # Use lineage size (48x48) for visualization performance
+                image_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
             
             # Fallback to clergy.image_url if no image_data or parsing failed
             if not image_url or image_url == placeholder_data_url:
                 image_url = clergy.image_url if clergy.image_url else placeholder_data_url
             
-            # Get high-resolution image URL from image_data if available
+            # Get high-resolution image URL from cached image_data
             high_res_image_url = None
-            if clergy.image_data:
-                try:
-                    image_data = json.loads(clergy.image_data)
-                    high_res_image_url = image_data.get('detail') or image_data.get('original')
-                except (json.JSONDecodeError, AttributeError):
-                    pass
+            if image_data:
+                high_res_image_url = image_data.get('detail') or image_data.get('original')
             
             # Get clergy statuses
             statuses_data = [
@@ -533,18 +531,18 @@ def lineage_visualization():
                         'dashed': True
                     })
         
-        current_app.logger.info(f"Lineage visualization: {len(nodes)} nodes, {len(links)} links created")
+        current_app.logger.debug(f"Lineage visualization: {len(nodes)} nodes, {len(links)} links created")
         
         # Safely serialize data to JSON
         try:
             nodes_json = json.dumps(nodes)
             links_json = json.dumps(links)
-            current_app.logger.info(f"JSON serialization successful: {len(nodes)} nodes, {len(links)} links")
+            current_app.logger.debug(f"JSON serialization successful: {len(nodes)} nodes, {len(links)} links")
         except (TypeError, ValueError) as e:
             current_app.logger.error(f"Error serializing data to JSON: {e}")
             raise e
             
-        current_app.logger.info(f"=== RENDERING TEMPLATE WITH {len(nodes)} NODES AND {len(links)} LINKS ===")
+        current_app.logger.debug(f"=== RENDERING TEMPLATE WITH {len(nodes)} NODES AND {len(links)} LINKS ===")
         
         # Get current user if logged in
         user = None
@@ -650,12 +648,17 @@ def get_lineage_data():
         all_clergy = Clergy.query.options(
             joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
             joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
-            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators),
+            joinedload(Clergy.statuses)  # Eager load statuses to prevent N+1 queries
         ).filter(Clergy.is_deleted != True).all()
         
-        # Get all organizations and ranks for color lookup
-        organizations = {org.name: org.color for org in Organization.query.all()}
-        ranks = {rank.name: rank.color for rank in Rank.query.all()}
+        # Cache organizations and ranks in Flask g object for request duration
+        if not hasattr(g, 'organizations'):
+            g.organizations = {org.name: org.color for org in Organization.query.all()}
+        if not hasattr(g, 'ranks'):
+            g.ranks = {rank.name: rank.color for rank in Rank.query.all()}
+        organizations = g.organizations
+        ranks = g.ranks
 
         # SVG placeholder (simple person icon, base64-encoded)
         placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="24" r="14" fill="#bdc3c7"/><ellipse cx="32" cy="50" rx="20" ry="12" fill="#bdc3c7"/></svg>'''
@@ -670,28 +673,28 @@ def get_lineage_data():
             org_color = organizations.get(clergy.organization) or '#2c3e50'
             rank_color = ranks.get(clergy.rank) or '#888888'
             
-            # Get image URL - prefer lineage size for visualization, fallback to original
-            image_url = placeholder_data_url
+            # Parse image_data JSON once and cache the result
+            image_data = None
             if clergy.image_data:
                 try:
                     image_data = json.loads(clergy.image_data)
-                    # Use lineage size (48x48) for visualization performance
-                    image_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
                 except (json.JSONDecodeError, AttributeError):
                     pass
+            
+            # Get image URL - prefer lineage size for visualization, fallback to original
+            image_url = placeholder_data_url
+            if image_data:
+                # Use lineage size (48x48) for visualization performance
+                image_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
             
             # Fallback to clergy.image_url if no image_data or parsing failed
             if not image_url or image_url == placeholder_data_url:
                 image_url = clergy.image_url if clergy.image_url else placeholder_data_url
             
-            # Get high-resolution image URL from image_data if available
+            # Get high-resolution image URL from cached image_data
             high_res_image_url = None
-            if clergy.image_data:
-                try:
-                    image_data = json.loads(clergy.image_data)
-                    high_res_image_url = image_data.get('detail') or image_data.get('original')
-                except (json.JSONDecodeError, AttributeError):
-                    pass
+            if image_data:
+                high_res_image_url = image_data.get('detail') or image_data.get('original')
             
             # Get clergy statuses
             statuses_data = [

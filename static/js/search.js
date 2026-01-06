@@ -16,12 +16,22 @@ export function initializeSearch() {
   const searchResultsMobile = document.getElementById('search-results-mobile');
   
   if (searchInput) {
-    searchInput.addEventListener('input', (e) => handleSearchInput(e.target.value, searchResults));
+    // Build index lazily when user starts typing or focuses input
+    searchInput.addEventListener('focus', ensureSearchIndex);
+    searchInput.addEventListener('input', (e) => {
+      ensureSearchIndex();
+      handleSearchInput(e.target.value, searchResults);
+    });
     searchInput.addEventListener('keydown', (e) => handleSearchKeydown(e, searchResults));
   }
   
   if (searchInputMobile) {
-    searchInputMobile.addEventListener('input', (e) => handleSearchInput(e.target.value, searchResultsMobile));
+    // Build index lazily when user starts typing or focuses input
+    searchInputMobile.addEventListener('focus', ensureSearchIndex);
+    searchInputMobile.addEventListener('input', (e) => {
+      ensureSearchIndex();
+      handleSearchInput(e.target.value, searchResultsMobile);
+    });
     searchInputMobile.addEventListener('keydown', (e) => handleSearchKeydown(e, searchResultsMobile));
   }
   
@@ -36,10 +46,8 @@ export function initializeSearch() {
   // Initialize overlay search
   initializeOverlaySearch();
   
-  // Build search index when nodes are available
-  if (window.currentNodes) {
-    buildSearchIndex(window.currentNodes);
-  }
+  // Search index will be built lazily when search is first used
+  // This improves initial page load performance
 }
 
 // Initialize overlay search functionality
@@ -73,7 +81,10 @@ function initializeOverlaySearch() {
   
   // Handle overlay search input
   if (overlaySearchInput && overlaySearchResults) {
+    // Build index lazily when user starts typing or focuses input
+    overlaySearchInput.addEventListener('focus', ensureSearchIndex);
     overlaySearchInput.addEventListener('input', (e) => {
+      ensureSearchIndex();
       handleOverlaySearchInput(e.target.value, overlaySearchResults);
     });
     
@@ -404,9 +415,19 @@ function handleSearchKeydown(event, resultsContainer) {
   }
 }
 
+// Ensure search index is built (lazy initialization)
+function ensureSearchIndex() {
+  if (searchIndex.length === 0 && window.currentNodes) {
+    buildSearchIndex(window.currentNodes);
+  }
+}
+
 // Perform search using fuzzy search
 function performSearch(query) {
   if (!query || !query.trim()) return [];
+  
+  // Build search index lazily if not already built
+  ensureSearchIndex();
   
   // Use fuzzy search for better matching
   const searchResults = window.fuzzySearch(searchIndex, query.trim(), (item) => {

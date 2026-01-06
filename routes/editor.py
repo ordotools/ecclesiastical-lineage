@@ -1406,44 +1406,12 @@ def get_sprite_sheet():
                 'sprite_height': sprite_sheet.sprite_height
             })
         else:
-            # No sprite sheet exists - generate on demand
-            from services.image_upload import get_image_upload_service
-            
-            image_upload_service = get_image_upload_service()
-            if not image_upload_service.backblaze_configured:
-                return jsonify({
-                    'success': False,
-                    'error': 'Image storage not configured'
-                }), 500
-            
-            # Get all active clergy (include ALL clergy, placeholders will be used for those without images)
-            all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
-            
-            if not all_clergy:
-                return jsonify({
-                    'success': False,
-                    'error': 'No clergy found'
-                }), 404
-            
-            # Create sprite sheet (this will save to database)
-            # Placeholders will be automatically added for clergy without images
-            result = image_upload_service.create_sprite_sheet(all_clergy)
-            
-            if result['success']:
-                return jsonify({
-                    'success': True,
-                    'url': result['url'],
-                    'mapping': result['mapping'],
-                    'thumbnail_size': result['thumbnail_size'],
-                    'images_per_row': result['images_per_row'],
-                    'sprite_width': result['sprite_width'],
-                    'sprite_height': result['sprite_height']
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': result.get('error', 'Failed to create sprite sheet')
-                }), 500
+            # No sprite sheet exists - return error instead of generating on-demand
+            # Spritesheet should only be generated when images are uploaded/edited, not on page load
+            return jsonify({
+                'success': False,
+                'error': 'No sprite sheet exists. Please upload or edit an image to generate one.'
+            }), 404
                 
     except Exception as e:
         current_app.logger.error(f"Error getting sprite sheet: {e}")

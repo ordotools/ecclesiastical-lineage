@@ -83,7 +83,7 @@
                 <small class="text-dark">Hide Priests</small>
               </label>
               <label class="switch">
-                <input type="checkbox" id="hide-priests-mobile" checked>
+                <input type="checkbox" id="hide-priests-mobile">
                 <span class="slider"></span>
               </label>
             </div>
@@ -177,7 +177,7 @@
                         <small class="text-dark">Hide Priests</small>
                     </label>
                     <label class="switch">
-                        <input type="checkbox" id="hide-priests" checked>
+                        <input type="checkbox" id="hide-priests">
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -315,7 +315,7 @@
                 <label class="filter-toggle-label" for="view-priests-toggle">
                     <span class="filter-label-text">View Priests</span>
                     <label class="filter-switch">
-                        <input type="checkbox" id="view-priests-toggle" checked>
+                        <input type="checkbox" id="view-priests-toggle">
                         <span class="filter-slider"></span>
                     </label>
                 </label>
@@ -358,7 +358,6 @@
 
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
-<script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
 <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
 <!-- Include the new clean clergy form controller -->
 <script src="{{ url_for('static', filename='js/clergy-form-controller.js') }}"></script>

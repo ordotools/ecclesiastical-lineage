@@ -763,54 +763,62 @@ class ImageUploadService:
             # Create sprite sheet
             sprite = Image.new('RGB', (sprite_width, sprite_height), (255, 255, 255))
             
-            # Create placeholder silhouette once (will be reused)
+            # Create placeholder silhouette once at fixed position (0, 0)
             placeholder_img = self._create_placeholder_silhouette(thumbnail_size)
+            placeholder_position = (0, 0)  # Fixed position for all placeholders
+            sprite.paste(placeholder_img, placeholder_position)
             
-            # Download and paste each thumbnail (or placeholder)
-            position_mapping = {}  # Maps clergy_id to (x, y) position
-            placeholder_count = 0
+            # Track which clergy need placeholders vs actual images
+            clergy_with_images = []  # List of (clergy_id, thumbnail_url, x, y) for actual images
+            clergy_without_images = []  # List of clergy_id for placeholders
+            
+            # First pass: identify which clergy have images and calculate positions
             for idx, (clergy_id, thumbnail_url, use_placeholder) in enumerate(image_data_list):
                 # Calculate position
                 x = (idx % images_per_row) * thumbnail_size
                 y = (idx // images_per_row) * thumbnail_size
                 
                 if use_placeholder:
-                    # Use placeholder silhouette
-                    sprite.paste(placeholder_img, (x, y))
-                    placeholder_count += 1
-                    # Store placeholder position (first occurrence)
-                    if placeholder_position is None:
-                        placeholder_position = (x, y)
-                    current_app.logger.debug(f"Added placeholder for clergy {clergy_id} at position ({x}, {y})")
+                    clergy_without_images.append(clergy_id)
                 else:
-                    try:
-                        # Download thumbnail
-                        response = requests.get(thumbnail_url, timeout=10)
-                        response.raise_for_status()
-                        
-                        # Open image
-                        img = Image.open(BytesIO(response.content))
-                        
-                        # Resize to thumbnail size if needed
-                        if img.size != (thumbnail_size, thumbnail_size):
-                            img = img.resize((thumbnail_size, thumbnail_size), Image.Resampling.LANCZOS)
-                        
-                        # Convert to RGB if necessary
-                        if img.mode != 'RGB':
-                            img = img.convert('RGB')
-                        
-                        # Paste into sprite
-                        sprite.paste(img, (x, y))
-                        
-                    except Exception as e:
-                        current_app.logger.warning(f"Failed to process thumbnail for clergy {clergy_id} ({thumbnail_url}): {e}")
-                        # Use placeholder on error
-                        sprite.paste(placeholder_img, (x, y))
-                        if placeholder_position is None:
-                            placeholder_position = (x, y)
-                
-                # Store position mapping for all clergy
-                position_mapping[clergy_id] = (x, y)
+                    clergy_with_images.append((clergy_id, thumbnail_url, x, y))
+            
+            # Download and paste each actual thumbnail
+            position_mapping = {}  # Maps clergy_id to (x, y) position
+            placeholder_count = len(clergy_without_images)
+            
+            for clergy_id, thumbnail_url, x, y in clergy_with_images:
+                try:
+                    # Download thumbnail
+                    response = requests.get(thumbnail_url, timeout=10)
+                    response.raise_for_status()
+                    
+                    # Open image
+                    img = Image.open(BytesIO(response.content))
+                    
+                    # Resize to thumbnail size if needed
+                    if img.size != (thumbnail_size, thumbnail_size):
+                        img = img.resize((thumbnail_size, thumbnail_size), Image.Resampling.LANCZOS)
+                    
+                    # Convert to RGB if necessary
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    
+                    # Paste into sprite
+                    sprite.paste(img, (x, y))
+                    
+                    # Store position mapping for clergy with actual images
+                    position_mapping[clergy_id] = (x, y)
+                    
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to process thumbnail for clergy {clergy_id} ({thumbnail_url}): {e}")
+                    # Use placeholder on error - add to placeholder list
+                    clergy_without_images.append(clergy_id)
+                    placeholder_count += 1
+            
+            # All clergy without images use the same placeholder position
+            for clergy_id in clergy_without_images:
+                position_mapping[clergy_id] = placeholder_position
             
             # Optimize sprite sheet for file size
             # Optional: blur slightly to help compression

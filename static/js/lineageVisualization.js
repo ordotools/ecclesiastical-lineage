@@ -33,10 +33,8 @@ async function initializeAll() {
     applyBackboneOnlyFilter();
   }
   
-  // Build search index when nodes are available
-  if (window.currentNodes) {
-    buildSearchIndex(window.currentNodes);
-  }
+  // Search index will be built lazily when search is first used
+  // This defers the work until needed, improving initial page load performance
   
   // Handle URL search parameters
   handleURLSearch();

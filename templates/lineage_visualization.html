@@ -352,8 +352,7 @@
 
 {% block extra_styles %}
 {% include '_custom_styles.html' %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/visualizer.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/clergy-form-clean.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/visualizer.css') }}?v=1.0">
 {% endblock %}
 
 {% block extra_scripts %}

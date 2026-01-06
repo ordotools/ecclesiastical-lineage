@@ -794,11 +794,13 @@ input:focus + .slider {
   border: 2px solid transparent;
   transition: all 0.2s ease;
   overflow: hidden;
+  outline: none;
 }
 
 .search-bar-input-group:focus-within {
   border-color: #27ae60;
   box-shadow: 0 8px 32px rgba(39, 174, 96, 0.2);
+  outline: none;
 }
 
 /* When dropdown is visible, remove bottom border radius for seamless transition */
@@ -813,21 +815,36 @@ input:focus + .slider {
 
 .search-bar-icon {
   position: absolute;
-  left: 20px;
+  right: 50px;
   color: #6c757d;
-  font-size: 1.1rem;
+  font-size: 1rem;
   z-index: 1;
   pointer-events: none;
 }
 
 .search-bar-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  padding: 20px 50px 20px 50px;
-  font-size: 1.1rem;
-  background: transparent;
-  color: #2c3e50;
+  flex: 1 !important;
+  border: none !important;
+  outline: none !important;
+  padding: 16px 90px 16px 24px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  font-family: 'SF Pro Text', 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif !important;
+  line-height: 1.4 !important;
+  background: transparent !important;
+  color: #2c3e50 !important;
+  margin: 0 !important;
+  width: auto !important;
+  box-sizing: border-box !important;
+}
+
+.search-bar-input:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
 }
 
 .search-bar-input::placeholder {
@@ -902,7 +919,9 @@ input:focus + .slider {
 .search-bar-results .search-result-name {
   font-weight: 600;
   color: #2c3e50;
-  font-size: 1rem;
+  font-size: 16px;
+  font-family: 'SF Pro Text', 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.4;
   margin-bottom: 4px;
 }
 
@@ -939,12 +958,13 @@ input:focus + .slider {
   }
   
   .search-bar-input {
-    padding: 16px 40px 16px 45px;
-    font-size: 1rem;
+    padding: 16px 70px 16px 24px !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
   }
   
   .search-bar-icon {
-    left: 16px;
+    right: 40px;
     font-size: 1rem;
   }
   

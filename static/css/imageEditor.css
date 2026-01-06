@@ -1,20 +1,27 @@
 /* ===== IMAGE EDITOR STYLES ===== */
 /* Dark theme matching editor.html */
 
-/* Large modal (not fullscreen) */
+/* Large modal (not fullscreen) - centered and responsive */
 #imageEditorModal .modal-dialog {
-    max-width: 1000px;
-    width: 90vw;
-    margin: 2rem auto;
+    max-width: 800px;
+    width: 85vw;
+    max-height: 90vh;
+    margin: auto;
+    display: flex;
+    align-items: center;
 }
 
 #imageEditorModal .modal-content {
-    height: 80vh;
+    max-height: 90vh;
+    height: auto;
+    min-height: 400px;
     border-radius: 3px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     background: #2B2E32;
     color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    flex-direction: column;
 }
 
 #imageEditorModal .modal-header {
@@ -50,6 +57,10 @@
     overflow: hidden;
     background: #2B2E32;
     color: rgba(255, 255, 255, 0.9);
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 #imageEditorModal .modal-footer {
@@ -59,6 +70,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0;
 }
 
 /* Main container */
@@ -93,8 +105,8 @@
     overflow: hidden;
     padding: 0.75em;
     box-sizing: border-box;
-    max-height: calc(80vh - 100px); /* Prevent extending beyond modal */
     min-height: 300px; /* Ensure minimum usable space */
+    max-height: calc(90vh - 150px); /* Account for header and footer */
 }
 
 .editor-image {
@@ -151,22 +163,43 @@
     border-color: rgba(255, 255, 255, 0.5);
 }
 
-/* Preview modal - dark theme */
+/* Preview modal - dark theme, centered and responsive */
+#previewModal .modal-dialog {
+    max-width: 700px;
+    width: 85vw;
+    max-height: 90vh;
+    margin: auto;
+    display: flex;
+    align-items: center;
+}
+
 #previewModal .modal-content {
+    max-height: 90vh;
+    height: auto;
     background: #2B2E32;
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    flex-direction: column;
 }
 
 #previewModal .modal-header {
     background: rgba(255, 255, 255, 0.05);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.9);
+    flex-shrink: 0;
 }
 
 #previewModal .modal-body {
     background: #2B2E32;
     color: rgba(255, 255, 255, 0.9);
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+#previewModal .modal-footer {
+    flex-shrink: 0;
 }
 
 .preview-container {
@@ -247,19 +280,37 @@
 /* Responsive design */
 @media (max-width: 768px) {
     #imageEditorModal .modal-dialog {
-        width: 98vw;
-        margin: 0.5rem auto;
-        height: 95vh;
+        width: 95vw;
+        max-width: 95vw;
+        max-height: 95vh;
+        margin: auto;
     }
     
     #imageEditorModal .modal-content {
-        height: 95vh;
+        max-height: 95vh;
+        min-height: 300px;
+    }
+    
+    .image-editor-canvas {
+        max-height: calc(95vh - 150px);
+        min-height: 250px;
     }
     
     .footer-left,
     .footer-right {
         flex-direction: column;
         gap: 0.25rem;
+    }
+    
+    #previewModal .modal-dialog {
+        width: 95vw;
+        max-width: 95vw;
+        max-height: 95vh;
+        margin: auto;
+    }
+    
+    #previewModal .modal-content {
+        max-height: 95vh;
     }
     
     .preview-container {

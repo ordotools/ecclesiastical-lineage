@@ -13,7 +13,7 @@ services:
       - key: DATABASE_URL
         fromDatabase:
           name: ecclesiastical-lineage-db
-          property: connectionString
+          property: internalConnectionString
 
 databases:
   - name: ecclesiastical-lineage-db

@@ -12,19 +12,19 @@
     <link href="{{ url_for('static', filename='css/imageEditor.css') }}" rel="stylesheet">
     {% include '_custom_styles.html' %}
     <link href="{{ url_for('static', filename='css/clergy-form-clean.css') }}" rel="stylesheet">
-    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
-    <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
-    <script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
-    <script src="{{ url_for('static', filename='js/resizable-panes.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/imageEditor.js') }}"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.6" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js" defer></script>
+    <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}" defer></script>
+    <script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js" defer></script>
+    <script src="{{ url_for('static', filename='js/resizable-panes.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/imageEditor.js') }}" defer></script>
     <!-- Centralized styling system -->
-    <script src="{{ url_for('static', filename='js/locationMarkerStyles.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/locationForm.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/eventsPanel.js') }}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="{{ url_for('static', filename='js/locationMarkerStyles.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/locationForm.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/eventsPanel.js') }}" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
     <script type="module">
         // Import color constants from constants.js and set CSS variables dynamically
         // This ensures CSS variables always match the JavaScript constants

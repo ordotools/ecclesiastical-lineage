@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_compress import Compress
 from models import db, User, Role
 # from init_routes import routes  # Temporarily disabled due to route conflicts
 from routes.auth import auth_bp
@@ -20,6 +21,7 @@ from services.backblaze_config import init_backblaze_config
 load_dotenv()
 
 app = Flask(__name__)
+compress = Compress(app)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 
 database_url = os.environ.get('DATABASE_URL')
@@ -169,6 +171,14 @@ app.register_blueprint(wiki_bp)
 app.jinja_env.globals['getContrastColor'] = getContrastColor
 app.jinja_env.globals['getBorderStyle'] = getBorderStyle
 app.jinja_env.filters['from_json'] = from_json
+
+# Add caching headers for static files
+@app.after_request
+def add_cache_headers(response):
+    from flask import request
+    if request.path.startswith('/static/'):
+        response.headers['Cache-Control'] = 'public, max-age=31536000'
+    return response
 
 # Initialize Flask-Migrate context (migrations disabled on startup)
 with app.app_context():

@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from services import auth as auth_service
-from utils import audit_log, validate_password
+from utils import audit_log, validate_password, is_safe_redirect_url
 from models import AdminInvite, User, db
 from datetime import datetime
 
@@ -59,7 +59,15 @@ def login():
 def logout():
     session.clear()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('main.index'))
+    
+    # Validate and get safe redirect URL
+    next_url = request.args.get('next')
+    if next_url and is_safe_redirect_url(next_url):
+        safe_redirect = next_url
+    else:
+        safe_redirect = url_for('main.index')
+    
+    return redirect(safe_redirect)
 
 @auth_bp.route('/admin_invite_signup/<token>', methods=['GET', 'POST'])
 def admin_invite_signup(token):

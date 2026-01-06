@@ -321,7 +321,8 @@ function selectOverlaySearchResult(node, resultsContainer) {
   }, 250);
   
   // Center the node in viewport
-  centerNodeInViewport(node);
+  // DISABLED: Node centering on search selection
+  // centerNodeInViewport(node);
   
   // Highlight the node temporarily
   highlightNode(node);
@@ -515,7 +516,8 @@ function selectSearchResult(node, resultsContainer) {
   }
   
   // Center the node in viewport
-  centerNodeInViewport(node);
+  // DISABLED: Node centering on search selection
+  // centerNodeInViewport(node);
   
   // Highlight the node temporarily
   highlightNode(node);
@@ -568,7 +570,8 @@ export function handleURLSearch() {
     const node = window.currentNodes.find(n => n.id === parseInt(focusId));
     if (node && !node.filtered) {
       setTimeout(() => {
-        centerNodeInViewport(node);
+        // DISABLED: Node centering on URL focus
+        // centerNodeInViewport(node);
         highlightNode(node);
       }, 1000); // Wait for visualization to load
     }

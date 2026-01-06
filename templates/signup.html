@@ -2,38 +2,44 @@
 
 {% block title %}Sign Up - Episcopal Lineage{% endblock %}
 
+{% block extra_styles %}
+<link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-body p-4">
         <div class="text-center mb-4">
             <h2 class="fw-bold text-primary">
                 {% if role_info %}
-                    Create {{ role_info.name }} Account
+                Create {{ role_info.name }} Account
                 {% else %}
-                    Create Admin Account
+                Create Admin Account
                 {% endif %}
             </h2>
             {% if invite_token %}
-                {% if role_info %}
-                    <p class="text-success">You have been invited to join as a <strong>{{ role_info.name }}</strong>. Complete your registration below.</p>
-                    <div class="alert alert-info">
-                        <strong>Access Level:</strong> {{ role_info.name }}<br>
-                        <small class="text-muted">{{ role_info.description }}</small>
-                        {% if invite %}
-                        <br><small class="text-muted">
-                            <strong>Expires:</strong> {{ invite.expires_at.strftime('%Y-%m-%d %H:%M') }}<br>
-                            <strong>Uses:</strong> {{ invite.current_uses }}/{{ invite.max_uses }}
-                        </small>
-                        {% endif %}
-                    </div>
-                {% else %}
-                    <p class="text-success">You have been invited to become an admin. Complete your registration below.</p>
+            {% if role_info %}
+            <p class="text-success">You have been invited to join as a <strong>{{ role_info.name }}</strong>. Complete
+                your registration below.</p>
+            <div class="alert alert-info">
+                <strong>Access Level:</strong> {{ role_info.name }}<br>
+                <small class="text-muted">{{ role_info.description }}</small>
+                {% if invite %}
+                <br><small class="text-muted">
+                    <strong>Expires:</strong> {{ invite.expires_at.strftime('%Y-%m-%d %H:%M') }}<br>
+                    <strong>Uses:</strong> {{ invite.current_uses }}/{{ invite.max_uses }}
+                </small>
                 {% endif %}
+            </div>
             {% else %}
-                <p class="text-muted">You are the first user. Create your admin account below.</p>
+            <p class="text-success">You have been invited to become an admin. Complete your registration below.</p>
+            {% endif %}
+            {% else %}
+            <p class="text-muted">You are the first user. Create your admin account below.</p>
             {% endif %}
         </div>
-        <form method="post" action="{{ url_for('auth.admin_invite_signup', token=invite_token) if invite_token else url_for('auth.signup') }}">
+        <form method="post"
+            action="{{ url_for('auth.admin_invite_signup', token=invite_token) if invite_token else url_for('auth.signup') }}">
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>
                 <input type="text" class="form-control" id="username" name="username" required>
@@ -59,9 +65,9 @@
             <div class="d-grid">
                 <button type="submit" class="btn btn-primary">
                     {% if role_info %}
-                        Create {{ role_info.name }} Account
+                    Create {{ role_info.name }} Account
                     {% else %}
-                        Create Admin Account
+                    Create Admin Account
                     {% endif %}
                 </button>
             </div>
@@ -74,26 +80,26 @@
 
 {% block extra_styles %}
 <style>
-  .password-requirements li {
-    list-style: none;
-    margin-bottom: 0.25rem;
-  }
-  
-  .password-requirements li:before {
-    content: "• ";
-    margin-right: 0.5rem;
-  }
-  
-  .text-success:before {
-    content: "✓ ";
-  }
-  
-  .text-danger:before {
-    content: "✗ ";
-  }
+    .password-requirements li {
+        list-style: none;
+        margin-bottom: 0.25rem;
+    }
+
+    .password-requirements li:before {
+        content: "• ";
+        margin-right: 0.5rem;
+    }
+
+    .text-success:before {
+        content: "✓ ";
+    }
+
+    .text-danger:before {
+        content: "✗ ";
+    }
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/signup.js') }}"></script>
-{% endblock %} 
+{% endblock %}

@@ -1,12 +1,25 @@
 // Modal module for clergy forms and editing
 import { showNotification, showLoadingSpinner, hideLoadingSpinner, getCurrentClergyId } from './utils.js';
-import { setClergyInfoViewDistance } from './core.js';
+// DISABLED: setClergyInfoViewDistance - not used, was causing graph to shift
+// import { setClergyInfoViewDistance } from './core.js';
 import { setModalState, getModalState } from './ui.js';
 
 // Node click handler function
-export function handleNodeClick(event, d) {
+export async function handleNodeClick(event, d) {
   // Prevent click if node is filtered
   if (d.filtered) return;
+  
+  // Check if highlight mode is enabled
+  try {
+    const { isHighlightMode, highlightLineageChain } = await import('./highlightLineage.js');
+    if (isHighlightMode()) {
+      // Highlight the lineage chain
+      highlightLineageChain(d);
+      return; // Don't show panel in highlight mode
+    }
+  } catch (error) {
+    console.error('Error importing highlightLineage module:', error);
+  }
   
   // Store current clergy ID for relationship loading
   window.currentClergyId = d.id;
@@ -26,9 +39,10 @@ export function handleNodeClick(event, d) {
     updateClergyPanelContent(d);
     
     // Center the selected node in the viewport with a small delay to ensure aside is expanded
-    setTimeout(() => {
-      centerNodeInViewport(d);
-    }, 100);
+    // DISABLED: Node centering on click
+    // setTimeout(() => {
+    //   centerNodeInViewport(d);
+    // }, 100);
     
     // Load clergy relationships
     loadClergyRelationships(d.id);
@@ -139,6 +153,51 @@ function updateClergyPanelContent(d) {
   } else if (editBtn) {
     editBtn.style.display = 'none';
   }
+  
+  // Display status indicators
+  displayStatusIndicators(d);
+}
+
+// Function to display status indicators in the info panel
+function displayStatusIndicators(d) {
+  // Check if there's already a status container, or create one
+  let statusContainer = document.getElementById('clergy-status-indicators');
+  
+  if (!statusContainer) {
+    // Create the status container after the image
+    const asideContent = document.querySelector('.aside-content');
+    const imageContainer = document.querySelector('.clergy-image-container');
+    
+    if (asideContent && imageContainer) {
+      statusContainer = document.createElement('div');
+      statusContainer.id = 'clergy-status-indicators';
+      statusContainer.className = 'status-indicators-panel';
+      imageContainer.parentNode.insertBefore(statusContainer, imageContainer.nextSibling);
+    }
+  }
+  
+  if (!statusContainer) return;
+  
+  // Clear existing content
+  statusContainer.innerHTML = '';
+  
+  // Check if clergy has statuses
+  if (!d.statuses || d.statuses.length === 0) {
+    statusContainer.style.display = 'none';
+    return;
+  }
+  
+  statusContainer.style.display = 'block';
+  
+  // Create status badges
+  const badgesHTML = d.statuses.map(status => `
+    <div class="status-badge-item" title="${status.description || status.name}">
+      <i class="fas ${status.icon}" style="color: ${status.color};"></i>
+      <span>${status.name}</span>
+    </div>
+  `).join('');
+  
+  statusContainer.innerHTML = badgesHTML;
 }
 
 // Function to load clergy relationships

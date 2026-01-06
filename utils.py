@@ -1,6 +1,7 @@
 from functools import wraps
 import re
 import json
+from urllib.parse import urlparse
 from flask import request, redirect, url_for, flash, session, jsonify
 from models import db, AuditLog, User
 
@@ -144,3 +145,38 @@ def validate_password(password):
     if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
         return False, "Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)"
     return True, "Password meets all requirements"
+
+def is_safe_redirect_url(url):
+    """
+    Validate that a redirect URL is safe to use.
+    Only allows relative URLs (starting with /) or URLs from the same host.
+    
+    Args:
+        url: The URL to validate
+        
+    Returns:
+        bool: True if the URL is safe, False otherwise
+    """
+    if not url:
+        return False
+    
+    # Parse the URL
+    parsed = urlparse(url)
+    
+    # Allow relative URLs (no netloc and starts with /)
+    if not parsed.netloc and url.startswith('/'):
+        return True
+    
+    # For absolute URLs, check if they're from the same host
+    if parsed.netloc:
+        # Get the current request's host
+        current_host = request.host if request else None
+        if current_host:
+            # Compare hosts (handle port differences)
+            redirect_host = parsed.netloc.split(':')[0]
+            current_host_no_port = current_host.split(':')[0]
+            if redirect_host == current_host_no_port:
+                return True
+    
+    # Reject all other URLs (external domains, javascript:, data:, etc.)
+    return False

@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from utils import getContrastColor, getBorderStyle, from_json
 from routes.settings import settings_bp
 from routes.metadata import metadata_bp
+from routes.wiki import wiki_bp
 from flask_migrate import Migrate
 from sqlalchemy import inspect
 from urllib.parse import urlparse, urlunparse
@@ -163,6 +164,7 @@ app.register_blueprint(main_bp)
 app.register_blueprint(editor_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(metadata_bp)
+app.register_blueprint(wiki_bp)
 
 app.jinja_env.globals['getContrastColor'] = getContrastColor
 app.jinja_env.globals['getBorderStyle'] = getBorderStyle

@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, flash, session
 from models import db, User, Role
-from utils import validate_password
+from utils import validate_password, is_safe_redirect_url
 from datetime import datetime
 
 def signup_handler():
@@ -84,9 +84,17 @@ def login_handler():
             user.last_login = datetime.utcnow()
             db.session.commit()
             flash(f'Welcome back, {username}!', 'success')
+            
+            # Validate and get safe redirect URL
+            next_url = request.args.get('next')
+            if next_url and is_safe_redirect_url(next_url):
+                safe_redirect = next_url
+            else:
+                safe_redirect = url_for('editor.editor')
+            
             if request.headers.get('HX-Request'):
-                return user, render_template('login_spinner.html', redirect_url=url_for('editor.editor'))
-            return user, redirect(url_for('editor.editor'))
+                return user, render_template('login_spinner.html', redirect_url=safe_redirect)
+            return user, redirect(safe_redirect)
         else:
             flash('Invalid username or password.', 'error')
             if request.headers.get('HX-Request'):

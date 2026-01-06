@@ -126,12 +126,28 @@
             </div>
             
             <!-- Status Indicators -->
-            <div style="margin-left: 0.5em; display: flex; flex-direction: column; gap: 0.25em;">
-                {% if clergy.ordinations %}
-                <div style="width: 8px; height: 8px; background: #000000; border-radius: 50%;" title="Has Ordinations"></div>
-                {% endif %}
-                {% if clergy.consecrations %}
-                <div style="width: 8px; height: 8px; background: #27ae60; border-radius: 50%;" title="Has Consecrations"></div>
+            <div style="margin-left: 0.5em; display: flex; align-items: center; gap: 0.4em;">
+                <!-- Ordination/Consecration indicators -->
+                <div style="display: flex; flex-direction: column; gap: 0.25em;">
+                    {% if clergy.ordinations %}
+                    <div style="width: 8px; height: 8px; background: #000000; border-radius: 50%;" title="Has Ordinations"></div>
+                    {% endif %}
+                    {% if clergy.consecrations %}
+                    <div style="width: 8px; height: 8px; background: #27ae60; border-radius: 50%;" title="Has Consecrations"></div>
+                    {% endif %}
+                </div>
+                <!-- Clergy Status Badges -->
+                {% if clergy.statuses %}
+                <div class="clergy-status-badges">
+                    {% for status in clergy.statuses[:3] %}
+                    <div class="clergy-status-badge" style="background: {{ status.color }};" title="{{ status.name }}: {{ status.description }}">
+                        <i class="fas {{ status.icon }}"></i>
+                    </div>
+                    {% endfor %}
+                    {% if clergy.statuses|length > 3 %}
+                    <span class="clergy-status-more" title="{{ clergy.statuses|length - 3 }} more status(es)">+{{ clergy.statuses|length - 3 }}</span>
+                    {% endif %}
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -320,14 +336,14 @@ function selectClergyFromList(clergyId) {
     if (typeof window.selectClergy === 'function') {
         window.selectClergy(clergyId);
     } else {
-        // Fallback: load form directly
+        // Fallback: load form content directly (skip intermediate template)
         if (clergyId) {
-            htmx.ajax('GET', `/editor/clergy-form/${clergyId}`, {
+            htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
                 target: '.right-panel .panel-content',
                 swap: 'innerHTML'
             });
         } else {
-            htmx.ajax('GET', '/editor/clergy-form', {
+            htmx.ajax('GET', '/editor/clergy-form-content', {
                 target: '.right-panel .panel-content',
                 swap: 'innerHTML'
             });

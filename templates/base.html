@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,15 +8,15 @@
     <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/imageEditor.css') }}" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     {% block extra_styles %}{% endblock %}
 </head>
+
 <body>
+    {% block navbar %}
     {% include 'navbar.html' %}
+    {% endblock %}
     {% block full_content %}
     <div class="container">
         <div class="row justify-content-center align-items-center min-vh-100">
@@ -25,10 +26,10 @@
         </div>
     </div>
     {% endblock %}
-    
+
     <!-- Include flash messages as sliding notifications -->
     {% include 'flash_messages.html' %}
-    
+
     <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/imageEditor.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dragDropUpload.js') }}"></script>
@@ -36,16 +37,16 @@
     <script src="{{ url_for('static', filename='js/geocoding.js') }}"></script>
     <script>
         // Notification system for sliding alerts
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Show notifications with animation
             const notifications = document.querySelectorAll('.notification');
-            notifications.forEach(function(notification, index) {
-                setTimeout(function() {
+            notifications.forEach(function (notification, index) {
+                setTimeout(function () {
                     notification.classList.add('show');
                 }, index * 100);
-                
+
                 // Auto-dismiss after 3 seconds
-                setTimeout(function() {
+                setTimeout(function () {
                     dismissNotification(notification.querySelector('.notification-close'));
                 }, 3000 + (index * 100));
             });
@@ -56,34 +57,35 @@
             const notification = closeButton.closest('.notification');
             if (notification) {
                 notification.classList.add('hide');
-                setTimeout(function() {
+                setTimeout(function () {
                     notification.remove();
                 }, 300);
             }
         }
 
         // HTMX event handlers
-        document.body.addEventListener('htmx:afterRequest', function(evt) {
+        document.body.addEventListener('htmx:afterRequest', function (evt) {
             // Handle any new notifications that might be added via HTMX
             const newNotifications = document.querySelectorAll('.notification:not(.show)');
-            newNotifications.forEach(function(notification, index) {
-                setTimeout(function() {
+            newNotifications.forEach(function (notification, index) {
+                setTimeout(function () {
                     notification.classList.add('show');
                 }, index * 100);
-                
+
                 // Auto-dismiss after 3 seconds
-                setTimeout(function() {
+                setTimeout(function () {
                     dismissNotification(notification.querySelector('.notification-close'));
                 }, 3000 + (index * 100));
             });
         });
 
         // Handle form validation errors
-        document.body.addEventListener('htmx:responseError', function(evt) {
+        document.body.addEventListener('htmx:responseError', function (evt) {
             console.log('HTMX Error:', evt.detail);
         });
     </script>
     {% block scripts %}{% endblock %}
     {% block extra_scripts %}{% endblock %}
 </body>
-</html> 
+
+</html>

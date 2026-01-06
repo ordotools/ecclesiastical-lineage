@@ -189,7 +189,43 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // Ensure the form submission handler is available
+    if (typeof handleLocationFormSubmit === 'undefined') {
+        console.warn('handleLocationFormSubmit function not found. Make sure locationForm.js is loaded.');
+    }
+    
+    // Add a small visual indicator for pastor creation
+    const pastorInput = document.getElementById('pastor_name');
+    if (pastorInput) {
+        // Add a subtle hint about auto-creation
+        const pastorLabel = document.querySelector('label[for="pastor_name"]');
+        if (pastorLabel) {
+            const hint = document.createElement('small');
+            hint.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 0.75em; margin-top: 0.2em; font-style: italic;';
+            hint.textContent = 'Note: If the pastor is not in our database, a new clergy record will be created automatically.';
+            pastorLabel.parentNode.insertBefore(hint, pastorInput);
+        }
+    }
 });
+
+// Function to show success message (fallback if not available globally)
+function showSuccessMessage(message) {
+    if (typeof showNotification === 'function') {
+        showNotification(message, 'success');
+    } else {
+        alert(message);
+    }
+}
+
+// Function to show error message (fallback if not available globally)
+function showErrorMessage(message) {
+    if (typeof showNotification === 'function') {
+        showNotification(message, 'error');
+    } else {
+        alert(message);
+    }
+}
 </script>
 
 <!-- Location form panel - JavaScript will be loaded by main editor page -->

@@ -78,7 +78,16 @@ else
     exit 1
 fi
 
-# Step 4: Run database migration using Flask-Migrate
+# Step 4: Fix Flask-Migrate state properly
+print_status "🔧 Fixing Flask-Migrate state properly..."
+if python3 scripts/migration/fix_flask_migrate_properly.py; then
+    print_success "✅ Flask-Migrate state fixed properly!"
+else
+    print_error "❌ Failed to fix Flask-Migrate state!"
+    exit 1
+fi
+
+# Step 5: Run database migration using Flask-Migrate
 print_status "🗄️  Running Flask-Migrate database migration..."
 if python3 -c "
 import os
@@ -108,7 +117,7 @@ else
     exit 1
 fi
 
-# Step 5: Verify database is ready
+# Step 6: Verify database is ready
 print_status "🔍 Verifying database..."
 python3 -c "
 import os
@@ -182,7 +191,7 @@ else
     exit 1
 fi
 
-# Step 6: Start the application
+# Step 7: Start the application
 print_status "🌐 Starting STAGING application..."
 print_success "✅ STAGING deployment completed successfully!"
 echo ""

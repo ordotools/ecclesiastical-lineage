@@ -1,29 +1,30 @@
 <!-- Globe View Panel Content -->
+{% include '_custom_styles.html' %}
 {% if error_message %}
 <div style="padding: 2em; text-align: center; color: rgba(255, 100, 100, 0.9); background: #1a1a1a;">
     <i class="fas fa-exclamation-triangle" style="font-size: 2em; margin-bottom: 0.5em;"></i>
     <div>{{ error_message }}</div>
 </div>
 {% else %}
-        <div id="globe-container" style="width: 100%; height: 100%; position: relative; background: #000011; overflow: hidden;">
-            <!-- Globe will be rendered here by D3.js -->
-            
-            <!-- Mobile control buttons -->
-            <div class="globe-controls-mobile" style="display: none;">
-                <button class="globe-control-btn" id="reset-zoom-mobile" title="Reset View">
-                    <i class="fas fa-home"></i>
-                </button>
-                <button class="globe-control-btn" id="center-graph-mobile" title="Center Globe">
-                    <i class="fas fa-crosshairs"></i>
-                </button>
-                <button class="globe-control-btn" id="zoom-in-mobile" title="Zoom In">
-                    <i class="fas fa-plus"></i>
-                </button>
-                <button class="globe-control-btn" id="zoom-out-mobile" title="Zoom Out">
-                    <i class="fas fa-minus"></i>
-                </button>
-            </div>
-        </div>
+<div id="globe-container" style="width: 100%; height: 100%; position: relative; background: #000011; overflow: hidden;">
+    <!-- Globe will be rendered here by D3.js -->
+
+    <!-- Mobile control buttons -->
+    <div class="globe-controls-mobile" style="display: none;">
+        <button class="globe-control-btn" id="reset-zoom-mobile" title="Reset View">
+            <i class="fas fa-home"></i>
+        </button>
+        <button class="globe-control-btn" id="center-graph-mobile" title="Center Globe">
+            <i class="fas fa-crosshairs"></i>
+        </button>
+        <button class="globe-control-btn" id="zoom-in-mobile" title="Zoom In">
+            <i class="fas fa-plus"></i>
+        </button>
+        <button class="globe-control-btn" id="zoom-out-mobile" title="Zoom Out">
+            <i class="fas fa-minus"></i>
+        </button>
+    </div>
+</div>
 
 <!-- Include necessary scripts for globe functionality -->
 <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
@@ -33,19 +34,20 @@
 <script src="{{ url_for('static', filename='js/chapelView.js') }}"></script>
 
 <script>
-(function() {
-    console.log('Globe view template script starting...');
-    
-    // Data from the server
-    const nodesData = {{ nodes_json | safe }};
+    (function () {
+        console.log('Globe view template script starting...');
+
+        // Data from the server
+        const nodesData = {{ nodes_json | safe
+    }};
     const linksData = {{ links_json | safe }};
-    
+
     // Make location data available globally for the globe visualization
     window.nodesData = nodesData;
     window.linksData = linksData;
-    
+
     console.log('Globe view - Location data:', nodesData.length, 'Links data:', linksData.length);
-    
+
     // Wait for the script to load and then initialize
     function waitForScriptAndInitialize() {
         if (typeof window.ChapelViewVisualization === 'undefined') {
@@ -53,9 +55,9 @@
             setTimeout(waitForScriptAndInitialize, 100);
             return;
         }
-        
+
         console.log('Script loaded, initializing globe view...');
-        
+
         // Cleanup existing globe visualization on panel reload
         if (window.geographicVisualization) {
             console.log('Cleaning up existing globe visualization...');
@@ -64,40 +66,40 @@
             }
             window.geographicVisualization = null;
         }
-        
+
         // Initialize the globe visualization with async organization color loading
         window.geographicVisualization = new ChapelViewVisualization();
         // Don't call init() directly - the constructor calls initAsync() which loads organization colors first
-        
+
         // Setup mobile controls
         setupMobileControls();
-        
+
         // The globe visualization already displays location markers, so no need for chapel overlay
         console.log('Globe view initialized successfully with', nodesData.length, 'chapel locations');
     }
-    
+
     // Setup mobile controls
     function setupMobileControls() {
         // Show mobile controls on mobile devices
         function checkMobileAndShowControls() {
             const isMobile = window.innerWidth <= 768;
             const mobileControls = document.querySelector('.globe-controls-mobile');
-            
+
             if (mobileControls) {
                 mobileControls.style.display = isMobile ? 'flex' : 'none';
             }
         }
-        
+
         // Check on load and resize
         checkMobileAndShowControls();
         window.addEventListener('resize', checkMobileAndShowControls);
-        
+
         // Add event listeners for mobile control buttons
         const resetBtn = document.getElementById('reset-zoom-mobile');
         const centerBtn = document.getElementById('center-graph-mobile');
         const zoomInBtn = document.getElementById('zoom-in-mobile');
         const zoomOutBtn = document.getElementById('zoom-out-mobile');
-        
+
         if (resetBtn) {
             resetBtn.addEventListener('click', () => {
                 if (window.geographicVisualization) {
@@ -105,7 +107,7 @@
                 }
             });
         }
-        
+
         if (centerBtn) {
             centerBtn.addEventListener('click', () => {
                 if (window.geographicVisualization) {
@@ -113,7 +115,7 @@
                 }
             });
         }
-        
+
         if (zoomInBtn) {
             zoomInBtn.addEventListener('click', () => {
                 if (window.geographicVisualization) {
@@ -124,7 +126,7 @@
                 }
             });
         }
-        
+
         if (zoomOutBtn) {
             zoomOutBtn.addEventListener('click', () => {
                 if (window.geographicVisualization) {
@@ -136,9 +138,9 @@
             });
         }
     }
-    
+
     // Start waiting for the script
     waitForScriptAndInitialize();
-})();
+}) ();
 </script>
 {% endif %}

@@ -175,6 +175,36 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Row 10: Status Indicators Section (spans 2 columns) -->
+                    {% if fields.statuses %}
+                    <div id="statusField" class="form-section" style="grid-column: 1 / -1;">
+                        <h5 style="margin: 0 0 0.75em 0; color: rgba(255, 255, 255, 0.9); font-size: 0.9em; font-weight: 500;">
+                            <i class="fas fa-flag"></i> Status Indicators
+                        </h5>
+                        <div style="padding: 1em; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; background: rgba(255, 255, 255, 0.03);">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75em;">
+                                {% for status in fields.statuses %}
+                                <div class="status-toggle-item" style="display: flex; align-items: center; gap: 0.5em; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; background: rgba(255, 255, 255, 0.03);">
+                                    <input type="checkbox" 
+                                           id="status_{{ status.id }}" 
+                                           name="status_ids[]" 
+                                           value="{{ status.id }}"
+                                           {% if edit_mode and clergy and status in clergy.statuses %}checked{% endif %}
+                                           style="margin: 0; cursor: pointer;">
+                                    <label for="status_{{ status.id }}" style="margin: 0; cursor: pointer; display: flex; align-items: center; gap: 0.4em; flex: 1; color: rgba(255, 255, 255, 0.9); font-size: 0.85em;">
+                                        <i class="fas {{ status.icon }}" style="color: {{ status.color }}; font-size: 0.9em;"></i>
+                                        <span>{{ status.name|title }}</span>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <small style="display: block; margin-top: 0.75em; font-size: 0.75em; color: rgba(255, 255, 255, 0.6);">
+                                <i class="fas fa-info-circle"></i> Select any applicable status indicators for this clergy member. Multiple statuses can be selected.
+                            </small>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -344,14 +374,18 @@ function isClergySwitching() {
     
     {% if edit_mode and clergy %}
     const newClergyId = {{ clergy.id }};
-    if (window.currentClergyId !== newClergyId) {
+    const oldClergyId = window.currentClergyId;
+    const isSwitching = window.currentClergyId !== newClergyId;
+    if (isSwitching) {
         window.currentClergyId = newClergyId;
         return true;
     }
     return false;
     {% else %}
     // For new clergy (not edit mode), always reset
-    if (window.currentClergyId !== null) {
+    const oldClergyId = window.currentClergyId;
+    const isSwitching = window.currentClergyId !== null;
+    if (isSwitching) {
         window.currentClergyId = null;
         return true;
     }
@@ -364,7 +398,8 @@ function initializeFormFromRank() {
     console.log('🔧 INIT: initializeFormFromRank called');
     
     // Only reset population flags if we're switching to a different clergy record
-    if (isClergySwitching()) {
+    const switching = isClergySwitching();
+    if (switching) {
         console.log('🔧 INIT: Switching clergy, resetting population flags');
         resetPopulationFlags();
     }
@@ -764,6 +799,50 @@ function attachRankChangeListener() {
 
 // Attach rank change listener immediately
 attachRankChangeListener();
+
+// Auto-toggle "deceased" status based on date of death
+(function() {
+    const dateOfDeathInput = document.getElementById('date_of_death');
+    if (dateOfDeathInput) {
+        // Function to find and toggle the deceased status checkbox
+        function updateDeceasedStatus() {
+            // Find the deceased status checkbox
+            // We need to search through all status checkboxes to find the one for "deceased"
+            const statusCheckboxes = document.querySelectorAll('input[name="status_ids[]"]');
+            let deceasedCheckbox = null;
+            
+            statusCheckboxes.forEach(checkbox => {
+                const label = document.querySelector(`label[for="${checkbox.id}"]`);
+                if (label && label.textContent.trim().toLowerCase() === 'deceased') {
+                    deceasedCheckbox = checkbox;
+                }
+            });
+            
+            if (deceasedCheckbox) {
+                // If there's a date of death, check the deceased status
+                // If there's no date of death, uncheck it
+                if (dateOfDeathInput.value && dateOfDeathInput.value.trim() !== '') {
+                    deceasedCheckbox.checked = true;
+                    console.log('Auto-checked deceased status due to date of death:', dateOfDeathInput.value);
+                } else {
+                    deceasedCheckbox.checked = false;
+                    console.log('Auto-unchecked deceased status (no date of death)');
+                }
+            } else {
+                console.warn('Deceased status checkbox not found');
+            }
+        }
+        
+        // Listen for changes to the date of death field
+        dateOfDeathInput.addEventListener('change', updateDeceasedStatus);
+        dateOfDeathInput.addEventListener('input', updateDeceasedStatus);
+        
+        // Also check on page load
+        setTimeout(updateDeceasedStatus, 100);
+        
+        console.log('✅ Auto-deceased status listener attached');
+    }
+})();
 
 // Initial layout adjustment
 document.addEventListener('DOMContentLoaded', function() {

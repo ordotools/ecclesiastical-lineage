@@ -1,9 +1,36 @@
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response
-from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordination, Consecration
+from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordination, Consecration, Status, clergy_statuses
 from utils import log_audit_event
 from datetime import datetime
 import json
 from .image_upload import get_image_upload_service
+
+
+def _regenerate_sprite_sheet():
+    """Helper function to regenerate the sprite sheet after clergy changes"""
+    try:
+        image_upload_service = get_image_upload_service()
+        if not image_upload_service.backblaze_configured:
+            return
+        
+        # Get all active clergy (include ALL clergy, placeholders will be used for those without images)
+        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+        
+        if not all_clergy:
+            return
+        
+        # Create sprite sheet (this will save to database and mark old ones as not current)
+        # Placeholders will be automatically added for clergy without images
+        result = image_upload_service.create_sprite_sheet(all_clergy)
+        
+        if result['success']:
+            print(f"Sprite sheet regenerated: {result['url']} (saved to database)")
+        else:
+            print(f"Failed to regenerate sprite sheet: {result.get('error', 'Unknown error')}")
+    except Exception as e:
+        print(f"Error in sprite sheet regeneration: {e}")
+        import traceback
+        traceback.print_exc()
 
 def set_clergy_display_name(clergy):
     """Set the display name for a clergy member based on their rank and papal name."""
@@ -122,7 +149,28 @@ def create_clergy_from_form(form):
     create_ordinations_from_form(clergy, form)
     create_consecrations_from_form(clergy, form)
     
+    # Handle status indicators
+    status_ids = form.getlist('status_ids[]') or form.getlist('status_ids')
+    if status_ids:
+        # Convert to integers and add statuses
+        for status_id in status_ids:
+            if status_id:  # Skip empty values
+                try:
+                    status = Status.query.get(int(status_id))
+                    if status:
+                        clergy.statuses.append(status)
+                except (ValueError, TypeError):
+                    pass  # Skip invalid status IDs
+    
     db.session.commit()
+    
+    # Generate sprite sheet after successful save
+    try:
+        _regenerate_sprite_sheet()
+    except Exception as e:
+        print(f"Warning: Failed to regenerate sprite sheet: {e}")
+        # Don't fail the form submission if sprite generation fails
+    
     return clergy
 
 def create_ordinations_from_form(clergy, form):
@@ -597,6 +645,19 @@ def edit_clergy_handler(clergy_id):
                 update_ordinations_from_form(clergy, request.form)
                 update_consecrations_from_form(clergy, request.form)
                 
+                # Handle status indicators
+                status_ids = request.form.getlist('status_ids[]') or request.form.getlist('status_ids')
+                clergy.statuses = []  # Clear existing statuses
+                if status_ids:
+                    for status_id in status_ids:
+                        if status_id:  # Skip empty values
+                            try:
+                                status = Status.query.get(int(status_id))
+                                if status:
+                                    clergy.statuses.append(status)
+                            except (ValueError, TypeError):
+                                pass  # Skip invalid status IDs
+                
                 # Handle soft delete
                 mark_deleted = request.form.get('mark_deleted') == '1'
                 if mark_deleted and not clergy.is_deleted:
@@ -607,6 +668,14 @@ def edit_clergy_handler(clergy_id):
                     clergy.deleted_at = None
                 
                 db.session.commit()
+                
+                # Generate sprite sheet after successful save
+                try:
+                    _regenerate_sprite_sheet()
+                except Exception as e:
+                    print(f"Warning: Failed to regenerate sprite sheet: {e}")
+                    # Don't fail the form submission if sprite generation fails
+                
                 log_audit_event(
                     action='update',
                     entity_type='clergy',
@@ -1001,4 +1070,58 @@ def get_filtered_bishops_handler():
         for bishop in filtered_bishops
     ]
     
-    return jsonify({'bishops': bishops_data}) 
+    return jsonify({'bishops': bishops_data})
+
+def get_all_statuses():
+    """Retrieve all status definitions"""
+    return Status.query.order_by(Status.badge_position, Status.name).all()
+
+def update_clergy_statuses(clergy_id, status_ids, user_id=None):
+    """Update clergy statuses (many-to-many relationship)
+    
+    Args:
+        clergy_id: ID of the clergy member
+        status_ids: List of status IDs to assign
+        user_id: ID of the user making the change (optional)
+    """
+    clergy = Clergy.query.get(clergy_id)
+    if not clergy:
+        return False
+    
+    # Clear existing statuses
+    clergy.statuses = []
+    
+    # Add new statuses
+    if status_ids:
+        for status_id in status_ids:
+            status = Status.query.get(status_id)
+            if status:
+                clergy.statuses.append(status)
+    
+    db.session.commit()
+    return True
+
+def get_clergy_statuses(clergy_id):
+    """Get clergy's current statuses
+    
+    Args:
+        clergy_id: ID of the clergy member
+        
+    Returns:
+        List of status dictionaries with id, name, icon, color, position
+    """
+    clergy = Clergy.query.get(clergy_id)
+    if not clergy:
+        return []
+    
+    return [
+        {
+            'id': status.id,
+            'name': status.name,
+            'description': status.description,
+            'icon': status.icon,
+            'color': status.color,
+            'badge_position': status.badge_position
+        }
+        for status in clergy.statuses
+    ] 

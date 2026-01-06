@@ -28,9 +28,15 @@ var INNER_RADIUS = window.INNER_RADIUS;
 var IMAGE_SIZE = window.IMAGE_SIZE;
 var LABEL_DY = window.LABEL_DY;
 
-// Get color constants from CSS variables
-var GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim() || '#27ae60';
-var BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-black').trim() || '#000000';
+// Get color constants from CSS variables (set dynamically from constants.js)
+// Fallback to reading CSS variables which are set from constants.js module
+var GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim();
+var BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-black').trim();
+
+// If CSS variables aren't set yet (race condition), use hardcoded fallback
+// These should match constants.js
+if (!GREEN_COLOR) GREEN_COLOR = '#11451e';
+if (!BLACK_COLOR) BLACK_COLOR = '#1c1c1c';
 
 // Prevent duplicate class declarations
 if (typeof window.EditorVisualization === 'undefined') {
@@ -159,9 +165,11 @@ class EditorVisualization {
         });
     }
 
-    renderVisualization() {
-        // Add arrow markers - matching lineage visualization
-        this.g.append('defs').selectAll('marker')
+    async renderVisualization() {
+        // Add arrow markers and filters - matching lineage visualization
+        const defs = this.g.append('defs');
+        
+        defs.selectAll('marker')
             .data(['arrowhead-black', 'arrowhead-green'])
             .enter().append('marker')
             .attr('id', d => d)
@@ -174,6 +182,83 @@ class EditorVisualization {
             .append('path')
             .attr('d', 'M0,-5L10,0L0,5')
             .attr('fill', d => d === 'arrowhead-black' ? BLACK_COLOR : GREEN_COLOR);
+
+        // Load sprite sheet and create patterns
+        let spriteSheetData = null;
+        try {
+            const spriteResponse = await fetch('/api/sprite-sheet');
+            if (spriteResponse.ok) {
+                const contentType = spriteResponse.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await spriteResponse.text();
+                    console.warn('Sprite sheet endpoint returned non-JSON response:', contentType, text.substring(0, 200));
+                    throw new Error('Invalid response type');
+                }
+                spriteSheetData = await spriteResponse.json();
+                if (spriteSheetData && spriteSheetData.success) {
+                    const thumbnailSize = spriteSheetData.thumbnail_size || 48;
+                    const spriteUrl = spriteSheetData.url;
+                    const mapping = spriteSheetData.mapping || {};
+                    
+                    // Create clipPaths for each clergy member that has a position in the sprite sheet
+                    // We'll use direct image elements with clipPaths instead of patterns to prevent tiling
+                    this.nodesData.forEach((d) => {
+                        // Try both string and number keys since JSON might convert keys
+                        const position = mapping[d.id] || mapping[String(d.id)] || mapping[Number(d.id)];
+                        
+                        if (position && Array.isArray(position) && position.length === 2) {
+                            // Create a circular clipPath for the node image (works for both real images and placeholders)
+                            const clipId = `clip-avatar-${d.id}`;
+                            const clipPath = defs.append('clipPath')
+                                .attr('id', clipId);
+                            clipPath.append('circle')
+                                .attr('r', IMAGE_SIZE/2)
+                                .attr('cx', 0)
+                                .attr('cy', 0);
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to load sprite sheet, falling back to individual images:', error);
+            if (error.message) {
+                console.warn('Error details:', error.message);
+            }
+        }
+
+        // Add filter for inset shadow on images
+        const filter = defs.append('filter')
+            .attr('id', 'image-inset-shadow')
+            .attr('x', '-50%')
+            .attr('y', '-50%')
+            .attr('width', '200%')
+            .attr('height', '200%');
+        
+        filter.append('feGaussianBlur')
+            .attr('in', 'SourceAlpha')
+            .attr('stdDeviation', '3')
+            .attr('result', 'blur');
+        
+        filter.append('feOffset')
+            .attr('in', 'blur')
+            .attr('dx', '4')
+            .attr('dy', '4')
+            .attr('result', 'offsetBlur');
+        
+        filter.append('feFlood')
+            .attr('flood-color', 'rgba(0, 0, 0, 0.15)')
+            .attr('result', 'flood');
+        
+        filter.append('feComposite')
+            .attr('in', 'flood')
+            .attr('in2', 'offsetBlur')
+            .attr('operator', 'in')
+            .attr('result', 'shadow');
+        
+        filter.append('feComposite')
+            .attr('in', 'SourceGraphic')
+            .attr('in2', 'shadow')
+            .attr('operator', 'over');
 
         // Process parallel links - matching lineage visualization
         this.processParallelLinks();
@@ -222,18 +307,101 @@ class EditorVisualization {
             .attr('cx', 0)
             .attr('cy', 0);
 
-        // Add clergy images with proper clipping - matching lineage visualization
-        this.node.append('image')
-            .attr('xlink:href', d => d.image_url || '')
-            .attr('x', -IMAGE_SIZE/2)
-            .attr('y', -IMAGE_SIZE/2)
-            .attr('width', IMAGE_SIZE)
-            .attr('height', IMAGE_SIZE)
-            .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`)
-            .style('opacity', d => d.image_url ? 1 : 0)
-            .on('error', function() {
-                d3.select(this).style('opacity', 0);
-            });
+        // Add white background circle for images (will be updated after sprite sheet loads)
+        const bgCircle = this.node.append('circle')
+            .attr('r', IMAGE_SIZE/2)
+            .attr('fill', 'rgba(255, 255, 255, 1)')
+            .attr('cx', 0)
+            .attr('cy', 0)
+            .style('opacity', d => d.image_url ? 1 : 0);
+
+        // Add border circle for images (will be updated after sprite sheet loads)
+        const borderCircle = this.node.append('circle')
+            .attr('r', IMAGE_SIZE/2)
+            .attr('fill', 'none')
+            .attr('stroke', 'rgba(0, 0, 0, 1)')
+            .attr('stroke-width', '1px')
+            .attr('cx', 0)
+            .attr('cy', 0)
+            .style('opacity', d => d.image_url ? 1 : 0);
+
+        // Add clergy images with sprite sheet or fallback to individual images
+        if (spriteSheetData && spriteSheetData.success) {
+            // Use sprite sheet with direct image elements and clipPaths
+            // Show sprite for ALL clergy that have a position in the mapping (including placeholders)
+            this.node.append('image')
+                .attr('xlink:href', d => {
+                    if (spriteSheetData.mapping) {
+                        const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
+                        if (position && Array.isArray(position) && position.length === 2) {
+                            return spriteSheetData.url;
+                        }
+                    }
+                    return '';
+                })
+                .attr('x', d => {
+                    if (spriteSheetData.mapping) {
+                        const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
+                        if (position && Array.isArray(position) && position.length === 2) {
+                            const [x] = position;
+                            // Position image so the sprite thumbnail is centered at node (0,0)
+                            return -x - IMAGE_SIZE/2;
+                        }
+                    }
+                    return 0;
+                })
+                .attr('y', d => {
+                    if (spriteSheetData.mapping) {
+                        const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
+                        if (position && Array.isArray(position) && position.length === 2) {
+                            const [, y] = position;
+                            // Position image so the sprite thumbnail is centered at node (0,0)
+                            return -y - IMAGE_SIZE/2;
+                        }
+                    }
+                    return 0;
+                })
+                .attr('width', spriteSheetData.sprite_width)
+                .attr('height', spriteSheetData.sprite_height)
+                .attr('clip-path', d => {
+                    if (spriteSheetData.mapping) {
+                        const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
+                        if (position && Array.isArray(position) && position.length === 2) {
+                            return `url(#clip-avatar-${d.id})`;
+                        }
+                    }
+                    return 'none';
+                })
+                .attr('preserveAspectRatio', 'none')
+                .style('pointer-events', 'none') // Make sprite images unclickable so they don't interfere with node interactions
+                .style('opacity', d => {
+                    if (spriteSheetData.mapping) {
+                        const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
+                        if (position && Array.isArray(position) && position.length === 2) {
+                            // Update background and border circles to show for nodes with sprite positions (including placeholders)
+                            bgCircle.filter(node => node.id === d.id).style('opacity', 1);
+                            borderCircle.filter(node => node.id === d.id).style('opacity', 1);
+                            return 1;
+                        }
+                    }
+                    return 0;
+                });
+        } else {
+            // Fallback to individual images
+            this.node.append('image')
+                .attr('xlink:href', d => d.image_url || '')
+                .attr('x', -IMAGE_SIZE/2)
+                .attr('y', -IMAGE_SIZE/2)
+                .attr('width', IMAGE_SIZE)
+                .attr('height', IMAGE_SIZE)
+                .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`)
+                .attr('filter', 'url(#image-inset-shadow)')
+                .style('pointer-events', 'none') // Make images unclickable so they don't interfere with node interactions
+                .style('opacity', d => d.image_url ? 1 : 0)
+                .on('error', function() {
+                    d3.select(this).style('opacity', 0);
+                });
+        }
 
         // Add fallback placeholder icon when no image is available - matching lineage visualization
         this.node.append('text')
@@ -250,7 +418,7 @@ class EditorVisualization {
             .attr('dy', LABEL_DY)
             .attr('text-anchor', 'middle')
             .style('font-size', '12px')
-            .style('font-weight', 'bold')
+            .style('font-weight', '500')
             .style('pointer-events', 'none')
             .style('fill', '#ffffff')
             .style('filter', 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))')

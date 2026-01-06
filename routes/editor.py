@@ -2,7 +2,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from services import clergy as clergy_service
 from services.clergy import permanently_delete_clergy_handler
 from utils import audit_log, require_permission, log_audit_event
-from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite, Location
+from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite, Location, Status, ClergyEvent, SpriteSheet, ClergySpritePosition
+from constants import GREEN_COLOR, BLACK_COLOR
 from datetime import datetime
 from sqlalchemy import text
 import json
@@ -44,10 +45,10 @@ def chapel_list_panel():
     """HTMX endpoint for the left panel chapel list"""
     user = User.query.get(session['user_id']) if 'user_id' in session else None
     
-    # Get all active locations (chapels) from the database
+    # Get all active locations (chapels) from the database with organization relationship
     # Filter for church-related location types
     church_types = ['church', 'cathedral', 'chapel', 'monastery', 'seminary', 'abbey']
-    locations = Location.query.filter(
+    locations = Location.query.options(db.joinedload(Location.organization_obj)).filter(
         Location.is_active == True,
         Location.deleted == False,
         Location.location_type.in_(church_types)
@@ -146,7 +147,7 @@ def visualization_panel():
                         'source': ordination.ordaining_bishop.id,
                         'target': clergy.id,
                         'type': 'ordination',
-                        'color': '#000000',  # Black for ordinations
+                        'color': BLACK_COLOR,  # Black for ordinations
                         'date': ordination.date.isoformat() if ordination.date else None,
                         'is_sub_conditione': ordination.is_sub_conditione,
                         'is_doubtful': ordination.is_doubtful,
@@ -161,7 +162,7 @@ def visualization_panel():
                         'source': consecration.consecrator.id,
                         'target': clergy.id,
                         'type': 'consecration',
-                        'color': '#27ae60',  # Green for consecrations
+                        'color': GREEN_COLOR,  # Green for consecrations
                         'date': consecration.date.isoformat() if consecration.date else None,
                         'is_sub_conditione': consecration.is_sub_conditione,
                         'is_doubtful': consecration.is_doubtful,
@@ -247,6 +248,7 @@ def clergy_form_panel(clergy_id=None):
     # Get form data
     ranks = Rank.query.all()
     organizations = Organization.query.all()
+    statuses = Status.query.order_by(Status.badge_position, Status.name).all()
     
     # Debug: Log rank data
     print("=== RANK DEBUG ===")
@@ -256,13 +258,14 @@ def clergy_form_panel(clergy_id=None):
     
     # Create fields object for the form
     class FormFields:
-        def __init__(self, ranks, organizations):
+        def __init__(self, ranks, organizations, statuses):
             self.ranks = ranks
             self.organizations = organizations
+            self.statuses = statuses
             self.form_action = None
             self.cancel_url = None
     
-    fields = FormFields(ranks, organizations)
+    fields = FormFields(ranks, organizations, statuses)
     
     if clergy_id:
         # Edit mode - eagerly load ordination and consecration relationships
@@ -295,6 +298,7 @@ def clergy_form_content(clergy_id=None):
     # Get form data
     ranks = Rank.query.all()
     organizations = Organization.query.all()
+    statuses = Status.query.order_by(Status.badge_position, Status.name).all()
     
     # Debug: Log rank data
     print("=== RANK DEBUG (content) ===")
@@ -304,13 +308,14 @@ def clergy_form_content(clergy_id=None):
     
     # Create fields object for the form
     class FormFields:
-        def __init__(self, ranks, organizations):
+        def __init__(self, ranks, organizations, statuses):
             self.ranks = ranks
             self.organizations = organizations
+            self.statuses = statuses
             self.form_action = None
             self.cancel_url = None
     
-    fields = FormFields(ranks, organizations)
+    fields = FormFields(ranks, organizations, statuses)
     
     if clergy_id:
         # Edit mode - eagerly load ordination and consecration relationships
@@ -394,6 +399,180 @@ def audit_logs_check():
         'new_logs': logs_data,
         'count': len(logs_data)
     })
+
+@editor_bp.route('/editor/events')
+@require_permission('edit_clergy')
+def events_panel():
+    """HTMX endpoint for managing clergy events"""
+    user = User.query.get(session['user_id']) if 'user_id' in session else None
+    clergy_list = Clergy.query.filter(Clergy.is_deleted != True).order_by(Clergy.name).all()
+    selected_id = request.args.get('clergy_id', type=int)
+    clergy_options = [{
+        'id': clergy.id,
+        'name': clergy.name,
+        'rank': clergy.rank,
+        'organization': clergy.organization
+    } for clergy in clergy_list]
+    event_types_query = (
+        db.session.query(ClergyEvent.event_type)
+        .filter(ClergyEvent.event_type.isnot(None))
+        .distinct()
+        .order_by(ClergyEvent.event_type.asc())
+        .all()
+    )
+    event_types = [row[0] for row in event_types_query if row[0]]
+
+    selected_clergy = None
+    if selected_id:
+        selected_clergy = Clergy.query.get(selected_id)
+    if not selected_clergy and clergy_list:
+        selected_clergy = clergy_list[0]
+
+    events = []
+    if selected_clergy:
+        events = (ClergyEvent.query.filter_by(clergy_id=selected_clergy.id)
+                  .order_by(ClergyEvent.event_date.desc(),
+                            ClergyEvent.event_year.desc(),
+                            ClergyEvent.created_at.desc())
+                  .all())
+
+    return render_template(
+        'editor_panels/events.html',
+        user=user,
+        clergy_list=clergy_list,
+        selected_clergy=selected_clergy,
+        events=events,
+        clergy_options=clergy_options,
+        event_types=event_types
+    )
+
+@editor_bp.route('/editor/events/<int:clergy_id>/table')
+@require_permission('edit_clergy')
+def clergy_events_table(clergy_id):
+    """Return the event table for a given clergy member"""
+    clergy = Clergy.query.get_or_404(clergy_id)
+    events = (ClergyEvent.query.filter_by(clergy_id=clergy_id)
+              .order_by(ClergyEvent.event_date.desc(),
+                        ClergyEvent.event_year.desc(),
+                        ClergyEvent.created_at.desc())
+              .all())
+
+    return render_template(
+        'editor_panels/partials/clergy_events_table.html',
+        clergy=clergy,
+        events=events
+    )
+
+@editor_bp.route('/editor/events/add', methods=['POST'])
+@require_permission('edit_clergy')
+def add_clergy_event():
+    """Create a new event tied to a clergy member"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'You must be logged in to add events.'}), 401
+
+    try:
+        clergy_id = int(request.form.get('clergy_id', 0))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Invalid clergy selection.'}), 400
+
+    clergy = Clergy.query.get(clergy_id)
+    if not clergy or clergy.is_deleted:
+        return jsonify({'success': False, 'message': 'Selected clergy member was not found.'}), 404
+
+    title = (request.form.get('title') or '').strip()
+    if not title:
+        return jsonify({'success': False, 'message': 'Event title is required.'}), 400
+
+    event_type = (request.form.get('event_type') or '').strip() or None
+    description = (request.form.get('description') or '').strip() or None
+    event_date_value = (request.form.get('event_date') or '').strip()
+    event_year_value = (request.form.get('event_year') or '').strip()
+    event_end_date_value = (request.form.get('event_end_date') or '').strip()
+    event_end_year_value = (request.form.get('event_end_year') or '').strip()
+
+    event_date = None
+    event_year = None
+    event_end_date = None
+    event_end_year = None
+
+    if event_date_value:
+        try:
+            event_date = datetime.strptime(event_date_value, '%Y-%m-%d').date()
+            event_year = event_date.year
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Invalid date format. Use YYYY-MM-DD.'}), 400
+
+    if event_year is None:
+        if not event_year_value:
+            return jsonify({'success': False, 'message': 'Please provide a year or a full date.'}), 400
+        try:
+            event_year = int(event_year_value)
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Event year must be a number.'}), 400
+        if event_year < 0:
+            return jsonify({'success': False, 'message': 'Year must be a positive number.'}), 400
+
+    if event_end_date_value:
+        if not event_date and not event_year:
+            return jsonify({'success': False, 'message': 'Specify a start date or year before setting an end date.'}), 400
+        try:
+            event_end_date = datetime.strptime(event_end_date_value, '%Y-%m-%d').date()
+            event_end_year = event_end_date.year
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Invalid end date format. Use YYYY-MM-DD.'}), 400
+
+    if not event_end_date and event_end_year_value:
+        try:
+            event_end_year = int(event_end_year_value)
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Event end year must be a number.'}), 400
+        if event_end_year < 0:
+            return jsonify({'success': False, 'message': 'End year must be a positive number.'}), 400
+
+    if event_end_date and event_date and event_end_date < event_date:
+        return jsonify({'success': False, 'message': 'End date cannot be before the start date.'}), 400
+
+    if event_end_year is not None and event_year is not None and event_end_year < event_year:
+        return jsonify({'success': False, 'message': 'End year cannot be before the start year.'}), 400
+
+    try:
+        new_event = ClergyEvent(
+            clergy_id=clergy.id,
+            title=title,
+            event_type=event_type,
+            event_date=event_date,
+            event_year=event_year,
+            event_end_date=event_end_date,
+            event_end_year=event_end_year,
+            description=description
+        )
+        db.session.add(new_event)
+        db.session.commit()
+
+        log_audit_event(
+            action='add_event',
+            entity_type='clergy_event',
+            entity_id=new_event.id,
+            entity_name=title,
+            details={
+                'clergy_id': clergy.id,
+                'event_year': event_year,
+                'event_date': event_date.isoformat() if event_date else None,
+                'event_end_year': event_end_year,
+                'event_end_date': event_end_date.isoformat() if event_end_date else None
+            }
+        )
+
+        return jsonify({
+            'success': True,
+            'message': 'Event saved successfully.',
+            'event_id': new_event.id,
+            'clergy_id': clergy.id
+        })
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.error(f'Failed to create clergy event: {exc}')
+        return jsonify({'success': False, 'message': 'Unable to save event. Please try again.'}), 500
 
 @editor_bp.route('/editor/metadata')
 @require_permission('manage_metadata')
@@ -1202,6 +1381,78 @@ def api_db_status():
                 'details': f'Query error: {str(e)[:50]}...',
                 'error': str(e)
             })
+
+@editor_bp.route('/api/sprite-sheet')
+def get_sprite_sheet():
+    """API endpoint to get the current sprite sheet URL and mapping"""
+    try:
+        # Get the current sprite sheet from database
+        sprite_sheet = SpriteSheet.query.filter_by(is_current=True).first()
+        
+        if sprite_sheet:
+            # Get all positions for this sprite sheet
+            positions = ClergySpritePosition.query.filter_by(sprite_sheet_id=sprite_sheet.id).all()
+            
+            # Build mapping dictionary
+            mapping = {pos.clergy_id: (pos.x_position, pos.y_position) for pos in positions}
+            
+            return jsonify({
+                'success': True,
+                'url': sprite_sheet.url,
+                'mapping': mapping,
+                'thumbnail_size': sprite_sheet.thumbnail_size,
+                'images_per_row': sprite_sheet.images_per_row,
+                'sprite_width': sprite_sheet.sprite_width,
+                'sprite_height': sprite_sheet.sprite_height
+            })
+        else:
+            # No sprite sheet exists - generate on demand
+            from services.image_upload import get_image_upload_service
+            
+            image_upload_service = get_image_upload_service()
+            if not image_upload_service.backblaze_configured:
+                return jsonify({
+                    'success': False,
+                    'error': 'Image storage not configured'
+                }), 500
+            
+            # Get all active clergy (include ALL clergy, placeholders will be used for those without images)
+            all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+            
+            if not all_clergy:
+                return jsonify({
+                    'success': False,
+                    'error': 'No clergy found'
+                }), 404
+            
+            # Create sprite sheet (this will save to database)
+            # Placeholders will be automatically added for clergy without images
+            result = image_upload_service.create_sprite_sheet(all_clergy)
+            
+            if result['success']:
+                return jsonify({
+                    'success': True,
+                    'url': result['url'],
+                    'mapping': result['mapping'],
+                    'thumbnail_size': result['thumbnail_size'],
+                    'images_per_row': result['images_per_row'],
+                    'sprite_width': result['sprite_width'],
+                    'sprite_height': result['sprite_height']
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': result.get('error', 'Failed to create sprite sheet')
+                }), 500
+                
+    except Exception as e:
+        current_app.logger.error(f"Error getting sprite sheet: {e}")
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @editor_bp.route('/editor/metadata/organization/<int:org_id>/delete', methods=['DELETE', 'POST'])
 def delete_organization(org_id):

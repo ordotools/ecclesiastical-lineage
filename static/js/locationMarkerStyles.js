@@ -41,13 +41,13 @@ class LocationMarkerStyles {
                 zIndex: 1000
             },
             hidden: {
-                radius: 8,
+                radius: 5,
                 strokeColor: '#ffffff',
-                strokeWidth: 3,
+                strokeWidth: 1,
                 opacity: 0,
                 cursor: 'pointer',
                 zIndex: 1000,
-                pointerEvents: 'none'
+                pointerEvents: 'none'   
             }
         };
 
@@ -591,9 +591,7 @@ class LocationMarkerStyles {
             .html(simpleHtml)
             .style('left', (event.pageX + 10) + 'px')
             .style('top', (event.pageY - 10) + 'px');
-        
-        console.log('Tooltip should now be visible');
-    }
+            }
 
     /**
      * Hide a regular tooltip

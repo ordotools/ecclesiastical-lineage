@@ -16,7 +16,7 @@ export function showNotification(message, type = 'info') {
     `;
     document.body.appendChild(notificationContainer);
   }
-  
+
   // Create notification element
   const notification = document.createElement('div');
   const alertClass = type === 'error' ? 'alert-danger' : type === 'success' ? 'alert-success' : 'alert-info';
@@ -27,16 +27,16 @@ export function showNotification(message, type = 'info') {
     border: none;
     border-radius: 8px;
   `;
-  
+
   notification.innerHTML = `
     <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>
     ${message}
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
   `;
-  
+
   // Add to container
   notificationContainer.appendChild(notification);
-  
+
   // Auto-remove after 5 seconds
   setTimeout(() => {
     if (notification.parentNode) {
@@ -50,23 +50,23 @@ export function showLoadingSpinner(form, message = 'Saving...') {
   // Find the submit button
   const submitBtn = form.querySelector('button[type="submit"]') || form.querySelector('input[type="submit"]');
   if (!submitBtn) return;
-  
+
   // Store original button content and state
   const originalContent = submitBtn.innerHTML;
   const originalDisabled = submitBtn.disabled;
-  
+
   // Create loading state
   submitBtn.innerHTML = `
     <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
     ${message}
   `;
   submitBtn.disabled = true;
-  
+
   // Store references for cleanup
   submitBtn._originalContent = originalContent;
   submitBtn._originalDisabled = originalDisabled;
   submitBtn._isLoading = true;
-  
+
   // Disable all form inputs during submission
   const formInputs = form.querySelectorAll('input, select, textarea, button');
   formInputs.forEach(input => {
@@ -80,12 +80,12 @@ export function hideLoadingSpinner(form) {
   // Find the submit button
   const submitBtn = form.querySelector('button[type="submit"]') || form.querySelector('input[type="submit"]');
   if (!submitBtn || !submitBtn._isLoading) return;
-  
+
   // Restore original button content and state
   submitBtn.innerHTML = submitBtn._originalContent;
   submitBtn.disabled = submitBtn._originalDisabled;
   submitBtn._isLoading = false;
-  
+
   // Re-enable all form inputs
   const formInputs = form.querySelectorAll('input, select, textarea, button');
   formInputs.forEach(input => {
@@ -103,3 +103,10 @@ export function refreshVisualization() {
   // Reload the page to get updated data
   window.location.reload();
 }
+
+// Make functions available globally
+window.showNotification = showNotification;
+window.showLoadingSpinner = showLoadingSpinner;
+window.hideLoadingSpinner = hideLoadingSpinner;
+window.getCurrentClergyId = getCurrentClergyId;
+window.refreshVisualization = refreshVisualization;

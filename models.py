@@ -98,6 +98,9 @@ class Clergy(db.Model):
     is_deleted = db.Column(db.Boolean, default=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
+    # Relationships
+    statuses = db.relationship('Status', secondary='clergy_statuses', backref='clergy_members')
+    events = db.relationship('ClergyEvent', backref='clergy', cascade='all, delete-orphan')
 
     def was_alive_on(self, date):
         """Return True if this clergy was alive on the given date (or if date unknown, assume alive)."""
@@ -233,6 +236,27 @@ co_consecrators = db.Table('co_consecrators',
     db.Column('co_consecrator_id', db.Integer, db.ForeignKey('clergy.id'), primary_key=True)
 )
 
+# Association table for clergy statuses
+clergy_statuses = db.Table('clergy_statuses',
+    db.Column('clergy_id', db.Integer, db.ForeignKey('clergy.id'), primary_key=True),
+    db.Column('status_id', db.Integer, db.ForeignKey('status.id'), primary_key=True),
+    db.Column('created_at', db.DateTime, default=datetime.utcnow),
+    db.Column('created_by', db.Integer, db.ForeignKey('user.id'), nullable=True),
+    db.Column('notes', db.Text, nullable=True)
+)
+
+class Status(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    icon = db.Column(db.String(50), nullable=False)  # FontAwesome icon class
+    color = db.Column(db.String(7), nullable=False)  # Hex color
+    badge_position = db.Column(db.Integer, nullable=False, default=0)  # Position around node (0-7)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Status {self.name}>'
+
 class Ordination(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False)
@@ -271,6 +295,25 @@ class Consecration(db.Model):
     
     def __repr__(self):
         return f'<Consecration {self.clergy.name if self.clergy else self.clergy_id} on {self.date}>'
+
+class ClergyEvent(db.Model):
+    __tablename__ = 'clergy_events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    event_type = db.Column(db.String(120), nullable=True)
+    event_date = db.Column(db.Date, nullable=True)
+    event_year = db.Column(db.Integer, nullable=False)
+    event_end_date = db.Column(db.Date, nullable=True)
+    event_end_year = db.Column(db.Integer, nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        clergy_name = self.clergy.name if self.clergy else self.clergy_id
+        return f'<ClergyEvent {self.title} for {clergy_name}>'
 
 class Location(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -311,11 +354,54 @@ class Location(db.Model):
             parts.append(self.postal_code)
         if self.country:
             parts.append(self.country)
-        return ', '.join(parts)
+        return ', '.join(parts) if parts else ''
 
     def has_coordinates(self):
         """Check if location has valid coordinates"""
         return self.latitude is not None and self.longitude is not None
+
+
+class SpriteSheet(db.Model):
+    """Track sprite sheet versions"""
+    __tablename__ = 'sprite_sheets'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.Text, nullable=False)  # Public URL of the sprite sheet
+    object_key = db.Column(db.String(500), nullable=False)  # Backblaze object key
+    thumbnail_size = db.Column(db.Integer, nullable=False, default=48)  # Size of each thumbnail
+    images_per_row = db.Column(db.Integer, nullable=False, default=20)  # Thumbnails per row
+    sprite_width = db.Column(db.Integer, nullable=False)  # Total width of sprite sheet
+    sprite_height = db.Column(db.Integer, nullable=False)  # Total height of sprite sheet
+    num_images = db.Column(db.Integer, nullable=False)  # Number of images in sprite sheet
+    is_current = db.Column(db.Boolean, default=True)  # Mark the current/latest sprite sheet
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    positions = db.relationship('ClergySpritePosition', backref='sprite_sheet', cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<SpriteSheet {self.id} - {self.num_images} images - {"CURRENT" if self.is_current else "OLD"}>'
+
+
+class ClergySpritePosition(db.Model):
+    """Track each clergy member's position in a sprite sheet"""
+    __tablename__ = 'clergy_sprite_positions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False)
+    sprite_sheet_id = db.Column(db.Integer, db.ForeignKey('sprite_sheets.id'), nullable=False)
+    x_position = db.Column(db.Integer, nullable=False)  # X coordinate in pixels
+    y_position = db.Column(db.Integer, nullable=False)  # Y coordinate in pixels
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    clergy = db.relationship('Clergy', backref='sprite_positions')
+    
+    # Unique constraint: one position per clergy per sprite sheet
+    __table_args__ = (db.UniqueConstraint('clergy_id', 'sprite_sheet_id', name='_clergy_sprite_uc'),)
+    
+    def __repr__(self):
+        return f'<ClergySpritePosition clergy_id={self.clergy_id} sprite_sheet_id={self.sprite_sheet_id} pos=({self.x_position},{self.y_position})>'
 
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -332,3 +418,24 @@ class AuditLog(db.Model):
 
     def __repr__(self):
         return f'<AuditLog {self.action} on {self.entity_type} by {self.user_id}>' 
+
+class WikiPage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=True) # Optional title, especially if linked to clergy
+    clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=True)
+    markdown = db.Column(db.Text, nullable=True) # The actual content
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    edit_count = db.Column(db.Integer, default=0)
+    is_visible = db.Column(db.Boolean, default=True)
+    category = db.Column(db.String(100), nullable=True)
+    is_deleted = db.Column(db.Boolean, default=False)
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    last_editor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    # Relationships
+    clergy = db.relationship('Clergy', backref='wiki_page')
+    author = db.relationship('User', foreign_keys=[author_id], backref='authored_wiki_pages')
+    last_editor = db.relationship('User', foreign_keys=[last_editor_id], backref='edited_wiki_pages')
+
+    def __repr__(self):
+        return f'<WikiPage {self.title or self.id}>'

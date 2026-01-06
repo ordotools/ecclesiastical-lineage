@@ -481,7 +481,11 @@ window.clearLocationForm = function() {
 
 // Function to handle form submission
 window.handleLocationFormSubmit = function(event) {
-    console.log('handleLocationFormSubmit called');
+    console.log('=== handleLocationFormSubmit called ===');
+    console.log('Event:', event);
+    console.log('Event type:', event.type);
+    console.log('Event target:', event.target);
+    console.log('Preventing default...');
     event.preventDefault();
     
     const form = document.getElementById('locationForm');
@@ -502,16 +506,160 @@ window.handleLocationFormSubmit = function(event) {
     // Prepare form data
     const formData = new FormData(form);
     
+    // Check if pastor needs to be created
+    const pastorName = form.querySelector('#pastor_name').value.trim();
+    console.log('=== PASTOR CREATION DEBUG ===');
+    console.log('Pastor name from form:', pastorName);
+    console.log('Pastor name length:', pastorName.length);
+    console.log('Will create pastor:', !!pastorName);
+    console.log('Form element:', form);
+    console.log('Pastor input element:', form.querySelector('#pastor_name'));
+    console.log('Pastor input value:', form.querySelector('#pastor_name')?.value);
+    
+    if (pastorName) {
+        // Show user feedback about pastor creation
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating pastor record...';
+        
+        // Check and create pastor if needed
+        checkAndCreatePastor(pastorName)
+            .then(() => {
+                console.log('Pastor creation completed, proceeding with form submission...');
+                // Update button text for final submission
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting form...';
+                // Submit the form after pastor is created
+                submitLocationForm(form, formData, submitButton, originalText);
+            })
+            .catch(error => {
+                console.error('Error creating pastor:', error);
+                showErrorMessage(`Error creating pastor record: ${error.message}`);
+                resetSubmitButton(submitButton, originalText);
+            });
+    } else {
+        // No pastor to check, submit directly
+        submitLocationForm(form, formData, submitButton, originalText);
+    }
+    
+    return false;
+};
+
+// Function to check and create pastor
+function checkAndCreatePastor(pastorName) {
+    console.log('=== checkAndCreatePastor called ===');
+    console.log('Pastor name:', pastorName);
+    
+    return new Promise((resolve, reject) => {
+        // Send AJAX request to check and create pastor
+        // Use test API endpoint if we're on the test page, otherwise use the real endpoint
+        const apiEndpoint = window.location.pathname.includes('test-pastor-form') 
+            ? '/api/test-check-and-create-pastor' 
+            : '/api/check-and-create-pastor';
+        
+        console.log('Making API request to', apiEndpoint);
+        fetch(apiEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin', // Include cookies for authentication
+            body: JSON.stringify({
+                pastor_name: pastorName
+            })
+        })
+        .then(response => {
+            console.log('API response received:', response.status, response.statusText);
+            console.log('Response content type:', response.headers.get('content-type'));
+            
+            if (!response.ok) {
+                console.error('API response not OK:', response.status, response.statusText);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                console.error('Response is not JSON, content-type:', contentType);
+                return response.text().then(text => {
+                    console.error('Response text (first 200 chars):', text.substring(0, 200));
+                    throw new Error('Server returned HTML instead of JSON - likely authentication issue');
+                });
+            }
+            
+            return response.json();
+        })
+        .then(data => {
+            console.log('API response data:', data);
+            if (data.success) {
+                if (data.created) {
+                    console.log(`✅ Created new pastor record for ${data.pastor_name} with ID ${data.pastor_id}`);
+                } else {
+                    console.log(`✅ Found existing pastor record for ${data.pastor_name} with ID ${data.pastor_id}`);
+                }
+                console.log('Pastor creation successful, resolving promise...');
+                resolve();
+            } else {
+                console.error('API returned success=false:', data.message);
+                reject(new Error(data.message || 'Failed to create pastor'));
+            }
+        })
+        .catch(error => {
+            console.error('Error creating pastor:', error);
+            reject(error);
+        });
+    });
+}
+
+// Function to reset submit button
+function resetSubmitButton(button, originalText) {
+    button.textContent = originalText;
+    button.disabled = false;
+}
+
+// Function to submit the location form
+function submitLocationForm(form, formData, submitButton, originalText) {
+    console.log('=== submitLocationForm called ===');
+    console.log('Form:', form);
+    console.log('FormData:', formData);
+    
     // Determine the correct endpoint based on whether we're editing or adding
     const isEditing = form.action.includes('/edit');
-    const endpoint = isEditing ? form.action : '/locations/add';
+    let endpoint = isEditing ? form.action : '/locations/add';
+    
+    // Use test endpoint if we're on the test page
+    if (window.location.pathname.includes('test-pastor-form') && !isEditing) {
+        endpoint = '/api/test-locations-add';
+    }
+    
+    console.log('Is editing:', isEditing);
+    console.log('Endpoint:', endpoint);
     
     // Submit via AJAX
     fetch(endpoint, {
         method: 'POST',
+        credentials: 'same-origin', // Include cookies for authentication
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Form submission response:', response.status, response.statusText);
+        console.log('Form submission content type:', response.headers.get('content-type'));
+        
+        if (!response.ok) {
+            console.error('Form submission response not OK:', response.status, response.statusText);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.error('Form submission response is not JSON, content-type:', contentType);
+            return response.text().then(text => {
+                console.error('Form submission response text (first 200 chars):', text.substring(0, 200));
+                throw new Error('Server returned HTML instead of JSON - likely authentication issue');
+            });
+        }
+        
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             // Success - handle both add and edit cases
@@ -556,9 +704,7 @@ window.handleLocationFormSubmit = function(event) {
         submitButton.disabled = false;
         submitButton.innerHTML = originalText;
     });
-    
-    return false;
-};
+}
 
 // Function to refresh editor panels
 function refreshEditorPanels() {
@@ -651,8 +797,12 @@ function initializeLocationForm() {
         
         // Add form submission event listener
         form.addEventListener('submit', function(e) {
+            console.log('=== FORM SUBMIT EVENT LISTENER ===');
             console.log('Form submit event fired');
+            console.log('Event target:', e.target);
+            console.log('Form element:', form);
             e.preventDefault();
+            console.log('Calling handleLocationFormSubmit...');
             window.handleLocationFormSubmit(e);
         });
         
@@ -671,7 +821,11 @@ function checkForLocationForms() {
         // Add form submission event listener to all forms
         forms.forEach(form => {
             form.addEventListener('submit', function(e) {
+                console.log('=== FORM SUBMIT EVENT LISTENER (data attribute) ===');
+                console.log('Form submit event fired for form with data attribute');
+                console.log('Event target:', e.target);
                 e.preventDefault();
+                console.log('Calling handleLocationFormSubmit...');
                 window.handleLocationFormSubmit(e);
             });
         });
@@ -787,8 +941,8 @@ function addChapelToGlobe(location) {
         return;
     }
     
-    // Use centralized styling for color determination
-    const styles = new LocationMarkerStyles();
+    // Use centralized styling for color determination - use existing styles instance if available
+    const styles = window.geographicVisualization?.styles || new LocationMarkerStyles();
     const color = styles.getLocationColorWithOrganization(location.location_type, location.organization, location);
     
     // Create location data object
@@ -923,8 +1077,8 @@ function updateChapelInGlobe(location) {
         return;
     }
     
-    // Use centralized styling for color determination
-    const styles = new LocationMarkerStyles();
+    // Use centralized styling for color determination - use existing styles instance if available
+    const styles = window.geographicVisualization?.styles || new LocationMarkerStyles();
     const color = styles.getLocationColorWithOrganization(location.location_type, location.organization, location);
     
     // Create location data object
@@ -1015,3 +1169,24 @@ function removeChapelFromGlobe(locationId) {
     
     console.log('Chapel removed from globe successfully');
 }
+
+// Add a global form submission handler to catch any form submissions that might bypass our custom handler
+document.addEventListener('DOMContentLoaded', function() {
+    // Add a global form submission handler for location forms
+    document.addEventListener('submit', function(e) {
+        if (e.target.id === 'locationForm') {
+            console.log('=== GLOBAL FORM SUBMIT HANDLER ===');
+            console.log('Form submitted via default HTML mechanism');
+            console.log('Event target:', e.target);
+            console.log('Event type:', e.type);
+            console.log('This should not happen if our custom handler is working');
+            
+            // Prevent the default submission
+            e.preventDefault();
+            
+            // Call our custom handler
+            console.log('Calling our custom handler...');
+            window.handleLocationFormSubmit(e);
+        }
+    });
+});

@@ -477,24 +477,37 @@
 </style>
 {% endblock %}
 
+{% block editor_scripts %}
+{% if user and user.has_permission('add_clergy') %}
+<!-- Editor scripts only loaded for authenticated users who can add clergy -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js" defer></script>
+<script src="{{ url_for('static', filename='js/imageEditor.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/clergyForm.js') }}" defer></script>
+{% endif %}
+{% endblock %}
+
 {% block extra_scripts %}
 <!-- D3.js and TopoJSON -->
-<script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
-<script src="https://unpkg.com/topojson@3"></script>
-<script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
+<script src="{{ url_for('static', filename='js/d3.v7.min.js') }}" defer></script>
+<script src="https://unpkg.com/topojson@3" defer></script>
 <!-- Centralized styling system -->
-<script src="{{ url_for('static', filename='js/locationMarkerStyles.js') }}"></script>
-<!-- Include the new clean clergy form controller -->
-<script src="{{ url_for('static', filename='js/clergy-form-controller.js') }}"></script>
+<script src="{{ url_for('static', filename='js/locationMarkerStyles.js') }}" defer></script>
+<!-- Include the clean clergy form controller -->
+<script src="{{ url_for('static', filename='js/clergy-form-controller.js') }}" defer></script>
 <script>
 window.linksData = {{ links_json | safe }};
 window.nodesData = {{ nodes_json | safe }};
-console.log('Chapel view template rendered at:', new Date().toISOString());
-console.log('Template links count:', window.linksData ? window.linksData.length : 'undefined');
-console.log('Template nodes count:', window.nodesData ? window.nodesData.length : 'undefined');
 </script>
-<script src="{{ url_for('static', filename='js/chapelView.js') }}?v={{ range(1000, 9999) | random }}"></script>
-<script src="{{ url_for('static', filename='js/chapelGlobeOverlay.js') }}?v={{ range(1000, 9999) | random }}"></script>
+<script src="{{ url_for('static', filename='js/chapelView.js') }}?v={{ range(1000, 9999) | random }}" defer></script>
+<script src="{{ url_for('static', filename='js/chapelGlobeOverlay.js') }}?v={{ range(1000, 9999) | random }}" defer></script>
+<!-- Lazy load fuzzySearch.js after DOMContentLoaded -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const script = document.createElement('script');
+        script.src = '{{ url_for("static", filename="js/fuzzySearch.js") }}';
+        document.body.appendChild(script);
+    });
+</script>
 
 <!-- Add Clergy Button Handler -->
 {% if user and user.has_permission('add_clergy') %}

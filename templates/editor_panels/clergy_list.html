@@ -2,39 +2,34 @@
 <div class="clergy-panel-container">
     <!-- Top Section: Clergy List -->
     <div class="clergy-list-section">
-        <div style="padding: 0.75em; background: #2B2E32; height: 100%;">
+        <div class="panel-padding" style="height: 100%;">
     <!-- Search and Filter -->
-    <div style="margin-bottom: 1em;">
-        <div style="margin-bottom: 0.75em;">
-            <div style="position: relative;">
+    <div class="editor-margin-bottom-l">
+        <div class="editor-margin-bottom-m">
+            <div class="editor-search-wrapper">
                 <input type="text" id="clergySearchInput" value="{{ search or '' }}" 
                        placeholder="Search clergy..." 
-                       style="width: 100%; padding: 0.5em 2em 0.5em 0.75em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); color: white; font-size: 0.8em;">
-                <button type="button" id="clearSearchBtn" style="position: absolute; right: 0.5em; top: 50%; transform: translateY(-50%); background: none; border: none; color: rgba(255, 255, 255, 0.6); cursor: pointer; display: none;">
+                       class="editor-search-input">
+                <button type="button" id="clearSearchBtn" class="editor-search-clear">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             
             <!-- Quick Filters and Add Button -->
-            <div style="margin-top: 0.5em; font-size: 0.8em; display: flex; justify-content: space-between; align-items: center;">
+            <div class="editor-filter-controls editor-margin-top-s">
                 <div>
-                    <label style="display: inline-flex; align-items: center; margin-right: 1em; color: rgba(255, 255, 255, 0.8);">
-                        <input type="checkbox" id="excludePriests" 
-                               style="margin-right: 0.25em;" onchange="applyFilters()">
+                    <label class="editor-filter-checkbox">
+                        <input type="checkbox" id="excludePriests" onchange="applyFilters()">
                         Hide Priests
                     </label>
-                    <label style="display: inline-flex; align-items: center; margin-right: 1em; color: rgba(255, 255, 255, 0.8);">
-                        <input type="checkbox" id="showDeleted" 
-                               style="margin-right: 0.25em;" onchange="applyFilters()">
+                    <label class="editor-filter-checkbox">
+                        <input type="checkbox" id="showDeleted" onchange="applyFilters()">
                         Show Deleted
                     </label>
                 </div>
                 {% if user and user.can_edit_clergy() %}
-                <button onclick="selectClergyFromList(null)" 
-                        style="padding: 0.4em 0.8em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.9); cursor: pointer; font-size: 0.8em; transition: all 0.2s ease; white-space: nowrap;"
-                        onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'"
-                        onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
-                    <i class="fas fa-plus" style="margin-right: 0.4em;"></i>Add New
+                <button onclick="selectClergyFromList(null)" class="btn-panel btn-small">
+                    <i class="fas fa-plus"></i>Add New
                 </button>
                 {% endif %}
             </div>
@@ -42,24 +37,20 @@
     </div>
 
     <!-- Bulk Actions (shown when showing deleted records) -->
-    <div id="bulk-actions" style="margin-bottom: 1em; padding: 0.5em; background: rgba(255, 0, 0, 0.1); border: 1px solid rgba(255, 0, 0, 0.3); border-radius: 4px; display: none;">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 0.75em;">
-                <label style="display: flex; align-items: center; color: rgba(255, 255, 255, 0.9); font-size: 0.8em;">
-                    <input type="checkbox" id="select-all" onchange="toggleSelectAll()" style="margin-right: 0.4em;">
+    <div id="bulk-actions" class="bulk-actions">
+        <div class="bulk-actions-content">
+            <div class="bulk-actions-left">
+                <label class="bulk-actions-label">
+                    <input type="checkbox" id="select-all" onchange="toggleSelectAll()">
                     Select All
                 </label>
-                <span id="selected-count" style="color: rgba(255, 255, 255, 0.7); font-size: 0.75em;">0 selected</span>
+                <span id="selected-count" class="bulk-actions-count">0 selected</span>
             </div>
-            <div style="display: flex; gap: 0.5em;">
-                <button onclick="permanentlyDeleteSelected()" 
-                        style="padding: 0.3em 0.6em; background: rgba(255, 0, 0, 0.3); border: 1px solid rgba(255, 0, 0, 0.5); border-radius: 3px; color: rgba(255, 255, 255, 0.9); cursor: pointer; font-size: 0.75em; white-space: nowrap;"
-                        onmouseover="this.style.background='rgba(255, 0, 0, 0.5)'"
-                        onmouseout="this.style.background='rgba(255, 0, 0, 0.3)'">
-                    <i class="fas fa-trash" style="margin-right: 0.25em;"></i>Delete Selected
+            <div class="bulk-actions-right">
+                <button onclick="permanentlyDeleteSelected()" class="btn-bulk-danger">
+                    <i class="fas fa-trash"></i>Delete Selected
                 </button>
-                <button onclick="clearSelection()" 
-                        style="padding: 0.3em 0.6em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.9); cursor: pointer; font-size: 0.75em; white-space: nowrap;">
+                <button onclick="clearSelection()" class="btn-section btn-small">
                     Clear
                 </button>
             </div>
@@ -67,9 +58,9 @@
     </div>
 
     <!-- Clergy List -->
-    <div id="clergyListContainer" style="max-height: calc(100vh - 300px); overflow-y: auto;">
+    <div id="clergyListContainer" class="clergy-list-container">
         {% for clergy in clergy_list %}
-        <div class="clergy-item" 
+        <div class="clergy-item clergy-item-card {% if clergy.is_deleted %}clergy-item-deleted{% endif %}" 
              data-clergy-id="{{ clergy.id }}"
              data-name="{{ clergy.name }}"
              data-rank="{{ clergy.rank }}"
@@ -77,63 +68,59 @@
              data-is-deleted="{{ clergy.is_deleted|lower }}"
              data-has-ordinations="{{ (clergy.ordinations|length > 0)|lower }}"
              data-has-consecrations="{{ (clergy.consecrations|length > 0)|lower }}"
-             onclick="selectClergyFromList({{ clergy.id }})"
-             style="display: flex; align-items: center; padding: 0.5em; margin-bottom: 0; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); {% if loop.first %}border-top: 1px solid rgba(255, 255, 255, 0.1);{% else %}border-top: none;{% endif %} border-radius: 0; cursor: pointer; transition: all 0.2s ease; {% if clergy.is_deleted %}opacity: 0.6; border-left: 4px solid rgba(255, 0, 0, 0.5);{% endif %}"
-             onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
-             onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">
+             onclick="selectClergyFromList({{ clergy.id }})">
             
             <!-- Selection Checkbox (only for deleted records) -->
             {% if show_deleted and clergy.is_deleted %}
-            <div style="margin-right: 0.75em; flex-shrink: 0;" onclick="event.stopPropagation();">
+            <div class="clergy-item-photo" onclick="event.stopPropagation();">
                 <input type="checkbox" class="clergy-select" data-clergy-id="{{ clergy.id }}" 
                        onchange="updateSelection()" style="transform: scale(1.2); cursor: pointer;">
             </div>
             {% endif %}
             
             <!-- Clergy Photo -->
-            <div style="margin-right: 0.75em; flex-shrink: 0;">
+            <div class="clergy-item-photo">
                 {% if clergy.image_url %}
-                    <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" 
-                         style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255, 255, 255, 0.2);">
+                    <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}">
                 {% else %}
-                    <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; border: 2px solid rgba(255, 255, 255, 0.2);">
-                        <i class="fas fa-user" style="color: rgba(255, 255, 255, 0.5); font-size: 0.9em;"></i>
+                    <div class="clergy-item-photo-placeholder">
+                        <i class="fas fa-user"></i>
                     </div>
                 {% endif %}
             </div>
             
             <!-- Clergy Info -->
-            <div style="flex: 1; min-width: 0;">
-                <div style="font-weight: 500; color: rgba(255, 255, 255, 0.9); font-size: 0.8em; margin-bottom: 0.25em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <div class="clergy-item-info">
+                <div class="clergy-item-name">
                     {{ clergy.name }}
                     {% if clergy.is_deleted %}
                     <span style="color: rgba(255, 0, 0, 0.8); font-size: 0.8em; margin-left: 0.5em;">[DELETED]</span>
                     {% endif %}
                 </div>
-                <div style="font-size: 0.8em; color: rgba(255, 255, 255, 0.6);">
+                <div class="clergy-item-details">
                     {{ clergy.rank }}{% if clergy.organization %} · {{ clergy.organization }}{% endif %}
                 </div>
                 {% if clergy.date_of_birth or clergy.date_of_death %}
-                <div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5); margin-top: 0.25em;">
+                <div class="clergy-item-meta">
                     {% if clergy.date_of_birth %}{{ clergy.date_of_birth.strftime('%Y') }}{% endif %}{% if clergy.date_of_death %} - {{ clergy.date_of_death.strftime('%Y') }}{% endif %}
                 </div>
                 {% endif %}
                 {% if clergy.is_deleted and clergy.deleted_at %}
-                <div style="font-size: 0.7em; color: rgba(255, 0, 0, 0.7); margin-top: 0.25em;">
+                <div class="clergy-item-meta" style="color: rgba(255, 0, 0, 0.7);">
                     Deleted: {{ clergy.deleted_at.strftime('%Y-%m-%d %H:%M') }}
                 </div>
                 {% endif %}
             </div>
             
             <!-- Status Indicators -->
-            <div style="margin-left: 0.5em; display: flex; align-items: center; gap: 0.4em;">
+            <div class="clergy-item-status">
                 <!-- Ordination/Consecration indicators -->
-                <div style="display: flex; flex-direction: column; gap: 0.25em;">
+                <div class="editor-flex-column editor-gap-xs">
                     {% if clergy.ordinations %}
-                    <div style="width: 8px; height: 8px; background: #000000; border-radius: 50%;" title="Has Ordinations"></div>
+                    <div class="clergy-status-indicator ordinations" title="Has Ordinations"></div>
                     {% endif %}
                     {% if clergy.consecrations %}
-                    <div style="width: 8px; height: 8px; background: #27ae60; border-radius: 50%;" title="Has Consecrations"></div>
+                    <div class="clergy-status-indicator consecrations" title="Has Consecrations"></div>
                     {% endif %}
                 </div>
                 <!-- Clergy Status Badges -->
@@ -154,16 +141,16 @@
         {% endfor %}
         
         {% if not clergy_list %}
-        <div id="noResultsMessage" style="text-align: center; padding: 2em; color: rgba(255, 255, 255, 0.6);">
+        <div id="noResultsMessage" class="clergy-list-empty">
             {% if show_deleted %}
-            <i class="fas fa-trash" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.5;"></i>
-            <div>No deleted clergy records found</div>
-            <small style="color: rgba(255, 255, 255, 0.4);">All clergy records are currently active</small>
+            <i class="fas fa-trash"></i>
+            <div class="clergy-list-empty-message">No deleted clergy records found</div>
+            <small class="clergy-list-empty-hint">All clergy records are currently active</small>
             {% else %}
-            <i class="fas fa-search" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.5;"></i>
-            <div>No clergy found</div>
+            <i class="fas fa-search"></i>
+            <div class="clergy-list-empty-message">No clergy found</div>
             {% if search %}
-            <small style="color: rgba(255, 255, 255, 0.4);">Try a different search term</small>
+            <small class="clergy-list-empty-hint">Try a different search term</small>
             {% endif %}
             {% endif %}
         </div>
@@ -240,14 +227,18 @@ function applyFilters() {
     
     // Show/hide clear button
     if (searchTerm.length > 0) {
-        clearBtn.style.display = 'block';
+        clearBtn.classList.add('visible');
     } else {
-        clearBtn.style.display = 'none';
+        clearBtn.classList.remove('visible');
     }
     
     // Show/hide bulk actions based on show deleted filter
     if (bulkActions) {
-        bulkActions.style.display = showDeleted ? 'block' : 'none';
+        if (showDeleted) {
+            bulkActions.classList.add('visible');
+        } else {
+            bulkActions.classList.remove('visible');
+        }
     }
     
     let filteredData = allClergyData;
@@ -297,15 +288,15 @@ function applyFilters() {
             noResultsMessage.style.display = 'block';
             if (searchTerm) {
                 noResultsMessage.innerHTML = `
-                    <i class="fas fa-search" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.5;"></i>
-                    <div>No clergy found</div>
-                    <small style="color: rgba(255, 255, 255, 0.4);">Try a different search term</small>
+                    <i class="fas fa-search"></i>
+                    <div class="clergy-list-empty-message">No clergy found</div>
+                    <small class="clergy-list-empty-hint">Try a different search term</small>
                 `;
             } else if (showDeleted) {
                 noResultsMessage.innerHTML = `
-                    <i class="fas fa-trash" style="font-size: 2em; margin-bottom: 0.5em; opacity: 0.5;"></i>
-                    <div>No deleted clergy records found</div>
-                    <small style="color: rgba(255, 255, 255, 0.4);">All clergy records are currently active</small>
+                    <i class="fas fa-trash"></i>
+                    <div class="clergy-list-empty-message">No deleted clergy records found</div>
+                    <small class="clergy-list-empty-hint">All clergy records are currently active</small>
                 `;
             }
         } else {
@@ -320,15 +311,13 @@ function selectClergyFromList(clergyId) {
     
     // Update visual selection
     document.querySelectorAll('.clergy-item').forEach(item => {
-        item.style.background = 'rgba(255, 255, 255, 0.05)';
-        item.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        item.classList.remove('selected');
     });
     
     if (clergyId) {
         const selectedItem = document.querySelector(`[onclick="selectClergyFromList(${clergyId})"]`);
         if (selectedItem) {
-            selectedItem.style.background = 'rgba(255, 255, 255, 0.15)';
-            selectedItem.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            selectedItem.classList.add('selected');
         }
     }
     
@@ -363,7 +352,11 @@ function updateSelection() {
     }
     
     if (bulkActions) {
-        bulkActions.style.display = count > 0 ? 'block' : 'none';
+        if (count > 0) {
+            bulkActions.classList.add('visible');
+        } else {
+            bulkActions.classList.remove('visible');
+        }
     }
 }
 

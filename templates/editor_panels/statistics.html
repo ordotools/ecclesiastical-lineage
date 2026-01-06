@@ -1,45 +1,43 @@
 <!-- Statistics Panel Content -->
-<div style="padding: 1em;">
-    <h6 style="margin: 0 0 1em 0; color: rgba(255, 255, 255, 0.9); font-size: 0.95em;">Database Statistics</h6>
+<div class="panel-padding">
+    <h6 class="editor-text-primary editor-text-xl editor-margin-bottom-l" style="margin-top: 0;">Database Statistics</h6>
     
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1em;">
+    <div class="editor-grid-auto">
         <!-- Overview Stats -->
-        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 4px; padding: 0.75em;">
-            <h6 style="margin: 0 0 0.5em 0; color: rgba(255, 255, 255, 0.8); font-size: 0.85em; display: flex; align-items: center;">
-                <i class="fas fa-users" style="margin-right: 0.5em; color: rgba(52, 152, 219, 0.8);"></i>
+        <div class="stat-card">
+            <h6 class="stat-card-header editor-text-secondary editor-text-m">
+                <i class="fas fa-users" style="color: rgba(52, 152, 219, 0.8);"></i>
                 Overview
             </h6>
-            <div style="font-size: 0.8em; line-height: 1.6;">
-                <div style="display: flex; justify-content: between; color: rgba(255, 255, 255, 0.7);">
+            <div class="stat-card-content">
+                <div class="stat-card-item">
                     <span>Total Clergy:</span>
-                    <strong style="color: rgba(255, 255, 255, 0.9);">{{ statistics.total_clergy }}</strong>
+                    <strong>{{ statistics.total_clergy }}</strong>
                 </div>
-                <div style="display: flex; justify-content: between; color: rgba(255, 255, 255, 0.7);">
+                <div class="stat-card-item">
                     <span>Bishops:</span>
-                    <strong style="color: rgba(255, 255, 255, 0.9);">{{ statistics.total_bishops }}</strong>
+                    <strong>{{ statistics.total_bishops }}</strong>
                 </div>
-                <div style="display: flex; justify-content: between; color: rgba(255, 255, 255, 0.7);">
+                <div class="stat-card-item">
                     <span>Priests:</span>
-                    <strong style="color: rgba(255, 255, 255, 0.9);">{{ statistics.total_priests }}</strong>
+                    <strong>{{ statistics.total_priests }}</strong>
                 </div>
             </div>
         </div>
 
         <!-- Top Organizations -->
-        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 4px; padding: 0.75em;">
-            <h6 style="margin: 0 0 0.5em 0; color: rgba(255, 255, 255, 0.8); font-size: 0.85em; display: flex; align-items: center;">
-                <i class="fas fa-church" style="margin-right: 0.5em; color: rgba(46, 160, 67, 0.8);"></i>
+        <div class="stat-card">
+            <h6 class="stat-card-header editor-text-secondary editor-text-m">
+                <i class="fas fa-church" style="color: rgba(46, 160, 67, 0.8);"></i>
                 Top Organizations
             </h6>
-            <div style="font-size: 0.8em; max-height: 120px; overflow-y: auto;">
+            <div class="stat-card-content stat-card-scrollable">
                 {% for org, count in statistics.org_stats[:5] %}
-                <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 0.25em; color: rgba(255, 255, 255, 0.7);">
-                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 0.5em;" title="{{ org }}">
-                        {{ org }}
-                    </span>
-                    <div style="display: flex; align-items: center; gap: 0.5em;">
-                        <div style="width: {{ (count / statistics.org_stats[0][1] * 50) | int }}px; height: 8px; background: rgba(46, 160, 67, 0.6); border-radius: 4px; min-width: 2px;"></div>
-                        <strong style="color: rgba(255, 255, 255, 0.9); min-width: 20px; text-align: right;">{{ count }}</strong>
+                <div class="stat-bar-item">
+                    <span class="stat-bar-label" title="{{ org }}">{{ org }}</span>
+                    <div class="stat-bar-container">
+                        <div class="stat-bar" style="width: {{ (count / statistics.org_stats[0][1] * 50) | int }}px; background: rgba(46, 160, 67, 0.6);"></div>
+                        <strong class="stat-bar-value">{{ count }}</strong>
                     </div>
                 </div>
                 {% endfor %}
@@ -47,20 +45,18 @@
         </div>
 
         <!-- Ranks Distribution -->
-        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 4px; padding: 0.75em;">
-            <h6 style="margin: 0 0 0.5em 0; color: rgba(255, 255, 255, 0.8); font-size: 0.85em; display: flex; align-items: center;">
-                <i class="fas fa-graduation-cap" style="margin-right: 0.5em; color: rgba(142, 68, 173, 0.8);"></i>
+        <div class="stat-card">
+            <h6 class="stat-card-header editor-text-secondary editor-text-m">
+                <i class="fas fa-graduation-cap" style="color: rgba(142, 68, 173, 0.8);"></i>
                 Ranks Distribution
             </h6>
-            <div style="font-size: 0.8em; max-height: 120px; overflow-y: auto;">
+            <div class="stat-card-content stat-card-scrollable">
                 {% for rank, count in statistics.rank_stats[:5] %}
-                <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 0.25em; color: rgba(255, 255, 255, 0.7);">
-                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 0.5em;">
-                        {{ rank }}
-                    </span>
-                    <div style="display: flex; align-items: center; gap: 0.5em;">
-                        <div style="width: {{ (count / statistics.rank_stats[0][1] * 50) | int }}px; height: 8px; background: rgba(142, 68, 173, 0.6); border-radius: 4px; min-width: 2px;"></div>
-                        <strong style="color: rgba(255, 255, 255, 0.9); min-width: 20px; text-align: right;">{{ count }}</strong>
+                <div class="stat-bar-item">
+                    <span class="stat-bar-label">{{ rank }}</span>
+                    <div class="stat-bar-container">
+                        <div class="stat-bar" style="width: {{ (count / statistics.rank_stats[0][1] * 50) | int }}px; background: rgba(142, 68, 173, 0.6);"></div>
+                        <strong class="stat-bar-value">{{ count }}</strong>
                     </div>
                 </div>
                 {% endfor %}
@@ -68,50 +64,47 @@
         </div>
 
         <!-- Quick Actions -->
-        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 4px; padding: 0.75em;">
-            <h6 style="margin: 0 0 0.5em 0; color: rgba(255, 255, 255, 0.8); font-size: 0.85em; display: flex; align-items: center;">
-                <i class="fas fa-bolt" style="margin-right: 0.5em; color: rgba(241, 196, 15, 0.8);"></i>
+        <div class="stat-card">
+            <h6 class="stat-card-header editor-text-secondary editor-text-m">
+                <i class="fas fa-bolt" style="color: rgba(241, 196, 15, 0.8);"></i>
                 Quick Actions
             </h6>
-            <div style="display: flex; flex-direction: column; gap: 0.5em;">
-                <button onclick="exportData()" 
-                        style="padding: 0.4em; background: rgba(52, 152, 219, 0.2); border: 1px solid rgba(52, 152, 219, 0.3); border-radius: 3px; color: rgba(52, 152, 219, 0.9); cursor: pointer; font-size: 0.75em; text-align: left;">
-                    <i class="fas fa-download" style="margin-right: 0.5em;"></i>Export Data
+            <div class="stat-actions">
+                <button onclick="exportData()" class="btn-stat-action blue">
+                    <i class="fas fa-download"></i>Export Data
                 </button>
-                <button onclick="generateReport()" 
-                        style="padding: 0.4em; background: rgba(46, 160, 67, 0.2); border: 1px solid rgba(46, 160, 67, 0.3); border-radius: 3px; color: rgba(46, 160, 67, 0.9); cursor: pointer; font-size: 0.75em; text-align: left;">
-                    <i class="fas fa-chart-bar" style="margin-right: 0.5em;"></i>Generate Report
+                <button onclick="generateReport()" class="btn-stat-action green">
+                    <i class="fas fa-chart-bar"></i>Generate Report
                 </button>
-                <button onclick="refreshStats()" 
-                        style="padding: 0.4em; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; color: rgba(255, 255, 255, 0.8); cursor: pointer; font-size: 0.75em; text-align: left;">
-                    <i class="fas fa-sync-alt" style="margin-right: 0.5em;"></i>Refresh Stats
+                <button onclick="refreshStats()" class="btn-stat-action white">
+                    <i class="fas fa-sync-alt"></i>Refresh Stats
                 </button>
             </div>
         </div>
     </div>
 
     <!-- Additional Stats Row -->
-    <div style="margin-top: 1em; padding: 0.75em; background: rgba(255, 255, 255, 0.02); border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.05);">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1em; text-align: center; font-size: 0.8em;">
+    <div class="stat-summary-row">
+        <div class="stat-summary-grid">
             <div>
-                <div style="color: rgba(255, 255, 255, 0.5); margin-bottom: 0.25em;">Ordinations</div>
-                <div style="color: rgba(255, 255, 255, 0.9); font-weight: 500;">
+                <div class="stat-summary-item-label">Ordinations</div>
+                <div class="stat-summary-item-value">
                     {% set total_ordinations = statistics.get('total_ordinations', '—') %}{{ total_ordinations }}
                 </div>
             </div>
             <div>
-                <div style="color: rgba(255, 255, 255, 0.5); margin-bottom: 0.25em;">Consecrations</div>
-                <div style="color: rgba(255, 255, 255, 0.9); font-weight: 500;">
+                <div class="stat-summary-item-label">Consecrations</div>
+                <div class="stat-summary-item-value">
                     {% set total_consecrations = statistics.get('total_consecrations', '—') %}{{ total_consecrations }}
                 </div>
             </div>
             <div>
-                <div style="color: rgba(255, 255, 255, 0.5); margin-bottom: 0.25em;">Organizations</div>
-                <div style="color: rgba(255, 255, 255, 0.9); font-weight: 500;">{{ statistics.org_stats | length }}</div>
+                <div class="stat-summary-item-label">Organizations</div>
+                <div class="stat-summary-item-value">{{ statistics.org_stats | length }}</div>
             </div>
             <div>
-                <div style="color: rgba(255, 255, 255, 0.5); margin-bottom: 0.25em;">Ranks</div>
-                <div style="color: rgba(255, 255, 255, 0.9); font-weight: 500;">{{ statistics.rank_stats | length }}</div>
+                <div class="stat-summary-item-label">Ranks</div>
+                <div class="stat-summary-item-value">{{ statistics.rank_stats | length }}</div>
             </div>
         </div>
     </div>

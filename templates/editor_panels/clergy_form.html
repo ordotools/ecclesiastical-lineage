@@ -1268,6 +1268,11 @@ function switchToEditMode(clergyId) {
 
 // Clear form and switch to add mode after deletion
 function clearFormForNewEntry() {
+    // Clear highlights when clearing form
+    if (typeof window.clearClergyHighlights === 'function') {
+        window.clearClergyHighlights();
+    }
+    
     // Force clergy switching detection by resetting the current clergy ID
     if (typeof window.isClergySwitching === 'function') {
         // This will make the next call to isClergySwitching() return true

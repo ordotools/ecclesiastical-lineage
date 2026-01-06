@@ -33,6 +33,13 @@
             
             // Initialize the visualization
             initializeEditorVisualization(nodesData, linksData);
+            
+            // Re-highlight selected clergy after visualization initializes
+            if (window.currentSelectedClergyId && typeof window.highlightClergyInVisualization === 'function') {
+                setTimeout(() => {
+                    window.highlightClergyInVisualization(window.currentSelectedClergyId);
+                }, 2000); // Wait for simulation to settle
+            }
         } else {
             console.log('Script not yet loaded, retrying...');
             setTimeout(waitForScriptAndInitialize, 100);

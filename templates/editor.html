@@ -1022,7 +1022,12 @@
                                 target: specificTarget,
                                 swap: 'innerHTML'
                             }).then(() => {
-                                
+                                // Re-highlight after visualization refresh
+                                if (window.currentSelectedClergyId) {
+                                    setTimeout(() => {
+                                        highlightClergyInVisualization(window.currentSelectedClergyId);
+                                    }, 500);
+                                }
                             }).catch(error => {
                                 
                             });
@@ -1035,7 +1040,13 @@
                     });
                 }
             } else if (isClergySelection) {
-                
+                // Re-highlight after selection
+                if (window.currentSelectedClergyId) {
+                    setTimeout(() => {
+                        highlightClergyInList(window.currentSelectedClergyId);
+                        highlightClergyInVisualization(window.currentSelectedClergyId);
+                    }, 100);
+                }
             }
         });
 
@@ -1059,7 +1070,12 @@
                                 target: specificTarget,
                                 swap: 'innerHTML'
                             }).then(() => {
-
+                                // Re-highlight after visualization refresh
+                                if (window.currentSelectedClergyId) {
+                                    setTimeout(() => {
+                                        highlightClergyInVisualization(window.currentSelectedClergyId);
+                                    }, 500);
+                                }
                             }).catch(error => {
 
                             });
@@ -1081,6 +1097,9 @@
         let selectClergyTimeout = null;
         let lastSelectedClergyId = null;
         
+        // Track currently selected clergy ID for highlighting
+        window.currentSelectedClergyId = null;
+        
         function selectClergy(clergyId) {
             // Debounce duplicate requests within 100ms
             if (selectClergyTimeout) {
@@ -1093,14 +1112,30 @@
                 return;
             }
             
+            // Clear previous highlights
+            clearClergyHighlights();
+            
+            // Update current selected clergy ID
+            window.currentSelectedClergyId = clergyId;
+            
             selectClergyTimeout = setTimeout(() => {
                 lastSelectedClergyId = clergyId;
+                
+                // Highlight clergy in list
+                highlightClergyInList(clergyId);
+                
+                // Highlight node in visualization
+                highlightClergyInVisualization(clergyId);
                 
                 // Load form content directly (skip intermediate template to avoid nested HTMX)
                 if (clergyId) {
                     htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
                         target: '.right-panel .panel-content',
                         swap: 'innerHTML'
+                    }).then(() => {
+                        // Re-highlight after form loads to ensure persistence
+                        highlightClergyInList(clergyId);
+                        highlightClergyInVisualization(clergyId);
                     });
                 } else {
                     // Load empty form for adding new clergy
@@ -1116,6 +1151,94 @@
                 detail: { clergyId: clergyId }
             }));
         }
+        
+        // Function to highlight clergy in the list
+        function highlightClergyInList(clergyId) {
+            // Remove selected class from all items
+            document.querySelectorAll('.clergy-item-card').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Add selected class to the clicked item
+            if (clergyId) {
+                const selectedItem = document.querySelector(`[data-clergy-id="${clergyId}"]`);
+                if (selectedItem) {
+                    selectedItem.classList.add('selected');
+                }
+            }
+        }
+        
+        // Function to highlight clergy node in visualization
+        function highlightClergyInVisualization(clergyId) {
+            if (!clergyId || !window.editorVisualization) return;
+            
+            const viz = window.editorVisualization;
+            if (!viz.isInitialized) {
+                // If visualization not ready, try again after a delay
+                setTimeout(() => highlightClergyInVisualization(clergyId), 500);
+                return;
+            }
+            
+            // Use the visualization's highlight method if available
+            if (typeof viz.highlightNode === 'function') {
+                viz.highlightNode(clergyId);
+            } else {
+                // Fallback to direct D3 manipulation
+                if (!viz.node) return;
+                
+                const outerRadius = window.OUTER_RADIUS || 30; // Fallback to 30 if not defined
+                
+                // Clear all highlights first
+                viz.node.selectAll('circle').each(function(d) {
+                    const circle = d3.select(this);
+                    // Reset to default styling (check if it's outer circle)
+                    const r = parseFloat(circle.attr('r'));
+                    if (Math.abs(r - outerRadius) < 1) { // Allow small floating point differences
+                        circle.attr('stroke-width', 3).attr('stroke', d => d.rank_color);
+                    }
+                });
+                
+                // Highlight the selected node
+                viz.node.filter(d => d.id === clergyId).selectAll('circle').each(function(d) {
+                    const circle = d3.select(this);
+                    // Highlight outer circle
+                    const r = parseFloat(circle.attr('r'));
+                    if (Math.abs(r - outerRadius) < 1) { // Allow small floating point differences
+                        circle.attr('stroke-width', 6).attr('stroke', '#ffd700');
+                    }
+                });
+            }
+        }
+        
+        // Function to clear all highlights
+        function clearClergyHighlights() {
+            // Clear list highlights
+            document.querySelectorAll('.clergy-item-card').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Clear visualization highlights
+            if (window.editorVisualization) {
+                const viz = window.editorVisualization;
+                if (typeof viz.clearHighlights === 'function') {
+                    viz.clearHighlights();
+                } else if (viz.node) {
+                    const outerRadius = window.OUTER_RADIUS || 30; // Fallback to 30 if not defined
+                    viz.node.selectAll('circle').each(function(d) {
+                        const circle = d3.select(this);
+                        const r = parseFloat(circle.attr('r'));
+                        if (Math.abs(r - outerRadius) < 1) { // Allow small floating point differences
+                            circle.attr('stroke-width', 3).attr('stroke', d => d.rank_color);
+                        }
+                    });
+                }
+            }
+        }
+        
+        // Make functions globally available
+        window.highlightClergyInList = highlightClergyInList;
+        window.highlightClergyInVisualization = highlightClergyInVisualization;
+        window.clearClergyHighlights = clearClergyHighlights;
 
         // Make selectClergy globally available
         window.selectClergy = selectClergy;
@@ -1189,6 +1312,19 @@
 
             // Update status bar every 30 seconds
             setInterval(updateStatusBar, 30000);
+            
+            // Keyboard shortcut: Cmd/Ctrl+F to focus search input
+            document.addEventListener('keydown', function(e) {
+                // Check for Cmd+F (Mac) or Ctrl+F (Windows/Linux)
+                if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+                    e.preventDefault(); // Prevent browser's default find dialog
+                    const searchInput = document.getElementById('clergySearchInput');
+                    if (searchInput) {
+                        searchInput.focus();
+                        searchInput.select(); // Select existing text for easy replacement
+                    }
+                }
+            });
         });
 
         // Update status bar when clergy data changes

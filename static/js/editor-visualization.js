@@ -447,6 +447,13 @@ class EditorVisualization {
         setTimeout(() => {
             this.centerGraph();
         }, 1000);
+        
+        // Re-highlight selected clergy after visualization loads
+        if (window.currentSelectedClergyId) {
+            setTimeout(() => {
+                this.highlightNode(window.currentSelectedClergyId);
+            }, 1500);
+        }
     }
 
     setupResizeObserver() {
@@ -504,8 +511,49 @@ class EditorVisualization {
         }
         
         // Highlight selected node - matching lineage visualization
-        this.node.select('circle').attr('stroke-width', 3).attr('stroke', d => d.rank_color);
-        d3.select(event.currentTarget).select('circle').attr('stroke-width', 6).attr('stroke', '#ffd700');
+        this.highlightNode(d.id);
+    }
+    
+    // Method to highlight a node by ID
+    highlightNode(nodeId) {
+        if (!this.node || !this.isInitialized) return;
+        
+        const outerRadius = window.OUTER_RADIUS || OUTER_RADIUS || 30; // Fallback to 30 if not defined
+        
+        // Clear all highlights first
+        this.node.selectAll('circle').each(function(d) {
+            const circle = d3.select(this);
+            // Reset outer circle (first circle is outer)
+            const r = parseFloat(circle.attr('r'));
+            if (Math.abs(r - outerRadius) < 1) { // Allow small floating point differences
+                circle.attr('stroke-width', 3).attr('stroke', d => d.rank_color);
+            }
+        });
+        
+        // Highlight the selected node
+        this.node.filter(d => d.id === nodeId).selectAll('circle').each(function(d) {
+            const circle = d3.select(this);
+            // Highlight outer circle
+            const r = parseFloat(circle.attr('r'));
+            if (Math.abs(r - outerRadius) < 1) { // Allow small floating point differences
+                circle.attr('stroke-width', 6).attr('stroke', '#ffd700');
+            }
+        });
+    }
+    
+    // Method to clear all highlights
+    clearHighlights() {
+        if (!this.node || !this.isInitialized) return;
+        
+        const outerRadius = window.OUTER_RADIUS || OUTER_RADIUS || 30; // Fallback to 30 if not defined
+        
+        this.node.selectAll('circle').each(function(d) {
+            const circle = d3.select(this);
+            const r = parseFloat(circle.attr('r'));
+            if (Math.abs(r - outerRadius) < 1) { // Allow small floating point differences
+                circle.attr('stroke-width', 3).attr('stroke', d => d.rank_color);
+            }
+        });
     }
 
     // Drag functions - matching lineage visualization exactly

@@ -309,19 +309,7 @@ function applyFilters() {
 function selectClergyFromList(clergyId) {
     console.log('Clergy selected from list:', clergyId);
     
-    // Update visual selection
-    document.querySelectorAll('.clergy-item').forEach(item => {
-        item.classList.remove('selected');
-    });
-    
-    if (clergyId) {
-        const selectedItem = document.querySelector(`[onclick="selectClergyFromList(${clergyId})"]`);
-        if (selectedItem) {
-            selectedItem.classList.add('selected');
-        }
-    }
-    
-    // Call the global selectClergy function to handle the form loading
+    // Call the global selectClergy function to handle the form loading and highlighting
     if (typeof window.selectClergy === 'function') {
         window.selectClergy(clergyId);
     } else {
@@ -510,6 +498,13 @@ function initializeClergyList() {
     
     // Initialize bulk actions visibility
     updateSelection();
+    
+    // Re-highlight selected clergy after list loads
+    if (window.currentSelectedClergyId && typeof window.highlightClergyInList === 'function') {
+        setTimeout(() => {
+            window.highlightClergyInList(window.currentSelectedClergyId);
+        }, 100);
+    }
     
     console.log('Clergy list initialization complete');
 }

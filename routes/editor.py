@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
 from services import clergy as clergy_service
 from services.clergy import permanently_delete_clergy_handler
-from utils import audit_log, require_permission, log_audit_event
+from utils import audit_log, require_permission, require_permission_api, log_audit_event
 from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite, Location, Status, ClergyEvent, SpriteSheet, ClergySpritePosition
 from constants import GREEN_COLOR, BLACK_COLOR
 from datetime import datetime
@@ -1417,6 +1417,60 @@ def get_sprite_sheet():
         current_app.logger.error(f"Error getting sprite sheet: {e}")
         import traceback
         current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@editor_bp.route('/api/sprite-sheet-status')
+@require_permission_api('edit_clergy')
+def get_sprite_sheet_status():
+    """API endpoint to check spritesheet generation status"""
+    try:
+        from services.clergy import get_sprite_sheet_status
+        status = get_sprite_sheet_status()
+        
+        # If completed, also return the sprite sheet data
+        if status.get('status') == 'completed':
+            try:
+                sprite_sheet = SpriteSheet.query.filter_by(id=status.get('sprite_sheet_id')).first()
+                if sprite_sheet:
+                    positions = ClergySpritePosition.query.filter_by(sprite_sheet_id=sprite_sheet.id).all()
+                    mapping = {pos.clergy_id: (pos.x_position, pos.y_position) for pos in positions}
+                    
+                    return jsonify({
+                        'success': True,
+                        'status': 'completed',
+                        'url': sprite_sheet.url,
+                        'mapping': mapping,
+                        'thumbnail_size': sprite_sheet.thumbnail_size,
+                        'images_per_row': sprite_sheet.images_per_row,
+                        'sprite_width': sprite_sheet.sprite_width,
+                        'sprite_height': sprite_sheet.sprite_height,
+                        'completed_at': status.get('completed_at')
+                    })
+            except Exception as db_error:
+                # If database query fails, return status without full data
+                current_app.logger.warning(f"Could not fetch sprite sheet data: {db_error}")
+                return jsonify({
+                    'success': True,
+                    'status': 'completed',
+                    'url': status.get('url'),
+                    'mapping': status.get('mapping', {}),
+                    'completed_at': status.get('completed_at')
+                })
+        
+        # Return current status
+        return jsonify({
+            'success': True,
+            'status': status.get('status', 'idle'),
+            'error': status.get('error'),
+            'started_at': status.get('started_at'),
+            'clergy_id': status.get('clergy_id')
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting sprite sheet status: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

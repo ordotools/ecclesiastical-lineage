@@ -195,6 +195,8 @@ class EditorVisualization {
                     throw new Error('Invalid response type');
                 }
                 spriteSheetData = await spriteResponse.json();
+                // Store spriteSheetData in instance for later updates
+                this.spriteSheetData = spriteSheetData;
                 if (spriteSheetData && spriteSheetData.success) {
                     const thumbnailSize = spriteSheetData.thumbnail_size || 48;
                     const spriteUrl = spriteSheetData.url;
@@ -597,6 +599,49 @@ class EditorVisualization {
         }
     }
 
+    updateSpritesheet(spriteData) {
+        /** Update spritesheet without full reload */
+        if (!this.svg || !spriteData || !spriteData.success) {
+            console.warn('Cannot update spritesheet: invalid data or SVG not initialized');
+            return;
+        }
+        
+        console.log('Updating spritesheet:', spriteData.url);
+        
+        // Store updated spriteSheetData
+        this.spriteSheetData = spriteData;
+        
+        const spriteUrl = spriteData.url;
+        const mapping = spriteData.mapping || {};
+        const IMAGE_SIZE = window.IMAGE_SIZE || 48;
+        
+        // Update all image elements that use the spritesheet
+        // The images are appended to this.node, so we select from there
+        const imageElements = this.node.selectAll('image');
+        
+        imageElements.each(function(d) {
+            const position = mapping[d.id] || mapping[String(d.id)] || mapping[Number(d.id)];
+            if (position && Array.isArray(position) && position.length === 2) {
+                const [x, y] = position;
+                const img = d3.select(this);
+                
+                // Update sprite sheet URL (use xlink:href for older browsers, href for newer)
+                img.attr('href', spriteUrl)
+                   .attr('xlink:href', spriteUrl);
+                
+                // Update image position in sprite sheet (centered at node)
+                img.attr('x', -x - IMAGE_SIZE/2)
+                   .attr('y', -y - IMAGE_SIZE/2);
+                
+                // Update sprite sheet dimensions
+                img.attr('width', spriteData.sprite_width || 960)
+                   .attr('height', spriteData.sprite_height || 960);
+            }
+        });
+        
+        console.log('Spritesheet updated successfully');
+    }
+    
     cleanup() {
         if (this.resizeObserver) {
             this.resizeObserver.disconnect();

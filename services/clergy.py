@@ -1,10 +1,14 @@
-from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response
+from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response, current_app
 from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordination, Consecration, Status, clergy_statuses
 from utils import log_audit_event
 from datetime import datetime
 import json
+import threading
 from .image_upload import get_image_upload_service
 
+# Background task status tracking
+_sprite_sheet_status = {}
+_sprite_sheet_lock = threading.Lock()
 
 def _regenerate_sprite_sheet():
     """Helper function to regenerate the sprite sheet after clergy changes"""
@@ -31,6 +35,72 @@ def _regenerate_sprite_sheet():
         print(f"Error in sprite sheet regeneration: {e}")
         import traceback
         traceback.print_exc()
+
+def _regenerate_sprite_sheet_background(clergy_id=None):
+    """Regenerate sprite sheet in background thread"""
+    # Capture the app instance from the current request context
+    app = current_app._get_current_object()
+    
+    def background_task():
+        try:
+            with app.app_context():
+                # Mark as in progress
+                with _sprite_sheet_lock:
+                    _sprite_sheet_status['status'] = 'in_progress'
+                    _sprite_sheet_status['clergy_id'] = clergy_id
+                    _sprite_sheet_status['started_at'] = datetime.utcnow().isoformat()
+                
+                image_upload_service = get_image_upload_service()
+                if not image_upload_service.backblaze_configured:
+                    with _sprite_sheet_lock:
+                        _sprite_sheet_status['status'] = 'error'
+                        _sprite_sheet_status['error'] = 'Backblaze B2 not configured'
+                    return
+                
+                # Get all active clergy (include ALL clergy, placeholders will be used for those without images)
+                all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+                
+                if not all_clergy:
+                    with _sprite_sheet_lock:
+                        _sprite_sheet_status['status'] = 'error'
+                        _sprite_sheet_status['error'] = 'No clergy found'
+                    return
+                
+                # Create sprite sheet (this will save to database and mark old ones as not current)
+                result = image_upload_service.create_sprite_sheet(all_clergy)
+                
+                if result['success']:
+                    with _sprite_sheet_lock:
+                        _sprite_sheet_status['status'] = 'completed'
+                        _sprite_sheet_status['sprite_sheet_id'] = result.get('sprite_sheet_id')
+                        _sprite_sheet_status['url'] = result.get('url')
+                        _sprite_sheet_status['mapping'] = result.get('mapping', {})
+                        _sprite_sheet_status['completed_at'] = datetime.utcnow().isoformat()
+                    print(f"Sprite sheet regenerated in background: {result['url']}")
+                else:
+                    with _sprite_sheet_lock:
+                        _sprite_sheet_status['status'] = 'error'
+                        _sprite_sheet_status['error'] = result.get('error', 'Unknown error')
+                    print(f"Failed to regenerate sprite sheet: {result.get('error', 'Unknown error')}")
+        except Exception as e:
+            with _sprite_sheet_lock:
+                _sprite_sheet_status['status'] = 'error'
+                _sprite_sheet_status['error'] = str(e)
+            print(f"Error in background sprite sheet regeneration: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Start background thread
+    thread = threading.Thread(target=background_task, daemon=True)
+    thread.start()
+    
+    # Return immediately
+    return True
+
+def get_sprite_sheet_status():
+    """Get current sprite sheet generation status"""
+    with _sprite_sheet_lock:
+        return _sprite_sheet_status.copy()
 
 def set_clergy_display_name(clergy):
     """Set the display name for a clergy member based on their rank and papal name."""
@@ -102,9 +172,35 @@ def create_clergy_from_form(form):
             try:
                 image_data = json.loads(image_data_json)
                 
-                # Store the processed image data directly
-                # Always use the original image URL for clergy.image_url
-                clergy.image_url = image_data.get('original', image_data.get('detail', image_data.get('lineage', '')))
+                # CRITICAL: Always use original image URL for clergy.image_url
+                # If original is missing, try to preserve existing original or find it
+                original_url = image_data.get('original')
+                if not original_url:
+                    # For new clergy, original should always be in image_data
+                    # But if missing, try to find it in storage
+                    try:
+                        response = image_upload_service.s3_client.list_objects_v2(
+                            Bucket=image_upload_service.bucket_name,
+                            Prefix=f"clergy/{clergy.id}/"
+                        )
+                        for obj in response.get('Contents', []):
+                            key = obj['Key']
+                            if 'original_' in key and 'lineage_' not in key and 'detail_' not in key:
+                                original_url = image_upload_service.config.get_public_url(key)
+                                image_data['original'] = original_url
+                                print(f"Found original in storage for new clergy: {original_url}")
+                                break
+                    except Exception as e:
+                        print(f"Could not find original in storage: {e}")
+                
+                # Always use original URL for clergy.image_url (never detail or lineage)
+                if original_url:
+                    clergy.image_url = original_url
+                else:
+                    # Last resort: use detail but log warning
+                    print(f"WARNING: No original URL found, using detail as fallback for clergy.image_url")
+                    clergy.image_url = image_data.get('detail', image_data.get('lineage', ''))
+                
                 clergy.image_data = json.dumps(image_data)
                 
                 print(f"Stored server-processed images for clergy {clergy.id}:")
@@ -164,11 +260,11 @@ def create_clergy_from_form(form):
     
     db.session.commit()
     
-    # Generate sprite sheet after successful save
+    # Generate sprite sheet in background (non-blocking)
     try:
-        _regenerate_sprite_sheet()
+        _regenerate_sprite_sheet_background(clergy.id)
     except Exception as e:
-        print(f"Warning: Failed to regenerate sprite sheet: {e}")
+        print(f"Warning: Failed to start background sprite sheet generation: {e}")
         # Don't fail the form submission if sprite generation fails
     
     return clergy
@@ -592,9 +688,41 @@ def edit_clergy_handler(clergy_id):
                             try:
                                 image_data = json.loads(image_data_json)
                                 
-                                # Store the processed image data directly
-                                # Always use the original image URL for clergy.image_url
-                                clergy.image_url = image_data.get('original', image_data.get('detail', image_data.get('lineage', '')))
+                                # CRITICAL: Always use original image URL for clergy.image_url
+                                # If original is missing, try to preserve existing original or find it
+                                original_url = image_data.get('original')
+                                if not original_url:
+                                    # Try to preserve existing original URL if it's an original
+                                    if clergy.image_url and 'original_' in clergy.image_url:
+                                        original_url = clergy.image_url
+                                        print(f"Preserving existing original URL: {original_url}")
+                                        # Add original to image_data if missing
+                                        image_data['original'] = original_url
+                                    else:
+                                        # Try to find original in storage
+                                        try:
+                                            response = image_upload_service.s3_client.list_objects_v2(
+                                                Bucket=image_upload_service.bucket_name,
+                                                Prefix=f"clergy/{clergy.id}/"
+                                            )
+                                            for obj in response.get('Contents', []):
+                                                key = obj['Key']
+                                                if 'original_' in key and 'lineage_' not in key and 'detail_' not in key:
+                                                    original_url = image_upload_service.config.get_public_url(key)
+                                                    image_data['original'] = original_url
+                                                    print(f"Found original in storage: {original_url}")
+                                                    break
+                                        except Exception as e:
+                                            print(f"Could not find original in storage: {e}")
+                                
+                                # Always use original URL for clergy.image_url (never detail or lineage)
+                                if original_url:
+                                    clergy.image_url = original_url
+                                else:
+                                    # Last resort: use detail but log warning
+                                    print(f"WARNING: No original URL found, using detail as fallback for clergy.image_url")
+                                    clergy.image_url = image_data.get('detail', image_data.get('lineage', ''))
+                                
                                 clergy.image_data = json.dumps(image_data)
                                 
                                 print(f"Stored server-processed images for clergy {clergy.id}:")
@@ -669,11 +797,11 @@ def edit_clergy_handler(clergy_id):
                 
                 db.session.commit()
                 
-                # Generate sprite sheet after successful save
+                # Generate sprite sheet in background (non-blocking)
                 try:
-                    _regenerate_sprite_sheet()
+                    _regenerate_sprite_sheet_background(clergy_id)
                 except Exception as e:
-                    print(f"Warning: Failed to regenerate sprite sheet: {e}")
+                    print(f"Warning: Failed to start background sprite sheet generation: {e}")
                     # Don't fail the form submission if sprite generation fails
                 
                 log_audit_event(

@@ -66,13 +66,17 @@
                             <div id="imagePreview">
                                 {% if edit_mode and clergy and clergy.image_data %}
                                     {% set image_data = clergy.image_data | from_json %}
-                                    {% if image_data and image_data.detail %}
-                                        <img src="{{ image_data.detail }}" alt="{{ clergy.name }}" id="previewImage"
-                                             data-original-image="{{ image_data.original if image_data.original else (image_data.detail if image_data.detail else clergy.image_url) }}"
+                                    {% if image_data %}
+                                        {# Always use detail for preview, but original for editing #}
+                                        {% set preview_url = image_data.detail if image_data.detail else (image_data.lineage if image_data.lineage else image_data.original) %}
+                                        {% set original_url = image_data.original if image_data.original else (clergy.image_url if clergy.image_url else '') %}
+                                        <img src="{{ preview_url }}" alt="{{ clergy.name }}" id="previewImage"
+                                             data-original-image="{{ original_url }}"
                                              data-clergy-id="{{ clergy.id }}"
                                              data-object-key="{{ image_data.metadata.object_key if image_data.metadata and image_data.metadata.object_key else '' }}">
                                     {% endif %}
                                 {% elif clergy.image_url %}
+                                    {# Fallback: use image_url as both preview and original #}
                                     <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage"
                                          data-original-image="{{ clergy.image_url }}"
                                          data-clergy-id="{{ clergy.id }}"

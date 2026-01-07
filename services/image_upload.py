@@ -263,10 +263,10 @@ class ImageUploadService:
                             Prefix=f"clergy/{clergy_id}/"
                         )
                         
-                        # Look for original image
+                        # Look for original image (must have 'original_' prefix)
                         for obj in response.get('Contents', []):
                             key = obj['Key']
-                            if 'original_' in key:
+                            if 'original_' in key and not 'lineage_' in key and not 'detail_' in key:
                                 original_url = self.config.get_public_url(key)
                                 current_app.logger.info(f"Found original image in storage: {original_url}")
                                 break
@@ -276,12 +276,67 @@ class ImageUploadService:
             # Generate URLs for both sizes
             urls = {}
             
-            # Preserve original URL if it exists
+            # CRITICAL: Always preserve original URL - never overwrite it
+            # If no original URL exists, try to find it in storage or use the cropped image as original
+            if not original_url:
+                current_app.logger.warning("No original URL found in image_data - searching storage")
+                # Try to find it in storage
+                try:
+                    response = self.s3_client.list_objects_v2(
+                        Bucket=self.bucket_name,
+                        Prefix=f"clergy/{clergy_id}/"
+                    )
+                    # Look for the most recent original image (not lineage or detail)
+                    original_objects = []
+                    for obj in response.get('Contents', []):
+                        key = obj['Key']
+                        if 'original_' in key and 'lineage_' not in key and 'detail_' not in key:
+                            original_objects.append((obj['LastModified'], key))
+                    
+                    if original_objects:
+                        # Sort by last modified (newest first) and use the most recent
+                        original_objects.sort(key=lambda x: x[0], reverse=True)
+                        most_recent_key = original_objects[0][1]
+                        original_url = self.config.get_public_url(most_recent_key)
+                        current_app.logger.info(f"Found original image in storage: {original_url}")
+                except Exception as e:
+                    current_app.logger.warning(f"Could not find original image in storage: {e}")
+            
+            # If still no original URL, upload the cropped image as the new original
+            # This ensures we always have an original for future edits
+            if not original_url:
+                current_app.logger.warning("No original URL found - uploading cropped image as new original")
+                # Upload the cropped image as the new original (full resolution)
+                # This ensures future edits will work from this image
+                try:
+                    # Convert cropped image to bytes for upload
+                    output = BytesIO()
+                    image.save(output, format='JPEG', quality=95, optimize=True)
+                    cropped_bytes = output.getvalue()
+                    
+                    # Generate object key for new original
+                    object_key = self._generate_object_key(clergy_id, 'original', '.jpg')
+                    
+                    # Upload as original
+                    self.s3_client.put_object(
+                        Bucket=self.bucket_name,
+                        Key=object_key,
+                        Body=cropped_bytes,
+                        ContentType='image/jpeg'
+                    )
+                    
+                    original_url = self.config.get_public_url(object_key)
+                    current_app.logger.info(f"Uploaded cropped image as new original: {original_url}")
+                except Exception as e:
+                    current_app.logger.error(f"Failed to upload cropped image as original: {e}")
+                    # If upload fails, we'll continue without original (not ideal)
+            
+            # Preserve original URL (should always exist now)
             if original_url:
                 urls['original'] = original_url
-                current_app.logger.info(f"Preserved original URL: {original_url}")
+                current_app.logger.info(f"Using original URL: {original_url}")
             else:
-                current_app.logger.warning("No original URL found - this will result in loss of original image quality")
+                current_app.logger.error("CRITICAL: Failed to establish original URL - future edits may fail!")
             
             # Create small version (lineage) - as small as possible for quick loading
             current_app.logger.info("Creating lineage version")

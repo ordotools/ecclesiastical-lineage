@@ -1,5 +1,17 @@
 <!-- Clergy Form Panel Content with HTMX Loading -->
-<div id="clergyFormContainer">
+<div id="clergyFormContainer" style="position: relative;">
+    <!-- Form submission overlay -->
+    <div id="formSubmissionOverlay" class="form-submission-overlay">
+        <div class="overlay-content">
+            <div class="spinner"></div>
+            <div class="overlay-title">Saving clergy record...</div>
+            <div class="progress-container">
+                <div id="formSubmissionProgressBar" class="progress-bar"></div>
+            </div>
+            <div id="formSubmissionProgressText" class="progress-text">0%</div>
+        </div>
+    </div>
+    
     {% if clergy and edit_mode %}
         <!-- Load form content via HTMX for edit mode -->
         <div hx-get="{{ url_for('editor.clergy_form_content', clergy_id=clergy.id) }}" 
@@ -442,6 +454,80 @@
     padding: 0.5em 1em !important;
 }
 
+/* Form submission overlay */
+.form-submission-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1em;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.form-submission-overlay.active {
+    display: flex;
+}
+
+.form-submission-overlay .overlay-content {
+    text-align: center;
+    max-width: 300px;
+}
+
+.form-submission-overlay .overlay-title {
+    font-size: 1em;
+    font-weight: 500;
+    margin-bottom: 1em;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.form-submission-overlay .progress-container {
+    width: 100%;
+    max-width: 300px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    height: 8px;
+    margin-bottom: 0.5em;
+}
+
+.form-submission-overlay .progress-bar {
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.form-submission-overlay .progress-text {
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 0.5em;
+}
+
+.form-submission-overlay .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top: 3px solid rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1em;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 
 /* Responsive adjustments for smaller panels */
 @media (max-width: 1200px) {
@@ -697,7 +783,174 @@ function resetSubmitButton(button, originalText) {
     button.disabled = false;
 }
 
+// Form submission overlay functions
+function showFormSubmissionOverlay() {
+    const overlay = document.getElementById('formSubmissionOverlay');
+    const container = document.getElementById('clergyFormContainer');
+    if (overlay && container) {
+        // Ensure container has relative positioning
+        container.style.position = 'relative';
+        overlay.classList.add('active');
+        updateFormSubmissionProgress(10, 'Preparing form data...');
+    }
+}
+
+function hideFormSubmissionOverlay() {
+    const overlay = document.getElementById('formSubmissionOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+        updateFormSubmissionProgress(0, '');
+    }
+}
+
+function updateFormSubmissionProgress(percent, text) {
+    const progressBar = document.getElementById('formSubmissionProgressBar');
+    const progressText = document.getElementById('formSubmissionProgressText');
+    
+    if (progressBar) {
+        progressBar.style.width = `${percent}%`;
+    }
+    
+    if (progressText) {
+        progressText.textContent = text || `${percent}%`;
+    }
+}
+
+// Spritesheet polling functions
+let spritesheetPollingInterval = null;
+
+function startSpritesheetPolling(clergyId) {
+    // Clear any existing polling
+    if (spritesheetPollingInterval) {
+        clearInterval(spritesheetPollingInterval);
+    }
+    
+    let pollCount = 0;
+    const maxPolls = 60; // Poll for up to 60 seconds (1 second intervals)
+    
+    spritesheetPollingInterval = setInterval(() => {
+        pollCount++;
+        
+        fetch('/api/sprite-sheet-status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.status === 'completed') {
+                    // Spritesheet generation completed
+                    clearInterval(spritesheetPollingInterval);
+                    spritesheetPollingInterval = null;
+                    
+                    // Show success notification
+                    if (typeof window.showNotification === 'function') {
+                        window.showNotification('Spritesheet generation completed! Images updated.', 'success');
+                    }
+                    
+                    // Soft refresh visualization and clergy list
+                    refreshVisualizationSpritesheet(data);
+                    refreshClergyListImages(data);
+                } else if (data.success && data.status === 'error') {
+                    // Error occurred
+                    clearInterval(spritesheetPollingInterval);
+                    spritesheetPollingInterval = null;
+                    
+                    console.error('Spritesheet generation error:', data.error);
+                    if (typeof window.showNotification === 'function') {
+                        window.showNotification('Spritesheet generation failed: ' + (data.error || 'Unknown error'), 'error');
+                    }
+                }
+                // If status is 'in_progress' or 'idle', continue polling
+            })
+            .catch(error => {
+                console.error('Error polling spritesheet status:', error);
+                // Continue polling on error
+            });
+        
+        // Stop polling after max attempts
+        if (pollCount >= maxPolls) {
+            clearInterval(spritesheetPollingInterval);
+            spritesheetPollingInterval = null;
+            console.warn('Spritesheet polling timeout - generation may still be in progress');
+        }
+    }, 1000); // Poll every second
+}
+
+function refreshVisualizationSpritesheet(spriteData) {
+    // Update visualization spritesheet without full reload
+    if (window.editorVisualization && typeof window.editorVisualization.updateSpritesheet === 'function') {
+        console.log('Updating visualization spritesheet with new data');
+        window.editorVisualization.updateSpritesheet(spriteData);
+    } else {
+        console.log('Visualization not available, fetching latest spritesheet data');
+        // Fallback: fetch latest spritesheet and update
+        fetch('/api/sprite-sheet')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && window.editorVisualization && typeof window.editorVisualization.updateSpritesheet === 'function') {
+                    window.editorVisualization.updateSpritesheet(data);
+                } else {
+                    // Last resort: soft refresh of the visualization
+                    const visualizationTarget = document.getElementById('visualization-panel-content');
+                    if (visualizationTarget && typeof htmx !== 'undefined') {
+                        htmx.ajax('GET', '/editor/visualization', {
+                            target: visualizationTarget,
+                            swap: 'innerHTML'
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error refreshing visualization spritesheet:', error);
+            });
+    }
+}
+
+function refreshClergyListImages(spriteData) {
+    // Update clergy list images - refresh individual image URLs
+    // The clergy list uses individual images, not spritesheet, so we need to refresh
+    // the image URLs from the database
+    console.log('Refreshing clergy list images');
+    
+    // Soft refresh: update images in the list without full reload
+    // We'll update image src attributes for clergy items that have images
+    const clergyItems = document.querySelectorAll('.clergy-item-card');
+    
+    clergyItems.forEach(item => {
+        const clergyId = item.getAttribute('data-clergy-id');
+        if (!clergyId) return;
+        
+        const photoElement = item.querySelector('.clergy-item-photo img');
+        if (photoElement) {
+            // Add cache-busting parameter to force image refresh
+            const currentSrc = photoElement.src;
+            const url = new URL(currentSrc);
+            url.searchParams.set('_t', Date.now());
+            photoElement.src = url.toString();
+        }
+    });
+    
+    // Also trigger a minimal HTMX refresh of the clergy list to get updated image URLs
+    // This ensures any new images are loaded
+    const clergyListTarget = document.querySelector('.left-panel .panel-content');
+    if (clergyListTarget && typeof htmx !== 'undefined') {
+        // Use a small delay to avoid conflicts
+        setTimeout(() => {
+            htmx.ajax('GET', '/editor/clergy-list', {
+                target: clergyListTarget,
+                swap: 'innerHTML',
+                headers: { 'HX-Request': 'true' }
+            }).then(() => {
+                console.log('Clergy list refreshed with updated images');
+            }).catch(error => {
+                console.error('Error refreshing clergy list:', error);
+            });
+        }, 500);
+    }
+}
+
 function submitFormWithData(form, formData, submitBtn, originalText) {
+    // Show overlay
+    showFormSubmissionOverlay();
+    updateFormSubmissionProgress(20, 'Submitting form...');
+    
     // Debug: Log form data contents
     console.log('=== FORM SUBMISSION DEBUG ===');
     console.log('Form action:', form.action);
@@ -746,6 +999,8 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
     }
     console.log('=== END FORM SUBMISSION DEBUG ===');
     
+    updateFormSubmissionProgress(40, 'Uploading data...');
+    
     // Submit via fetch
     fetch(form.action, {
         method: 'POST',
@@ -755,12 +1010,15 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
         }
     })
         .then(response => {
+            updateFormSubmissionProgress(70, 'Processing response...');
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
+            updateFormSubmissionProgress(90, 'Finalizing...');
+            
             if (data.success) {
                 // Success - refresh panels smoothly
                 
@@ -770,25 +1028,6 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
                     swap: 'innerHTML'
                 });
                 
-                // Instant visualization refresh (will be done after specific actions)
-                const visualizationTarget = document.getElementById('visualization-panel-content');
-                if (visualizationTarget && typeof htmx !== 'undefined') {
-                    // Use the specific visualization panel ID
-                    const specificTarget = document.getElementById('visualization-panel-content');
-                    if (specificTarget) {
-                        htmx.ajax('GET', '/editor/visualization', {
-                            target: specificTarget,
-                            swap: 'innerHTML'
-                        }).then(() => {
-                            // Visualization refresh completed
-                        }).catch(error => {
-                            console.error('Visualization refresh failed:', error);
-                        });
-                    }
-                } else {
-                    console.error('Visualization target not found or HTMX not available!');
-                }
-                
                 // Check if the record was marked for deletion
                 const markDeletedCheckbox = form.querySelector('input[name="mark_deleted"]');
                 const wasMarkedDeleted = markDeletedCheckbox && markDeletedCheckbox.checked;
@@ -796,28 +1035,6 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
                 if (wasMarkedDeleted) {
                     // Record was marked for deletion - clear form and switch to add mode
                     clearFormForNewEntry();
-                    
-                    // Additional visualization refresh specifically for deletion
-                    setTimeout(() => {
-                        const visualizationTarget = document.getElementById('visualization-panel-content');
-                        if (visualizationTarget && typeof htmx !== 'undefined') {
-                            // Use the specific visualization panel ID
-                            const specificTarget = document.getElementById('visualization-panel-content');
-                            if (specificTarget) {
-                                htmx.ajax('GET', '/editor/visualization', {
-                                    target: specificTarget,
-                                    swap: 'innerHTML'
-                                }).then(() => {
-                                    // Deletion visualization refresh completed
-                                }).catch(error => {
-                                    console.error('Deletion visualization refresh failed:', error);
-                                });
-                            }
-                        } else {
-                            console.error('Deletion visualization target not found or HTMX not available!');
-                        }
-                    }, 500); // Small delay to ensure the deletion is processed
-                    
                     showNotification('Record marked for deletion. Form cleared for new entry.', 'info');
                 } else if (data.clergy_id) {
                     // Normal save - switch to edit mode and refresh the form
@@ -843,6 +1060,11 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
                     }));
                 }
                 
+                // Start polling for spritesheet completion if needed
+                if (data.clergy_id) {
+                    startSpritesheetPolling(data.clergy_id);
+                }
+                
             } else {
                 throw new Error(data.message || 'Failed to save clergy record');
             }
@@ -857,6 +1079,9 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
             }
         })
         .finally(() => {
+            // Hide overlay
+            hideFormSubmissionOverlay();
+            
             // Reset button - check if submitBtn exists
             if (submitBtn) {
                 submitBtn.textContent = originalText;

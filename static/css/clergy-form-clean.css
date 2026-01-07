@@ -39,7 +39,7 @@
 }
 
 .photo-section {
-    position: sticky;
+    /* position: sticky; */
     top: 2rem;
 }
 

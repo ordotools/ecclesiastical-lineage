@@ -8,6 +8,7 @@ class ImageEditor {
         this.cropper = null;
         this.originalImageData = null;
         this.originalImageFile = null;
+        this.originalImageUrl = null;
         this.currentImageData = null;
         this.isProcessing = false;
         this.quality = 95;
@@ -16,6 +17,7 @@ class ImageEditor {
             detail: true,
             original: true
         };
+        this.enforcingConstraints = false; // Flag to prevent infinite recursion
         
         this.initializeEventListeners();
         this.initializeSettings();
@@ -170,7 +172,7 @@ class ImageEditor {
             return;
         }
         
-        // Validate and prepare image source
+            // Validate and prepare image source
         let imageSrc = this.currentImageData;
         
         // Validate data URL format
@@ -191,6 +193,7 @@ class ImageEditor {
         // Set image source using proxy URL to avoid CORS issues
         const proxyUrl = this.getProxyUrl(imageSrc);
         console.log('Setting image source:', proxyUrl.substring(0, 100) + '...');
+        console.log('Original image URL:', this.originalImageUrl);
         editorImage.src = proxyUrl;
         
         // Wait for image to load
@@ -200,14 +203,24 @@ class ImageEditor {
             console.log('Session ID:', this.sessionId);
             console.log('Image src attribute:', editorImage.src);
             console.log('Image currentSrc:', editorImage.currentSrc);
+            console.log('Original image URL used:', this.originalImageUrl);
 
-            // Additional validation
+            // Additional validation - check if we got the right image
             if (editorImage.naturalWidth <= 48 || editorImage.naturalHeight <= 48) {
-                console.warn('WARNING: Image dimensions are very small! This might be the 48x48 lineage image instead of full resolution.');
-                console.warn('Image source starts with:', this.currentEditorImageData.substring(0, 100));
+                console.error('ERROR: Image dimensions are very small! This is likely the 48x48 lineage image instead of full resolution.');
+                console.error('Image source:', this.currentEditorImageData.substring(0, 100));
+                console.error('Original URL should be:', this.originalImageUrl);
+                this.showNotification('Warning: Low resolution image detected. Please ensure the original image URL is correct.', 'warning');
             } else if (editorImage.naturalWidth <= 320 && editorImage.naturalHeight <= 320) {
                 console.warn('WARNING: Image dimensions are 320x320 or smaller! This might be the detail image instead of the original.');
                 console.warn('Expected original image to be larger than 320x320');
+                console.warn('Original URL used:', this.originalImageUrl);
+                // Check if URL contains 'detail_' which would indicate wrong image
+                if (this.originalImageUrl && this.originalImageUrl.includes('detail_')) {
+                    console.error('ERROR: Original URL contains "detail_" - this is the wrong image!');
+                    this.showNotification('Error: Detail image loaded instead of original. Please reload the form.', 'error');
+                    return;
+                }
             } else {
                 console.log('SUCCESS: Full resolution image loaded correctly!');
             }
@@ -344,49 +357,56 @@ class ImageEditor {
      * Enforce crop constraints during cropping operations
      */
     enforceCropConstraints() {
-        if (!this.cropper) return;
+        if (!this.cropper || this.enforcingConstraints) return;
         
-        const containerData = this.cropper.getContainerData();
-        const cropData = this.cropper.getData();
+        this.enforcingConstraints = true;
         
-        // Calculate maximum allowed size and position (no 400px limit)
-        const maxSize = Math.min(containerData.width * 0.95, containerData.height * 0.95);
-        const maxLeft = containerData.width - cropData.width;
-        const maxTop = containerData.height - cropData.height;
-        
-        // Check if crop box extends beyond boundaries
-        let needsAdjustment = false;
-        const newCropData = { ...cropData };
-        
-        if (cropData.width > maxSize) {
-            newCropData.width = maxSize;
-            needsAdjustment = true;
-        }
-        
-        if (cropData.height > maxSize) {
-            newCropData.height = maxSize;
-            needsAdjustment = true;
-        }
-        
-        if (cropData.left < 0) {
-            newCropData.left = 0;
-            needsAdjustment = true;
-        } else if (cropData.left > maxLeft) {
-            newCropData.left = maxLeft;
-            needsAdjustment = true;
-        }
-        
-        if (cropData.top < 0) {
-            newCropData.top = 0;
-            needsAdjustment = true;
-        } else if (cropData.top > maxTop) {
-            newCropData.top = maxTop;
-            needsAdjustment = true;
-        }
-        
-        // Apply adjustments if needed
-        if (needsAdjustment) {
-            this.cropper.setData(newCropData);
+        try {
+            const containerData = this.cropper.getContainerData();
+            const cropData = this.cropper.getData();
+            
+            // Calculate maximum allowed size and position (no 400px limit)
+            const maxSize = Math.min(containerData.width * 0.95, containerData.height * 0.95);
+            const maxLeft = containerData.width - cropData.width;
+            const maxTop = containerData.height - cropData.height;
+            
+            // Check if crop box extends beyond boundaries
+            let needsAdjustment = false;
+            const newCropData = { ...cropData };
+            
+            if (cropData.width > maxSize) {
+                newCropData.width = maxSize;
+                needsAdjustment = true;
+            }
+            
+            if (cropData.height > maxSize) {
+                newCropData.height = maxSize;
+                needsAdjustment = true;
+            }
+            
+            if (cropData.left < 0) {
+                newCropData.left = 0;
+                needsAdjustment = true;
+            } else if (cropData.left > maxLeft) {
+                newCropData.left = maxLeft;
+                needsAdjustment = true;
+            }
+            
+            if (cropData.top < 0) {
+                newCropData.top = 0;
+                needsAdjustment = true;
+            } else if (cropData.top > maxTop) {
+                newCropData.top = maxTop;
+                needsAdjustment = true;
+            }
+            
+            // Apply adjustments if needed
+            // The enforcingConstraints flag prevents infinite recursion
+            if (needsAdjustment) {
+                this.cropper.setData(newCropData);
+            }
+        } finally {
+            this.enforcingConstraints = false;
         }
     }
     
@@ -470,10 +490,28 @@ class ImageEditor {
             
             this.showProcessingStatus('Finalizing preview...', 75);
             
+            // Determine original preview source
+            // If we have an originalImageUrl, use it (via proxy to avoid CORS)
+            // Otherwise, use the cropped canvas
+            let originalPreviewSrc;
+            if (this.originalImageUrl && !this.originalImageUrl.startsWith('data:')) {
+                // Use proxy URL for external images to avoid CORS
+                originalPreviewSrc = this.getProxyUrl(this.originalImageUrl);
+                console.log('Using original image URL for preview:', originalPreviewSrc);
+            } else if (this.originalImageData && this.originalImageData.startsWith('data:')) {
+                // Use original data URL if available
+                originalPreviewSrc = this.originalImageData;
+                console.log('Using original image data URL for preview');
+            } else {
+                // Fallback to cropped canvas
+                originalPreviewSrc = croppedCanvas.toDataURL('image/jpeg', this.quality / 100);
+                console.log('Using cropped canvas for original preview (no original URL available)');
+            }
+            
             // Update preview modal
             document.getElementById('previewLineage').src = lineagePreview;
             document.getElementById('previewDetail').src = detailPreview;
-            document.getElementById('previewOriginal').src = croppedCanvas.toDataURL('image/jpeg', this.quality / 100);
+            document.getElementById('previewOriginal').src = originalPreviewSrc;
             
             this.hideProcessingStatus();
             
@@ -546,7 +584,26 @@ class ImageEditor {
             
             // Final validation: Ensure we have a clergy ID
             if (!this.clergyId) {
-                throw new Error('Clergy ID is required for image processing');
+                // Try to extract clergy ID from preview image as fallback
+                const previewImage = document.getElementById('previewImage');
+                if (previewImage) {
+                    const clergyIdFromAttr = previewImage.getAttribute('data-clergy-id');
+                    if (clergyIdFromAttr) {
+                        this.clergyId = clergyIdFromAttr;
+                        console.log('Extracted clergy ID from preview image:', this.clergyId);
+                    }
+                }
+                
+                // If still no clergy ID, try extracting from URL
+                if (!this.clergyId) {
+                    console.log('Clergy ID still not found, extracting from URL...');
+                    this.extractClergyId();
+                }
+                
+                // Final check - throw error if still not found
+                if (!this.clergyId) {
+                    throw new Error('Clergy ID is required for image processing. Please ensure you are editing an existing clergy record.');
+                }
             }
             
             console.log('Sending cropped image to server:', {
@@ -760,7 +817,7 @@ class ImageEditor {
         // Reset any existing data
         this.clearProcessedData();
         
-        // Store the original image URL and clergy ID
+        // Store the original image URL and clergy ID - CRITICAL for applyChanges()
         this.originalImageUrl = imageUrl;
         this.clergyId = clergyId;
         
@@ -770,12 +827,79 @@ class ImageEditor {
             this.extractClergyId();
         }
         
+        // Also extract object key from preview image if available
+        const previewImage = document.getElementById('previewImage');
+        if (previewImage) {
+            const objectKey = previewImage.getAttribute('data-object-key');
+            if (objectKey) {
+                this.originalObjectKey = objectKey;
+            }
+        }
+        
         console.log('Final stored clergy ID:', this.clergyId);
+        console.log('Original object key:', this.originalObjectKey);
+        
+        // Check if the URL is a data URL
+        if (imageUrl && imageUrl.startsWith('data:')) {
+            // Handle data URL directly - convert to blob/file
+            console.log('Detected data URL, converting to blob...');
+            try {
+                // Convert data URL to blob using a helper function
+                const dataUrlToBlob = (dataUrl) => {
+                    const arr = dataUrl.split(',');
+                    const mime = arr[0].match(/:(.*?);/)[1];
+                    const bstr = atob(arr[1]);
+                    let n = bstr.length;
+                    const u8arr = new Uint8Array(n);
+                    while (n--) {
+                        u8arr[n] = bstr.charCodeAt(n);
+                    }
+                    return new Blob([u8arr], { type: mime });
+                };
+                
+                const blob = dataUrlToBlob(imageUrl);
+                console.log('Converted data URL to blob:', blob.size, 'bytes');
+                
+                // Create a File object from the blob
+                const file = new File([blob], 'original_image.jpg', { type: blob.type });
+                console.log('Created file object from data URL blob:', file.name, file.size, 'bytes');
+                
+                // Use the loadOriginalImage function to load the file
+                console.log('Using loadOriginalImage() to load the original file...');
+                const imageData = await this.loadOriginalImage(file);
+                console.log('Original image loaded successfully via loadOriginalImage()');
+                
+                // Store the original file and image data
+                this.originalImageFile = file;
+                this.originalImageData = imageData;
+                this.currentImageData = imageData;
+                this.currentEditorImageData = imageData;
+                
+                // Open the editor with the original image
+                await this.openEditor(imageData, file);
+                return;
+            } catch (error) {
+                console.error('Error converting data URL to blob:', error);
+                // Fallback: use data URL directly
+                console.log('Falling back to using data URL directly...');
+                this.originalImageData = imageUrl;
+                this.currentImageData = imageUrl;
+                this.currentEditorImageData = imageUrl;
+                await this.openEditor(imageUrl);
+                return;
+            }
+        }
+        
+        // Ensure we're using the original image URL (not detail or lineage)
+        // Add cache-busting to ensure we get the latest version
+        const originalUrlWithCache = imageUrl.includes('?') ? 
+            `${imageUrl}&_t=${Date.now()}` : 
+            `${imageUrl}?_t=${Date.now()}`;
         
         try {
             // Fetch the original image as a blob to maintain full quality
             console.log('Fetching original image as blob for high-quality editing...');
-            const response = await fetch(imageUrl);
+            const response = await fetch(originalUrlWithCache);
             if (!response.ok) {
                 throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
             }
@@ -798,42 +922,20 @@ class ImageEditor {
             this.currentImageData = imageData;
             this.currentEditorImageData = imageData;
             
-            // Set the editor image source
-            const editorImage = document.getElementById('editorImage');
-            if (editorImage) {
-                editorImage.src = imageData;
-                
-                // Initialize the editor after image loads
-                editorImage.onload = () => {
-                    console.log('Original image loaded for editing with full resolution');
-                    this.initializeEditor();
-                };
-            }
+            // Open the editor with the original image
+            await this.openEditor(imageData, file);
             
         } catch (error) {
             console.error('Error loading original image:', error);
             // Fallback to proxy URL loading if blob loading fails
             console.log('Falling back to proxy URL loading...');
-            const editorImage = document.getElementById('editorImage');
-            if (editorImage) {
-                // Use proxy URL to avoid CORS issues
-                const proxyUrl = this.getProxyUrl(imageUrl);
-                console.log('Using proxy URL for fallback:', proxyUrl);
-                editorImage.src = proxyUrl;
-                
-                // Initialize the editor after image loads
-                editorImage.onload = () => {
-                    console.log('Original image loaded for editing (fallback method via proxy)');
-                    console.log('Fallback image dimensions:', editorImage.naturalWidth, '×', editorImage.naturalHeight);
-                    console.log('Fallback image src:', editorImage.src);
-                    
-                    // Update the current image data to reflect the original image
-                    this.currentImageData = editorImage.src;
-                    this.currentEditorImageData = editorImage.src;
-                    
-                    this.initializeEditor();
-                };
-            }
+            
+            // Use proxy URL to avoid CORS issues, with cache-busting
+            const proxyUrl = this.getProxyUrl(originalUrlWithCache);
+            console.log('Using proxy URL for fallback:', proxyUrl);
+            
+            // Open editor with proxy URL
+            await this.openEditor(proxyUrl);
         }
     }
 
@@ -1092,7 +1194,7 @@ class ImageEditor {
     }
     
     /**
-     * Edit existing image
+     * Edit existing image - ALWAYS uses original image
      */
     async editExistingImage() {
         const previewImage = document.getElementById('previewImage');
@@ -1102,59 +1204,55 @@ class ImageEditor {
             return;
         }
 
-        console.log('Edit existing image called');
+        console.log('Edit existing image called - ALWAYS using original');
         console.log('Preview image src:', previewImage.src.substring(0, 50) + '...');
         
         // Clear any existing processed data to prevent conflicts
         this.clearProcessedData();
 
-        // Priority 1: Use current session processed data (highest quality)
-        const processedData = window.processedImageData;
-        if (processedData && processedData.original) {
-            console.log('Using current session processed data');
-            await this.openEditor(processedData.original);
+        // Extract clergy ID and original image URL from data attributes
+        const clergyId = previewImage.getAttribute('data-clergy-id');
+        const originalImageUrl = previewImage.getAttribute('data-original-image');
+        
+        console.log('Image editing metadata:', {
+            clergyId: clergyId,
+            originalImageUrl: originalImageUrl
+        });
+
+        // Priority 1: Use data-original-image attribute (always contains original URL)
+        if (originalImageUrl && originalImageUrl.length > 0) {
+            // Validate that this is actually an original URL, not detail or lineage
+            if (originalImageUrl.includes('detail_') || originalImageUrl.includes('lineage_')) {
+                console.error('ERROR: data-original-image contains detail_ or lineage_ - this is wrong!');
+                console.error('URL:', originalImageUrl);
+                this.showNotification('Error: Original image URL is incorrect. Please reload the form.', 'error');
+                return;
+            }
+            
+            console.log('Using original image URL from data-original-image attribute:', originalImageUrl);
+            // Use loadOriginalImageForEditing to fetch the original from Backblaze
+            await this.loadOriginalImageForEditing(originalImageUrl, clergyId);
             return;
         }
 
-        // Priority 2: Use full resolution data from database (stored in data attribute)
-        const fullImageData = previewImage.getAttribute('data-full-image');
-        if (fullImageData && fullImageData.length > 10) {
-            console.log('Using full image data from database');
-            try {
-                // Check if data starts and ends with quotes (indicates JSON string)
-                const startsWithQuote = fullImageData.startsWith('"');
-                const endsWithQuote = fullImageData.endsWith('"');
-
-                // If it's double-encoded, parse it twice
-                let jsonString = fullImageData;
-                if (startsWithQuote && endsWithQuote) {
-                    jsonString = JSON.parse(fullImageData);
-                }
-
-                const imageData = JSON.parse(jsonString);
-                console.log('Parsed image data keys:', Object.keys(imageData));
-
-                if (imageData.cropped) {
-                    console.log('Using cropped image data');
-                    await this.openEditor(imageData.cropped);
-                    return;
-                } else if (imageData.detail) {
-                    console.log('Using detail image data as fallback');
-                    await this.openEditor(imageData.detail);
-                    return;
-                } else if (imageData.original) {
-                    console.log('Using original image data as fallback');
-                    await this.openEditor(imageData.original);
-                    return;
-                }
-            } catch (e) {
-                console.error('Failed to parse full image data:', e);
-            }
+        // Priority 2: Check current session processed data for original
+        const processedData = window.processedImageData;
+        if (processedData && processedData.original) {
+            console.log('Using current session processed data original');
+            await this.loadOriginalImageForEditing(processedData.original, clergyId);
+            return;
         }
 
-        // Priority 3: Fallback to preview image (48x48 lineage image)
-        console.log('Using preview image as fallback');
-        await this.openEditor(previewImage.src);
+        // Priority 3: Fallback - try to extract original from image_data if available
+        // This should rarely happen if template is correct
+        console.warn('No original image URL found in data attributes, attempting fallback');
+        const fallbackUrl = previewImage.src;
+        if (fallbackUrl && !fallbackUrl.includes('lineage_') && !fallbackUrl.includes('detail_')) {
+            // Only use if it doesn't look like a cropped version
+            await this.loadOriginalImageForEditing(fallbackUrl, clergyId);
+        } else {
+            this.showNotification('Cannot edit: original image URL not found. Please reload the form.', 'error');
+        }
     }
     
     /**

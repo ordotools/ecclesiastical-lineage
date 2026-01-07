@@ -895,18 +895,14 @@
             </div>
         </div>
 
-        <!-- Bottom Panel: Metadata and Statistics -->
+        <!-- Bottom Panel: Statistics and Other Tabs -->
         <div class="panel bottom-panel">
             <div class="bottom-tabs">
                 <button class="bottom-tab" data-tab="events">
                     <i class="fas fa-calendar-alt"></i>
                     Events
                 </button>
-                <button class="bottom-tab active" data-tab="metadata">
-                    <i class="fas fa-cogs"></i>
-                    Metadata
-                </button>
-                <button class="bottom-tab" data-tab="statistics">
+                <button class="bottom-tab active" data-tab="statistics">
                     <i class="fas fa-chart-bar"></i>
                     Statistics
                 </button>
@@ -916,15 +912,7 @@
                 </button>
             </div>
 
-            <div class="bottom-tab-content active" id="metadata-content" hx-get="/editor/metadata" hx-trigger="load"
-                hx-target="this" hx-swap="innerHTML">
-                <div class="loading-placeholder">
-                    <div class="loading-spinner"></div>
-                    Loading metadata...
-                </div>
-            </div>
-
-            <div class="bottom-tab-content" id="statistics-content" hx-get="/editor/statistics" hx-trigger="revealed"
+            <div class="bottom-tab-content active" id="statistics-content" hx-get="/editor/statistics" hx-trigger="load"
                 hx-target="this" hx-swap="innerHTML">
                 <div class="loading-placeholder">
                     <div class="loading-spinner"></div>

@@ -1292,4 +1292,274 @@ input:focus + .slider {
   .filter-dropdown-menu.show {
     transform: translateX(0) translateY(0);
   }
+}
+
+/* Visualization Style Panel */
+.viz-style-toggle-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 10000 !important;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  pointer-events: auto !important;
+}
+
+.viz-style-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Button positioning handled by JavaScript when panel opens/closes */
+
+.viz-style-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 40%;
+  background: rgba(43, 46, 50, 0.95);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  z-index: 1055;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease;
+}
+
+.viz-style-panel.hidden {
+  display: none;
+  transform: translateY(100%);
+}
+
+.viz-style-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75em 1em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.viz-style-panel-header h6 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.viz-style-close-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 1.2em;
+  padding: 0.25em 0.5em;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+}
+
+.viz-style-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 1);
+}
+
+.viz-style-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1em;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1em;
+}
+
+.viz-style-section {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 0.75em;
+}
+
+.viz-style-section-title {
+  margin: 0 0 0.75em 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.85em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.viz-style-control {
+  margin-bottom: 0.75em;
+}
+
+.viz-style-control:last-child {
+  margin-bottom: 0;
+}
+
+.viz-style-control label {
+  display: block;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.8em;
+  margin-bottom: 0.25em;
+  font-weight: 500;
+}
+
+.viz-color-picker {
+  width: 100%;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.viz-slider {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.viz-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.viz-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.viz-style-section:has(.viz-style-save-btn) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.viz-style-save-btn {
+  width: 100%;
+  padding: 0.5em 1em;
+  background: rgba(39, 174, 96, 0.8);
+  border: 1px solid rgba(39, 174, 96, 0.6);
+  border-radius: 4px;
+  color: white;
+  font-size: 0.85em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.viz-style-save-btn:hover {
+  background: rgba(39, 174, 96, 1);
+  border-color: rgba(39, 174, 96, 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+}
+
+.viz-style-reset-btn {
+  width: 100%;
+  padding: 0.5em 1em;
+  background: rgba(231, 76, 60, 0.8);
+  border: 1px solid rgba(231, 76, 60, 0.6);
+  border-radius: 4px;
+  color: white;
+  font-size: 0.85em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.viz-style-reset-btn:hover {
+  background: rgba(231, 76, 60, 1);
+  border-color: rgba(231, 76, 60, 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+}
+
+.viz-style-note {
+  font-size: 0.75em;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 0.5em 0;
+  line-height: 1.3;
+}
+
+.viz-metadata-toggle-btn {
+  width: 100%;
+  padding: 0.5em 1em;
+  background: rgba(52, 152, 219, 0.8);
+  border: 1px solid rgba(52, 152, 219, 0.6);
+  border-radius: 4px;
+  color: white;
+  font-size: 0.85em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+}
+
+.viz-metadata-toggle-btn:hover {
+  background: rgba(52, 152, 219, 1);
+  border-color: rgba(52, 152, 219, 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+}
+
+/* Editor Graph Container - specific to editor panel */
+.editor-graph-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: #1a1a1a;
+}
+
+/* Error message styling for editor visualization */
+.viz-error-message {
+  padding: 2em;
+  text-align: center;
+  color: rgba(255, 100, 100, 0.9);
+  background: #1a1a1a;
+}
+
+.viz-error-message i {
+  font-size: 2em;
+  margin-bottom: 0.5em;
+  display: block;
 } 

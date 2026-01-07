@@ -1,17 +1,117 @@
 <!-- Visualization Panel Content -->
 {% if error_message %}
-<div style="padding: 2em; text-align: center; color: rgba(255, 100, 100, 0.9); background: #1a1a1a;">
-    <i class="fas fa-exclamation-triangle" style="font-size: 2em; margin-bottom: 0.5em;"></i>
+<div class="viz-error-message">
+    <i class="fas fa-exclamation-triangle"></i>
     <div>{{ error_message }}</div>
 </div>
 {% else %}
-<div id="editor-graph-container" style="width: 100%; height: 100%; position: relative; overflow: hidden; background: #1a1a1a;">
+<div id="editor-graph-container" class="editor-graph-container">
     <!-- Graph will be rendered here by D3.js -->
+    
+    <!-- Style Customization Panel Toggle Button -->
+    <button id="viz-style-toggle" class="viz-style-toggle-btn" title="Customize Visualization Styles">
+        <i class="fas fa-palette"></i>
+    </button>
+
+    <!-- Style Customization Panel -->
+    <div id="viz-style-panel" class="viz-style-panel hidden">
+    <div class="viz-style-panel-header">
+        <h6>Visualization Styles</h6>
+        <button id="viz-style-close" class="viz-style-close-btn" title="Close">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="viz-style-panel-content">
+        <!-- Node Styles -->
+        <div class="viz-style-section">
+            <h6 class="viz-style-section-title">Node Styles</h6>
+            
+            <div class="viz-style-control">
+                <label>Outer Radius: <span id="outer-radius-value">30</span>px</label>
+                <input type="range" id="outer-radius" class="viz-slider" min="20" max="50" value="30">
+            </div>
+            
+            <div class="viz-style-control">
+                <label>Inner Radius: <span id="inner-radius-value">24</span>px</label>
+                <input type="range" id="inner-radius" class="viz-slider" min="15" max="40" value="24">
+            </div>
+            
+            <div class="viz-style-control">
+                <label>Image Size: <span id="image-size-value">48</span>px</label>
+                <input type="range" id="image-size" class="viz-slider" min="32" max="64" value="48">
+            </div>
+            
+            <div class="viz-style-control">
+                <label>Stroke Width: <span id="node-stroke-width-value">3</span>px</label>
+                <input type="range" id="node-stroke-width" class="viz-slider" min="1" max="8" value="3">
+            </div>
+        </div>
+        
+        <!-- Metadata Quick Edit -->
+        <div class="viz-style-section">
+            <h6 class="viz-style-section-title">Metadata</h6>
+            <p class="viz-style-note">Node colors come from ranks & organizations</p>
+            <button id="viz-metadata-toggle" class="viz-metadata-toggle-btn" onclick="openMetadataManagementModal()">
+                <i class="fas fa-cog"></i> Manage Metadata
+            </button>
+        </div>
+        
+        <!-- Link Styles -->
+        <div class="viz-style-section">
+            <h6 class="viz-style-section-title">Link Styles</h6>
+            
+            <div class="viz-style-control">
+                <label>Ordination Color</label>
+                <input type="color" id="link-ordination-color" class="viz-color-picker" value="#1c1c1c">
+            </div>
+            
+            <div class="viz-style-control">
+                <label>Consecration Color</label>
+                <input type="color" id="link-consecration-color" class="viz-color-picker" value="#11451e">
+            </div>
+            
+            <div class="viz-style-control">
+                <label>Stroke Width: <span id="link-stroke-width-value">2</span>px</label>
+                <input type="range" id="link-stroke-width" class="viz-slider" min="1" max="6" value="2">
+            </div>
+        </div>
+        
+        <!-- Label Styles -->
+        <div class="viz-style-section">
+            <h6 class="viz-style-section-title">Label Styles</h6>
+            
+            <div class="viz-style-control">
+                <label>Font Size: <span id="label-font-size-value">12</span>px</label>
+                <input type="range" id="label-font-size" class="viz-slider" min="8" max="18" value="12">
+            </div>
+            
+            <div class="viz-style-control">
+                <label>Text Color</label>
+                <input type="color" id="label-color" class="viz-color-picker" value="#ffffff">
+            </div>
+            
+            <div class="viz-style-control">
+                <label>Vertical Offset: <span id="label-dy-value">35</span>px</label>
+                <input type="range" id="label-dy" class="viz-slider" min="25" max="50" value="35">
+            </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="viz-style-section">
+            <button id="viz-style-save" class="viz-style-save-btn">Save Styles</button>
+            <button id="viz-style-reset" class="viz-style-reset-btn">Reset to Defaults</button>
+        </div>
+    </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/editor-visualization.js') }}"></script>
 <script>
 (function() {
+    // Guard against double initialization
+    if (window._editorVizInitializing) {
+        console.log('Visualization initialization already in progress, skipping...');
+        return;
+    }
+    
     console.log('Visualization template script starting...');
     
     // Data from the server
@@ -23,6 +123,9 @@
     // Wait for the script to load and then initialize
     function waitForScriptAndInitialize() {
         if (typeof initializeEditorVisualization === 'function') {
+            // Set flag to prevent double initialization
+            window._editorVizInitializing = true;
+            
             console.log('Script loaded, initializing visualization...');
             
             // Cleanup existing visualization on panel reload
@@ -33,6 +136,11 @@
             
             // Initialize the visualization
             initializeEditorVisualization(nodesData, linksData);
+            
+            // Clear flag after initialization
+            setTimeout(() => {
+                window._editorVizInitializing = false;
+            }, 1000);
             
             // Re-highlight selected clergy after visualization initializes
             if (window.currentSelectedClergyId && typeof window.highlightClergyInVisualization === 'function') {
@@ -50,4 +158,5 @@
     waitForScriptAndInitialize();
 })();
 </script>
+<script src="{{ url_for('static', filename='js/editor-visualization-styles.js') }}"></script>
 {% endif %}

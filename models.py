@@ -439,3 +439,13 @@ class WikiPage(db.Model):
 
     def __repr__(self):
         return f'<WikiPage {self.title or self.id}>'
+
+class VisualizationSettings(db.Model):
+    """Store visualization style preferences that persist across all users"""
+    id = db.Column(db.Integer, primary_key=True)
+    setting_key = db.Column(db.String(100), unique=True, nullable=False)
+    setting_value = db.Column(db.Text, nullable=False)  # JSON string
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<VisualizationSettings {self.setting_key}>'

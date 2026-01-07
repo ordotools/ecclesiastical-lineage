@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from services import clergy as clergy_service
 from services.clergy import permanently_delete_clergy_handler
 from utils import audit_log, require_permission, require_permission_api, log_audit_event
-from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite, Location, Status, ClergyEvent, SpriteSheet, ClergySpritePosition
+from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordination, Consecration, AuditLog, Role, AdminInvite, Location, Status, ClergyEvent, SpriteSheet, ClergySpritePosition, VisualizationSettings
 from constants import GREEN_COLOR, BLACK_COLOR
 from datetime import datetime
 from sqlalchemy import text
@@ -183,6 +183,203 @@ def visualization_panel():
                              error_message=f"Error loading visualization: {str(e)}",
                              nodes_json='[]',
                              links_json='[]')
+
+@editor_bp.route('/api/visualization/data')
+def get_visualization_data():
+    """API endpoint for soft refresh - returns JSON data without HTML template"""
+    try:
+        # Get only active clergy for the visualization
+        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+        
+        # Get all organizations and ranks for color lookup
+        organizations = {org.name: org.color for org in Organization.query.all()}
+        ranks = {rank.name: rank.color for rank in Rank.query.all()}
+
+        # SVG placeholder for clergy without images
+        placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="24" r="14" fill="#bdc3c7"/><ellipse cx="32" cy="50" rx="20" ry="12" fill="#bdc3c7"/></svg>'''
+        placeholder_data_url = 'data:image/svg+xml;base64,' + base64.b64encode(placeholder_svg.encode('utf-8')).decode('utf-8')
+
+        # Prepare data for D3.js
+        nodes = []
+        links = []
+        
+        # Create nodes for each clergy
+        for clergy in all_clergy:
+            # Determine node color based on organization or rank
+            node_color = '#3498db'  # Default blue
+            if clergy.organization and clergy.organization in organizations:
+                node_color = organizations[clergy.organization]
+            elif clergy.rank and clergy.rank in ranks:
+                node_color = ranks[clergy.rank]
+
+            # Get image URL - prefer lineage size for visualization, fallback to original
+            image_url = placeholder_data_url
+            if clergy.image_data:
+                try:
+                    image_data = json.loads(clergy.image_data)
+                    # Use lineage size (48x48) for visualization performance
+                    image_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+            
+            # Fallback to clergy.image_url if no image_data or parsing failed
+            if not image_url or image_url == placeholder_data_url:
+                image_url = clergy.image_url if clergy.image_url else placeholder_data_url
+            
+            nodes.append({
+                'id': clergy.id,
+                'name': clergy.name,
+                'papal_name': clergy.papal_name if hasattr(clergy, 'papal_name') else None,
+                'rank': clergy.rank,
+                'organization': clergy.organization,
+                'org_color': node_color,
+                'rank_color': node_color,  # Will be overridden by style settings if needed
+                'image_url': image_url,
+                'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
+                'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
+                'is_deleted': clergy.is_deleted
+            })
+
+        # Create links for ordinations (black lines)
+        for clergy in all_clergy:
+            for ordination in clergy.ordinations:
+                if ordination.ordaining_bishop and not ordination.ordaining_bishop.is_deleted:
+                    links.append({
+                        'source': ordination.ordaining_bishop.id,
+                        'target': clergy.id,
+                        'type': 'ordination',
+                        'color': BLACK_COLOR,  # Black for ordinations
+                        'date': ordination.date.isoformat() if ordination.date else None,
+                        'is_sub_conditione': ordination.is_sub_conditione,
+                        'is_doubtful': ordination.is_doubtful,
+                        'is_invalid': ordination.is_invalid
+                    })
+
+        # Create links for consecrations (green lines)
+        for clergy in all_clergy:
+            for consecration in clergy.consecrations:
+                if consecration.consecrator and not consecration.consecrator.is_deleted:
+                    links.append({
+                        'source': consecration.consecrator.id,
+                        'target': clergy.id,
+                        'type': 'consecration',
+                        'color': GREEN_COLOR,  # Green for consecrations
+                        'date': consecration.date.isoformat() if consecration.date else None,
+                        'is_sub_conditione': consecration.is_sub_conditione,
+                        'is_doubtful': consecration.is_doubtful,
+                        'is_invalid': consecration.is_invalid
+                    })
+
+        return jsonify({
+            'success': True,
+            'nodes': nodes,
+            'links': links
+        })
+    
+    except Exception as e:
+        current_app.logger.error(f"Error in visualization data API: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'nodes': [],
+            'links': []
+        }), 500
+
+@editor_bp.route('/api/visualization/styles', methods=['GET'])
+def get_visualization_styles():
+    """Get current visualization style preferences (public endpoint)"""
+    try:
+        settings = VisualizationSettings.query.filter_by(setting_key='visualization_styles').first()
+        
+        if settings:
+            styles = json.loads(settings.setting_value)
+            return jsonify({
+                'success': True,
+                'styles': styles
+            })
+        else:
+            # Return default styles if none exist
+            default_styles = {
+                'node': {
+                    'outer_radius': 30,
+                    'inner_radius': 24,
+                    'image_size': 48,
+                    'stroke_width': 3
+                },
+                'link': {
+                    'ordination_color': '#1c1c1c',
+                    'consecration_color': '#11451e',
+                    'stroke_width': 2
+                },
+                'label': {
+                    'font_size': 12,
+                    'color': '#ffffff',
+                    'dy': 35
+                }
+            }
+            return jsonify({
+                'success': True,
+                'styles': default_styles
+            })
+    
+    except Exception as e:
+        current_app.logger.error(f"Error getting visualization styles: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@editor_bp.route('/api/visualization/styles', methods=['POST'])
+def save_visualization_styles():
+    """Save visualization style preferences (public endpoint - no auth required)"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'styles' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid request: styles data required'
+            }), 400
+        
+        styles = data['styles']
+        
+        # Validate styles structure
+        required_keys = ['node', 'link', 'label']
+        for key in required_keys:
+            if key not in styles:
+                return jsonify({
+                    'success': False,
+                    'error': f'Invalid styles: missing {key} section'
+                }), 400
+        
+        # Get or create settings record
+        settings = VisualizationSettings.query.filter_by(setting_key='visualization_styles').first()
+        
+        if settings:
+            settings.setting_value = json.dumps(styles)
+            settings.updated_at = datetime.utcnow()
+        else:
+            settings = VisualizationSettings(
+                setting_key='visualization_styles',
+                setting_value=json.dumps(styles),
+                updated_at=datetime.utcnow()
+            )
+            db.session.add(settings)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Styles saved successfully'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error saving visualization styles: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @editor_bp.route('/editor/globe-view')
 @require_permission('edit_clergy')

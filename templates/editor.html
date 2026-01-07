@@ -13,6 +13,7 @@
     {% include '_custom_styles.html' %}
     <link href="{{ url_for('static', filename='css/clergy-form-clean.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/editor-styles.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/visualizer.css') }}" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.6" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js" defer></script>
@@ -26,6 +27,7 @@
     <script src="{{ url_for('static', filename='js/locationForm.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/eventsPanel.js') }}" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
+    <script src="{{ url_for('static', filename='js/editor-visualization.js') }}" defer></script>
     <script type="module">
         // Import color constants from constants.js and set CSS variables dynamically
         // This ensures CSS variables always match the JavaScript constants
@@ -1008,37 +1010,28 @@
             // Only refresh visualization for actual updates, not selections
             // Be more restrictive - only refresh for actual API calls that modify data
             if (!isClergySelection && isClergyAPI) {
-                
-
-                // Soft refresh of visualization panel
-                const visualizationTarget = document.getElementById('visualization-panel-content');
-                if (visualizationTarget && typeof htmx !== 'undefined') {
-                    // Add a small delay to ensure the DOM is stable
-                    setTimeout(() => {
-                        // Use the specific visualization panel ID
-                        const specificTarget = document.getElementById('visualization-panel-content');
-                        if (specificTarget) {
-                            htmx.ajax('GET', '/editor/visualization', {
-                                target: specificTarget,
-                                swap: 'innerHTML'
-                            }).then(() => {
-                                // Re-highlight after visualization refresh
-                                if (window.currentSelectedClergyId) {
-                                    setTimeout(() => {
-                                        highlightClergyInVisualization(window.currentSelectedClergyId);
-                                    }, 500);
+                // Soft refresh: fetch new data and update visualization without reloading panel
+                setTimeout(() => {
+                    if (window.editorVisualization && window.editorVisualization.isInitialized) {
+                        fetch('/api/visualization/data')
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success && window.editorVisualization) {
+                                    window.editorVisualization.updateData(data.nodes, data.links);
+                                    
+                                    // Re-highlight after visualization refresh
+                                    if (window.currentSelectedClergyId) {
+                                        setTimeout(() => {
+                                            highlightClergyInVisualization(window.currentSelectedClergyId);
+                                        }, 500);
+                                    }
                                 }
-                            }).catch(error => {
-                                
+                            })
+                            .catch(error => {
+                                console.error('Error refreshing visualization data:', error);
                             });
-                        }
-                    }, 100);
-                } else {
-                    console.warn('Visualization target not found or HTMX not available:', {
-                        target: !!visualizationTarget,
-                        htmx: typeof htmx !== 'undefined'
-                    });
-                }
+                    }
+                }, 100);
             } else if (isClergySelection) {
                 // Re-highlight after selection
                 if (window.currentSelectedClergyId) {
@@ -1059,32 +1052,26 @@
 
             // Only refresh visualization for actual updates, not selections
             if (evt.detail && evt.detail.action && (evt.detail.action === 'updated' || evt.detail.action === 'created' || evt.detail.action === 'deleted')) {
-                // Refresh visualization panel with delay and error handling
+                // Soft refresh: fetch new data and update visualization without reloading panel
                 setTimeout(() => {
-                    const visualizationTarget = document.getElementById('visualization-panel-content');
-                    if (visualizationTarget && typeof htmx !== 'undefined') {
-                        // Use the specific visualization panel ID
-                        const specificTarget = document.getElementById('visualization-panel-content');
-                        if (specificTarget) {
-                            htmx.ajax('GET', '/editor/visualization', {
-                                target: specificTarget,
-                                swap: 'innerHTML'
-                            }).then(() => {
-                                // Re-highlight after visualization refresh
-                                if (window.currentSelectedClergyId) {
-                                    setTimeout(() => {
-                                        highlightClergyInVisualization(window.currentSelectedClergyId);
-                                    }, 500);
+                    if (window.editorVisualization && window.editorVisualization.isInitialized) {
+                        fetch('/api/visualization/data')
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success && window.editorVisualization) {
+                                    window.editorVisualization.updateData(data.nodes, data.links);
+                                    
+                                    // Re-highlight after visualization refresh
+                                    if (window.currentSelectedClergyId) {
+                                        setTimeout(() => {
+                                            highlightClergyInVisualization(window.currentSelectedClergyId);
+                                        }, 500);
+                                    }
                                 }
-                            }).catch(error => {
-
+                            })
+                            .catch(error => {
+                                console.error('Error refreshing visualization data:', error);
                             });
-                        }
-                    } else {
-                        console.warn('Visualization target not found for clergy update refresh:', {
-                            target: !!visualizationTarget,
-                            htmx: typeof htmx !== 'undefined'
-                        });
                     }
                 }, 150);
             } else {
@@ -1758,15 +1745,20 @@
                     console.error('Error switching back to clergy form:', error);
                 });
 
-                // Load lineage graph content
-                htmx.ajax('GET', '/editor/visualization', {
-                    target: centerPanel,
-                    swap: 'innerHTML'
-                }).then(() => {
+                // Load lineage graph content (only if not already loaded)
+                if (!window.editorVisualization || !window.editorVisualization.isInitialized) {
+                    htmx.ajax('GET', '/editor/visualization', {
+                        target: centerPanel,
+                        swap: 'innerHTML'
+                    }).then(() => {
+                        isGlobeViewVisible = false;
+                    }).catch(error => {
+                        console.error('Error switching back to lineage graph:', error);
+                    });
+                } else {
+                    // Already initialized, just mark as not globe view
                     isGlobeViewVisible = false;
-                }).catch(error => {
-                    console.error('Error switching back to lineage graph:', error);
-                });
+                }
             }
         }
 

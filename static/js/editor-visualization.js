@@ -90,17 +90,21 @@ class EditorVisualization {
             return;
         }
         
-        // Clear any existing SVG
-        d3.select(this.container).selectAll('*').remove();
+        // Clear any existing SVG, but preserve the style button and panel
+        const styleButton = this.container.querySelector('#viz-style-toggle');
+        const stylePanel = this.container.querySelector('#viz-style-panel');
+        d3.select(this.container).selectAll('svg').remove();
         
         const width = this.container.clientWidth;
         const height = this.container.clientHeight;
         
-        // Create SVG
+        // Create SVG - ensure it doesn't cover the style button
         this.svg = d3.select(this.container)
             .append('svg')
             .attr('width', width)
-            .attr('height', height);
+            .attr('height', height)
+            .style('position', 'relative')
+            .style('z-index', '1');
         
         // Create zoom behavior - matching lineage visualization
         const zoom = d3.zoom()
@@ -642,6 +646,354 @@ class EditorVisualization {
         console.log('Spritesheet updated successfully');
     }
     
+    updateData(nodesData, linksData) {
+        /** Soft refresh: update visualization data without full reload */
+        if (!this.isInitialized || !this.svg || !this.simulation) {
+            console.warn('Cannot update data: visualization not initialized');
+            return;
+        }
+        
+        console.log('Soft refresh: updating data with', nodesData.length, 'nodes,', linksData.length, 'links');
+        
+        // Store new data
+        this.nodesData = nodesData;
+        this.linksData = linksData;
+        
+        // Process parallel links
+        this.processParallelLinks();
+        
+        // Update simulation with new data
+        this.simulation.nodes(this.nodesData);
+        
+        // Update link force with new links
+        this.simulation.force('link', d3.forceLink(this.linksData).id(d => d.id).distance(80));
+        
+        // Update existing links using D3 data binding
+        this.link = this.link.data(this.linksData, d => `${d.source.id}-${d.target.id}-${d.type}`);
+        
+        // Remove old links
+        this.link.exit().remove();
+        
+        // Add new links
+        const newLinks = this.link.enter().append('line')
+            .attr('stroke', d => d.color)
+            .attr('stroke-width', 2)
+            .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
+            .attr('marker-end', d => {
+                if (d.color === BLACK_COLOR) {
+                    return 'url(#arrowhead-black)';
+                } else if (d.color === GREEN_COLOR) {
+                    return 'url(#arrowhead-green)';
+                } else {
+                    return 'url(#arrowhead-green)';
+                }
+            });
+        
+        // Merge new links with existing
+        this.link = this.link.merge(newLinks);
+        
+        // Update existing nodes using D3 data binding
+        this.node = this.node.data(this.nodesData, d => d.id);
+        
+        // Remove old nodes
+        this.node.exit().remove();
+        
+        // Add new nodes
+        const newNodeGroups = this.node.enter().append('g')
+            .style('cursor', 'pointer')
+            .call(d3.drag()
+                .on('start', (event, d) => this.dragstarted(event, d))
+                .on('drag', (event, d) => this.dragged(event, d))
+                .on('end', (event, d) => this.dragended(event, d)))
+            .on('click', (event, d) => this.handleNodeClick(event, d));
+        
+        // Add circles and labels to new nodes
+        newNodeGroups.append('circle')
+            .attr('r', OUTER_RADIUS)
+            .attr('fill', d => d.org_color)
+            .attr('stroke', d => d.rank_color)
+            .attr('stroke-width', 3);
+        
+        newNodeGroups.append('circle')
+            .attr('r', INNER_RADIUS)
+            .attr('fill', d => d.rank_color)
+            .attr('cx', 0)
+            .attr('cy', 0);
+        
+        const bgCircle = newNodeGroups.append('circle')
+            .attr('r', IMAGE_SIZE/2)
+            .attr('fill', 'rgba(255, 255, 255, 1)')
+            .attr('cx', 0)
+            .attr('cy', 0)
+            .style('opacity', d => d.image_url ? 1 : 0);
+        
+        const borderCircle = newNodeGroups.append('circle')
+            .attr('r', IMAGE_SIZE/2)
+            .attr('fill', 'none')
+            .attr('stroke', 'rgba(0, 0, 0, 1)')
+            .attr('stroke-width', '1px')
+            .attr('cx', 0)
+            .attr('cy', 0)
+            .style('opacity', d => d.image_url ? 1 : 0);
+        
+        // Add images (simplified - assumes sprite sheet is already loaded)
+        if (this.spriteSheetData && this.spriteSheetData.success) {
+            newNodeGroups.append('image')
+                .attr('xlink:href', d => {
+                    if (this.spriteSheetData.mapping) {
+                        const position = this.spriteSheetData.mapping[d.id] || 
+                                       this.spriteSheetData.mapping[String(d.id)] || 
+                                       this.spriteSheetData.mapping[Number(d.id)];
+                        if (position && Array.isArray(position) && position.length === 2) {
+                            return this.spriteSheetData.url;
+                        }
+                    }
+                    return '';
+                })
+                .attr('x', d => {
+                    if (this.spriteSheetData.mapping) {
+                        const position = this.spriteSheetData.mapping[d.id] || 
+                                       this.spriteSheetData.mapping[String(d.id)] || 
+                                       this.spriteSheetData.mapping[Number(d.id)];
+                        if (position && Array.isArray(position) && position.length === 2) {
+                            const [x] = position;
+                            return -x - IMAGE_SIZE/2;
+                        }
+                    }
+                    return 0;
+                })
+                .attr('y', d => {
+                    if (this.spriteSheetData.mapping) {
+                        const position = this.spriteSheetData.mapping[d.id] || 
+                                       this.spriteSheetData.mapping[String(d.id)] || 
+                                       this.spriteSheetData.mapping[Number(d.id)];
+                        if (position && Array.isArray(position) && position.length === 2) {
+                            const [, y] = position;
+                            return -y - IMAGE_SIZE/2;
+                        }
+                    }
+                    return 0;
+                })
+                .attr('width', this.spriteSheetData.sprite_width)
+                .attr('height', this.spriteSheetData.sprite_height)
+                .attr('clip-path', d => {
+                    if (this.spriteSheetData.mapping) {
+                        const position = this.spriteSheetData.mapping[d.id] || 
+                                       this.spriteSheetData.mapping[String(d.id)] || 
+                                       this.spriteSheetData.mapping[Number(d.id)];
+                        if (position && Array.isArray(position) && position.length === 2) {
+                            return `url(#clip-avatar-${d.id})`;
+                        }
+                    }
+                    return 'none';
+                })
+                .attr('preserveAspectRatio', 'none')
+                .style('pointer-events', 'none')
+                .style('opacity', d => {
+                    if (this.spriteSheetData.mapping) {
+                        const position = this.spriteSheetData.mapping[d.id] || 
+                                       this.spriteSheetData.mapping[String(d.id)] || 
+                                       this.spriteSheetData.mapping[Number(d.id)];
+                        if (position && Array.isArray(position) && position.length === 2) {
+                            bgCircle.filter(node => node.id === d.id).style('opacity', 1);
+                            borderCircle.filter(node => node.id === d.id).style('opacity', 1);
+                            return 1;
+                        }
+                    }
+                    return 0;
+                });
+        }
+        
+        newNodeGroups.append('text')
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .style('font-size', '12px')
+            .style('fill', '#666')
+            .style('pointer-events', 'none')
+            .style('opacity', d => d.image_url ? 0 : 1)
+            .text('👤');
+        
+        newNodeGroups.append('text')
+            .attr('dy', LABEL_DY)
+            .attr('text-anchor', 'middle')
+            .style('font-size', '12px')
+            .style('font-weight', '500')
+            .style('pointer-events', 'none')
+            .style('fill', '#ffffff')
+            .style('filter', 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))')
+            .style('text-shadow', '0 0 3px rgba(0,0,0,0.9)')
+            .text(d => d.name);
+        
+        newNodeGroups.append('title')
+            .text(d => `${d.name}\nRank: ${d.rank}\nOrganization: ${d.organization}`);
+        
+        // Merge new nodes with existing
+        this.node = this.node.merge(newNodeGroups);
+        
+        // Restart simulation with new data
+        this.simulation.alpha(1).restart();
+        
+        // Re-highlight selected clergy if any
+        if (window.currentSelectedClergyId) {
+            setTimeout(() => {
+                this.highlightNode(window.currentSelectedClergyId);
+            }, 500);
+        }
+        
+        console.log('Soft refresh completed');
+    }
+    
+    applyStyles(styles) {
+        /** Apply style preferences to visualization without full reload */
+        if (!this.isInitialized || !this.svg || !this.node || !this.link) {
+            console.warn('Cannot apply styles: visualization not initialized');
+            return;
+        }
+        
+        if (!styles) {
+            console.warn('Cannot apply styles: no styles provided');
+            return;
+        }
+        
+        console.log('Applying styles to visualization:', styles);
+        
+        // Update node styles
+        if (styles.node) {
+            const nodeStyles = styles.node;
+            
+            // Update outer radius
+            if (nodeStyles.outer_radius !== undefined) {
+                window.OUTER_RADIUS = nodeStyles.outer_radius;
+                this.node.selectAll('circle')
+                    .filter(function(d, i) {
+                        // First circle is outer circle
+                        return i === 0;
+                    })
+                    .attr('r', nodeStyles.outer_radius);
+            }
+            
+            // Update inner radius
+            if (nodeStyles.inner_radius !== undefined) {
+                window.INNER_RADIUS = nodeStyles.inner_radius;
+                this.node.selectAll('circle')
+                    .filter(function(d, i) {
+                        // Second circle is inner circle
+                        return i === 1;
+                    })
+                    .attr('r', nodeStyles.inner_radius);
+            }
+            
+            // Update image size
+            if (nodeStyles.image_size !== undefined) {
+                window.IMAGE_SIZE = nodeStyles.image_size;
+                const imageRadius = nodeStyles.image_size / 2;
+                this.node.selectAll('circle')
+                    .filter(function(d, i) {
+                        // Third and fourth circles are image background and border
+                        return i === 2 || i === 3;
+                    })
+                    .attr('r', imageRadius);
+                
+                // Update clip paths
+                const defs = this.svg.select('defs');
+                defs.selectAll('clipPath').selectAll('circle')
+                    .attr('r', imageRadius);
+            }
+            
+            // Update stroke width
+            if (nodeStyles.stroke_width !== undefined) {
+                this.node.selectAll('circle')
+                    .filter(function(d, i) {
+                        return i === 0; // Outer circle
+                    })
+                    .attr('stroke-width', nodeStyles.stroke_width);
+            }
+            
+            // Note: Organization and rank colors come from metadata (ranks/organizations),
+            // not from style settings, so we don't update them here
+        }
+        
+        // Update link styles
+        if (styles.link) {
+            const linkStyles = styles.link;
+            
+            // Update link colors
+            if (linkStyles.ordination_color || linkStyles.consecration_color) {
+                this.link.attr('stroke', d => {
+                    if (d.type === 'ordination' && linkStyles.ordination_color) {
+                        return linkStyles.ordination_color;
+                    } else if (d.type === 'consecration' && linkStyles.consecration_color) {
+                        return linkStyles.consecration_color;
+                    }
+                    return d.color;
+                });
+                
+                // Update arrow markers
+                const defs = this.svg.select('defs');
+                defs.selectAll('marker')
+                    .selectAll('path')
+                    .attr('fill', d => {
+                        if (d === 'arrowhead-black' && linkStyles.ordination_color) {
+                            return linkStyles.ordination_color;
+                        } else if (d === 'arrowhead-green' && linkStyles.consecration_color) {
+                            return linkStyles.consecration_color;
+                        }
+                        return d === 'arrowhead-black' ? BLACK_COLOR : GREEN_COLOR;
+                    });
+            }
+            
+            // Update link stroke width
+            if (linkStyles.stroke_width !== undefined) {
+                this.link.attr('stroke-width', linkStyles.stroke_width);
+            }
+        }
+        
+        // Update label styles
+        if (styles.label) {
+            const labelStyles = styles.label;
+            
+            // Update font size
+            if (labelStyles.font_size !== undefined) {
+                window.LABEL_DY = labelStyles.dy || window.LABEL_DY || 35;
+                this.node.selectAll('text')
+                    .filter(function(d, i, nodes) {
+                        // Labels are the second text element (first is placeholder emoji)
+                        const parent = d3.select(this.parentNode);
+                        const texts = parent.selectAll('text');
+                        return texts.nodes().indexOf(this) === 1;
+                    })
+                    .style('font-size', labelStyles.font_size + 'px');
+            }
+            
+            // Update text color
+            if (labelStyles.color) {
+                this.node.selectAll('text')
+                    .filter(function(d, i, nodes) {
+                        // Labels are the second text element
+                        const parent = d3.select(this.parentNode);
+                        const texts = parent.selectAll('text');
+                        return texts.nodes().indexOf(this) === 1;
+                    })
+                    .style('fill', labelStyles.color);
+            }
+            
+            // Update vertical offset
+            if (labelStyles.dy !== undefined) {
+                window.LABEL_DY = labelStyles.dy;
+                this.node.selectAll('text')
+                    .filter(function(d, i, nodes) {
+                        // Labels are the second text element
+                        const parent = d3.select(this.parentNode);
+                        const texts = parent.selectAll('text');
+                        return texts.nodes().indexOf(this) === 1;
+                    })
+                    .attr('dy', labelStyles.dy);
+            }
+        }
+        
+        console.log('Styles applied successfully');
+    }
+    
     cleanup() {
         if (this.resizeObserver) {
             this.resizeObserver.disconnect();
@@ -667,6 +1019,12 @@ if (typeof window.editorVisualization === 'undefined') {
 // Initialize function for use in templates
 function initializeEditorVisualization(nodesData, linksData) {
     console.log('initializeEditorVisualization called with:', nodesData.length, 'nodes,', linksData.length, 'links');
+    
+    // Guard against double initialization
+    if (window.editorVisualization && window.editorVisualization.isInitialized) {
+        console.log('Visualization already initialized, skipping...');
+        return;
+    }
     
     // Cleanup existing instance
     if (window.editorVisualization) {

@@ -116,15 +116,34 @@ def fix_production_migration_state():
             if strategy == "stamp_latest":
                 print("🔧 Stamping database to latest revision...")
                 
-                # First, ensure alembic_version table exists
-                if 'alembic_version' not in existing_tables:
-                    print("📋 Creating alembic_version table...")
-                    app.engine.execute(text("""
-                        CREATE TABLE alembic_version (
-                            version_num VARCHAR(32) NOT NULL,
-                            CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
-                        )
-                    """))
+                # First, ensure alembic_version table exists with correct column size
+                with app.engine.connect() as conn:
+                    if 'alembic_version' not in existing_tables:
+                        print("📋 Creating alembic_version table...")
+                        conn.execute(text("""
+                            CREATE TABLE alembic_version (
+                                version_num VARCHAR(255) NOT NULL,
+                                CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+                            )
+                        """))
+                        conn.commit()
+                    else:
+                        # Check and alter column size if needed
+                        result = conn.execute(text("""
+                            SELECT character_maximum_length 
+                            FROM information_schema.columns 
+                            WHERE table_name = 'alembic_version' 
+                            AND column_name = 'version_num'
+                        """))
+                        row = result.fetchone()
+                        if row and row[0] and row[0] < 255:
+                            print(f"⚠️  Column size is {row[0]}, expanding to VARCHAR(255)...")
+                            conn.execute(text("""
+                                ALTER TABLE alembic_version 
+                                ALTER COLUMN version_num TYPE VARCHAR(255)
+                            """))
+                            conn.commit()
+                            print("✅ Column size updated successfully")
                 
                 # Stamp to latest revision
                 stamp('head')

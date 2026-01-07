@@ -129,17 +129,36 @@ def fix_flask_migrate():
     
     with app.app_context():
         try:
-            # Ensure alembic_version table exists
+            # Ensure alembic_version table exists and has correct column size
             if 'alembic_version' not in tables:
                 print("📋 Creating alembic_version table...")
                 with db.engine.connect() as conn:
                     conn.execute(text("""
                         CREATE TABLE alembic_version (
-                            version_num VARCHAR(32) NOT NULL,
+                            version_num VARCHAR(255) NOT NULL,
                             CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
                         )
                     """))
                     conn.commit()
+            else:
+                # Check if column needs to be altered to support longer revision names
+                print("🔍 Checking alembic_version column size...")
+                with db.engine.connect() as conn:
+                    result = conn.execute(text("""
+                        SELECT character_maximum_length 
+                        FROM information_schema.columns 
+                        WHERE table_name = 'alembic_version' 
+                        AND column_name = 'version_num'
+                    """))
+                    row = result.fetchone()
+                    if row and row[0] and row[0] < 255:
+                        print(f"⚠️  Column size is {row[0]}, expanding to VARCHAR(255)...")
+                        conn.execute(text("""
+                            ALTER TABLE alembic_version 
+                            ALTER COLUMN version_num TYPE VARCHAR(255)
+                        """))
+                        conn.commit()
+                        print("✅ Column size updated successfully")
             
             # Stamp to target revision
             print(f"📋 Stamping to {target_revision}...")

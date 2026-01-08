@@ -19,7 +19,7 @@ def editor():
     return render_template('editor.html', user=user)
 
 @editor_bp.route('/editor/clergy-list')
-@require_permission('edit_clergy')  
+@require_permission('edit_clergy')
 def clergy_list_panel():
     """HTMX endpoint for the left panel clergy list"""
     # Load ALL clergy data for client-side filtering
@@ -29,10 +29,29 @@ def clergy_list_panel():
     
     user = User.query.get(session['user_id']) if 'user_id' in session else None
 
+    # Get sprite sheet data for efficient image loading
+    sprite_sheet_data = None
+    try:
+        sprite_sheet = SpriteSheet.query.filter_by(is_current=True).first()
+        if sprite_sheet:
+            positions = ClergySpritePosition.query.filter_by(sprite_sheet_id=sprite_sheet.id).all()
+            mapping = {pos.clergy_id: (pos.x_position, pos.y_position) for pos in positions}
+            sprite_sheet_data = {
+                'url': sprite_sheet.url,
+                'mapping': mapping,
+                'thumbnail_size': sprite_sheet.thumbnail_size,
+                'images_per_row': sprite_sheet.images_per_row,
+                'sprite_width': sprite_sheet.sprite_width,
+                'sprite_height': sprite_sheet.sprite_height
+            }
+    except Exception as e:
+        current_app.logger.warning(f"Could not load sprite sheet for clergy list: {e}")
+
     return render_template('editor_panels/clergy_list.html', 
                          clergy_list=clergy_list, 
                          organizations=organizations,
                          user=user,
+                         sprite_sheet_data=sprite_sheet_data,
                          search='',  # No initial search
                          exclude_priests=False,  # No initial filters
                          exclude_coconsecrators=False,

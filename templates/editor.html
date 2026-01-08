@@ -999,27 +999,20 @@
             // Only refresh visualization for actual updates, not selections
             // Be more restrictive - only refresh for actual API calls that modify data
             if (!isClergySelection && isClergyAPI) {
-                // Soft refresh: fetch new data and update visualization without reloading panel
+                // Full refresh: reload visualization panel via HTMX
                 setTimeout(() => {
-                    if (window.editorVisualization && window.editorVisualization.isInitialized) {
-                        fetch('/api/visualization/data')
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success && window.editorVisualization) {
-                                    window.editorVisualization.updateData(data.nodes, data.links);
-                                    
-                                    // Re-highlight after visualization refresh
-                                    if (window.currentSelectedClergyId) {
-                                        setTimeout(() => {
-                                            highlightClergyInVisualization(window.currentSelectedClergyId);
-                                        }, 500);
-                                    }
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error refreshing visualization data:', error);
-                            });
-                    }
+                    // Use htmx.ajax to reload the visualization panel
+                    htmx.ajax('GET', '/editor/visualization', {
+                        target: '#visualization-panel-content',
+                        swap: 'innerHTML'
+                    }).then(() => {
+                        // Re-highlight after visualization reloads
+                        if (window.currentSelectedClergyId) {
+                            setTimeout(() => {
+                                highlightClergyInVisualization(window.currentSelectedClergyId);
+                            }, 2000); // Wait for visualization to initialize
+                        }
+                    });
                 }, 100);
             } else if (isClergySelection) {
                 // Re-highlight after selection
@@ -1041,27 +1034,20 @@
 
             // Only refresh visualization for actual updates, not selections
             if (evt.detail && evt.detail.action && (evt.detail.action === 'updated' || evt.detail.action === 'created' || evt.detail.action === 'deleted')) {
-                // Soft refresh: fetch new data and update visualization without reloading panel
+                // Full refresh: reload visualization panel via HTMX
                 setTimeout(() => {
-                    if (window.editorVisualization && window.editorVisualization.isInitialized) {
-                        fetch('/api/visualization/data')
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success && window.editorVisualization) {
-                                    window.editorVisualization.updateData(data.nodes, data.links);
-                                    
-                                    // Re-highlight after visualization refresh
-                                    if (window.currentSelectedClergyId) {
-                                        setTimeout(() => {
-                                            highlightClergyInVisualization(window.currentSelectedClergyId);
-                                        }, 500);
-                                    }
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error refreshing visualization data:', error);
-                            });
-                    }
+                    // Use htmx.ajax to reload the visualization panel
+                    htmx.ajax('GET', '/editor/visualization', {
+                        target: '#visualization-panel-content',
+                        swap: 'innerHTML'
+                    }).then(() => {
+                        // Re-highlight after visualization reloads
+                        if (window.currentSelectedClergyId) {
+                            setTimeout(() => {
+                                highlightClergyInVisualization(window.currentSelectedClergyId);
+                            }, 2000); // Wait for visualization to initialize
+                        }
+                    });
                 }, 150);
             } else {
 

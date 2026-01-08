@@ -127,14 +127,24 @@ class EditorVisualization {
         this.g = this.svg.append('g').attr('class', 'viz-zoom-layer');
         
         // Create simulation - matching lineage visualization exactly
+        // Use same physics parameters as main visualization (SIMULATION_CONFIG)
+        const LINK_DISTANCE = 150;
+        const CHARGE_STRENGTH = -300;
+        const CENTER_STRENGTH = 0.5;
+        const COLLISION_RADIUS_VALUE = COLLISION_RADIUS;
+        const RADIAL_RADIUS = 150;
+        const RADIAL_STRENGTH = 0.1;
+        const ALPHA_DECAY = 0.10;
+        const VELOCITY_DECAY = 0.2;
+        
         this.simulation = d3.forceSimulation(this.nodesData)
-            .force('link', d3.forceLink(this.linksData).id(d => d.id).distance(80)) // Use clustering distance like main visualization
-            .force('charge', d3.forceManyBody().strength(-200)) // Use clustering charge strength like main visualization
-            .force('center', d3.forceCenter(width / 2, height / 2).strength(0.5)) // Stronger centering force
-            .force('collision', d3.forceCollide().radius(COLLISION_RADIUS))
-            .force('radial', d3.forceRadial(150, width / 2, height / 2).strength(0.1)) // Radial clustering force
-            .alphaDecay(0.05) // Reduced for longer simulation
-            .velocityDecay(0.2); // Reduced for more movement
+            .force('link', d3.forceLink(this.linksData).id(d => d.id).distance(LINK_DISTANCE))
+            .force('charge', d3.forceManyBody().strength(CHARGE_STRENGTH))
+            .force('center', d3.forceCenter(width / 2, height / 2).strength(CENTER_STRENGTH))
+            .force('collision', d3.forceCollide().radius(COLLISION_RADIUS_VALUE))
+            .force('radial', d3.forceRadial(RADIAL_RADIUS, width / 2, height / 2).strength(RADIAL_STRENGTH))
+            .alphaDecay(ALPHA_DECAY)
+            .velocityDecay(VELOCITY_DECAY);
 
         // Add repulsion between bishops - matching main visualization
         const bishopNodes = this.nodesData.filter(n => n.rank && this.isBishopRank(n.rank));
@@ -639,6 +649,16 @@ class EditorVisualization {
                 this.highlightNode(window.currentSelectedClergyId);
             }, 1500);
         }
+        
+        // Apply any saved styles after visualization is initialized
+        if (window.vizStyleController && typeof window.vizStyleController.getStyles === 'function') {
+            setTimeout(() => {
+                const styles = window.vizStyleController.getStyles();
+                if (styles && this.isInitialized) {
+                    this.applyStyles(styles);
+                }
+            }, 500);
+        }
     }
 
     setupResizeObserver() {
@@ -663,9 +683,12 @@ class EditorVisualization {
             .attr('width', newWidth)
             .attr('height', newHeight);
         
-        // Update simulation center force
+        // Update simulation center and radial forces to match new container size
+        const RADIAL_RADIUS = 150;
+        const RADIAL_STRENGTH = 0.1;
         this.simulation
             .force('center', d3.forceCenter(newWidth / 2, newHeight / 2))
+            .force('radial', d3.forceRadial(RADIAL_RADIUS, newWidth / 2, newHeight / 2).strength(RADIAL_STRENGTH))
             .alpha(0.3)
             .restart();
     }
@@ -676,8 +699,12 @@ class EditorVisualization {
         const width = this.container.clientWidth;
         const height = this.container.clientHeight;
         
-        // For force layout, restart simulation with center force
-        this.simulation.force('center', d3.forceCenter(width / 2, height / 2));
+        // For force layout, restart simulation with center and radial forces
+        const RADIAL_RADIUS = 150;
+        const RADIAL_STRENGTH = 0.1;
+        this.simulation
+            .force('center', d3.forceCenter(width / 2, height / 2))
+            .force('radial', d3.forceRadial(RADIAL_RADIUS, width / 2, height / 2).strength(RADIAL_STRENGTH));
         this.simulation.alpha(1).restart();
         
         // Also center the view
@@ -841,27 +868,83 @@ class EditorVisualization {
         // Process parallel links
         this.processParallelLinks();
         
-        // Update simulation with new data
+        // Update simulation with new nodes
         this.simulation.nodes(this.nodesData);
         
-        // Update link force with new links
-        this.simulation.force('link', d3.forceLink(this.linksData).id(d => d.id).distance(80));
+        // Create a map of node IDs to node objects for link resolution
+        const nodeMap = new Map(this.nodesData.map(d => [d.id, d]));
         
-        // Update existing links using D3 data binding
-        this.link = this.link.data(this.linksData, d => `${d.source.id}-${d.target.id}-${d.type}`);
+        // Resolve link source/target IDs to node objects
+        this.linksData.forEach(link => {
+            if (typeof link.source === 'object' && link.source.id) {
+                link.source = nodeMap.get(link.source.id) || link.source;
+            } else {
+                link.source = nodeMap.get(link.source) || link.source;
+            }
+            if (typeof link.target === 'object' && link.target.id) {
+                link.target = nodeMap.get(link.target.id) || link.target;
+            } else {
+                link.target = nodeMap.get(link.target) || link.target;
+            }
+        });
         
-        // Remove old links
-        this.link.exit().remove();
+        // Use same physics parameters as main visualization
+        const LINK_DISTANCE = 150;
+        const CHARGE_STRENGTH = -300;
+        const CENTER_STRENGTH = 0.5;
+        const COLLISION_RADIUS_VALUE = COLLISION_RADIUS;
+        const RADIAL_RADIUS = 150;
+        const RADIAL_STRENGTH = 0.1;
         
-        // Read CSS variables for link colors (may have changed since initialization)
+        // Update all forces with new data and consistent parameters
+        this.simulation
+            .force('link', d3.forceLink(this.linksData).id(d => d.id).distance(LINK_DISTANCE))
+            .force('charge', d3.forceManyBody().strength(CHARGE_STRENGTH))
+            .force('collision', d3.forceCollide().radius(COLLISION_RADIUS_VALUE))
+            .force('radial', d3.forceRadial(RADIAL_RADIUS, this.container.clientWidth / 2, this.container.clientHeight / 2).strength(RADIAL_STRENGTH));
+        
+        // Update bishop repulsion if needed
+        const bishopNodes = this.nodesData.filter(n => n.rank && this.isBishopRank(n.rank));
+        if (bishopNodes.length > 0) {
+            this.simulation.force('bishop-repulsion', d3.forceManyBody().strength(-800));
+        } else {
+            this.simulation.force('bishop-repulsion', null);
+        }
+        
+        // Update base links (transparent, for force layout)
+        this.linkBase = this.linkBase.data(this.linksData, d => `${typeof d.source === 'object' ? d.source.id : d.source}-${typeof d.target === 'object' ? d.target.id : d.target}-${d.type}`);
+        this.linkBase.exit().remove();
+        const newLinkBase = this.linkBase.enter().append('line')
+            .attr('stroke', 'transparent')
+            .attr('stroke-width', 1)
+            .style('pointer-events', 'none');
+        this.linkBase = this.linkBase.merge(newLinkBase);
+        
+        // Update overlay links (visible, edge-to-edge with arrowheads)
         const rootStyles = getComputedStyle(document.documentElement);
         const cssLinkOrdinationColor = rootStyles.getPropertyValue('--viz-link-ordination-color').trim() || BLACK_COLOR;
         const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR;
+        const cssLinkInvalidOrdinationColor = rootStyles.getPropertyValue('--viz-link-invalid-ordination-color').trim() || ORANGE_COLOR;
+        const cssLinkInvalidConsecrationColor = rootStyles.getPropertyValue('--viz-link-invalid-consecration-color').trim() || RED_COLOR;
+        const cssLinkStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width')) || 2;
         
-        // Add new links
-        const newLinks = this.link.enter().append('line')
+        this.linkOverlay = this.linkOverlay.data(this.linksData, d => `${typeof d.source === 'object' ? d.source.id : d.source}-${typeof d.target === 'object' ? d.target.id : d.target}-${d.type}`);
+        this.linkOverlay.exit().remove();
+        const newLinkOverlay = this.linkOverlay.enter().append('line')
+            .attr('class', d => {
+                let classes = 'viz-link';
+                if (d.dashed || d.is_doubtful) classes += ' dashed';
+                return classes;
+            })
             .attr('stroke', d => {
-                // Use CSS variables based on link type instead of d.color
+                // Invalid links override normal color - orange for ordinations, red for consecrations
+                if (d.is_invalid) {
+                    if (d.type === 'ordination') {
+                        return cssLinkInvalidOrdinationColor;
+                    } else {
+                        return cssLinkInvalidConsecrationColor;
+                    }
+                }
                 if (d.type === 'ordination') {
                     return cssLinkOrdinationColor;
                 } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -869,10 +952,22 @@ class EditorVisualization {
                 }
                 return cssLinkConsecrationColor;
             })
-            .attr('stroke-width', parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width')) || 2)
-            .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
+            .attr('stroke-width', cssLinkStrokeWidth)
+            .attr('stroke-dasharray', d => {
+                if (d.is_doubtful || d.dashed) {
+                    return '5,5';
+                }
+                return 'none';
+            })
             .attr('marker-end', d => {
-                // Use link type to determine arrow marker
+                // Invalid links use colored arrow markers - orange for ordinations, red for consecrations
+                if (d.is_invalid) {
+                    if (d.type === 'ordination') {
+                        return 'url(#arrowhead-orange)';
+                    } else {
+                        return 'url(#arrowhead-red)';
+                    }
+                }
                 if (d.type === 'ordination') {
                     return 'url(#arrowhead-black)';
                 } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -880,9 +975,10 @@ class EditorVisualization {
                 }
                 return 'url(#arrowhead-green)';
             });
+        this.linkOverlay = this.linkOverlay.merge(newLinkOverlay);
         
-        // Merge new links with existing
-        this.link = this.link.merge(newLinks);
+        // Keep reference to overlay links for compatibility
+        this.link = this.linkOverlay;
         
         // Update existing nodes using D3 data binding
         this.node = this.node.data(this.nodesData, d => d.id);
@@ -1016,7 +1112,7 @@ class EditorVisualization {
         // Merge new nodes with existing
         this.node = this.node.merge(newNodeGroups);
         
-        // Restart simulation with new data
+        // Restart simulation with new data - this will cause links to update via tick handler
         this.simulation.alpha(1).restart();
         
         // Re-highlight selected clergy if any
@@ -1247,13 +1343,31 @@ class EditorVisualization {
     }
     
     cleanup() {
+        // Disconnect resize observer
         if (this.resizeObserver) {
             this.resizeObserver.disconnect();
+            this.resizeObserver = null;
         }
         
+        // Stop simulation
         if (this.simulation) {
             this.simulation.stop();
+            this.simulation = null;
         }
+        
+        // Remove SVG and all visualization elements
+        if (this.container) {
+            d3.select(this.container).selectAll('svg').remove();
+        }
+        
+        // Clear references
+        this.svg = null;
+        this.g = null;
+        this.node = null;
+        this.link = null;
+        this.linkBase = null;
+        this.linkOverlay = null;
+        this.container = null;
         
         this.isInitialized = false;
     }

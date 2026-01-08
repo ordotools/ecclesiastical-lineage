@@ -80,7 +80,21 @@
             
             <!-- Clergy Photo -->
             <div class="clergy-item-photo">
-                {% if clergy.image_url %}
+                {% if sprite_sheet_data and sprite_sheet_data.mapping.get(clergy.id) %}
+                    {% set position = sprite_sheet_data.mapping[clergy.id] %}
+                    {% set x_pos = position[0] %}
+                    {% set y_pos = position[1] %}
+                    {% set thumb_size = sprite_sheet_data.thumbnail_size %}
+                    <div class="clergy-item-photo-sprite" 
+                         style="background-image: url('{{ sprite_sheet_data.url }}'); 
+                                background-position: -{{ x_pos }}px -{{ y_pos }}px; 
+                                background-size: {{ sprite_sheet_data.sprite_width }}px {{ sprite_sheet_data.sprite_height }}px;
+                                width: {{ thumb_size }}px; 
+                                height: {{ thumb_size }}px;
+                                border-radius: 50%;
+                                background-repeat: no-repeat;">
+                    </div>
+                {% elif clergy.image_url %}
                     <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}">
                 {% else %}
                     <div class="clergy-item-photo-placeholder">

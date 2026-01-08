@@ -3,6 +3,17 @@
  * Handles UI for style customization panel and persistence to database
  */
 
+// Prevent duplicate execution when script is reloaded via HTMX
+(function() {
+    'use strict';
+    
+    // Check if already executed
+    if (window._editorVizStylesLoaded) {
+        console.log('Editor visualization styles script already loaded, skipping...');
+        return;
+    }
+    window._editorVizStylesLoaded = true;
+
 class VisualizationStyleController {
     constructor() {
         this.styles = null;
@@ -400,11 +411,21 @@ class VisualizationStyleController {
     }
 }
 
+// Make class globally available
+window.VisualizationStyleController = VisualizationStyleController;
+
 // Initialize when DOM is ready
 let styleController = null;
 
 function initializeStyleController() {
-    if (!styleController) {
+    // Clean up existing controller if panel was reloaded
+    if (styleController && window.vizStyleController) {
+        // Remove old event listeners by creating a new instance
+        styleController = null;
+        window.vizStyleController = null;
+    }
+    
+    if (!styleController && typeof VisualizationStyleController !== 'undefined') {
         styleController = new VisualizationStyleController();
         window.vizStyleController = styleController;
     }
@@ -417,3 +438,4 @@ if (document.readyState === 'loading') {
     initializeStyleController();
 }
 
+})(); // End of IIFE

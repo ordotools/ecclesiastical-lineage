@@ -3,6 +3,7 @@ import { showNotification, showLoadingSpinner, hideLoadingSpinner, getCurrentCle
 // DISABLED: setClergyInfoViewDistance - not used, was causing graph to shift
 // import { setClergyInfoViewDistance } from './core.js';
 import { setModalState, getModalState } from './ui.js';
+import { createClergyWindow, updateWindowContent, bringToFront } from './clergyWindows.js';
 
 // Node click handler function
 export async function handleNodeClick(event, d) {
@@ -24,29 +25,28 @@ export async function handleNodeClick(event, d) {
   // Store current clergy ID for relationship loading
   window.currentClergyId = d.id;
   
-  // Show aside panel
-  const clergyAside = document.getElementById('clergy-aside');
-  if (clergyAside) {
-    // Check if panel is already expanded
-    const isAlreadyExpanded = clergyAside.classList.contains('expanded');
-    
-    // Only add expanded class if panel is not already open
-    if (!isAlreadyExpanded) {
-      clergyAside.classList.add('expanded');
-    }
-    
-    // Always update content (this won't trigger transitions if panel is already open)
-    updateClergyPanelContent(d);
-    
-    // Center the selected node in the viewport with a small delay to ensure aside is expanded
-    // DISABLED: Node centering on click
-    // setTimeout(() => {
-    //   centerNodeInViewport(d);
-    // }, 100);
-    
-    // Load clergy relationships
-    loadClergyRelationships(d.id);
+  // Create or bring to front draggable window
+  const { getWindow } = await import('./clergyWindows.js');
+  let windowElement = getWindow(d.id);
+  
+  if (windowElement) {
+    // Window already exists, bring to front
+    bringToFront(d.id);
+  } else {
+    // Create new window
+    windowElement = createClergyWindow(d);
   }
+  
+  // Store node data on window for later use
+  if (windowElement) {
+    windowElement.currentNodeData = d;
+  }
+  
+  // Update window content with node data
+  updateWindowContent(d.id, d, null);
+  
+  // Load clergy relationships
+  loadClergyRelationships(d.id);
 }
 
 // Function to center a node in the viewport when the aside panel is displayed
@@ -201,19 +201,29 @@ function displayStatusIndicators(d) {
 }
 
 // Function to load clergy relationships
-function loadClergyRelationships(clergyId) {
-  fetch(`/clergy/relationships/${clergyId}`)
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        displayClergyRelationships(data);
+async function loadClergyRelationships(clergyId) {
+  try {
+    const response = await fetch(`/clergy/relationships/${clergyId}`);
+    const data = await response.json();
+    
+    if (data.success) {
+      // Update window content with relationships
+      const { updateWindowContent, getWindow } = await import('./clergyWindows.js');
+      const window = getWindow(clergyId);
+      if (window) {
+        // Get node data from window or current nodes
+        const nodeData = window.currentNodeData || window.currentNodes?.find(n => n.id == clergyId) || {};
+        updateWindowContent(clergyId, nodeData, data);
       } else {
-        console.error('Failed to load clergy relationships:', data.message);
+        // Fallback to old aside panel display (for backwards compatibility)
+        displayClergyRelationships(data);
       }
-    })
-    .catch(error => {
-      console.error('Error loading clergy relationships:', error);
-    });
+    } else {
+      console.error('Failed to load clergy relationships:', data.message);
+    }
+  } catch (error) {
+    console.error('Error loading clergy relationships:', error);
+  }
 }
 
 // Function to display clergy relationships
@@ -332,28 +342,28 @@ function displayClergyRelationships(data) {
 }
 
 // Function to add event listeners for clergy links and add clergy links
-function addClergyLinkEventListeners() {
-  // Add event listeners for clergy links (to show their information)
-  document.querySelectorAll('.clergy-link').forEach(link => {
-    link.addEventListener('click', function(e) {
+// Use event delegation on document to handle dynamically created links in windows
+export function addClergyLinkEventListeners() {
+  // Use event delegation for clergy links (works with dynamically created windows)
+  document.addEventListener('click', function(e) {
+    const clergyLink = e.target.closest('.clergy-link');
+    if (clergyLink) {
       e.preventDefault();
-      const clergyId = this.getAttribute('data-clergy-id');
+      const clergyId = clergyLink.getAttribute('data-clergy-id');
       // Find the clergy node and click it to show its information
-      const clergyNode = window.currentNodes.find(node => node.id == clergyId);
+      const clergyNode = window.currentNodes?.find(node => node.id == clergyId);
       if (clergyNode) {
         handleNodeClick(e, clergyNode);
       }
-    });
-  });
-  
-  // Add event listeners for add clergy links
-  document.querySelectorAll('.add-clergy-link').forEach(link => {
-    link.addEventListener('click', function(e) {
+    }
+    
+    const addClergyLink = e.target.closest('.add-clergy-link');
+    if (addClergyLink) {
       e.preventDefault();
-      const contextType = this.getAttribute('data-context-type');
-      const contextClergyId = this.getAttribute('data-context-clergy-id');
+      const contextType = addClergyLink.getAttribute('data-context-type');
+      const contextClergyId = addClergyLink.getAttribute('data-context-clergy-id');
       openAddClergyModal(contextType, contextClergyId);
-    });
+    }
   });
 }
 
@@ -382,7 +392,7 @@ document.addEventListener('hidden.bs.modal', function(event) {
 });
 
 // Function to open the edit clergy modal
-function openEditClergyModal(clergyId) {
+export function openEditClergyModal(clergyId) {
   const modal = document.getElementById('clergyFormModal');
   const modalBody = document.getElementById('clergyFormModalBody');
   
@@ -1199,8 +1209,11 @@ function refreshVisualizationData() {
 
 // HTMX event handling for clergy info panel
 export function initializeHTMXHandlers() {
+  // Initialize event listeners for clergy links (works with windows)
+  addClergyLinkEventListeners();
+  
   document.addEventListener('htmx:after-swap', function(event) {
-    // Check if the clergy info panel was loaded
+    // Check if the clergy info panel was loaded (for backwards compatibility)
     if (event.target.id === 'clergy-info-panel') {
       // If we have a current clergy ID, load the relationships
       if (window.currentClergyId) {

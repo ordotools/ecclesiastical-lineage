@@ -237,8 +237,8 @@
         </button>
     </div> -->
 
-    <!-- Right Side Aside - Clergy Information Panel -->
-    <div id="clergy-aside" class="clergy-aside">
+    <!-- Right Side Aside - Clergy Information Panel (Hidden, replaced by draggable windows) -->
+    <div id="clergy-aside" class="clergy-aside" style="display: none;">
         <!-- HTMX-powered clergy information panel -->
         <div id="clergy-info-panel" hx-get="/clergy/info-panel" hx-trigger="load" hx-target="this" hx-swap="innerHTML">
             <!-- Loading placeholder -->
@@ -250,6 +250,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Container for draggable clergy info windows -->
+    <div id="clergy-windows-container"></div>
 
     <!-- Admin Navigation Buttons -->
     {% if session.user_id %}
@@ -374,6 +377,10 @@
 </script>
 <script type="module"
     src="{{ url_for('static', filename='js/lineageVisualization.js') }}?v={{ range(1000, 9999) | random }}"></script>
+<!-- Set user editor status globally -->
+<script>
+    window.userCanEditClergy = {{ 'true' if user and user.can_edit_clergy() else 'false' }};
+</script>
 <!-- Lazy load fuzzySearch.js after DOMContentLoaded -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {

@@ -215,8 +215,12 @@ export function initializeSideMenu() {
   }
 }
 
-// Wire up aside functionality
+// Wire up aside functionality (disabled - using draggable windows instead)
 export function initializeAside() {
+  // Aside panel is now replaced by draggable windows
+  // Keeping this function for backwards compatibility but it does nothing
+  return;
+  
   const clergyAside = document.getElementById('clergy-aside');
   
   if (clergyAside) {

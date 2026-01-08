@@ -484,6 +484,26 @@ def lineage_visualization():
                 for status in clergy.statuses
             ]
             
+            # Get primary ordination date
+            ordination_date = None
+            primary_ordination = clergy.get_primary_ordination()
+            if primary_ordination:
+                ordination_date = primary_ordination.date.strftime('%Y-%m-%d') if primary_ordination.date else None
+            elif clergy.ordinations:
+                # Fallback to first ordination if no primary
+                first_ordination = sorted(clergy.ordinations, key=lambda x: x.date)[0]
+                ordination_date = first_ordination.date.strftime('%Y-%m-%d') if first_ordination.date else None
+            
+            # Get primary consecration date
+            consecration_date = None
+            primary_consecration = clergy.get_primary_consecration()
+            if primary_consecration:
+                consecration_date = primary_consecration.date.strftime('%Y-%m-%d') if primary_consecration.date else None
+            elif clergy.consecrations:
+                # Fallback to first consecration if no primary
+                first_consecration = sorted(clergy.consecrations, key=lambda x: x.date)[0]
+                consecration_date = first_consecration.date.strftime('%Y-%m-%d') if first_consecration.date else None
+            
             nodes.append({
                 'id': clergy.id,
                 'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
@@ -495,6 +515,8 @@ def lineage_visualization():
                 'high_res_image_url': high_res_image_url,
                 'ordinations_count': len(clergy.ordinations),
                 'consecrations_count': len(clergy.consecrations),
+                'ordination_date': ordination_date,
+                'consecration_date': consecration_date,
                 'bio': clergy.notes,
                 'statuses': statuses_data
             })
@@ -714,6 +736,26 @@ def get_lineage_data():
                 for status in clergy.statuses
             ]
             
+            # Get primary ordination date
+            ordination_date = None
+            primary_ordination = clergy.get_primary_ordination()
+            if primary_ordination:
+                ordination_date = primary_ordination.date.strftime('%Y-%m-%d') if primary_ordination.date else None
+            elif clergy.ordinations:
+                # Fallback to first ordination if no primary
+                first_ordination = sorted(clergy.ordinations, key=lambda x: x.date)[0]
+                ordination_date = first_ordination.date.strftime('%Y-%m-%d') if first_ordination.date else None
+            
+            # Get primary consecration date
+            consecration_date = None
+            primary_consecration = clergy.get_primary_consecration()
+            if primary_consecration:
+                consecration_date = primary_consecration.date.strftime('%Y-%m-%d') if primary_consecration.date else None
+            elif clergy.consecrations:
+                # Fallback to first consecration if no primary
+                first_consecration = sorted(clergy.consecrations, key=lambda x: x.date)[0]
+                consecration_date = first_consecration.date.strftime('%Y-%m-%d') if first_consecration.date else None
+            
             nodes.append({
                 'id': clergy.id,
                 'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
@@ -725,6 +767,8 @@ def get_lineage_data():
                 'high_res_image_url': high_res_image_url,
                 'ordinations_count': len(clergy.ordinations),
                 'consecrations_count': len(clergy.consecrations),
+                'ordination_date': ordination_date,
+                'consecration_date': consecration_date,
                 'bio': clergy.notes,
                 'statuses': statuses_data
             })

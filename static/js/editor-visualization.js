@@ -32,11 +32,15 @@ var LABEL_DY = window.LABEL_DY;
 // Fallback to reading CSS variables which are set from constants.js module
 var GREEN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-green').trim();
 var BLACK_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-black').trim();
+var RED_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-red')?.trim();
+var ORANGE_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--lineage-orange')?.trim();
 
 // If CSS variables aren't set yet (race condition), use hardcoded fallback
 // These should match constants.js
 if (!GREEN_COLOR) GREEN_COLOR = '#11451e';
 if (!BLACK_COLOR) BLACK_COLOR = '#1c1c1c';
+if (!RED_COLOR) RED_COLOR = '#e74c3c';
+if (!ORANGE_COLOR) ORANGE_COLOR = '#f39c12';
 
 // Prevent duplicate class declarations
 if (typeof window.EditorVisualization === 'undefined') {
@@ -182,12 +186,18 @@ class EditorVisualization {
         // Read link and arrow colors from CSS variables
         const cssLinkOrdinationColor = rootStyles.getPropertyValue('--viz-link-ordination-color').trim() || BLACK_COLOR;
         const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR;
+        const cssLinkInvalidOrdinationColor = rootStyles.getPropertyValue('--viz-link-invalid-ordination-color').trim() || ORANGE_COLOR;
+        const cssLinkInvalidConsecrationColor = rootStyles.getPropertyValue('--viz-link-invalid-consecration-color').trim() || RED_COLOR;
         const cssArrowOrdinationColor = rootStyles.getPropertyValue('--viz-arrow-ordination-color').trim() || cssLinkOrdinationColor;
         const cssArrowConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-consecration-color').trim() || cssLinkConsecrationColor;
+        const cssArrowInvalidOrdinationColor = rootStyles.getPropertyValue('--viz-arrow-invalid-ordination-color').trim() || cssLinkInvalidOrdinationColor;
+        const cssArrowInvalidConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-invalid-consecration-color').trim() || cssLinkInvalidConsecrationColor;
         
         // Store colors for use in link rendering
         this.cssLinkOrdinationColor = cssLinkOrdinationColor;
         this.cssLinkConsecrationColor = cssLinkConsecrationColor;
+        this.cssLinkInvalidOrdinationColor = cssLinkInvalidOrdinationColor;
+        this.cssLinkInvalidConsecrationColor = cssLinkInvalidConsecrationColor;
         
         // Read arrow size and style
         const cssArrowSize = parseFloat(rootStyles.getPropertyValue('--viz-arrow-size')) || 8;
@@ -234,7 +244,7 @@ class EditorVisualization {
         
         // Create arrow markers with configurable style
         const markers = defs.selectAll('marker')
-            .data(['arrowhead-black', 'arrowhead-green'])
+            .data(['arrowhead-black', 'arrowhead-green', 'arrowhead-red', 'arrowhead-orange'])
             .enter().append('marker')
             .attr('id', d => d)
             .attr('viewBox', arrowConfig.viewBox)
@@ -246,8 +256,22 @@ class EditorVisualization {
         
         markers.append('path')
             .attr('d', arrowConfig.path)
-            .attr('fill', d => arrowConfig.stroke ? 'none' : (d === 'arrowhead-black' ? cssArrowOrdinationColor : cssArrowConsecrationColor))
-            .attr('stroke', d => arrowConfig.stroke ? (d === 'arrowhead-black' ? cssArrowOrdinationColor : cssArrowConsecrationColor) : 'none')
+            .attr('fill', d => {
+                if (arrowConfig.stroke) return 'none';
+                if (d === 'arrowhead-black') return cssArrowOrdinationColor;
+                if (d === 'arrowhead-green') return cssArrowConsecrationColor;
+                if (d === 'arrowhead-red') return cssArrowInvalidConsecrationColor;
+                if (d === 'arrowhead-orange') return cssArrowInvalidOrdinationColor;
+                return cssArrowConsecrationColor;
+            })
+            .attr('stroke', d => {
+                if (!arrowConfig.stroke) return 'none';
+                if (d === 'arrowhead-black') return cssArrowOrdinationColor;
+                if (d === 'arrowhead-green') return cssArrowConsecrationColor;
+                if (d === 'arrowhead-red') return cssArrowInvalidConsecrationColor;
+                if (d === 'arrowhead-orange') return cssArrowInvalidOrdinationColor;
+                return cssArrowConsecrationColor;
+            })
             .attr('stroke-width', arrowConfig.stroke ? 2 : 0);
 
         // Load sprite sheet and create patterns
@@ -348,8 +372,20 @@ class EditorVisualization {
             .selectAll('line')
             .data(this.linksData)
             .enter().append('line')
-            .attr('class', d => d.dashed ? 'viz-link dashed' : 'viz-link')
+            .attr('class', d => {
+                let classes = 'viz-link';
+                if (d.dashed || d.is_doubtful) classes += ' dashed';
+                return classes;
+            })
             .attr('stroke', d => {
+                // Invalid links override normal color - orange for ordinations, red for consecrations
+                if (d.is_invalid) {
+                    if (d.type === 'ordination') {
+                        return cssLinkInvalidOrdinationColor;
+                    } else {
+                        return cssLinkInvalidConsecrationColor;
+                    }
+                }
                 // Use CSS variables based on link type instead of d.color
                 if (d.type === 'ordination') {
                     return cssLinkOrdinationColor;
@@ -360,8 +396,22 @@ class EditorVisualization {
                 return cssLinkConsecrationColor;
             })
             .attr('stroke-width', cssLinkStrokeWidth)
-            .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
+            .attr('stroke-dasharray', d => {
+                // Make doubtful links dotted (or if already dashed from co-consecration)
+                if (d.is_doubtful || d.dashed) {
+                    return '5,5';
+                }
+                return 'none';
+            })
             .attr('marker-end', d => {
+                // Invalid links use colored arrow markers - orange for ordinations, red for consecrations
+                if (d.is_invalid) {
+                    if (d.type === 'ordination') {
+                        return 'url(#arrowhead-orange)';
+                    } else {
+                        return 'url(#arrowhead-red)';
+                    }
+                }
                 // Use link type to determine arrow marker
                 if (d.type === 'ordination') {
                     return 'url(#arrowhead-black)';
@@ -1053,16 +1103,28 @@ class EditorVisualization {
         const rootStyles = getComputedStyle(document.documentElement);
         const cssLinkOrdinationColor = rootStyles.getPropertyValue('--viz-link-ordination-color').trim();
         const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim();
+        const cssLinkInvalidOrdinationColor = rootStyles.getPropertyValue('--viz-link-invalid-ordination-color').trim() || ORANGE_COLOR;
+        const cssLinkInvalidConsecrationColor = rootStyles.getPropertyValue('--viz-link-invalid-consecration-color').trim() || RED_COLOR;
         const cssLinkStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width'));
         const cssArrowOrdinationColor = rootStyles.getPropertyValue('--viz-arrow-ordination-color').trim() || cssLinkOrdinationColor;
         const cssArrowConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-consecration-color').trim() || cssLinkConsecrationColor;
+        const cssArrowInvalidOrdinationColor = rootStyles.getPropertyValue('--viz-arrow-invalid-ordination-color').trim() || cssLinkInvalidOrdinationColor;
+        const cssArrowInvalidConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-invalid-consecration-color').trim() || cssLinkInvalidConsecrationColor;
         
         if (styles.link) {
             const linkStyles = styles.link;
             
             // Update link colors from CSS variables
-            if (cssLinkOrdinationColor || cssLinkConsecrationColor) {
+            if (cssLinkOrdinationColor || cssLinkConsecrationColor || cssLinkInvalidOrdinationColor || cssLinkInvalidConsecrationColor) {
                 this.link.attr('stroke', d => {
+                    // Invalid links override normal color - orange for ordinations, red for consecrations
+                    if (d.is_invalid) {
+                        if (d.type === 'ordination') {
+                            return cssLinkInvalidOrdinationColor || linkStyles.invalid_ordination_color || ORANGE_COLOR;
+                        } else {
+                            return cssLinkInvalidConsecrationColor || linkStyles.invalid_consecration_color || RED_COLOR;
+                        }
+                    }
                     if (d.type === 'ordination') {
                         return cssLinkOrdinationColor || linkStyles.ordination_color || BLACK_COLOR;
                     } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -1071,8 +1133,17 @@ class EditorVisualization {
                     return cssLinkConsecrationColor || linkStyles.consecration_color || GREEN_COLOR;
                 });
                 
+                // Update stroke-dasharray for doubtful links
+                this.link.attr('stroke-dasharray', d => {
+                    if (d.is_doubtful || d.dashed) {
+                        return '5,5';
+                    }
+                    return 'none';
+                });
+                
                 // Update arrow markers from CSS variables
                 const defs = this.svg.select('defs');
+                const arrowConfig = this.arrowConfig || { stroke: false };
                 defs.selectAll('marker')
                     .selectAll('path')
                     .attr('fill', function() {
@@ -1081,9 +1152,44 @@ class EditorVisualization {
                             return cssArrowOrdinationColor || linkStyles.ordination_color || BLACK_COLOR;
                         } else if (markerId === 'arrowhead-green') {
                             return cssArrowConsecrationColor || linkStyles.consecration_color || GREEN_COLOR;
+                        } else if (markerId === 'arrowhead-red') {
+                            return cssArrowInvalidConsecrationColor || linkStyles.invalid_consecration_color || RED_COLOR;
+                        } else if (markerId === 'arrowhead-orange') {
+                            return cssArrowInvalidOrdinationColor || linkStyles.invalid_ordination_color || ORANGE_COLOR;
+                        }
+                        return GREEN_COLOR;
+                    })
+                    .attr('stroke', function() {
+                        const markerId = d3.select(this.parentNode).attr('id');
+                        if (!arrowConfig.stroke) return 'none';
+                        if (markerId === 'arrowhead-black') {
+                            return cssArrowOrdinationColor || linkStyles.ordination_color || BLACK_COLOR;
+                        } else if (markerId === 'arrowhead-green') {
+                            return cssArrowConsecrationColor || linkStyles.consecration_color || GREEN_COLOR;
+                        } else if (markerId === 'arrowhead-red') {
+                            return cssArrowInvalidConsecrationColor || linkStyles.invalid_consecration_color || RED_COLOR;
+                        } else if (markerId === 'arrowhead-orange') {
+                            return cssArrowInvalidOrdinationColor || linkStyles.invalid_ordination_color || ORANGE_COLOR;
                         }
                         return GREEN_COLOR;
                     });
+                
+                // Update marker-end to use colored markers for invalid links
+                this.link.attr('marker-end', d => {
+                    if (d.is_invalid) {
+                        if (d.type === 'ordination') {
+                            return 'url(#arrowhead-orange)';
+                        } else {
+                            return 'url(#arrowhead-red)';
+                        }
+                    }
+                    if (d.type === 'ordination') {
+                        return 'url(#arrowhead-black)';
+                    } else if (d.type === 'consecration' || d.type === 'co-consecration') {
+                        return 'url(#arrowhead-green)';
+                    }
+                    return 'url(#arrowhead-green)';
+                });
             }
             
             // Update link stroke width from CSS variable

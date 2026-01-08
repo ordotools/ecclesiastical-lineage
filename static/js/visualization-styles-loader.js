@@ -50,14 +50,20 @@ export function setCSSVariables(styles) {
     if (styles.link) {
         const ordinationColor = styles.link.ordination_color || '#1c1c1c';
         const consecrationColor = styles.link.consecration_color || '#11451e';
+        const invalidOrdinationColor = styles.link.invalid_ordination_color || '#f39c12';
+        const invalidConsecrationColor = styles.link.invalid_consecration_color || '#e74c3c';
         
         root.style.setProperty('--viz-link-ordination-color', ordinationColor);
         root.style.setProperty('--viz-link-consecration-color', consecrationColor);
+        root.style.setProperty('--viz-link-invalid-ordination-color', invalidOrdinationColor);
+        root.style.setProperty('--viz-link-invalid-consecration-color', invalidConsecrationColor);
         root.style.setProperty('--viz-link-stroke-width', `${styles.link.stroke_width || 2}px`);
         
         // Arrow markers use the same colors as links
         root.style.setProperty('--viz-arrow-ordination-color', ordinationColor);
         root.style.setProperty('--viz-arrow-consecration-color', consecrationColor);
+        root.style.setProperty('--viz-arrow-invalid-ordination-color', invalidOrdinationColor);
+        root.style.setProperty('--viz-arrow-invalid-consecration-color', invalidConsecrationColor);
     }
     
     // Update arrow CSS variables
@@ -89,6 +95,8 @@ function getDefaultStyles() {
         link: {
             ordination_color: '#1c1c1c',
             consecration_color: '#11451e',
+            invalid_ordination_color: '#f39c12',
+            invalid_consecration_color: '#e74c3c',
             stroke_width: 2
         },
         label: {

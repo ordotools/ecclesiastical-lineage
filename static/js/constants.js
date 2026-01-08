@@ -23,6 +23,8 @@ export const ARROWHEAD_LENGTH = 16; // Reduced from 18 for smaller nodes
 // ============================================================================
 export const GREEN_COLOR = '#056c1f';  // Dark green for consecration links
 export const BLACK_COLOR = '#0d0d0d';  // Dark gray/black for ordination links
+export const RED_COLOR = '#e74c3c';  // Red for invalid consecration links
+export const ORANGE_COLOR = '#f39c12';  // Orange for invalid ordination links
 
 // Viewport dimensions
 export const width = window.innerWidth;

@@ -59,6 +59,8 @@ class VisualizationStyleController {
             link: {
                 ordination_color: '#1c1c1c',
                 consecration_color: '#11451e',
+                invalid_ordination_color: '#f39c12',
+                invalid_consecration_color: '#e74c3c',
                 stroke_width: 2
             },
             label: {
@@ -80,7 +82,7 @@ class VisualizationStyleController {
             'inner-radius', 'inner-radius-value',
             'image-size', 'image-size-value',
             'node-stroke-width', 'node-stroke-width-value',
-            'link-ordination-color', 'link-consecration-color',
+            'link-ordination-color', 'link-consecration-color', 'link-invalid-ordination-color', 'link-invalid-consecration-color',
             'link-stroke-width', 'link-stroke-width-value',
             'label-font-size', 'label-font-size-value',
             'label-color', 'label-dy', 'label-dy-value'
@@ -131,6 +133,8 @@ class VisualizationStyleController {
         const linkStyles = this.styles.link || {};
         setValue('link-ordination-color', linkStyles.ordination_color || '#1c1c1c');
         setValue('link-consecration-color', linkStyles.consecration_color || '#11451e');
+        setValue('link-invalid-ordination-color', linkStyles.invalid_ordination_color || '#f39c12');
+        setValue('link-invalid-consecration-color', linkStyles.invalid_consecration_color || '#e74c3c');
         setValue('link-stroke-width', linkStyles.stroke_width || 2);
         setValue('link-stroke-width-value', linkStyles.stroke_width || 2);
         
@@ -232,6 +236,8 @@ class VisualizationStyleController {
             link: {
                 ordination_color: document.getElementById('link-ordination-color').value,
                 consecration_color: document.getElementById('link-consecration-color').value,
+                invalid_ordination_color: document.getElementById('link-invalid-ordination-color').value,
+                invalid_consecration_color: document.getElementById('link-invalid-consecration-color').value,
                 stroke_width: parseInt(document.getElementById('link-stroke-width').value)
             },
             label: {
@@ -342,14 +348,20 @@ class VisualizationStyleController {
         if (this.styles.link) {
             const ordinationColor = this.styles.link.ordination_color || '#1c1c1c';
             const consecrationColor = this.styles.link.consecration_color || '#11451e';
+            const invalidOrdinationColor = this.styles.link.invalid_ordination_color || '#f39c12';
+            const invalidConsecrationColor = this.styles.link.invalid_consecration_color || '#e74c3c';
             
             root.style.setProperty('--viz-link-ordination-color', ordinationColor);
             root.style.setProperty('--viz-link-consecration-color', consecrationColor);
+            root.style.setProperty('--viz-link-invalid-ordination-color', invalidOrdinationColor);
+            root.style.setProperty('--viz-link-invalid-consecration-color', invalidConsecrationColor);
             root.style.setProperty('--viz-link-stroke-width', `${this.styles.link.stroke_width || 2}px`);
             
             // Arrow markers use the same colors as links
             root.style.setProperty('--viz-arrow-ordination-color', ordinationColor);
             root.style.setProperty('--viz-arrow-consecration-color', consecrationColor);
+            root.style.setProperty('--viz-arrow-invalid-ordination-color', invalidOrdinationColor);
+            root.style.setProperty('--viz-arrow-invalid-consecration-color', invalidConsecrationColor);
         }
         
         // Update label CSS variables

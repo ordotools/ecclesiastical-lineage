@@ -8,7 +8,9 @@ import {
   IMAGE_SIZE, 
   LABEL_DY, 
   GREEN_COLOR, 
-  BLACK_COLOR, 
+  BLACK_COLOR,
+  RED_COLOR,
+  ORANGE_COLOR,
   width, 
   height,
   ZOOM_LEVEL_LARGE,
@@ -206,8 +208,12 @@ export async function initializeVisualization() {
   const cssLabelDy = parseFloat(rootStyles.getPropertyValue('--viz-label-dy')) || LABEL_DY;
   const cssLinkOrdinationColor = rootStyles.getPropertyValue('--viz-link-ordination-color').trim() || BLACK_COLOR;
   const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR;
+  const cssLinkInvalidOrdinationColor = rootStyles.getPropertyValue('--viz-link-invalid-ordination-color').trim() || ORANGE_COLOR;
+  const cssLinkInvalidConsecrationColor = rootStyles.getPropertyValue('--viz-link-invalid-consecration-color').trim() || RED_COLOR;
   const cssArrowOrdinationColor = rootStyles.getPropertyValue('--viz-arrow-ordination-color').trim() || cssLinkOrdinationColor;
   const cssArrowConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-consecration-color').trim() || cssLinkConsecrationColor;
+  const cssArrowInvalidOrdinationColor = rootStyles.getPropertyValue('--viz-arrow-invalid-ordination-color').trim() || cssLinkInvalidOrdinationColor;
+  const cssArrowInvalidConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-invalid-consecration-color').trim() || cssLinkInvalidConsecrationColor;
   
   // Read arrow size and style
   const cssArrowSize = parseFloat(rootStyles.getPropertyValue('--viz-arrow-size')) || 8;
@@ -272,7 +278,7 @@ export async function initializeVisualization() {
   
   // Create arrow markers with configurable style
   const markers = defs.selectAll('marker')
-    .data(['arrowhead-black', 'arrowhead-green'])
+    .data(['arrowhead-black', 'arrowhead-green', 'arrowhead-red', 'arrowhead-orange'])
     .enter().append('marker')
     .attr('id', d => d)
     .attr('viewBox', arrowConfig.viewBox)
@@ -284,8 +290,22 @@ export async function initializeVisualization() {
   
   markers.append('path')
     .attr('d', arrowConfig.path)
-    .attr('fill', d => arrowConfig.stroke ? 'none' : (d === 'arrowhead-black' ? cssArrowOrdinationColor : cssArrowConsecrationColor))
-    .attr('stroke', d => arrowConfig.stroke ? (d === 'arrowhead-black' ? cssArrowOrdinationColor : cssArrowConsecrationColor) : 'none')
+    .attr('fill', d => {
+      if (arrowConfig.stroke) return 'none';
+      if (d === 'arrowhead-black') return cssArrowOrdinationColor;
+      if (d === 'arrowhead-green') return cssArrowConsecrationColor;
+      if (d === 'arrowhead-red') return cssArrowInvalidConsecrationColor;
+      if (d === 'arrowhead-orange') return cssArrowInvalidOrdinationColor;
+      return cssArrowConsecrationColor;
+    })
+    .attr('stroke', d => {
+      if (!arrowConfig.stroke) return 'none';
+      if (d === 'arrowhead-black') return cssArrowOrdinationColor;
+      if (d === 'arrowhead-green') return cssArrowConsecrationColor;
+      if (d === 'arrowhead-red') return cssArrowInvalidConsecrationColor;
+      if (d === 'arrowhead-orange') return cssArrowInvalidOrdinationColor;
+      return cssArrowConsecrationColor;
+    })
     .attr('stroke-width', arrowConfig.stroke ? 2 : 0);
 
   // Load sprite sheet and create patterns (before creating nodes)
@@ -405,8 +425,20 @@ export async function initializeVisualization() {
     .selectAll('line')
     .data(validLinks)
     .enter().append('line')
-    .attr('class', d => d.dashed ? 'viz-link dashed' : 'viz-link')
+    .attr('class', d => {
+      let classes = 'viz-link';
+      if (d.dashed || d.is_doubtful) classes += ' dashed';
+      return classes;
+    })
     .attr('stroke', d => {
+      // Invalid links override normal color - orange for ordinations, red for consecrations
+      if (d.is_invalid) {
+        if (d.type === 'ordination') {
+          return cssLinkInvalidOrdinationColor;
+        } else {
+          return cssLinkInvalidConsecrationColor;
+        }
+      }
       // Use CSS variables based on link type instead of d.color
       if (d.type === 'ordination') {
         return cssLinkOrdinationColor;
@@ -417,10 +449,24 @@ export async function initializeVisualization() {
       return cssLinkConsecrationColor;
     })
     .attr('stroke-width', cssLinkStrokeWidth)
-    .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
+    .attr('stroke-dasharray', d => {
+      // Make doubtful links dotted (or if already dashed from co-consecration)
+      if (d.is_doubtful || d.dashed) {
+        return '5,5';
+      }
+      return 'none';
+    })
     .style('opacity', d => d.filtered ? 0 : 1)
     .style('pointer-events', d => d.filtered ? 'none' : 'all')
     .attr('marker-end', d => {
+      // Invalid links use colored arrow markers - orange for ordinations, red for consecrations
+      if (d.is_invalid) {
+        if (d.type === 'ordination') {
+          return 'url(#arrowhead-orange)';
+        } else {
+          return 'url(#arrowhead-red)';
+        }
+      }
       // Use CSS variables to determine arrow marker
       if (d.type === 'ordination') {
         return 'url(#arrowhead-black)';

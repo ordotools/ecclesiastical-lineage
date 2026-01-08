@@ -67,8 +67,8 @@ export function clearHighlight() {
   if (!svg2.empty()) {
     const container2 = svg2.select('g');
     if (!container2.empty()) {
-      container2.selectAll('line').each(function(d) {
-        if (d && d.color) {
+      container2.selectAll('line.viz-link').each(function(d) {
+        if (d) {
           const lineElement = d3.select(this);
           
           // Restore original marker-end if it was stored
@@ -77,16 +77,22 @@ export function clearHighlight() {
             lineElement.attr('marker-end', originalMarker);
             originalMarkerEnds.delete(this);
           } else {
-            // Restore marker-end based on link color
-            const markerId = (d.color === BLACK_COLOR || d.color === '#0d0d0d' || d.color === '#000000')
+            // Restore marker-end based on link type (not color, for consistency with CSS variables)
+            const markerId = (d.type === 'ordination')
               ? 'url(#arrowhead-black)' 
               : 'url(#arrowhead-green)';
             lineElement.attr('marker-end', markerId);
           }
           
+          // Restore stroke color from CSS variables based on link type
+          const rootStyles = getComputedStyle(document.documentElement);
+          const cssLinkOrdinationColor = rootStyles.getPropertyValue('--viz-link-ordination-color').trim() || BLACK_COLOR;
+          const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR;
+          const restoreColor = (d.type === 'ordination') ? cssLinkOrdinationColor : cssLinkConsecrationColor;
+          
           lineElement
-            .attr('stroke-width', 3)
-            .attr('stroke', d.color)
+            .attr('stroke-width', parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width')) || 3)
+            .attr('stroke', restoreColor)
             .style('filter', null);
         }
       });
@@ -151,36 +157,39 @@ function ensureYellowArrowheadMarker() {
   const yellowMarker = defs.select('#arrowhead-yellow');
   if (!yellowMarker.empty()) return;
   
-  // Calculate refX accounting for thicker highlight stroke
-  // Normal stroke width is 1, highlight stroke width is 4
-  // The stroke extends outward from the circle, making the visual edge further out
-  // Normal: visual edge at OUTER_RADIUS + (stroke_width/2) = OUTER_RADIUS + 0.5
-  // Highlight: visual edge at OUTER_RADIUS + (stroke_width/2) = OUTER_RADIUS + 2
-  // The difference is 1.5 pixels further out
-  // Since refX is measured from the line end (which is at OUTER_RADIUS), and the visual edge
-  // is further out with thicker stroke, we need to REDUCE refX (subtract) so the arrowhead
-  // extends back toward the line end to align with the visual edge
-  const normalStrokeHalf = 0.5; // half of stroke width 1
-  const highlightStrokeHalf = HIGHLIGHT_STROKE_WIDTH / 2; // half of stroke width 4 = 2
-  const strokeDifference = highlightStrokeHalf - normalStrokeHalf; // 1.5 pixels
+  // Read arrow configuration from CSS variables
+  const rootStyles = getComputedStyle(document.documentElement);
+  const cssArrowSize = parseFloat(rootStyles.getPropertyValue('--viz-arrow-size')) || 8;
+  const cssArrowStyle = rootStyles.getPropertyValue('--viz-arrow-style').trim() || 'triangle';
   
-  // Adjust refX to account for the thicker stroke
-  // Subtract the stroke difference so the arrowhead aligns with the visual edge
-  const adjustedRefX = (OUTER_RADIUS * 0.71) - strokeDifference;
+  // Arrow path configurations (matching core.js and editor-visualization.js)
+  const arrowStyles = {
+    triangle: { path: 'M0,-5L10,0L0,5Z', viewBox: '0 -5 10 10' },
+    chevron: { path: 'M0,-5L10,0L0,5', viewBox: '0 -5 10 10', stroke: true },
+    barbed: { path: 'M0,-4L10,0L0,4L3,0Z', viewBox: '0 -4 10 8' },
+    stealth: { path: 'M0,-3L10,0L0,3L2,0Z', viewBox: '0 -3 10 6' },
+    diamond: { path: 'M0,0L5,-4L10,0L5,4Z', viewBox: '0 -4 10 8' }
+  };
+  
+  const arrowConfig = arrowStyles[cssArrowStyle] || arrowStyles.triangle;
+  // Set refX to 0 so arrow BASE is at line end, arrow TIP extends forward
+  const adjustedRefX = 0;
   
   // Create yellow arrowhead marker
   const marker = defs.append('marker')
     .attr('id', 'arrowhead-yellow')
-    .attr('viewBox', '0 -5 10 10')
+    .attr('viewBox', arrowConfig.viewBox)
     .attr('refX', adjustedRefX)
     .attr('refY', 0)
-    .attr('markerWidth', 8)
-    .attr('markerHeight', 8)
+    .attr('markerWidth', cssArrowSize)
+    .attr('markerHeight', cssArrowSize)
     .attr('orient', 'auto');
   
   marker.append('path')
-    .attr('d', 'M0,-5L10,0L0,5')
-    .attr('fill', HIGHLIGHT_COLOR);
+    .attr('d', arrowConfig.path)
+    .attr('fill', arrowConfig.stroke ? 'none' : HIGHLIGHT_COLOR)
+    .attr('stroke', arrowConfig.stroke ? HIGHLIGHT_COLOR : 'none')
+    .attr('stroke-width', arrowConfig.stroke ? 2 : 0);
 }
 
 /**
@@ -202,7 +211,7 @@ function highlightLink(sourceId, targetId, linkType) {
   const container = svg.select('g'); // The zoom container
   if (container.empty()) return;
   
-  const links = container.selectAll('line');
+  const links = container.selectAll('line.viz-link');
   links.each(function(d) {
     if (d && d.source && d.target) {
       const linkSourceId = typeof d.source === 'object' ? d.source.id : d.source;

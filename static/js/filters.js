@@ -521,8 +521,8 @@ function updateVisualizationFilters() {
   const svg = d3.select('#graph-container svg');
   if (svg.empty()) return;
   
-  // Update links - select all line elements (links are rendered as lines)
-  const links = svg.selectAll('line');
+  // Update links - select only visible overlay links (with class viz-link)
+  const links = svg.selectAll('line.viz-link');
   if (!links.empty() && links.data) {
     links
       .style('opacity', function() {

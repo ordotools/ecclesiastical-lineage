@@ -324,10 +324,49 @@ class VisualizationStyleController {
         }
     }
     
+    updateCSSVariables() {
+        /** Update CSS custom properties to match current styles */
+        if (!this.styles) return;
+        
+        const root = document.documentElement;
+        
+        // Update node CSS variables
+        if (this.styles.node) {
+            root.style.setProperty('--viz-node-outer-radius', `${this.styles.node.outer_radius || 30}px`);
+            root.style.setProperty('--viz-node-inner-radius', `${this.styles.node.inner_radius || 24}px`);
+            root.style.setProperty('--viz-node-image-size', `${this.styles.node.image_size || 48}px`);
+            root.style.setProperty('--viz-node-stroke-width', `${this.styles.node.stroke_width || 3}px`);
+        }
+        
+        // Update link CSS variables
+        if (this.styles.link) {
+            const ordinationColor = this.styles.link.ordination_color || '#1c1c1c';
+            const consecrationColor = this.styles.link.consecration_color || '#11451e';
+            
+            root.style.setProperty('--viz-link-ordination-color', ordinationColor);
+            root.style.setProperty('--viz-link-consecration-color', consecrationColor);
+            root.style.setProperty('--viz-link-stroke-width', `${this.styles.link.stroke_width || 2}px`);
+            
+            // Arrow markers use the same colors as links
+            root.style.setProperty('--viz-arrow-ordination-color', ordinationColor);
+            root.style.setProperty('--viz-arrow-consecration-color', consecrationColor);
+        }
+        
+        // Update label CSS variables
+        if (this.styles.label) {
+            root.style.setProperty('--viz-label-font-size', `${this.styles.label.font_size || 12}px`);
+            root.style.setProperty('--viz-label-color', this.styles.label.color || '#ffffff');
+            root.style.setProperty('--viz-label-dy', `${this.styles.label.dy || 35}px`);
+        }
+    }
+    
     applyStylesToVisualization() {
         if (!this.styles || !window.editorVisualization) return;
         
-        // Apply styles using the visualization's applyStyles method
+        // Update CSS variables for any CSS-based styling
+        this.updateCSSVariables();
+        
+        // Apply styles using the visualization's applyStyles method (for JavaScript/D3 attributes)
         if (typeof window.editorVisualization.applyStyles === 'function') {
             window.editorVisualization.applyStyles(this.styles);
         }

@@ -105,12 +105,9 @@ def visualization_panel():
         
         # Create nodes for each clergy
         for clergy in all_clergy:
-            # Determine node color based on organization or rank
-            node_color = '#3498db'  # Default blue
-            if clergy.organization and clergy.organization in organizations:
-                node_color = organizations[clergy.organization]
-            elif clergy.rank and clergy.rank in ranks:
-                node_color = ranks[clergy.rank]
+            # Get organization and rank colors separately (matching lineage visualization)
+            org_color = organizations.get(clergy.organization) or '#2c3e50'
+            rank_color = ranks.get(clergy.rank) or '#888888'
 
             # Get image URL - prefer lineage size for visualization, fallback to original
             image_url = placeholder_data_url
@@ -132,7 +129,8 @@ def visualization_panel():
                 'papal_name': clergy.papal_name if hasattr(clergy, 'papal_name') else None,
                 'rank': clergy.rank,
                 'organization': clergy.organization,
-                'color': node_color,
+                'org_color': org_color,
+                'rank_color': rank_color,
                 'image_url': image_url,
                 'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
                 'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,

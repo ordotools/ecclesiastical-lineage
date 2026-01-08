@@ -277,7 +277,7 @@
     </div>
 
     <!-- Graph Container -->
-    <div id="graph-container" class="graph-container-full"></div>
+    <div id="graph-container" class="graph-container-full viz-surface"></div>
 
     <!-- Error Message Display -->
     {% if error_message %}
@@ -353,6 +353,7 @@
 {% block extra_styles %}
 {% include '_custom_styles.html' %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visualizer.css') }}?v=1.0">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/visualization-dynamic.css') }}?v=1.0">
 {% endblock %}
 
 {% block editor_scripts %}

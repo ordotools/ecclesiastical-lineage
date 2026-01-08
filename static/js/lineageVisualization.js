@@ -7,9 +7,13 @@ import { initializeFilters, applyPriestFilter, applyBackboneOnlyFilter } from '.
 import { initializeHTMXHandlers } from './modals.js';
 import { initializeVisualization } from './core.js';
 import { initializeSearch, buildSearchIndex, handleURLSearch } from './search.js';
+import { loadVisualizationStyles } from './visualization-styles-loader.js';
 
 // Initialize all components
 async function initializeAll() {
+  // Load visualization styles from database first (sets CSS variables)
+  await loadVisualizationStyles();
+  
   // Initialize UI components first
   initializeUI();
   
@@ -22,7 +26,7 @@ async function initializeAll() {
   // Initialize search functionality
   initializeSearch();
   
-  // Initialize the main visualization
+  // Initialize the main visualization (will read CSS variables)
   await initializeVisualization();
   
   // Apply initial filters after visualization is set up

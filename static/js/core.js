@@ -200,9 +200,53 @@ export async function initializeVisualization() {
   // Process parallel links for better visual separation
   processParallelLinks(validLinks);
 
+  // Read CSS-driven style values so both templates render identically
+  const rootStyles = getComputedStyle(document.documentElement);
+  const cssLinkStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width')) || LINK_CONFIG.strokeWidth;
+  const cssLabelDy = parseFloat(rootStyles.getPropertyValue('--viz-label-dy')) || LABEL_DY;
+  const cssLinkOrdinationColor = rootStyles.getPropertyValue('--viz-link-ordination-color').trim() || BLACK_COLOR;
+  const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR;
+  const cssArrowOrdinationColor = rootStyles.getPropertyValue('--viz-arrow-ordination-color').trim() || cssLinkOrdinationColor;
+  const cssArrowConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-consecration-color').trim() || cssLinkConsecrationColor;
+  
+  // Read arrow size and style
+  const cssArrowSize = parseFloat(rootStyles.getPropertyValue('--viz-arrow-size')) || 8;
+  const cssArrowStyle = rootStyles.getPropertyValue('--viz-arrow-style').trim() || 'triangle';
+  
+  // Arrow path configurations (in viewBox units 0-10)
+  // Each style has: path, refX (where tip is), viewBox
+  const arrowStyles = {
+    triangle: { path: 'M0,-5L10,0L0,5Z', refX: 10, viewBox: '0 -5 10 10' },
+    chevron: { path: 'M0,-5L10,0L0,5', refX: 10, viewBox: '0 -5 10 10', stroke: true },
+    barbed: { path: 'M0,-4L10,0L0,4L3,0Z', refX: 10, viewBox: '0 -4 10 8' },
+    stealth: { path: 'M0,-3L10,0L0,3L2,0Z', refX: 10, viewBox: '0 -3 10 6' },
+    diamond: { path: 'M0,0L5,-4L10,0L5,4Z', refX: 10, viewBox: '0 -4 10 8' }
+  };
+  
+  const arrowConfig = arrowStyles[cssArrowStyle] || arrowStyles.triangle;
+  // Set refX to 0 so arrow BASE is at line end, arrow TIP extends forward toward target node
+  // This hides the line end beneath the arrow body
+  const arrowRefX = 0;
+  
+  // Read link gap for positioning link end before child node
+  const cssLinkGap = parseFloat(rootStyles.getPropertyValue('--viz-link-gap')) || 2;
+  
+  // Extra gap to ensure arrow tip clears the node edge
+  const cssArrowExtraGap = parseFloat(rootStyles.getPropertyValue('--viz-arrow-extra-gap')) || 4;
+  
+  // Calculate how much to shorten the link so line end is hidden beneath arrow
+  // Arrow size in pixels, plus extra gap so arrow tip clears node edge
+  const arrowLengthPx = cssArrowSize + cssArrowExtraGap;
+  
+  // Store node dimensions for link coordinate calculation
+  const cssNodeOuterRadius = parseFloat(rootStyles.getPropertyValue('--viz-node-outer-radius')) || OUTER_RADIUS;
+  const cssNodeStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-node-stroke-width')) || 1;
+  const nodeEdgeRadius = cssNodeOuterRadius + (cssNodeStrokeWidth / 2);
+
   // Create SVG container
   const svg = d3.select('#graph-container')
     .append('svg')
+    .attr('class', 'viz-svg')
     .attr('width', width)
     .attr('height', height)
     .attr('viewBox', [0, 0, width, height])
@@ -221,24 +265,28 @@ export async function initializeVisualization() {
   window.currentZoom = zoom;
 
   // Create container group for zoom
-  const container = svg.append('g');
+  const container = svg.append('g').attr('class', 'viz-zoom-layer');
 
   // Add arrow markers and filters
   const defs = container.append('defs');
   
-  defs.selectAll('marker')
+  // Create arrow markers with configurable style
+  const markers = defs.selectAll('marker')
     .data(['arrowhead-black', 'arrowhead-green'])
     .enter().append('marker')
     .attr('id', d => d)
-    .attr('viewBox', '0 -5 10 10')
-    .attr('refX', OUTER_RADIUS * 0.71)
+    .attr('viewBox', arrowConfig.viewBox)
+    .attr('refX', arrowRefX)
     .attr('refY', 0)
-    .attr('markerWidth', 8)
-    .attr('markerHeight', 8)
-    .attr('orient', 'auto')
-    .append('path')
-    .attr('d', 'M0,-5L10,0L0,5')
-    .attr('fill', d => d === 'arrowhead-black' ? BLACK_COLOR : GREEN_COLOR);
+    .attr('markerWidth', cssArrowSize)
+    .attr('markerHeight', cssArrowSize)
+    .attr('orient', 'auto');
+  
+  markers.append('path')
+    .attr('d', arrowConfig.path)
+    .attr('fill', d => arrowConfig.stroke ? 'none' : (d === 'arrowhead-black' ? cssArrowOrdinationColor : cssArrowConsecrationColor))
+    .attr('stroke', d => arrowConfig.stroke ? (d === 'arrowhead-black' ? cssArrowOrdinationColor : cssArrowConsecrationColor) : 'none')
+    .attr('stroke-width', arrowConfig.stroke ? 2 : 0);
 
   // Load sprite sheet and create patterns (before creating nodes)
   let spriteSheetData = null;
@@ -341,32 +389,59 @@ export async function initializeVisualization() {
   // Store simulation globally for compatibility
   window.currentSimulation = simulation;
 
-  // Render links with straight lines
-  const link = container.append('g')
+  // Base links (transparent, for force layout - center to center)
+  const linkBase = container.append('g')
+    .attr('class', 'viz-links-base')
     .selectAll('line')
     .data(validLinks)
     .enter().append('line')
-    .attr('stroke', d => d.color)
-    .attr('stroke-width', LINK_CONFIG.strokeWidth)
+    .attr('stroke', 'transparent')
+    .attr('stroke-width', 1)
+    .style('pointer-events', 'none');
+
+  // Overlay links (visible, edge-to-edge with arrowheads)
+  const linkOverlay = container.append('g')
+    .attr('class', 'viz-links-overlay')
+    .selectAll('line')
+    .data(validLinks)
+    .enter().append('line')
+    .attr('class', d => d.dashed ? 'viz-link dashed' : 'viz-link')
+    .attr('stroke', d => {
+      // Use CSS variables based on link type instead of d.color
+      if (d.type === 'ordination') {
+        return cssLinkOrdinationColor;
+      } else if (d.type === 'consecration' || d.type === 'co-consecration') {
+        return cssLinkConsecrationColor;
+      }
+      // Fallback to consecration color for unknown types
+      return cssLinkConsecrationColor;
+    })
+    .attr('stroke-width', cssLinkStrokeWidth)
     .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
     .style('opacity', d => d.filtered ? 0 : 1)
     .style('pointer-events', d => d.filtered ? 'none' : 'all')
     .attr('marker-end', d => {
-      if (d.color === BLACK_COLOR) {
+      // Use CSS variables to determine arrow marker
+      if (d.type === 'ordination') {
         return 'url(#arrowhead-black)';
-      } else if (d.color === GREEN_COLOR) {
-        return 'url(#arrowhead-green)';
-      } else {
+      } else if (d.type === 'consecration' || d.type === 'co-consecration') {
         return 'url(#arrowhead-green)';
       }
+      // Fallback to consecration arrow for unknown types
+      return 'url(#arrowhead-green)';
     });
+  
+  // Keep reference to overlay links for filtering/highlighting
+  const link = linkOverlay;
 
 
   // Create nodes after links (so they render on top)
   const node = container.append('g')
+    .attr('class', 'viz-nodes')
     .selectAll('g')
     .data(nodes)
     .enter().append('g')
+    .attr('class', 'viz-node')
     .style('pointer-events', d => d.filtered ? 'none' : 'all')
     .call(d3.drag()
       .on('start', dragstarted)
@@ -375,10 +450,10 @@ export async function initializeVisualization() {
 
   // Add node circles
   node.append('circle')
-    .attr('r', OUTER_RADIUS)
+    .attr('r', cssNodeOuterRadius)
     .attr('fill', d => d.org_color)
     .attr('stroke', d => d.rank_color)
-    .attr('stroke-width', 1); // Reduced from 3 to 1 for smaller nodes
+    .attr('stroke-width', cssNodeStrokeWidth);
 
   // Add rank indicator
   node.append('circle')
@@ -494,14 +569,8 @@ export async function initializeVisualization() {
 
   // Add labels
   node.append('text')
-    .attr('dy', LABEL_DY)
-    .attr('text-anchor', 'middle')
-    .style('font-size', '12px')
-    .style('font-weight', '500')
-    .style('pointer-events', 'none')
-    .style('fill', '#ffffff')
-    .style('filter', 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))')
-    .style('text-shadow', '0 0 3px rgba(0,0,0,0.9)')
+    .attr('class', 'viz-node-label')
+    .attr('dy', cssLabelDy)
     .text(d => d.name);
 
   // Add tooltips
@@ -530,12 +599,57 @@ export async function initializeVisualization() {
       });
     }
 
-    // Update links
-    link
-      .attr('x1', d => d.source.x + (d.parallelOffset || 0))
+    // Update base links (center to center, for force layout reference)
+    linkBase
+      .attr('x1', d => d.source.x)
       .attr('y1', d => d.source.y)
-      .attr('x2', d => d.target.x + (d.parallelOffset || 0))
-      .attr('y2', d => d.target.y)
+      .attr('x2', d => d.target.x)
+      .attr('y2', d => d.target.y);
+
+    // Update overlay links (edge to edge with arrowheads)
+    linkOverlay.each(function(d) {
+      const dx = d.target.x - d.source.x;
+      const dy = d.target.y - d.source.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist === 0) {
+        // Nodes at same position, hide link
+        d3.select(this)
+          .attr('x1', d.source.x)
+          .attr('y1', d.source.y)
+          .attr('x2', d.source.x)
+          .attr('y2', d.source.y);
+        return;
+      }
+      
+      // Unit vector along link direction
+      const ux = dx / dist;
+      const uy = dy / dist;
+      
+      // Perpendicular vector for parallel offset (rotate 90 degrees)
+      const px = -uy;
+      const py = ux;
+      
+      const offset = d.parallelOffset || 0;
+      
+      // Start at source node edge + perpendicular offset
+      const x1 = d.source.x + ux * nodeEdgeRadius + offset * px;
+      const y1 = d.source.y + uy * nodeEdgeRadius + offset * py;
+      
+      // End before target node edge (with gap + arrow length to hide line beneath arrow)
+      // The arrow marker is at line end, so shorten line by arrow length so line end is under arrow body
+      const x2 = d.target.x - ux * (nodeEdgeRadius + cssLinkGap + arrowLengthPx) + offset * px;
+      const y2 = d.target.y - uy * (nodeEdgeRadius + cssLinkGap + arrowLengthPx) + offset * py;
+      
+      d3.select(this)
+        .attr('x1', x1)
+        .attr('y1', y1)
+        .attr('x2', x2)
+        .attr('y2', y2);
+    });
+    
+    // Update overlay link visibility
+    linkOverlay
       .style('opacity', d => d.filtered ? 0 : 1)
       .style('pointer-events', d => d.filtered ? 'none' : 'all');
 

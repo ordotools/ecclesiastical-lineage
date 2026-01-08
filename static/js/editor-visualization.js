@@ -101,8 +101,12 @@ class EditorVisualization {
         // Create SVG - ensure it doesn't cover the style button
         this.svg = d3.select(this.container)
             .append('svg')
+            .attr('class', 'viz-svg')
             .attr('width', width)
             .attr('height', height)
+            .attr('viewBox', [0, 0, width, height])
+            .style('background', 'transparent')
+            .style('overflow', 'visible')
             .style('position', 'relative')
             .style('z-index', '1');
         
@@ -116,7 +120,7 @@ class EditorVisualization {
         this.svg.call(zoom);
         
         // Create main group for zooming/panning
-        this.g = this.svg.append('g');
+        this.g = this.svg.append('g').attr('class', 'viz-zoom-layer');
         
         // Create simulation - matching lineage visualization exactly
         this.simulation = d3.forceSimulation(this.nodesData)
@@ -170,22 +174,81 @@ class EditorVisualization {
     }
 
     async renderVisualization() {
+        const rootStyles = getComputedStyle(document.documentElement);
+        const cssLinkStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width')) || 2;
+        const cssLabelDy = parseFloat(rootStyles.getPropertyValue('--viz-label-dy')) || LABEL_DY;
+        this.labelDy = cssLabelDy;
+        
+        // Read link and arrow colors from CSS variables
+        const cssLinkOrdinationColor = rootStyles.getPropertyValue('--viz-link-ordination-color').trim() || BLACK_COLOR;
+        const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR;
+        const cssArrowOrdinationColor = rootStyles.getPropertyValue('--viz-arrow-ordination-color').trim() || cssLinkOrdinationColor;
+        const cssArrowConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-consecration-color').trim() || cssLinkConsecrationColor;
+        
+        // Store colors for use in link rendering
+        this.cssLinkOrdinationColor = cssLinkOrdinationColor;
+        this.cssLinkConsecrationColor = cssLinkConsecrationColor;
+        
+        // Read arrow size and style
+        const cssArrowSize = parseFloat(rootStyles.getPropertyValue('--viz-arrow-size')) || 8;
+        const cssArrowStyle = rootStyles.getPropertyValue('--viz-arrow-style').trim() || 'triangle';
+        
+        // Arrow path configurations (in viewBox units 0-10)
+        const arrowStyles = {
+            triangle: { path: 'M0,-5L10,0L0,5Z', refX: 10, viewBox: '0 -5 10 10' },
+            chevron: { path: 'M0,-5L10,0L0,5', refX: 10, viewBox: '0 -5 10 10', stroke: true },
+            barbed: { path: 'M0,-4L10,0L0,4L3,0Z', refX: 10, viewBox: '0 -4 10 8' },
+            stealth: { path: 'M0,-3L10,0L0,3L2,0Z', refX: 10, viewBox: '0 -3 10 6' },
+            diamond: { path: 'M0,0L5,-4L10,0L5,4Z', refX: 10, viewBox: '0 -4 10 8' }
+        };
+        
+        const arrowConfig = arrowStyles[cssArrowStyle] || arrowStyles.triangle;
+        // Set refX to 0 so arrow BASE is at line end, arrow TIP extends forward toward target node
+        const arrowRefX = 0;
+        
+        // Store arrow config for use in markers
+        this.arrowConfig = arrowConfig;
+        this.cssArrowSize = cssArrowSize;
+        
+        // Read link gap for positioning link end before child node
+        const cssLinkGap = parseFloat(rootStyles.getPropertyValue('--viz-link-gap')) || 2;
+        
+        // Extra gap to ensure arrow tip clears the node edge
+        const cssArrowExtraGap = parseFloat(rootStyles.getPropertyValue('--viz-arrow-extra-gap')) || 4;
+        
+        // Store node dimensions for link coordinate calculation
+        const cssNodeOuterRadius = parseFloat(rootStyles.getPropertyValue('--viz-node-outer-radius')) || OUTER_RADIUS;
+        const cssNodeStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-node-stroke-width')) || 3;
+        const nodeEdgeRadius = cssNodeOuterRadius + (cssNodeStrokeWidth / 2);
+        
+        // Calculate arrow length in pixels for link shortening (arrow size + extra gap)
+        const arrowLengthPx = cssArrowSize + cssArrowExtraGap;
+        
+        // Store for use in tick handler
+        this.nodeEdgeRadius = nodeEdgeRadius;
+        this.cssLinkGap = cssLinkGap;
+        this.arrowLengthPx = arrowLengthPx;
+
         // Add arrow markers and filters - matching lineage visualization
         const defs = this.g.append('defs');
         
-        defs.selectAll('marker')
+        // Create arrow markers with configurable style
+        const markers = defs.selectAll('marker')
             .data(['arrowhead-black', 'arrowhead-green'])
             .enter().append('marker')
             .attr('id', d => d)
-            .attr('viewBox', '0 -5 10 10')
-            .attr('refX', OUTER_RADIUS * 0.95)
+            .attr('viewBox', arrowConfig.viewBox)
+            .attr('refX', arrowRefX)
             .attr('refY', 0)
-            .attr('markerWidth', 8)
-            .attr('markerHeight', 8)
-            .attr('orient', 'auto')
-            .append('path')
-            .attr('d', 'M0,-5L10,0L0,5')
-            .attr('fill', d => d === 'arrowhead-black' ? BLACK_COLOR : GREEN_COLOR);
+            .attr('markerWidth', cssArrowSize)
+            .attr('markerHeight', cssArrowSize)
+            .attr('orient', 'auto');
+        
+        markers.append('path')
+            .attr('d', arrowConfig.path)
+            .attr('fill', d => arrowConfig.stroke ? 'none' : (d === 'arrowhead-black' ? cssArrowOrdinationColor : cssArrowConsecrationColor))
+            .attr('stroke', d => arrowConfig.stroke ? (d === 'arrowhead-black' ? cssArrowOrdinationColor : cssArrowConsecrationColor) : 'none')
+            .attr('stroke-width', arrowConfig.stroke ? 2 : 0);
 
         // Load sprite sheet and create patterns
         let spriteSheetData = null;
@@ -269,29 +332,56 @@ class EditorVisualization {
         // Process parallel links - matching lineage visualization
         this.processParallelLinks();
 
-        // Create links - matching lineage visualization
-        this.link = this.g.append('g')
+        // Base links (transparent, for force layout - center to center)
+        this.linkBase = this.g.append('g')
+            .attr('class', 'viz-links-base')
             .selectAll('line')
             .data(this.linksData)
             .enter().append('line')
-            .attr('stroke', d => d.color)
-            .attr('stroke-width', 2)
+            .attr('stroke', 'transparent')
+            .attr('stroke-width', 1)
+            .style('pointer-events', 'none');
+
+        // Overlay links (visible, edge-to-edge with arrowheads)
+        this.linkOverlay = this.g.append('g')
+            .attr('class', 'viz-links-overlay')
+            .selectAll('line')
+            .data(this.linksData)
+            .enter().append('line')
+            .attr('class', d => d.dashed ? 'viz-link dashed' : 'viz-link')
+            .attr('stroke', d => {
+                // Use CSS variables based on link type instead of d.color
+                if (d.type === 'ordination') {
+                    return cssLinkOrdinationColor;
+                } else if (d.type === 'consecration' || d.type === 'co-consecration') {
+                    return cssLinkConsecrationColor;
+                }
+                // Fallback to consecration color for unknown types
+                return cssLinkConsecrationColor;
+            })
+            .attr('stroke-width', cssLinkStrokeWidth)
             .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
             .attr('marker-end', d => {
-                if (d.color === BLACK_COLOR) {
+                // Use link type to determine arrow marker
+                if (d.type === 'ordination') {
                     return 'url(#arrowhead-black)';
-                } else if (d.color === GREEN_COLOR) {
-                    return 'url(#arrowhead-green)';
-                } else {
+                } else if (d.type === 'consecration' || d.type === 'co-consecration') {
                     return 'url(#arrowhead-green)';
                 }
+                // Fallback to consecration arrow for unknown types
+                return 'url(#arrowhead-green)';
             });
+        
+        // Keep reference to overlay links for compatibility
+        this.link = this.linkOverlay;
         
         // Create nodes - matching lineage visualization exactly
         this.node = this.g.append('g')
+            .attr('class', 'viz-nodes')
             .selectAll('g')
             .data(this.nodesData)
             .enter().append('g')
+            .attr('class', 'viz-node')
             .style('cursor', 'pointer')
             .call(d3.drag()
                 .on('start', (event, d) => this.dragstarted(event, d))
@@ -421,14 +511,8 @@ class EditorVisualization {
         
         // Add labels - matching lineage visualization exactly
         this.node.append('text')
-            .attr('dy', LABEL_DY)
-            .attr('text-anchor', 'middle')
-            .style('font-size', '12px')
-            .style('font-weight', '500')
-            .style('pointer-events', 'none')
-            .style('fill', '#ffffff')
-            .style('filter', 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))')
-            .style('text-shadow', '0 0 3px rgba(0,0,0,0.9)')
+            .attr('class', 'viz-node-label')
+            .attr('dy', this.labelDy)
             .text(d => d.name);
 
         // Add tooltips - matching lineage visualization
@@ -437,12 +521,57 @@ class EditorVisualization {
         
         // Update positions on simulation tick - matching lineage visualization
         this.simulation.on('tick', () => {
-            // Update links with parallel offset support
-            this.link
-                .attr('x1', d => d.source.x + (d.parallelOffset || 0))
+            // Update base links (center to center, for force layout reference)
+            this.linkBase
+                .attr('x1', d => d.source.x)
                 .attr('y1', d => d.source.y)
-                .attr('x2', d => d.target.x + (d.parallelOffset || 0))
+                .attr('x2', d => d.target.x)
                 .attr('y2', d => d.target.y);
+
+            // Update overlay links (edge to edge with arrowheads)
+            const nodeEdgeRadius = this.nodeEdgeRadius;
+            const cssLinkGap = this.cssLinkGap;
+            const arrowLengthPx = this.arrowLengthPx;
+            
+            this.linkOverlay.each(function(d) {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist === 0) {
+                    // Nodes at same position, hide link
+                    d3.select(this)
+                        .attr('x1', d.source.x)
+                        .attr('y1', d.source.y)
+                        .attr('x2', d.source.x)
+                        .attr('y2', d.source.y);
+                    return;
+                }
+                
+                // Unit vector along link direction
+                const ux = dx / dist;
+                const uy = dy / dist;
+                
+                // Perpendicular vector for parallel offset (rotate 90 degrees)
+                const px = -uy;
+                const py = ux;
+                
+                const offset = d.parallelOffset || 0;
+                
+                // Start at source node edge + perpendicular offset
+                const x1 = d.source.x + ux * nodeEdgeRadius + offset * px;
+                const y1 = d.source.y + uy * nodeEdgeRadius + offset * py;
+                
+                // End before target node edge (with gap + arrow length to hide line beneath arrow)
+                const x2 = d.target.x - ux * (nodeEdgeRadius + cssLinkGap + arrowLengthPx) + offset * px;
+                const y2 = d.target.y - uy * (nodeEdgeRadius + cssLinkGap + arrowLengthPx) + offset * py;
+                
+                d3.select(this)
+                    .attr('x1', x1)
+                    .attr('y1', y1)
+                    .attr('x2', x2)
+                    .attr('y2', y2);
+            });
             
             // Update nodes
             this.node
@@ -674,19 +803,32 @@ class EditorVisualization {
         // Remove old links
         this.link.exit().remove();
         
+        // Read CSS variables for link colors (may have changed since initialization)
+        const rootStyles = getComputedStyle(document.documentElement);
+        const cssLinkOrdinationColor = rootStyles.getPropertyValue('--viz-link-ordination-color').trim() || BLACK_COLOR;
+        const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR;
+        
         // Add new links
         const newLinks = this.link.enter().append('line')
-            .attr('stroke', d => d.color)
-            .attr('stroke-width', 2)
+            .attr('stroke', d => {
+                // Use CSS variables based on link type instead of d.color
+                if (d.type === 'ordination') {
+                    return cssLinkOrdinationColor;
+                } else if (d.type === 'consecration' || d.type === 'co-consecration') {
+                    return cssLinkConsecrationColor;
+                }
+                return cssLinkConsecrationColor;
+            })
+            .attr('stroke-width', parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width')) || 2)
             .attr('stroke-dasharray', d => d.dashed ? '5,5' : 'none')
             .attr('marker-end', d => {
-                if (d.color === BLACK_COLOR) {
+                // Use link type to determine arrow marker
+                if (d.type === 'ordination') {
                     return 'url(#arrowhead-black)';
-                } else if (d.color === GREEN_COLOR) {
-                    return 'url(#arrowhead-green)';
-                } else {
+                } else if (d.type === 'consecration' || d.type === 'co-consecration') {
                     return 'url(#arrowhead-green)';
                 }
+                return 'url(#arrowhead-green)';
             });
         
         // Merge new links with existing
@@ -814,14 +956,8 @@ class EditorVisualization {
             .text('👤');
         
         newNodeGroups.append('text')
-            .attr('dy', LABEL_DY)
-            .attr('text-anchor', 'middle')
-            .style('font-size', '12px')
-            .style('font-weight', '500')
-            .style('pointer-events', 'none')
-            .style('fill', '#ffffff')
-            .style('filter', 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))')
-            .style('text-shadow', '0 0 3px rgba(0,0,0,0.9)')
+            .attr('class', 'viz-node-label')
+            .attr('dy', this.labelDy || LABEL_DY)
             .text(d => d.name);
         
         newNodeGroups.append('title')
@@ -913,37 +1049,47 @@ class EditorVisualization {
             // not from style settings, so we don't update them here
         }
         
-        // Update link styles
+        // Update link styles - read from CSS variables for consistency
+        const rootStyles = getComputedStyle(document.documentElement);
+        const cssLinkOrdinationColor = rootStyles.getPropertyValue('--viz-link-ordination-color').trim();
+        const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim();
+        const cssLinkStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width'));
+        const cssArrowOrdinationColor = rootStyles.getPropertyValue('--viz-arrow-ordination-color').trim() || cssLinkOrdinationColor;
+        const cssArrowConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-consecration-color').trim() || cssLinkConsecrationColor;
+        
         if (styles.link) {
             const linkStyles = styles.link;
             
-            // Update link colors
-            if (linkStyles.ordination_color || linkStyles.consecration_color) {
+            // Update link colors from CSS variables
+            if (cssLinkOrdinationColor || cssLinkConsecrationColor) {
                 this.link.attr('stroke', d => {
-                    if (d.type === 'ordination' && linkStyles.ordination_color) {
-                        return linkStyles.ordination_color;
-                    } else if (d.type === 'consecration' && linkStyles.consecration_color) {
-                        return linkStyles.consecration_color;
+                    if (d.type === 'ordination') {
+                        return cssLinkOrdinationColor || linkStyles.ordination_color || BLACK_COLOR;
+                    } else if (d.type === 'consecration' || d.type === 'co-consecration') {
+                        return cssLinkConsecrationColor || linkStyles.consecration_color || GREEN_COLOR;
                     }
-                    return d.color;
+                    return cssLinkConsecrationColor || linkStyles.consecration_color || GREEN_COLOR;
                 });
                 
-                // Update arrow markers
+                // Update arrow markers from CSS variables
                 const defs = this.svg.select('defs');
                 defs.selectAll('marker')
                     .selectAll('path')
-                    .attr('fill', d => {
-                        if (d === 'arrowhead-black' && linkStyles.ordination_color) {
-                            return linkStyles.ordination_color;
-                        } else if (d === 'arrowhead-green' && linkStyles.consecration_color) {
-                            return linkStyles.consecration_color;
+                    .attr('fill', function() {
+                        const markerId = d3.select(this.parentNode).attr('id');
+                        if (markerId === 'arrowhead-black') {
+                            return cssArrowOrdinationColor || linkStyles.ordination_color || BLACK_COLOR;
+                        } else if (markerId === 'arrowhead-green') {
+                            return cssArrowConsecrationColor || linkStyles.consecration_color || GREEN_COLOR;
                         }
-                        return d === 'arrowhead-black' ? BLACK_COLOR : GREEN_COLOR;
+                        return GREEN_COLOR;
                     });
             }
             
-            // Update link stroke width
-            if (linkStyles.stroke_width !== undefined) {
+            // Update link stroke width from CSS variable
+            if (cssLinkStrokeWidth) {
+                this.link.attr('stroke-width', cssLinkStrokeWidth);
+            } else if (linkStyles.stroke_width !== undefined) {
                 this.link.attr('stroke-width', linkStyles.stroke_width);
             }
         }

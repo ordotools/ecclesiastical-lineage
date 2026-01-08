@@ -1,0 +1,105 @@
+/**
+ * Dynamic Visualization Styles
+ *
+ * Shared, prefixed styles for any SVG-based visualization to keep lineage and
+ * editor views identical and isolated from parent templates.
+ */
+
+:root {
+  /* Node Styles - Dynamic */
+  --viz-node-outer-radius: 30px;
+  --viz-node-inner-radius: 24px;
+  --viz-node-image-size: 48px;
+  --viz-node-stroke-width: 3px;
+
+  /* Link Styles - Dynamic */
+  --viz-link-ordination-color: #1c1c1c;
+  --viz-link-consecration-color: #11451e;
+  --viz-link-stroke-width: 2px;
+  --viz-link-gap: 2px; /* Gap between arrowhead tip and child node edge */
+
+  /* Arrow Marker Styles - Dynamic (same colors as links) */
+  --viz-arrow-ordination-color: var(--viz-link-ordination-color, #1c1c1c);
+  --viz-arrow-consecration-color: var(--viz-link-consecration-color, #11451e);
+  --viz-arrow-size: 8; /* Arrow marker size in pixels (markerWidth/Height) */
+  /* Arrow style: 'triangle', 'chevron', 'barbed', 'stealth', 'diamond' */
+  --viz-arrow-style: barbed;
+  --viz-arrow-extra-gap: 4; /* Extra pixels to shorten link so arrow tip clears node edge */
+
+  /* Label Styles - Dynamic */
+  --viz-label-font-size: 12px;
+  --viz-label-color: #ffffff;
+  --viz-label-dy: 35px;
+
+  /* Surface */
+  --viz-surface: #1a1a1a;
+}
+
+/* SVG Container Styles */
+.viz-surface,
+.graph-container-full,
+.editor-graph-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: var(--viz-surface, #1a1a1a);
+}
+
+.graph-container-full {
+  height: 100vh; /* Full viewport for lineage visualization */
+}
+
+.editor-graph-container {
+  height: 100%; /* Relative height for embedded editor panel */
+}
+
+/* SVG Element Styles */
+.viz-svg {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: visible;
+}
+
+.viz-zoom-layer {
+  pointer-events: all;
+}
+
+.viz-link {
+  stroke-width: var(--viz-link-stroke-width, 2px);
+  fill: none;
+}
+
+.viz-link.dashed {
+  stroke-dasharray: 5,5;
+}
+
+.viz-node {
+  cursor: grab;
+}
+
+.viz-node:active {
+  cursor: grabbing;
+}
+
+.viz-node-label {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: var(--viz-label-font-size, 12px);
+  font-weight: 500;
+  text-anchor: middle;
+  pointer-events: none;
+  dominant-baseline: middle;
+  fill: var(--viz-label-color, #ffffff);
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+
+.viz-link-label {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: var(--viz-label-font-size, 12px);
+  fill: var(--viz-label-color, #ffffff);
+  text-anchor: middle;
+  pointer-events: none;
+  dominant-baseline: middle;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}

@@ -5,7 +5,7 @@
     <div>{{ error_message }}</div>
 </div>
 {% else %}
-<div id="editor-graph-container" class="editor-graph-container">
+<div id="editor-graph-container" class="editor-graph-container viz-surface">
     <!-- Graph will be rendered here by D3.js -->
     
     <!-- Style Customization Panel Toggle Button -->
@@ -104,8 +104,11 @@
     </div>
 </div>
 
-<script>
-(function() {
+<script type="module">
+// Load styles from database before initializing visualization
+import { loadVisualizationStyles } from '/static/js/visualization-styles-loader.js';
+
+(async function() {
     // Guard against double initialization
     if (window._editorVizInitializing) {
         console.log('Visualization initialization already in progress, skipping...');
@@ -113,6 +116,9 @@
     }
     
     console.log('Visualization template script starting...');
+    
+    // Load visualization styles from database first (sets CSS variables)
+    await loadVisualizationStyles();
     
     // Data from the server
     const nodesData = {{ nodes_json | safe }};
@@ -134,7 +140,7 @@
                 cleanupEditorVisualization();
             }
             
-            // Initialize the visualization
+            // Initialize the visualization (will read CSS variables)
             initializeEditorVisualization(nodesData, linksData);
             
             // Clear flag after initialization

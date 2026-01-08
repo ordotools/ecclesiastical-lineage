@@ -4,8 +4,34 @@
  */
 
 // Prevent duplicate execution when script is reloaded via HTMX
+// Wrap everything in an IIFE that checks first - this prevents class hoisting issues
 (function() {
     'use strict';
+    
+    // Check if class already exists - if so, skip everything
+    if (window.VisualizationStyleController) {
+        console.log('VisualizationStyleController already exists, skipping script execution...');
+        // Still need to initialize/reinitialize the controller
+        function initializeStyleController() {
+            // Clean up existing controller if panel was reloaded
+            if (window.vizStyleController) {
+                // Remove old event listeners by creating a new instance
+                window.vizStyleController = null;
+            }
+            
+            if (!window.vizStyleController && typeof window.VisualizationStyleController !== 'undefined') {
+                window.vizStyleController = new window.VisualizationStyleController();
+            }
+        }
+        
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeStyleController);
+        } else {
+            initializeStyleController();
+        }
+        return; // Exit early - don't declare class again
+    }
     
     // Check if already executed
     if (window._editorVizStylesLoaded) {
@@ -438,4 +464,4 @@ if (document.readyState === 'loading') {
     initializeStyleController();
 }
 
-})(); // End of IIFE
+})(); // End of IIFE - wraps entire script to prevent duplicate class declaration

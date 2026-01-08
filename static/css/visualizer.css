@@ -199,11 +199,11 @@ input:focus + .slider {
     background: transparent;
 }
 .node {
-    cursor: grab;
+    cursor: pointer;
     transition: all 0.3s ease;
 }
 .node:active {
-    cursor: grabbing;
+    cursor: pointer;
 }
 .node:hover {
     stroke-width: 3px;

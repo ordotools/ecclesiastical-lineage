@@ -60,6 +60,11 @@
   height: 100%;
   background: transparent;
   overflow: visible;
+  cursor: grab;
+}
+
+.viz-svg:active {
+  cursor: grabbing;
 }
 
 .viz-zoom-layer {
@@ -76,11 +81,11 @@
 }
 
 .viz-node {
-  cursor: grab;
+  cursor: pointer;
 }
 
 .viz-node:active {
-  cursor: grabbing;
+  cursor: pointer;
 }
 
 .viz-node-label {

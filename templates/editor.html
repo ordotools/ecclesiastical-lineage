@@ -23,6 +23,11 @@
     <script src="{{ url_for('static', filename='js/resizable-panes.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/imageEditor.js') }}" defer></script>
+    <!-- Clergy form JavaScript files - loaded before other form scripts -->
+    <script src="{{ url_for('static', filename='js/clergy-form-overlay.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/clergy-form-state.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/clergy-form-submission.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/clergy-form-init.js') }}"></script>
     <!-- Centralized styling system -->
     <script src="{{ url_for('static', filename='js/locationMarkerStyles.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/locationForm.js') }}" defer></script>
@@ -1077,6 +1082,13 @@
             // Clear global form state to prevent leftover data from previous submissions
             clearGlobalFormState();
             
+            // CRITICAL: Clear form state from DOM BEFORE loading new content
+            // This prevents stale data from showing up briefly
+            if (typeof window.clearFormState === 'function') {
+                console.log('selectClergy: Clearing form state before HTMX request...');
+                window.clearFormState();
+            }
+            
             // Clear previous highlights
             clearClergyHighlights();
             
@@ -1099,6 +1111,34 @@
                     return;
                 }
                 
+                // CRITICAL: Clear the form container BEFORE HTMX request to prevent stale data flash
+                // Clear any existing form content immediately and show loading state
+                const existingForm = rightPanelContent.querySelector('#clergyForm');
+                if (existingForm) {
+                    console.log('selectClergy: Clearing existing form before loading new one...');
+                    // Clear ordinations and consecrations containers immediately
+                    const ordinationsContainer = rightPanelContent.querySelector('#ordinationsContainer');
+                    const consecrationsContainer = rightPanelContent.querySelector('#consecrationsContainer');
+                    if (ordinationsContainer) ordinationsContainer.innerHTML = '';
+                    if (consecrationsContainer) consecrationsContainer.innerHTML = '';
+                    
+                    // Clear sample entry inputs
+                    const ordinationInputs = existingForm.querySelectorAll('input[name*="ordinations[0]"], textarea[name*="ordinations[0]"]');
+                    ordinationInputs.forEach(input => {
+                        if (input.type === 'checkbox') input.checked = false;
+                        else input.value = '';
+                    });
+                    
+                    const consecrationInputs = existingForm.querySelectorAll('input[name*="consecrations[0]"], textarea[name*="consecrations[0]"]');
+                    consecrationInputs.forEach(input => {
+                        if (input.type === 'checkbox') input.checked = false;
+                        else input.value = '';
+                    });
+                } else {
+                    // No existing form - show loading placeholder to prevent flash of stale content
+                    rightPanelContent.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading form...</div>';
+                }
+                
                 // Load form content directly (skip intermediate template to avoid nested HTMX)
                 if (clergyId) {
                     htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
@@ -1106,8 +1146,10 @@
                         swap: 'innerHTML'
                     }).then(() => {
                         console.log('Form loaded for clergy:', clergyId);
-                        // Clear form state again after load to ensure clean state
-                        clearGlobalFormState();
+                        // Clear form state again after load as safety measure
+                        if (typeof window.clearFormState === 'function') {
+                            window.clearFormState();
+                        }
                         // Re-highlight after form loads to ensure persistence
                         highlightClergyInList(clergyId);
                         highlightClergyInVisualization(clergyId);
@@ -1121,8 +1163,10 @@
                         swap: 'innerHTML'
                     }).then(() => {
                         console.log('Empty form loaded');
-                        // Clear form state after load
-                        clearGlobalFormState();
+                        // Clear form state after load as safety measure
+                        if (typeof window.clearFormState === 'function') {
+                            window.clearFormState();
+                        }
                     }).catch(error => {
                         console.error('Error loading empty form:', error);
                     });

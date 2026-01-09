@@ -616,58 +616,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000); // Check every second
 });
 
-// Use event delegation for HTMX-loaded form content
-// Prevent duplicate event listeners
-if (!window.clergyFormHandlerAttached) {
-    window.clergyFormHandlerAttached = true;
-    document.body.addEventListener('submit', function(e) {
-        // Check if this is our clergy form (loaded via HTMX)
-        if (e.target && e.target.id === 'clergyForm') {
-            e.preventDefault();
-            
-            // Clear any stale global state before submission
-            if (typeof window.clearGlobalFormState === 'function') {
-                // Don't clear here - we want to preserve the current form's data
-                // Only clear if there's leftover data from a different form
-                console.log('Form submission - checking for stale state');
-            }
-        
-            const form = e.target;
-            const formData = new FormData(form);
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalText = submitBtn.textContent;
-            
-            // Show loading state
-            submitBtn.textContent = 'Saving...';
-            submitBtn.disabled = true;
-            
-            // Collect all bishop names that need to be checked
-            const bishopNames = collectBishopNames(form);
-            
-            if (bishopNames.length > 0) {
-                // Show user feedback about bishop creation
-                submitBtn.textContent = `Creating ${bishopNames.length} bishop record${bishopNames.length > 1 ? 's' : ''}...`;
-                
-                // Check and create missing bishops
-                checkAndCreateBishops(bishopNames)
-                    .then(() => {
-                        // Update button text for final submission
-                        submitBtn.textContent = 'Submitting form...';
-                        // Submit the form after bishops are created
-                        submitFormWithData(form, formData, submitBtn, originalText);
-                    })
-                    .catch(error => {
-                        console.error('Error creating bishops:', error);
-                        showNotification(`Error creating missing bishops: ${error.message}`, 'error');
-                        resetSubmitButton(submitBtn, originalText);
-                    });
-            } else {
-                // No bishops to check, submit directly
-                submitFormWithData(form, formData, submitBtn, originalText);
-            }
-        }
-    });
-}
+// Note: Form submission is now handled globally by clergy-form-submission.js
+// The global handler uses event delegation and will catch all clergy form submissions
 
 // Bishop creation functions for editor form
 function collectBishopNames(form) {
@@ -790,42 +740,8 @@ function resetSubmitButton(button, originalText) {
     button.disabled = false;
 }
 
-// Form submission overlay functions
-function showFormSubmissionOverlay() {
-    const overlay = document.getElementById('formSubmissionOverlay');
-    const container = document.getElementById('clergyFormContainer');
-    if (overlay && container) {
-        // Ensure container has relative positioning
-        container.style.position = 'relative';
-        overlay.classList.add('active');
-        const overlayTitle = overlay.querySelector('.overlay-title');
-        if (overlayTitle) {
-            overlayTitle.textContent = 'Saving clergy record...';
-        }
-        updateFormSubmissionProgress(10, 'Preparing form data...');
-    }
-}
-
-function hideFormSubmissionOverlay() {
-    const overlay = document.getElementById('formSubmissionOverlay');
-    if (overlay) {
-        overlay.classList.remove('active');
-        updateFormSubmissionProgress(0, '');
-    }
-}
-
-function updateFormSubmissionProgress(percent, text) {
-    const progressBar = document.getElementById('formSubmissionProgressBar');
-    const progressText = document.getElementById('formSubmissionProgressText');
-    
-    if (progressBar) {
-        progressBar.style.width = `${percent}%`;
-    }
-    
-    if (progressText) {
-        progressText.textContent = text || `${percent}%`;
-    }
-}
+// Note: Overlay functions are now in clergy-form-overlay.js (loaded globally)
+// Use window.showFormSubmissionOverlay(), window.hideFormSubmissionOverlay(), window.updateFormSubmissionProgress()
 
 // Spritesheet polling functions
 let spritesheetPollingInterval = null;
@@ -1043,9 +959,13 @@ async function softUpdateClergyListItem(clergyId) {
 }
 
 function submitFormWithData(form, formData, submitBtn, originalText) {
-    // Show overlay with clear message
-    showFormSubmissionOverlay();
-    updateFormSubmissionProgress(20, 'Submitting form...');
+    // Show overlay with clear message using global functions
+    if (typeof window.showFormSubmissionOverlay === 'function') {
+        window.showFormSubmissionOverlay();
+    }
+    if (typeof window.updateFormSubmissionProgress === 'function') {
+        window.updateFormSubmissionProgress(20, 'Submitting form...');
+    }
     
     // Debug: Log form data contents
     console.log('=== FORM SUBMISSION DEBUG ===');
@@ -1095,7 +1015,9 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
     }
     console.log('=== END FORM SUBMISSION DEBUG ===');
     
-    updateFormSubmissionProgress(40, 'Uploading data...');
+    if (typeof window.updateFormSubmissionProgress === 'function') {
+        window.updateFormSubmissionProgress(40, 'Uploading data...');
+    }
     
     // Submit via fetch
     fetch(form.action, {
@@ -1106,14 +1028,18 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
         }
     })
         .then(response => {
-            updateFormSubmissionProgress(70, 'Processing response...');
+            if (typeof window.updateFormSubmissionProgress === 'function') {
+                window.updateFormSubmissionProgress(70, 'Processing response...');
+            }
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            updateFormSubmissionProgress(90, 'Finalizing...');
+            if (typeof window.updateFormSubmissionProgress === 'function') {
+                window.updateFormSubmissionProgress(90, 'Finalizing...');
+            }
             
             if (data.success) {
                 // Success - soft refresh panels
@@ -1174,8 +1100,10 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
             }
         })
         .finally(() => {
-            // Hide overlay
-            hideFormSubmissionOverlay();
+            // Hide overlay using global function
+            if (typeof window.hideFormSubmissionOverlay === 'function') {
+                window.hideFormSubmissionOverlay();
+            }
             
             // Reset button - check if submitBtn exists
             if (submitBtn) {
@@ -1201,20 +1129,40 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
             return;
         }
         
-        // Initialize the form after HTMX loads it - immediate execution
+        console.log('HTMX afterSwap: Clergy form detected');
         
-        // Check if we have initialization functions available
-        if (typeof window.initializeFormFromRank === 'function') {
-            console.log('HTMX afterSwap: Calling initializeFormFromRank');
-            window.initializeFormFromRank();
-        } else {
-            // Initialize directly if the functions are in the loaded content
-            const rankSelect = document.getElementById('rank');
-            if (rankSelect && rankSelect.value) {
-                console.log('HTMX afterSwap: Triggering rank change event');
-                rankSelect.dispatchEvent(new Event('change'));
+        // NOTE: We do NOT clear form state here because the form has just been loaded with NEW data
+        // Clearing was already done in selectClergy() BEFORE the HTMX request was made
+        // If we clear here, we would be clearing the newly loaded data, which is wrong
+        
+        // Initialize the form FIRST to populate data, THEN initialize embedded script
+        // This ensures data is populated before any clearing happens
+        setTimeout(function() {
+            // Initialize the form FIRST - this populates ordinations/consecrations
+            // Check if we have initialization functions available
+            if (typeof window.initializeFormFromRank === 'function') {
+                console.log('HTMX afterSwap: Calling initializeFormFromRank FIRST (to populate data)');
+                window.initializeFormFromRank();
+            } else {
+                // Initialize directly if the functions are in the loaded content
+                const rankSelect = document.getElementById('rank');
+                if (rankSelect && rankSelect.value) {
+                    console.log('HTMX afterSwap: Triggering rank change event');
+                    rankSelect.dispatchEvent(new Event('change'));
+                }
             }
-        }
+            
+            // THEN initialize embedded form script (which no longer clears form state)
+            // This ensures data is already populated before any other initialization
+            setTimeout(function() {
+                if (typeof window.initializeEmbeddedFormScript === 'function') {
+                    console.log('HTMX afterSwap: Calling initializeEmbeddedFormScript AFTER data population');
+                    window.initializeEmbeddedFormScript();
+                } else {
+                    console.warn('HTMX afterSwap: initializeEmbeddedFormScript not available');
+                }
+            }, 10);
+        }, 50);
         
         // Additional initialization to ensure consecration field is shown for bishops
         setTimeout(() => {
@@ -1643,6 +1591,8 @@ window.initializeCancelButtonHandler = initializeCancelButtonHandler;
 window.initializePhotoControls = initializePhotoControls;
 window.softUpdateClergyListItem = softUpdateClergyListItem;
 window.refreshClergyListImages = refreshClergyListImages;
+window.submitFormWithData = submitFormWithData; // Editor-specific submission handler with soft updates
+window.startSpritesheetPolling = startSpritesheetPolling; // Make spritesheet polling available globally
 
 // Direct autocomplete initialization as fallback
 function initializeClergyAutocompleteDirect(input) {

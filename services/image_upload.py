@@ -50,7 +50,7 @@ class ImageUploadService:
         
         # Quality settings for different image types
         self.quality_settings = {
-            'lineage': 85,    # Lower quality for small images
+            'lineage': 95,    # Lower quality for small images
             'detail': 90,     # High quality for detail view
             'original': 95    # Highest quality for original
         }
@@ -416,7 +416,7 @@ class ImageUploadService:
             current_app.logger.info(f"Image resized to {resized_image.width}x{resized_image.height}")
             
             # Get quality setting for this image type
-            quality = self.quality_settings.get(size_type, 90)
+            quality = self.quality_settings.get(size_type, 100)
             
             # Convert to bytes with optimized compression
             output = BytesIO()

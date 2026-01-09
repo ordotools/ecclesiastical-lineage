@@ -374,6 +374,7 @@ def save_visualization_styles():
         
         if settings:
             settings.setting_value = json.dumps(styles)
+            # TODO: update time now to use datetime.now(datetime.timezone.utc)
             settings.updated_at = datetime.utcnow()
         else:
             settings = VisualizationSettings(
@@ -514,12 +515,6 @@ def clergy_form_content(clergy_id=None):
     organizations = Organization.query.all()
     statuses = Status.query.order_by(Status.badge_position, Status.name).all()
     
-    # Debug: Log rank data
-    print("=== RANK DEBUG (content) ===")
-    for rank in ranks:
-        print(f"Rank: {rank.name}, is_bishop: {rank.is_bishop}")
-    print("============================")
-    
     # Create fields object for the form
     class FormFields:
         def __init__(self, ranks, organizations, statuses):
@@ -539,19 +534,6 @@ def clergy_form_content(clergy_id=None):
             joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
             joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
         ).filter(Clergy.id == clergy_id).first_or_404()
-        
-        # Debug logging for consecration data
-        print(f"=== CONSECRATION DEBUG (clergy-form-content) ===")
-        print(f"Clergy ID: {clergy_id}")
-        print(f"Clergy Name: {clergy.name}")
-        print(f"Clergy Rank: {clergy.rank}")
-        print(f"Number of ordinations: {len(clergy.ordinations)}")
-        print(f"Number of consecrations: {len(clergy.consecrations)}")
-        for i, consecration in enumerate(clergy.consecrations):
-            print(f"  Consecration {i+1}: ID={consecration.id}, Date={consecration.date}")
-            print(f"    Consecrator: {consecration.consecrator.name if consecration.consecrator else 'None'}")
-            print(f"    Co-consecrators: {[cc.name for cc in consecration.co_consecrators]}")
-        print("===============================================")
         
         return render_template('clergy_form_content.html', 
                              fields=fields, 

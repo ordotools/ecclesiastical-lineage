@@ -1084,8 +1084,10 @@
             
             // CRITICAL: Clear form state from DOM BEFORE loading new content
             // This prevents stale data from showing up briefly
-            if (typeof window.clearFormState === 'function') {
-                console.log('selectClergy: Clearing form state before HTMX request...');
+            // Only clear if there's an existing form - if not, the new form will be clean
+            const existingForm = document.querySelector('.right-panel .panel-content #clergyForm');
+            if (existingForm && typeof window.clearFormState === 'function') {
+                console.log('selectClergy: Clearing existing form state before HTMX request...');
                 window.clearFormState();
             }
             
@@ -1146,10 +1148,8 @@
                         swap: 'innerHTML'
                     }).then(() => {
                         console.log('Form loaded for clergy:', clergyId);
-                        // Clear form state again after load as safety measure
-                        if (typeof window.clearFormState === 'function') {
-                            window.clearFormState();
-                        }
+                        // NOTE: Do NOT clear form state here - the form has just been loaded with NEW data
+                        // Clearing was already done BEFORE the HTMX request
                         // Re-highlight after form loads to ensure persistence
                         highlightClergyInList(clergyId);
                         highlightClergyInVisualization(clergyId);
@@ -1163,10 +1163,8 @@
                         swap: 'innerHTML'
                     }).then(() => {
                         console.log('Empty form loaded');
-                        // Clear form state after load as safety measure
-                        if (typeof window.clearFormState === 'function') {
-                            window.clearFormState();
-                        }
+                        // NOTE: Do NOT clear form state here - the empty form is already clean
+                        // Clearing was already done BEFORE the HTMX request if there was an existing form
                     }).catch(error => {
                         console.error('Error loading empty form:', error);
                     });

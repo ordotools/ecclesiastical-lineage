@@ -922,20 +922,8 @@ function loadEditFormScripts() {
     initModalBishopAutocomplete();
   }
   
-  // Load editClergy.js if not already loaded
-  if (!window.initEditClergy) {
-    const script2 = document.createElement('script');
-    script2.src = '/static/js/editClergy.js';
-    script2.onload = function() {
-      console.log('editClergy.js loaded for modal');
-      // Initialize edit clergy functionality
-      initModalEditClergy();
-    };
-    document.head.appendChild(script2);
-  } else {
-    // Script already loaded, initialize directly
-    initModalEditClergy();
-  }
+  // Initialize edit clergy functionality
+  initModalEditClergy();
 }
 
 // Custom function to attach image editor event listeners to HTMX-loaded form

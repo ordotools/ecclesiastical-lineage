@@ -537,10 +537,7 @@ def add_clergy_handler():
                 return None, jsonify({'success': False, 'message': str(e)}), 400
             flash('Error adding clergy record.', 'error')
             return None, render_template('add_clergy.html')
-    # ... (rest of GET logic unchanged, but return as (None, response)) ...
-    # You may need to pass the same context as in clergy_list_handler for GET
     all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
-    # Set display names for all clergy
     for clergy_member in all_clergy:
         set_clergy_display_name(clergy_member)
     

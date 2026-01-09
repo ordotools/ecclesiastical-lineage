@@ -1,6 +1,4 @@
 {% macro clergy_form(fields, clergy=None, edit_mode=False, user=None, redirect_url=None, use_htmx=True, context_type=None, context_clergy_id=None) %}
-<!-- Include clergy form specific styles -->
-<!-- COMMENTED OUT FOR REBUILD: <link href="{{ url_for('static', filename='css/clergyForm.css') }}" rel="stylesheet"> -->
 
 <!-- Form submission overlay styles -->
 <style>
@@ -488,14 +486,6 @@
     </div>
 </div>
 {% endif %}
-
-<!-- Include the dedicated image editor modal -->
-<!-- COMMENTED OUT FOR REBUILD: {% include '_image_editor_modal.html' %} -->
-
-<!-- Include dynamic form JavaScript -->
-<!-- COMMENTED OUT FOR REBUILD: <script src="{{ url_for('static', filename='js/dynamic-clergy-form.js') }}"></script> -->
-
-<!-- Include clergy form submission handler -->
 
 <!-- Modal functionality -->
 <script>
@@ -1254,77 +1244,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<!-- Initialize form with existing data for edit mode -->
-<!-- COMMENTED OUT FOR REBUILD: All JavaScript initialization code -->
 
 {% if edit_mode and clergy %}
-<!--
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Wait for form to be initialized, then pre-fill with clergy data
-    setTimeout(() => {
-        if (window.ClergyForm && window.ClergyForm.initialized) {
-            // Prepare clergy data object for pre-filling
-            const clergyData = {
-                name: '{{ clergy.name or '' }}',
-                papal_name: '{{ clergy.papal_name or '' }}',
-                rank: '{{ clergy.rank or '' }}',
-                organization: '{{ clergy.organization or '' }}',
-                date_of_birth: '{{ clergy.date_of_birth.strftime('%Y-%m-%d') if clergy.date_of_birth else '' }}',
-                date_of_death: '{{ clergy.date_of_death.strftime('%Y-%m-%d') if clergy.date_of_death else '' }}',
-                notes: '{{ clergy.notes or '' }}',
-                is_deleted: {{ clergy.is_deleted|lower if clergy.is_deleted is defined else 'false' }},
-                ordinations: [
-                    {% for ordination in clergy.get_all_ordinations() %}
-                    {
-                        date: '{{ ordination.date.strftime('%Y-%m-%d') if ordination.date else '' }}',
-                        is_sub_conditione: {{ ordination.is_sub_conditione|lower }},
-                        is_doubtful: {{ ordination.is_doubtful|lower }},
-                        is_invalid: {{ ordination.is_invalid|lower }},
-                        notes: '{{ ordination.notes or '' }}',
-                        ordaining_bishop: {
-                            {% if ordination.ordaining_bishop %}
-                            id: {{ ordination.ordaining_bishop.id }},
-                            name: '{{ ordination.ordaining_bishop.name }}'
-                            {% endif %}
-                        }
-                    }{% if not loop.last %},{% endif %}
-                    {% endfor %}
-                ],
-                consecrations: [
-                    {% for consecration in clergy.get_all_consecrations() %}
-                    {
-                        date: '{{ consecration.date.strftime('%Y-%m-%d') if consecration.date else '' }}',
-                        is_sub_conditione: {{ consecration.is_sub_conditione|lower }},
-                        is_doubtful: {{ consecration.is_doubtful|lower }},
-                        is_invalid: {{ consecration.is_invalid|lower }},
-                        notes: '{{ consecration.notes or '' }}',
-                        consecrator: {
-                            {% if consecration.consecrator %}
-                            id: {{ consecration.consecrator.id }},
-                            name: '{{ consecration.consecrator.name }}'
-                            {% endif %}
-                        },
-                        co_consecrators: [
-                            {% for co_consecrator in consecration.co_consecrators %}
-                            {
-                                id: {{ co_consecrator.id }},
-                                name: '{{ co_consecrator.name }}'
-                            }{% if not loop.last %},{% endif %}
-                            {% endfor %}
-                        ]
-                    }{% if not loop.last %},{% endif %}
-                    {% endfor %}
-                ]
-            };
-            
-            // Pre-fill the form with clergy data
-            window.ClergyForm.prefillForm(clergyData);
-        }
-    }, 100);
-});
-</script>
--->
 {% endif %}
 
 <!-- Clergy Form Submission Handler - Embedded for self-contained functionality -->

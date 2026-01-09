@@ -1411,7 +1411,7 @@ h6 {
 }
 
 /* ===== IMAGE UPLOAD STYLES ===== */
-/* Moved to clergyForm.css to avoid conflicts */
+/* Image upload styles are now in clergy-form-clean.css */
 
 /* Cropping modal styles */
 .crop-container {

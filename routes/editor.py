@@ -465,12 +465,6 @@ def clergy_form_panel(clergy_id=None):
     organizations = Organization.query.all()
     statuses = Status.query.order_by(Status.badge_position, Status.name).all()
     
-    # Debug: Log rank data
-    print("=== RANK DEBUG ===")
-    for rank in ranks:
-        print(f"Rank: {rank.name}, is_bishop: {rank.is_bishop}")
-    print("==================")
-    
     # Create fields object for the form
     class FormFields:
         def __init__(self, ranks, organizations, statuses):
@@ -1582,14 +1576,10 @@ def api_db_status():
 def get_sprite_sheet():
     """API endpoint to get the current sprite sheet URL and mapping"""
     try:
-        # Get the current sprite sheet from database
         sprite_sheet = SpriteSheet.query.filter_by(is_current=True).first()
         
         if sprite_sheet:
-            # Get all positions for this sprite sheet
             positions = ClergySpritePosition.query.filter_by(sprite_sheet_id=sprite_sheet.id).all()
-            
-            # Build mapping dictionary
             mapping = {pos.clergy_id: (pos.x_position, pos.y_position) for pos in positions}
             
             return jsonify({
@@ -1602,8 +1592,6 @@ def get_sprite_sheet():
                 'sprite_height': sprite_sheet.sprite_height
             })
         else:
-            # No sprite sheet exists - return error instead of generating on-demand
-            # Spritesheet should only be generated when images are uploaded/edited, not on page load
             return jsonify({
                 'success': False,
                 'error': 'No sprite sheet exists. Please upload or edit an image to generate one.'

@@ -834,14 +834,6 @@ def get_lineage_data():
             'message': 'Unable to load lineage data. Please try again later.'
         }), 500
 
-@main_bp.route('/test-migration')
-def test_migration():
-    """Test endpoint to verify routing is working"""
-    return jsonify({
-        'success': True,
-        'message': 'Test endpoint working'
-    })
-
 @main_bp.route('/admin/force-migrate-lineage', methods=['GET', 'POST'])
 def force_migrate_lineage():
     """Admin endpoint to force migrate lineage data"""
@@ -1326,90 +1318,6 @@ def debug_lineage():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@main_bp.route('/test-fixes')
-def test_fixes():
-    """Test page to verify fixes"""
-    from flask import current_app
-    return current_app.send_static_file('test_fixes.html')
-
-@main_bp.route('/test-bishop-creation')
-def test_bishop_creation():
-    """Test page for bishop creation functionality"""
-    return current_app.send_static_file('test_bishop_creation.html')
-
-@main_bp.route('/test-clergy-form', methods=['GET', 'POST'])
-def test_clergy_form():
-    """Temporary test route to display the clergy form template"""
-    from models import Rank, Organization, Clergy, User
-    
-    # Get current user if logged in
-    user = None
-    if 'user_id' in session:
-        user = User.query.get(session['user_id'])
-    
-    # Handle POST requests (form submission)
-    if request.method == 'POST':
-        try:
-            # Use the existing clergy service to create clergy from form
-            clergy = clergy_service.create_clergy_from_form(request.form)
-            
-            # Check if this is an AJAX request
-            is_ajax = (
-                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
-                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
-                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
-            )
-            
-            if is_ajax:
-                return jsonify({
-                    'success': True, 
-                    'message': f'Clergy record "{clergy.name}" created successfully!', 
-                    'redirect': url_for('main.index')
-                })
-            
-            flash(f'Clergy record "{clergy.name}" created successfully!', 'success')
-            return redirect(url_for('main.index'))
-            
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f'Error creating clergy: {str(e)}')
-            
-            # Check if this is an AJAX request
-            is_ajax = (
-                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
-                request.headers.get('Content-Type', '').startswith('multipart/form-data') or
-                request.headers.get('Content-Type', '') == 'application/x-www-form-urlencoded'
-            )
-            
-            if is_ajax:
-                return jsonify({'success': False, 'message': str(e)}), 400
-            
-            flash(f'Error creating clergy record: {str(e)}', 'error')
-    
-    # GET request - show the form
-    # Get sample data for the form
-    ranks = Rank.query.order_by(Rank.name).all()
-    organizations = Organization.query.order_by(Organization.name).all()
-    
-    # Create a mock fields object with the required data
-    fields = {
-        'form_action': url_for('main.test_clergy_form'),
-        'ranks': ranks,
-        'organizations': organizations,
-        'cancel_url': url_for('main.index')
-    }
-    
-    # Render the test template that uses the macro
-    return render_template('test_clergy_form.html',
-                         fields=fields,
-                         clergy=None,
-                         edit_mode=False,
-                         user=user,
-                         redirect_url=url_for('main.index'),
-                         use_htmx=True,
-                         context_type=None,
-                         context_clergy_id=None)
-
 @main_bp.route('/clergy/add_from_lineage', methods=['GET', 'POST'])
 @audit_log(
     action='create',
@@ -1655,60 +1563,6 @@ def check_and_create_pastor():
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'Error creating pastor: {str(e)}')
-        return jsonify({
-            'success': False,
-            'message': f'Error creating pastor: {str(e)}'
-        }), 500
-
-# Test route for pastor creation functionality
-@main_bp.route('/test-pastor-form')
-def test_pastor_form():
-    """Test route to verify pastor creation functionality"""
-    return current_app.send_static_file('test_pastor_form.html')
-
-# Test API endpoint for pastor creation (no authentication required for testing)
-@main_bp.route('/api/test-check-and-create-pastor', methods=['POST'])
-def test_check_and_create_pastor():
-    """Test version of pastor creation API that doesn't require authentication"""
-    try:
-        data = request.get_json()
-        pastor_name = data.get('pastor_name', '').strip()
-        
-        if not pastor_name:
-            return jsonify({'success': True, 'pastor_id': None})
-        
-        # Check if pastor already exists
-        existing_pastor = Clergy.query.filter_by(name=pastor_name).first()
-        if existing_pastor:
-            return jsonify({
-                'success': True, 
-                'pastor_id': existing_pastor.id,
-                'pastor_name': existing_pastor.name,
-                'created': False
-            })
-        
-        # Create new pastor with rank 'Pastor'
-        new_pastor = Clergy(
-            name=pastor_name,
-            rank='Pastor',
-            notes=f'Test-created pastor record for {pastor_name}'
-        )
-        db.session.add(new_pastor)
-        db.session.flush()  # Get the ID
-        
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'pastor_id': new_pastor.id,
-            'pastor_name': new_pastor.name,
-            'created': True,
-            'message': f'Test-created new pastor record for {pastor_name}'
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f'Error in test pastor creation: {str(e)}')
         return jsonify({
             'success': False,
             'message': f'Error creating pastor: {str(e)}'

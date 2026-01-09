@@ -624,6 +624,13 @@ if (!window.clergyFormHandlerAttached) {
         // Check if this is our clergy form (loaded via HTMX)
         if (e.target && e.target.id === 'clergyForm') {
             e.preventDefault();
+            
+            // Clear any stale global state before submission
+            if (typeof window.clearGlobalFormState === 'function') {
+                // Don't clear here - we want to preserve the current form's data
+                // Only clear if there's leftover data from a different form
+                console.log('Form submission - checking for stale state');
+            }
         
             const form = e.target;
             const formData = new FormData(form);
@@ -791,6 +798,10 @@ function showFormSubmissionOverlay() {
         // Ensure container has relative positioning
         container.style.position = 'relative';
         overlay.classList.add('active');
+        const overlayTitle = overlay.querySelector('.overlay-title');
+        if (overlayTitle) {
+            overlayTitle.textContent = 'Saving clergy record...';
+        }
         updateFormSubmissionProgress(10, 'Preparing form data...');
     }
 }
@@ -841,7 +852,7 @@ function startSpritesheetPolling(clergyId) {
                     
                     // Show success notification
                     if (typeof window.showNotification === 'function') {
-                        window.showNotification('Spritesheet generation completed! Images updated.', 'success');
+                        window.showNotification('Images updated!', 'success');
                     }
                     
                     // Soft refresh visualization and clergy list
@@ -888,12 +899,8 @@ function refreshVisualizationSpritesheet(spriteData) {
                     window.editorVisualization.updateSpritesheet(data);
                 } else {
                     // Last resort: soft refresh of the visualization
-                    const visualizationTarget = document.getElementById('visualization-panel-content');
-                    if (visualizationTarget && typeof htmx !== 'undefined') {
-                        htmx.ajax('GET', '/editor/visualization', {
-                            target: visualizationTarget,
-                            swap: 'innerHTML'
-                        });
+                    if (typeof window.softRefreshVisualization === 'function') {
+                        window.softRefreshVisualization();
                     }
                 }
             })
@@ -904,50 +911,139 @@ function refreshVisualizationSpritesheet(spriteData) {
 }
 
 function refreshClergyListImages(spriteData) {
-    // Update clergy list images - refresh individual image URLs
-    // The clergy list uses individual images, not spritesheet, so we need to refresh
-    // the image URLs from the database
-    console.log('Refreshing clergy list images');
+    // Update clergy list images after spritesheet generation
+    // Soft refresh: update only image elements with cache-busting URLs
+    console.log('Refreshing clergy list images after spritesheet update');
     
-    // Soft refresh: update images in the list without full reload
-    // We'll update image src attributes for clergy items that have images
     const clergyItems = document.querySelectorAll('.clergy-item-card');
     
     clergyItems.forEach(item => {
         const clergyId = item.getAttribute('data-clergy-id');
         if (!clergyId) return;
         
-        const photoElement = item.querySelector('.clergy-item-photo img');
-        if (photoElement) {
-            // Add cache-busting parameter to force image refresh
-            const currentSrc = photoElement.src;
-            const url = new URL(currentSrc);
-            url.searchParams.set('_t', Date.now());
-            photoElement.src = url.toString();
+        const photoContainer = item.querySelector('.clergy-item-photo');
+        if (!photoContainer) return;
+        
+        // Update sprite-based images if sprite sheet data is available
+        if (spriteData && spriteData.mapping) {
+            const spriteDiv = photoContainer.querySelector('.clergy-item-photo-sprite');
+            if (spriteDiv && spriteData.mapping[clergyId]) {
+                // Update sprite background image URL with cache-busting
+                const currentStyle = spriteDiv.style.backgroundImage;
+                if (currentStyle && currentStyle.includes('url(')) {
+                    const urlMatch = currentStyle.match(/url\(['"]?([^'"]+)['"]?\)/);
+                    if (urlMatch && urlMatch[1]) {
+                        const url = new URL(urlMatch[1]);
+                        url.searchParams.set('_t', Date.now());
+                        spriteDiv.style.backgroundImage = `url('${url.toString()}')`;
+                    }
+                }
+            }
+        }
+        
+        // Update regular img elements with cache-busting
+        const photoElement = photoContainer.querySelector('img');
+        if (photoElement && photoElement.src) {
+            try {
+                const url = new URL(photoElement.src);
+                url.searchParams.set('_t', Date.now());
+                photoElement.src = url.toString();
+            } catch (e) {
+                // If URL parsing fails, just add timestamp as query param
+                const separator = photoElement.src.includes('?') ? '&' : '?';
+                photoElement.src = photoElement.src + separator + '_t=' + Date.now();
+            }
         }
     });
     
-    // Also trigger a minimal HTMX refresh of the clergy list to get updated image URLs
-    // This ensures any new images are loaded
-    const clergyListTarget = document.querySelector('.left-panel .panel-content');
-    if (clergyListTarget && typeof htmx !== 'undefined') {
-        // Use a small delay to avoid conflicts
-        setTimeout(() => {
-            htmx.ajax('GET', '/editor/clergy-list', {
-                target: clergyListTarget,
-                swap: 'innerHTML',
-                headers: { 'HX-Request': 'true' }
-            }).then(() => {
-                console.log('Clergy list refreshed with updated images');
-            }).catch(error => {
-                console.error('Error refreshing clergy list:', error);
-            });
-        }, 500);
+    // Re-initialize clergy data for filtering
+    if (typeof initializeClergyData === 'function') {
+        initializeClergyData();
+    }
+    
+    console.log('Clergy list images refreshed');
+}
+
+// Soft update: add or update a single clergy item in the list
+async function softUpdateClergyListItem(clergyId) {
+    if (!clergyId) return;
+    
+    console.log('Soft updating clergy list item:', clergyId);
+    
+    // Check if item already exists
+    const existingItem = document.querySelector(`[data-clergy-id="${clergyId}"]`);
+    
+    if (existingItem) {
+        // Item exists - update it by fetching just that item's HTML
+        // We'll use HTMX to fetch a partial update
+        // For now, do a minimal refresh of just that section
+        // Since we don't have an endpoint for single item, we'll update the whole list
+        // but only if the item is visible (not filtered out)
+        const isVisible = existingItem.style.display !== 'none';
+        if (isVisible) {
+            // Just refresh images with cache-busting
+            const photoContainer = existingItem.querySelector('.clergy-item-photo');
+            if (photoContainer) {
+                const img = photoContainer.querySelector('img');
+                const sprite = photoContainer.querySelector('.clergy-item-photo-sprite');
+                if (img && img.src) {
+                    try {
+                        const url = new URL(img.src);
+                        url.searchParams.set('_t', Date.now());
+                        img.src = url.toString();
+                    } catch (e) {
+                        const separator = img.src.includes('?') ? '&' : '?';
+                        img.src = img.src + separator + '_t=' + Date.now();
+                    }
+                }
+                if (sprite && sprite.style.backgroundImage) {
+                    const urlMatch = sprite.style.backgroundImage.match(/url\(['"]?([^'"]+)['"]?\)/);
+                    if (urlMatch && urlMatch[1]) {
+                        try {
+                            const url = new URL(urlMatch[1]);
+                            url.searchParams.set('_t', Date.now());
+                            sprite.style.backgroundImage = `url('${url.toString()}')`;
+                        } catch (e) {
+                            // Skip if URL parsing fails
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        // Item doesn't exist - need to add it
+        // Do a full refresh but only if we're not filtering
+        const searchInput = document.getElementById('clergySearchInput');
+        const showDeleted = document.getElementById('showDeleted');
+        const excludePriests = document.getElementById('excludePriests');
+        
+        const hasFilters = (searchInput && searchInput.value.trim()) || 
+                          (showDeleted && showDeleted.checked) ||
+                          (excludePriests && excludePriests.checked);
+        
+        if (!hasFilters) {
+            // No filters active - safe to do full refresh
+            const clergyListTarget = document.querySelector('.left-panel .panel-content');
+            if (clergyListTarget && typeof htmx !== 'undefined') {
+                htmx.ajax('GET', '/editor/clergy-list', {
+                    target: clergyListTarget,
+                    swap: 'innerHTML'
+                }).then(() => {
+                    // Re-initialize data and re-highlight
+                    if (typeof initializeClergyData === 'function') {
+                        initializeClergyData();
+                    }
+                    if (window.currentSelectedClergyId && typeof window.highlightClergyInList === 'function') {
+                        window.highlightClergyInList(window.currentSelectedClergyId);
+                    }
+                });
+            }
+        }
     }
 }
 
 function submitFormWithData(form, formData, submitBtn, originalText) {
-    // Show overlay
+    // Show overlay with clear message
     showFormSubmissionOverlay();
     updateFormSubmissionProgress(20, 'Submitting form...');
     
@@ -1020,13 +1116,12 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
             updateFormSubmissionProgress(90, 'Finalizing...');
             
             if (data.success) {
-                // Success - refresh panels smoothly
+                // Success - soft refresh panels
                 
-                // Instant refresh - no transitions like clergy list
-                htmx.ajax('GET', '/editor/clergy-list', {
-                    target: '.left-panel .panel-content',
-                    swap: 'innerHTML'
-                });
+                // Soft update clergy list
+                if (data.clergy_id) {
+                    softUpdateClergyListItem(data.clergy_id);
+                }
                 
                 // Check if the record was marked for deletion
                 const markDeletedCheckbox = form.querySelector('input[name="mark_deleted"]');
@@ -1471,12 +1566,6 @@ function initializeDragDropForHTMX() {
 
 // Switch form to edit mode after saving a new clergy record
 function switchToEditMode(clergyId) {
-    // Force clergy switching detection by setting a different clergy ID
-    if (typeof window.isClergySwitching === 'function') {
-        // This will make the next call to isClergySwitching() return true
-        window.currentClergyId = 'force-switch-' + clergyId;
-    }
-    
     // Use the same mechanism as selecting a clergy member for editing
     // This will trigger the proper HTMX request to load the edit form
     if (typeof window.selectClergy === 'function') {
@@ -1487,21 +1576,27 @@ function switchToEditMode(clergyId) {
         htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
             target: '.right-panel .panel-content',
             swap: 'innerHTML'
+        }).then(() => {
+            // Update selected clergy ID
+            window.currentSelectedClergyId = clergyId;
+            // Clear form state after load
+            if (typeof window.clearGlobalFormState === 'function') {
+                window.clearGlobalFormState();
+            }
         });
     }
 }
 
 // Clear form and switch to add mode after deletion
 function clearFormForNewEntry() {
+    // Clear global form state first
+    if (typeof window.clearGlobalFormState === 'function') {
+        window.clearGlobalFormState();
+    }
+    
     // Clear highlights when clearing form
     if (typeof window.clearClergyHighlights === 'function') {
         window.clearClergyHighlights();
-    }
-    
-    // Force clergy switching detection by resetting the current clergy ID
-    if (typeof window.isClergySwitching === 'function') {
-        // This will make the next call to isClergySwitching() return true
-        window.currentClergyId = 'force-reset';
     }
     
     // Use the same mechanism as the "Add New Clergy" button
@@ -1514,6 +1609,11 @@ function clearFormForNewEntry() {
         htmx.ajax('GET', '/editor/clergy-form-content', {
             target: '.right-panel .panel-content',
             swap: 'innerHTML'
+        }).then(() => {
+            // Clear form state after load
+            if (typeof window.clearGlobalFormState === 'function') {
+                window.clearGlobalFormState();
+            }
         });
     }
 }
@@ -1541,6 +1641,8 @@ window.clearFormForNewEntry = clearFormForNewEntry;
 window.initializeDragDropForHTMX = initializeDragDropForHTMX;
 window.initializeCancelButtonHandler = initializeCancelButtonHandler;
 window.initializePhotoControls = initializePhotoControls;
+window.softUpdateClergyListItem = softUpdateClergyListItem;
+window.refreshClergyListImages = refreshClergyListImages;
 
 // Direct autocomplete initialization as fallback
 function initializeClergyAutocompleteDirect(input) {

@@ -447,7 +447,11 @@ class EditorVisualization {
                 .on('start', (event, d) => this.dragstarted(event, d))
                 .on('drag', (event, d) => this.dragged(event, d))
                 .on('end', (event, d) => this.dragended(event, d)))
-            .on('click', (event, d) => this.handleNodeClick(event, d));
+            .on('click', (event, d) => {
+                // Prevent drag from interfering with click
+                event.stopPropagation();
+                this.handleNodeClick(event, d);
+            });
 
         // Add outer circle (organization ring) - matching lineage visualization
         this.node.append('circle')
@@ -717,9 +721,39 @@ class EditorVisualization {
     }
 
     handleNodeClick(event, d) {
+        // Prevent event propagation if event exists and has stopPropagation
+        // D3 events don't have stopPropagation, so check if it's a native event
+        if (event && typeof event.stopPropagation === 'function') {
+            event.stopPropagation();
+        }
+        
         // Select clergy when clicked
         if (typeof window.selectClergy === 'function') {
+            console.log('Visualization node clicked, selecting clergy:', d.id);
             window.selectClergy(d.id);
+        } else {
+            console.warn('window.selectClergy not available, falling back to direct HTMX');
+            // Fallback: load form content directly
+            if (d && d.id) {
+                const rightPanelContent = document.querySelector('.right-panel .panel-content');
+                if (rightPanelContent) {
+                    htmx.ajax('GET', `/editor/clergy-form-content/${d.id}`, {
+                        target: rightPanelContent,
+                        swap: 'innerHTML'
+                    }).then(() => {
+                        // Update selected clergy ID
+                        window.currentSelectedClergyId = d.id;
+                        // Clear form state after load
+                        if (typeof window.clearGlobalFormState === 'function') {
+                            window.clearGlobalFormState();
+                        }
+                        // Highlight in visualization
+                        this.highlightNode(d.id);
+                    }).catch(error => {
+                        console.error('Error loading form:', error);
+                    });
+                }
+            }
         }
         
         // Highlight selected node - matching lineage visualization
@@ -863,29 +897,37 @@ class EditorVisualization {
         
         // Store new data
         this.nodesData = nodesData;
-        this.linksData = linksData;
+        
+        // Process parallel links on the raw links data before resolving nodes
+        // Create a copy to avoid mutating the original
+        const processedLinksData = linksData.map(link => ({ ...link }));
         
         // Process parallel links
-        this.processParallelLinks();
-        
-        // Update simulation with new nodes
-        this.simulation.nodes(this.nodesData);
-        
-        // Create a map of node IDs to node objects for link resolution
-        const nodeMap = new Map(this.nodesData.map(d => [d.id, d]));
-        
-        // Resolve link source/target IDs to node objects
-        this.linksData.forEach(link => {
-            if (typeof link.source === 'object' && link.source.id) {
-                link.source = nodeMap.get(link.source.id) || link.source;
-            } else {
-                link.source = nodeMap.get(link.source) || link.source;
+        const linkGroups = {};
+        processedLinksData.forEach(link => {
+            let sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+            let targetId = typeof link.target === 'object' ? link.target.id : link.target;
+            const key = `${sourceId}-${targetId}`;
+            if (!linkGroups[key]) {
+                linkGroups[key] = [];
             }
-            if (typeof link.target === 'object' && link.target.id) {
-                link.target = nodeMap.get(link.target.id) || link.target;
-            } else {
-                link.target = nodeMap.get(link.target) || link.target;
+            linkGroups[key].push(link);
+        });
+        
+        Object.values(linkGroups).forEach(group => {
+            if (group.length > 1) {
+                const offset = 8;
+                const totalOffset = (group.length - 1) * offset / 2;
+                group.forEach((link, index) => {
+                    link.parallelOffset = (index * offset) - totalOffset;
+                });
             }
+        });
+        
+        // Clear any fixed positions from nodes to allow them to reposition
+        this.nodesData.forEach(node => {
+            if (node.fx !== undefined) delete node.fx;
+            if (node.fy !== undefined) delete node.fy;
         });
         
         // Use same physics parameters as main visualization
@@ -896,7 +938,48 @@ class EditorVisualization {
         const RADIAL_RADIUS = 150;
         const RADIAL_STRENGTH = 0.1;
         
-        // Update all forces with new data and consistent parameters
+        // Update simulation with new nodes FIRST
+        // This ensures simulation has the latest node objects
+        this.simulation.nodes(this.nodesData);
+        
+        // Get the actual node objects from the simulation (these are the objects that will have x/y updated)
+        const simulationNodes = this.simulation.nodes();
+        
+        if (!Array.isArray(simulationNodes)) {
+            console.error('simulation.nodes() did not return an array:', simulationNodes);
+            return;
+        }
+        
+        // Create a map of node IDs to the actual simulation node objects
+        const nodeMap = new Map(simulationNodes.map(d => [d.id, d]));
+        
+        // CRITICAL: Create a completely fresh links array with new objects that reference simulation nodes
+        // This ensures links always reference the simulation's node objects, not copies or stale references
+        this.linksData = processedLinksData.map(link => {
+            // Extract source/target IDs
+            let sourceId = typeof link.source === 'object' && link.source.id ? link.source.id : link.source;
+            let targetId = typeof link.target === 'object' && link.target.id ? link.target.id : link.target;
+            
+            // Get simulation node objects
+            const sourceNode = nodeMap.get(sourceId);
+            const targetNode = nodeMap.get(targetId);
+            
+            if (!sourceNode) {
+                console.warn('Could not resolve source node for link:', sourceId);
+            }
+            if (!targetNode) {
+                console.warn('Could not resolve target node for link:', targetId);
+            }
+            
+            // Create a new link object with all properties, but source/target reference simulation nodes
+            return {
+                ...link,
+                source: sourceNode || link.source,
+                target: targetNode || link.target
+            };
+        });
+        
+        // Update link force with the fresh links array - this ensures the force uses correct node references
         this.simulation
             .force('link', d3.forceLink(this.linksData).id(d => d.id).distance(LINK_DISTANCE))
             .force('charge', d3.forceManyBody().strength(CHARGE_STRENGTH))
@@ -912,7 +995,11 @@ class EditorVisualization {
         }
         
         // Update base links (transparent, for force layout)
-        this.linkBase = this.linkBase.data(this.linksData, d => `${typeof d.source === 'object' ? d.source.id : d.source}-${typeof d.target === 'object' ? d.target.id : d.target}-${d.type}`);
+        // Key function uses node IDs to match links
+        const linkKey = d => `${typeof d.source === 'object' ? d.source.id : d.source}-${typeof d.target === 'object' ? d.target.id : d.target}-${d.type || ''}`;
+        
+        // Bind fresh links array to base links
+        this.linkBase = this.linkBase.data(this.linksData, linkKey);
         this.linkBase.exit().remove();
         const newLinkBase = this.linkBase.enter().append('line')
             .attr('stroke', 'transparent')
@@ -928,7 +1015,8 @@ class EditorVisualization {
         const cssLinkInvalidConsecrationColor = rootStyles.getPropertyValue('--viz-link-invalid-consecration-color').trim() || RED_COLOR;
         const cssLinkStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width')) || 2;
         
-        this.linkOverlay = this.linkOverlay.data(this.linksData, d => `${typeof d.source === 'object' ? d.source.id : d.source}-${typeof d.target === 'object' ? d.target.id : d.target}-${d.type}`);
+        // Bind the same fresh links array to overlay links
+        this.linkOverlay = this.linkOverlay.data(this.linksData, linkKey);
         this.linkOverlay.exit().remove();
         const newLinkOverlay = this.linkOverlay.enter().append('line')
             .attr('class', d => {
@@ -993,7 +1081,11 @@ class EditorVisualization {
                 .on('start', (event, d) => this.dragstarted(event, d))
                 .on('drag', (event, d) => this.dragged(event, d))
                 .on('end', (event, d) => this.dragended(event, d)))
-            .on('click', (event, d) => this.handleNodeClick(event, d));
+            .on('click', (event, d) => {
+                // Prevent drag from interfering with click
+                event.stopPropagation();
+                this.handleNodeClick(event, d);
+            });
         
         // Add circles and labels to new nodes
         newNodeGroups.append('circle')
@@ -1112,7 +1204,36 @@ class EditorVisualization {
         // Merge new nodes with existing
         this.node = this.node.merge(newNodeGroups);
         
+        // CRITICAL: After D3 binds data, ensure datum objects reference simulation nodes
+        // D3 might create new objects when binding, so we need to fix references after binding
+        // Get fresh simulation nodes to ensure we have the latest references
+        const finalSimulationNodes = this.simulation.nodes();
+        const finalNodeMap = new Map(finalSimulationNodes.map(d => [d.id, d]));
+        
+        // Fix link node references in both linkBase and linkOverlay selections
+        // This ensures the datum objects bound to DOM elements reference simulation nodes
+        // The tick handler reads d.source.x and d.target.x, so these MUST be simulation node objects
+        this.linkBase.each(function(d) {
+            const sourceId = typeof d.source === 'object' && d.source.id ? d.source.id : d.source;
+            const targetId = typeof d.target === 'object' && d.target.id ? d.target.id : d.target;
+            const sourceNode = finalNodeMap.get(sourceId);
+            const targetNode = finalNodeMap.get(targetId);
+            if (sourceNode) d.source = sourceNode;
+            if (targetNode) d.target = targetNode;
+        });
+        
+        this.linkOverlay.each(function(d) {
+            const sourceId = typeof d.source === 'object' && d.source.id ? d.source.id : d.source;
+            const targetId = typeof d.target === 'object' && d.target.id ? d.target.id : d.target;
+            const sourceNode = finalNodeMap.get(sourceId);
+            const targetNode = finalNodeMap.get(targetId);
+            if (sourceNode) d.source = sourceNode;
+            if (targetNode) d.target = targetNode;
+        });
+        
         // Restart simulation with new data - this will cause links to update via tick handler
+        // The tick handler will use d.source.x and d.target.x from the simulation node objects
+        // Since we've ensured all links reference simulation nodes, positions will update correctly
         this.simulation.alpha(1).restart();
         
         // Re-highlight selected clergy if any

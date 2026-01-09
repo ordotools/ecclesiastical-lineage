@@ -68,7 +68,7 @@
              data-is-deleted="{{ clergy.is_deleted|lower }}"
              data-has-ordinations="{{ (clergy.ordinations|length > 0)|lower }}"
              data-has-consecrations="{{ (clergy.consecrations|length > 0)|lower }}"
-             onclick="selectClergyFromList({{ clergy.id }})">
+             onclick="selectClergyFromList({{ clergy.id }}); return false;">
             
             <!-- Selection Checkbox (only for deleted records) -->
             {% if show_deleted and clergy.is_deleted %}
@@ -327,16 +327,39 @@ function selectClergyFromList(clergyId) {
     if (typeof window.selectClergy === 'function') {
         window.selectClergy(clergyId);
     } else {
+        console.warn('window.selectClergy not available, using fallback');
         // Fallback: load form content directly (skip intermediate template)
+        // Clear form state first
+        if (typeof window.clearGlobalFormState === 'function') {
+            window.clearGlobalFormState();
+        }
+        
+        // Update selected clergy ID
+        window.currentSelectedClergyId = clergyId;
+        
         if (clergyId) {
             htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
                 target: '.right-panel .panel-content',
                 swap: 'innerHTML'
+            }).then(() => {
+                // Clear form state again after load
+                if (typeof window.clearGlobalFormState === 'function') {
+                    window.clearGlobalFormState();
+                }
+                // Highlight in list
+                if (typeof window.highlightClergyInList === 'function') {
+                    window.highlightClergyInList(clergyId);
+                }
             });
         } else {
             htmx.ajax('GET', '/editor/clergy-form-content', {
                 target: '.right-panel .panel-content',
                 swap: 'innerHTML'
+            }).then(() => {
+                // Clear form state after load
+                if (typeof window.clearGlobalFormState === 'function') {
+                    window.clearGlobalFormState();
+                }
             });
         }
     }

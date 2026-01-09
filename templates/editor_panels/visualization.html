@@ -137,6 +137,9 @@ import { loadVisualizationStyles } from '/static/js/visualization-styles-loader.
     console.log('Nodes data:', nodesData.length, 'Links data:', linksData.length);
     
     // Wait for the script to load and then initialize
+    let retryCount = 0;
+    const maxRetries = 50; // Maximum 5 seconds of retrying
+    
     function waitForScriptAndInitialize() {
         if (typeof initializeEditorVisualization === 'function') {
             // Set flag to prevent double initialization
@@ -165,8 +168,23 @@ import { loadVisualizationStyles } from '/static/js/visualization-styles-loader.
                 }, 2000); // Wait for simulation to settle
             }
         } else {
-            console.log('Script not yet loaded, retrying...');
-            setTimeout(waitForScriptAndInitialize, 100);
+            retryCount++;
+            if (retryCount < maxRetries) {
+                console.log(`Script not yet loaded, retrying... (${retryCount}/${maxRetries})`);
+                setTimeout(waitForScriptAndInitialize, 100);
+            } else {
+                console.error('Failed to load editor-visualization.js after', maxRetries, 'retries');
+                // Try to load the script manually
+                const script = document.createElement('script');
+                script.src = '/static/js/editor-visualization.js';
+                script.onload = () => {
+                    console.log('Script loaded manually, initializing...');
+                    if (typeof initializeEditorVisualization === 'function') {
+                        initializeEditorVisualization(nodesData, linksData);
+                    }
+                };
+                document.head.appendChild(script);
+            }
         }
     }
     

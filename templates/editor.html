@@ -999,20 +999,9 @@
             // Only refresh visualization for actual updates, not selections
             // Be more restrictive - only refresh for actual API calls that modify data
             if (!isClergySelection && isClergyAPI) {
-                // Full refresh: reload visualization panel via HTMX
+                // Soft refresh: update data without destroying simulation state
                 setTimeout(() => {
-                    // Use htmx.ajax to reload the visualization panel
-                    htmx.ajax('GET', '/editor/visualization', {
-                        target: '#visualization-panel-content',
-                        swap: 'innerHTML'
-                    }).then(() => {
-                        // Re-highlight after visualization reloads
-                        if (window.currentSelectedClergyId) {
-                            setTimeout(() => {
-                                highlightClergyInVisualization(window.currentSelectedClergyId);
-                            }, 2000); // Wait for visualization to initialize
-                        }
-                    });
+                    softRefreshVisualization();
                 }, 100);
             } else if (isClergySelection) {
                 // Re-highlight after selection
@@ -1034,54 +1023,68 @@
 
             // Only refresh visualization for actual updates, not selections
             if (evt.detail && evt.detail.action && (evt.detail.action === 'updated' || evt.detail.action === 'created' || evt.detail.action === 'deleted')) {
-                // Full refresh: reload visualization panel via HTMX
+                // Soft refresh: update data without destroying simulation state
                 setTimeout(() => {
-                    // Use htmx.ajax to reload the visualization panel
-                    htmx.ajax('GET', '/editor/visualization', {
-                        target: '#visualization-panel-content',
-                        swap: 'innerHTML'
-                    }).then(() => {
-                        // Re-highlight after visualization reloads
-                        if (window.currentSelectedClergyId) {
-                            setTimeout(() => {
-                                highlightClergyInVisualization(window.currentSelectedClergyId);
-                            }, 2000); // Wait for visualization to initialize
-                        }
-                    });
+                    softRefreshVisualization();
                 }, 150);
-            } else {
-
             }
         });
 
         // Custom event for when a clergy member is selected
         // Debounce to prevent duplicate requests
         let selectClergyTimeout = null;
-        let lastSelectedClergyId = null;
         
         // Track currently selected clergy ID for highlighting
         window.currentSelectedClergyId = null;
         
+        // Function to clear all global form state to prevent leftover data
+        function clearGlobalFormState() {
+            // Clear dropped file
+            if (window.droppedFile) {
+                delete window.droppedFile;
+                console.log('Cleared window.droppedFile');
+            }
+            
+            // Clear processed image data
+            if (window.processedImageData) {
+                delete window.processedImageData;
+                console.log('Cleared window.processedImageData');
+            }
+            
+            // Clear image editor state
+            if (window.imageEditor && typeof window.imageEditor.clearProcessedData === 'function') {
+                window.imageEditor.clearProcessedData();
+            }
+            
+            // Clear any file input values
+            const fileInput = document.getElementById('clergyImage');
+            if (fileInput) {
+                fileInput.value = '';
+            }
+        }
+        
         function selectClergy(clergyId) {
+            console.log('selectClergy called with clergyId:', clergyId, 'current:', window.currentSelectedClergyId);
+            
             // Debounce duplicate requests within 100ms
             if (selectClergyTimeout) {
                 clearTimeout(selectClergyTimeout);
             }
             
-            // Skip if same clergy selected
-            if (lastSelectedClergyId === clergyId && clergyId !== null) {
-                console.log('Same clergy already selected, skipping reload');
-                return;
-            }
+            // Don't skip if same clergy - always allow reload to ensure form is properly loaded
+            // The check was preventing form loads when clicking the same node multiple times
+            
+            // Clear global form state to prevent leftover data from previous submissions
+            clearGlobalFormState();
             
             // Clear previous highlights
             clearClergyHighlights();
             
-            // Update current selected clergy ID
+            // Update current selected clergy ID immediately
             window.currentSelectedClergyId = clergyId;
             
             selectClergyTimeout = setTimeout(() => {
-                lastSelectedClergyId = clergyId;
+                console.log('Loading form for clergy:', clergyId);
                 
                 // Highlight clergy in list
                 highlightClergyInList(clergyId);
@@ -1089,21 +1092,39 @@
                 // Highlight node in visualization
                 highlightClergyInVisualization(clergyId);
                 
+                // Find the right panel content element
+                const rightPanelContent = document.querySelector('.right-panel .panel-content');
+                if (!rightPanelContent) {
+                    console.error('Right panel content not found!');
+                    return;
+                }
+                
                 // Load form content directly (skip intermediate template to avoid nested HTMX)
                 if (clergyId) {
                     htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
-                        target: '.right-panel .panel-content',
+                        target: rightPanelContent,
                         swap: 'innerHTML'
                     }).then(() => {
+                        console.log('Form loaded for clergy:', clergyId);
+                        // Clear form state again after load to ensure clean state
+                        clearGlobalFormState();
                         // Re-highlight after form loads to ensure persistence
                         highlightClergyInList(clergyId);
                         highlightClergyInVisualization(clergyId);
+                    }).catch(error => {
+                        console.error('Error loading form:', error);
                     });
                 } else {
                     // Load empty form for adding new clergy
                     htmx.ajax('GET', '/editor/clergy-form-content', {
-                        target: '.right-panel .panel-content',
+                        target: rightPanelContent,
                         swap: 'innerHTML'
+                    }).then(() => {
+                        console.log('Empty form loaded');
+                        // Clear form state after load
+                        clearGlobalFormState();
+                    }).catch(error => {
+                        console.error('Error loading empty form:', error);
                     });
                 }
             }, 50);
@@ -1202,8 +1223,39 @@
         window.highlightClergyInVisualization = highlightClergyInVisualization;
         window.clearClergyHighlights = clearClergyHighlights;
 
-        // Make selectClergy globally available
+        // Function to soft refresh visualization without destroying simulation state
+        async function softRefreshVisualization() {
+            if (!window.editorVisualization || !window.editorVisualization.isInitialized) {
+                console.log('Visualization not initialized, skipping soft refresh');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/visualization/data');
+                const data = await response.json();
+                
+                if (data.success && data.nodes && data.links) {
+                    console.log('Soft refreshing visualization with', data.nodes.length, 'nodes,', data.links.length, 'links');
+                    window.editorVisualization.updateData(data.nodes, data.links);
+                    
+                    // Re-highlight selected clergy after update
+                    if (window.currentSelectedClergyId) {
+                        setTimeout(() => {
+                            highlightClergyInVisualization(window.currentSelectedClergyId);
+                        }, 500);
+                    }
+                } else {
+                    console.error('Failed to refresh visualization: invalid data', data);
+                }
+            } catch (error) {
+                console.error('Error refreshing visualization:', error);
+            }
+        }
+        
+        // Make selectClergy and clearGlobalFormState globally available
         window.selectClergy = selectClergy;
+        window.clearGlobalFormState = clearGlobalFormState;
+        window.softRefreshVisualization = softRefreshVisualization;
 
         // Status bar functionality
         function updateStatusBar() {

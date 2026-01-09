@@ -371,26 +371,26 @@ function resetPopulationFlags() {
 
 // Check if we're switching to a different clergy record
 function isClergySwitching() {
-    // Initialize currentClergyId if not already set
-    if (typeof window.currentClergyId === 'undefined') {
-        window.currentClergyId = null;
+    // Use currentSelectedClergyId as single source of truth
+    if (typeof window.currentSelectedClergyId === 'undefined') {
+        window.currentSelectedClergyId = null;
     }
     
     {% if edit_mode and clergy %}
     const newClergyId = {{ clergy.id }};
-    const oldClergyId = window.currentClergyId;
-    const isSwitching = window.currentClergyId !== newClergyId;
+    const oldClergyId = window.currentSelectedClergyId;
+    const isSwitching = window.currentSelectedClergyId !== newClergyId;
     if (isSwitching) {
-        window.currentClergyId = newClergyId;
+        window.currentSelectedClergyId = newClergyId;
         return true;
     }
     return false;
     {% else %}
     // For new clergy (not edit mode), always reset
-    const oldClergyId = window.currentClergyId;
-    const isSwitching = window.currentClergyId !== null;
+    const oldClergyId = window.currentSelectedClergyId;
+    const isSwitching = window.currentSelectedClergyId !== null;
     if (isSwitching) {
-        window.currentClergyId = null;
+        window.currentSelectedClergyId = null;
         return true;
     }
     return false;
@@ -832,9 +832,8 @@ attachRankChangeListener();
                     deceasedCheckbox.checked = false;
                     console.log('Auto-unchecked deceased status (no date of death)');
                 }
-            } else {
-                console.warn('Deceased status checkbox not found');
             }
+            // Silently skip if checkbox not found - it may not exist in all forms
         }
         
         // Listen for changes to the date of death field

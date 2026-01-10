@@ -1568,6 +1568,60 @@ def check_and_create_pastor():
             'message': f'Error creating pastor: {str(e)}'
         }), 500
 
+# Test route for pastor creation functionality
+@main_bp.route('/test-pastor-form')
+def test_pastor_form():
+    """Test route to verify pastor creation functionality"""
+    return current_app.send_static_file('test_pastor_form.html')
+
+# Test API endpoint for pastor creation (no authentication required for testing)
+@main_bp.route('/api/test-check-and-create-pastor', methods=['POST'])
+def test_check_and_create_pastor():
+    """Test version of pastor creation API that doesn't require authentication"""
+    try:
+        data = request.get_json()
+        pastor_name = data.get('pastor_name', '').strip()
+        
+        if not pastor_name:
+            return jsonify({'success': True, 'pastor_id': None})
+        
+        # Check if pastor already exists
+        existing_pastor = Clergy.query.filter_by(name=pastor_name).first()
+        if existing_pastor:
+            return jsonify({
+                'success': True, 
+                'pastor_id': existing_pastor.id,
+                'pastor_name': existing_pastor.name,
+                'created': False
+            })
+        
+        # Create new pastor with rank 'Pastor'
+        new_pastor = Clergy(
+            name=pastor_name,
+            rank='Pastor',
+            notes=f'Test-created pastor record for {pastor_name}'
+        )
+        db.session.add(new_pastor)
+        db.session.flush()  # Get the ID
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'pastor_id': new_pastor.id,
+            'pastor_name': new_pastor.name,
+            'created': True,
+            'message': f'Test-created new pastor record for {pastor_name}'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error in test pastor creation: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Error creating pastor: {str(e)}'
+        }), 500
+
 # Test API endpoint for location creation (no authentication required for testing)
 @main_bp.route('/api/test-locations-add', methods=['POST'])
 def test_add_location():

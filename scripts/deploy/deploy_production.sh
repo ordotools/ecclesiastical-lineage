@@ -43,9 +43,9 @@ pip install -r requirements.txt
 print_success "✅ Dependencies installed"
 
 # Step 2: Debug environment variables
-print_status "🔍 Debugging environment variables..."
-python debug_env.py
-print_success "✅ Environment variables checked"
+# print_status "🔍 Debugging environment variables..."
+# python debug_env.py
+# print_success "✅ Environment variables checked"
 
 # Step 3: Check if DATABASE_URL is set
 print_status "🔍 Checking database connection..."

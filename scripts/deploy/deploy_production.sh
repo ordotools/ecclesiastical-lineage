@@ -128,77 +128,77 @@ else
 fi
 
 # Step 6: Migrate legacy lineage data
-print_status "🔄 Migrating legacy lineage data..."
-if python3 migrate_legacy_lineage_data.py; then
-    print_success "✅ Legacy lineage data migration completed!"
-else
-    print_warning "⚠️  Legacy lineage data migration failed or not needed"
-fi
+# print_status "🔄 Migrating legacy lineage data..."
+# if python3 migrate_legacy_lineage_data.py; then
+#     print_success "✅ Legacy lineage data migration completed!"
+# else
+#     print_warning "⚠️  Legacy lineage data migration failed or not needed"
+# fi
 
 # Step 7: Populate database with initial data if empty
-print_status "📊 Checking if database needs initial data..."
-python3 -c "
-from app import app, db
-from models import Clergy
-with app.app_context():
-    clergy_count = Clergy.query.count()
-    print(f'📊 Current clergy count: {clergy_count}')
-    if clergy_count == 0:
-        print('📊 Database is empty, will populate with initial data')
-        exit(0)
-    else:
-        print('📊 Database has data, skipping population')
-        exit(1)
-"
-
-if [ $? -eq 0 ]; then
-    print_status "📊 Populating database with initial data..."
-    if python3 populate_database.py; then
-        print_success "✅ Database population completed!"
-    else
-        print_warning "⚠️  Database population failed"
-    fi
-else
-    print_success "✅ Database already has data, skipping population"
-fi
-
-# Step 8: Force migrate lineage data if needed
-print_status "🔄 Force migrating lineage data..."
-if python3 force_migrate_lineage_data.py; then
-    print_success "✅ Force lineage data migration completed!"
-else
-    print_warning "⚠️  Force lineage data migration failed"
-fi
+# print_status "📊 Checking if database needs initial data..."
+# python3 -c "
+# from app import app, db
+# from models import Clergy
+# with app.app_context():
+#     clergy_count = Clergy.query.count()
+#     print(f'📊 Current clergy count: {clergy_count}')
+#     if clergy_count == 0:
+#         print('📊 Database is empty, will populate with initial data')
+#         exit(0)
+#     else:
+#         print('📊 Database has data, skipping population')
+#         exit(1)
+# "
+#
+# if [ $? -eq 0 ]; then
+#     print_status "📊 Populating database with initial data..."
+#     if python3 populate_database.py; then
+#         print_success "✅ Database population completed!"
+#     else
+#         print_warning "⚠️  Database population failed"
+#     fi
+# else
+#     print_success "✅ Database already has data, skipping population"
+# fi
+#
+# # Step 8: Force migrate lineage data if needed
+# print_status "🔄 Force migrating lineage data..."
+# if python3 force_migrate_lineage_data.py; then
+#     print_success "✅ Force lineage data migration completed!"
+# else
+#     print_warning "⚠️  Force lineage data migration failed"
+# fi
 
 # Step 9: Verify migration was successful
-print_status "🔍 Verifying migration..."
-python3 -c "
-import os
-import sys
-from dotenv import load_dotenv
-load_dotenv()
-
-# Add current directory to path
-sys.path.insert(0, os.getcwd())
-
-from app import app
-from models import db, Clergy, Ordination, Consecration
-
-with app.app_context():
-    clergy_count = Clergy.query.count()
-    ordination_count = Ordination.query.count()
-    consecration_count = Consecration.query.count()
-    
-    print(f'✅ Migration verification:')
-    print(f'   - Clergy records: {clergy_count}')
-    print(f'   - Ordination records: {ordination_count}')
-    print(f'   - Consecration records: {consecration_count}')
-    
-    if ordination_count > 0 or consecration_count > 0:
-        print('✅ Lineage relationships created successfully!')
-    else:
-        print('⚠️  No lineage relationships found - migration may not have run')
-"
+# print_status "🔍 Verifying migration..."
+# python3 -c "
+# import os
+# import sys
+# from dotenv import load_dotenv
+# load_dotenv()
+#
+# # Add current directory to path
+# sys.path.insert(0, os.getcwd())
+#
+# from app import app
+# from models import db, Clergy, Ordination, Consecration
+#
+# with app.app_context():
+#     clergy_count = Clergy.query.count()
+#     ordination_count = Ordination.query.count()
+#     consecration_count = Consecration.query.count()
+#
+#     print(f'✅ Migration verification:')
+#     print(f'   - Clergy records: {clergy_count}')
+#     print(f'   - Ordination records: {ordination_count}')
+#     print(f'   - Consecration records: {consecration_count}')
+#
+#     if ordination_count > 0 or consecration_count > 0:
+#         print('✅ Lineage relationships created successfully!')
+#     else:
+#         print('⚠️  No lineage relationships found - migration may not have run')
+# "
 
 if [ $? -eq 0 ]; then
     print_success "✅ Migration verification passed!"

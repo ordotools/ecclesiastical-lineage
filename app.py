@@ -29,35 +29,35 @@ if not database_url:
     raise ValueError("DATABASE_URL environment variable is required. Set it to your PostgreSQL connection string.")
 
 
-# def fix_database_url(url):
-#     """Fix database URL to handle SSL connections properly on Render"""
-#     if url.startswith('postgres://'):
-#         # Convert postgres:// to postgresql://
-#         url = url.replace('postgres://', 'postgresql://', 1)
-#
-#     # Parse the URL
-#     parsed = urlparse(url)
-#
-#     # Add SSL mode parameters for Render PostgreSQL
-#     if 'onrender.com' in parsed.hostname or 'render.com' in parsed.hostname:
-#         # Add SSL mode and other parameters for Render
-#         if parsed.query:
-#             query = parsed.query + '&sslmode=require'
-#         else:
-#             query = 'sslmode=require'
-#
-#         # Reconstruct URL with SSL parameters
-#         fixed_url = urlunparse((
-#             parsed.scheme,
-#             parsed.netloc,
-#             parsed.path,
-#             parsed.params,
-#             query,
-#             parsed.fragment
-#         ))
-#         return fixed_url
-#
-#     return url
+def fix_database_url(url):
+    """Fix database URL to handle SSL connections properly on Render"""
+    if url.startswith('postgres://'):
+        # Convert postgres:// to postgresql://
+        url = url.replace('postgres://', 'postgresql://', 1)
+
+    # Parse the URL
+    parsed = urlparse(url)
+
+    # Add SSL mode parameters for Render PostgreSQL
+    if 'onrender.com' in parsed.hostname or 'render.com' in parsed.hostname:
+        # Add SSL mode and other parameters for Render
+        if parsed.query:
+            query = parsed.query + '&sslmode=require'
+        else:
+            query = 'sslmode=require'
+
+        # Reconstruct URL with SSL parameters
+        fixed_url = urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            query,
+            parsed.fragment
+        ))
+        return fixed_url
+
+    return url
 
 
 fixed_database_url = fix_database_url(database_url)

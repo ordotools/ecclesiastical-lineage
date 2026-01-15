@@ -28,16 +28,16 @@ database_url = os.environ.get('DATABASE_URL')
 if not database_url:
     raise ValueError("DATABASE_URL environment variable is required. Set it to your PostgreSQL connection string.")
 
-# Fix SSL connection issues for Render PostgreSQL
+
 def fix_database_url(url):
     """Fix database URL to handle SSL connections properly on Render"""
     if url.startswith('postgres://'):
         # Convert postgres:// to postgresql://
         url = url.replace('postgres://', 'postgresql://', 1)
-    
+
     # Parse the URL
     parsed = urlparse(url)
-    
+
     # Add SSL mode parameters for Render PostgreSQL
     if 'onrender.com' in parsed.hostname or 'render.com' in parsed.hostname:
         # Add SSL mode and other parameters for Render
@@ -45,7 +45,7 @@ def fix_database_url(url):
             query = parsed.query + '&sslmode=require'
         else:
             query = 'sslmode=require'
-        
+
         # Reconstruct URL with SSL parameters
         fixed_url = urlunparse((
             parsed.scheme,
@@ -56,10 +56,10 @@ def fix_database_url(url):
             parsed.fragment
         ))
         return fixed_url
-    
+
     return url
 
-# Apply the fix to the database URL
+
 fixed_database_url = fix_database_url(database_url)
 app.config['SQLALCHEMY_DATABASE_URI'] = fixed_database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -78,6 +78,7 @@ db.init_app(app)
 
 migrate = Migrate(app, db)
 
+
 def ensure_database_schema():
     """Ensure all required database columns exist."""
     with app.app_context():
@@ -85,18 +86,18 @@ def ensure_database_schema():
             # Create all tables first
             db.create_all()
             print("✅ All tables created")
-            
+
             # Check if required columns exist in clergy table
             inspector = inspect(db.engine)
             clergy_columns = [col['name'] for col in inspector.get_columns('clergy')]
             required_clergy_columns = ['image_url', 'image_data', 'is_deleted', 'deleted_at']
-            
+
             missing_clergy_columns = [col for col in required_clergy_columns if col not in clergy_columns]
-            
+
             if missing_clergy_columns:
                 print(f"⚠️  Missing clergy columns: {missing_clergy_columns}")
                 print("🔧 Adding missing columns...")
-                
+
                 for col in missing_clergy_columns:
                     try:
                         with db.engine.connect() as conn:
@@ -114,14 +115,15 @@ def ensure_database_schema():
                         print(f"⚠️  Column {col} might already exist: {e}")
             else:
                 print("✅ All required clergy columns exist")
-            
+
             # Initialize roles and permissions
             from migrations import initialize_roles_and_permissions
             initialize_roles_and_permissions()
             print("✅ Roles and permissions initialized")
-            
+
         except Exception as e:
             print(f"⚠️  Database schema check failed: {e}")
+
 
 def ensure_admin_user():
     """Ensure there is at least one Super Admin user in the database"""
@@ -132,7 +134,7 @@ def ensure_admin_user():
             print("🔧 No Super Admin role found, initializing roles and permissions...")
             initialize_roles_and_permissions()
             super_admin_role = Role.query.filter_by(name='Super Admin').first()
-        
+
         if super_admin_role:
             existing_admin = User.query.filter_by(role_id=super_admin_role.id).first()
             if not existing_admin:
@@ -156,7 +158,7 @@ def ensure_admin_user():
         print(f"⚠️  Admin user creation failed: {e}")
         db.session.rollback()
 
-# Ensure database schema is set up
+
 ensure_database_schema()
 
 # app.register_blueprint(routes)  # Temporarily disabled due to route conflicts
@@ -172,7 +174,7 @@ app.jinja_env.globals['getContrastColor'] = getContrastColor
 app.jinja_env.globals['getBorderStyle'] = getBorderStyle
 app.jinja_env.filters['from_json'] = from_json
 
-# Add caching headers for static files
+
 @app.after_request
 def add_cache_headers(response):
     from flask import request
@@ -180,11 +182,10 @@ def add_cache_headers(response):
         response.headers['Cache-Control'] = 'public, max-age=31536000'
     return response
 
-# Initialize Flask-Migrate context (migrations disabled on startup)
+
 with app.app_context():
-    # Check if automatic migrations are enabled via environment variable
     auto_migrate = os.environ.get('AUTO_MIGRATE_ON_STARTUP', '').lower() in ('true', '1', 'yes')
-    
+
     if auto_migrate:
         print("🔧 AUTO_MIGRATE_ON_STARTUP enabled - Running database migration...")
         try:
@@ -198,14 +199,13 @@ with app.app_context():
         print("📋 Automatic migrations disabled on startup")
         print("   To run migrations manually, use: flask db upgrade")
         print("   To enable auto-migration, set: AUTO_MIGRATE_ON_STARTUP=true")
-    
-    # Initialize Backblaze B2 configuration
+
     print("🔧 Initializing Backblaze B2...")
     if init_backblaze_config():
         print("✅ Backblaze B2 initialized successfully")
     else:
         print("⚠️  Backblaze B2 initialization failed - image uploads will not work")
-    
+
     # Ensure admin user exists
     ensure_admin_user()
 

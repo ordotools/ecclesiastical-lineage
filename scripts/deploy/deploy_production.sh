@@ -220,4 +220,5 @@ echo "   • Monitor application logs for any issues"
 echo "   • Monitor performance and user feedback"
 
 # Start gunicorn
-gunicorn app:app
+gunicorn -b 0.0.0.0:3000 app:app
+# gunicorn app:app

@@ -494,7 +494,8 @@ function populateExistingOrdinations() {
             id: {{ ordination.id }},
             date: {{ ordination.date.strftime('%Y-%m-%d')|tojson if ordination.date else 'null' }},
             is_sub_conditione: {{ ordination.is_sub_conditione|lower }},
-            is_doubtful: {{ ordination.is_doubtful|lower }},
+            is_doubtfully_valid: {{ ordination.is_doubtfully_valid|lower }},
+            is_doubtful_event: {{ ordination.is_doubtful_event|lower }},
             is_invalid: {{ ordination.is_invalid|lower }},
             notes: {{ ordination.notes|tojson if ordination.notes else 'null' }},
             ordaining_bishop: {% if ordination.ordaining_bishop %}{
@@ -530,12 +531,22 @@ function populateExistingOrdinations() {
             
             // Populate checkboxes
             const subConditioneInput = ordinationEntry.querySelector('input[name*="[is_sub_conditione]"]');
-            const doubtfulInput = ordinationEntry.querySelector('input[name*="[is_doubtful]"]');
-            const invalidInput = ordinationEntry.querySelector('input[name*="[is_invalid]"]');
+            const doubtfulEventInput = ordinationEntry.querySelector('input[name*="[is_doubtful_event]"]');
+            const validitySelect = ordinationEntry.querySelector('select[name*="[validity]"]');
             
             if (subConditioneInput) subConditioneInput.checked = ordination.is_sub_conditione;
-            if (doubtfulInput) doubtfulInput.checked = ordination.is_doubtful;
-            if (invalidInput) invalidInput.checked = ordination.is_invalid;
+            if (doubtfulEventInput) doubtfulEventInput.checked = ordination.is_doubtful_event;
+            
+            // Set validity dropdown based on is_doubtfully_valid and is_invalid
+            if (validitySelect) {
+                if (ordination.is_invalid) {
+                    validitySelect.value = 'invalid';
+                } else if (ordination.is_doubtfully_valid) {
+                    validitySelect.value = 'doubtfully_valid';
+                } else {
+                    validitySelect.value = 'valid';
+                }
+            }
             
             // Populate notes
             const notesTextarea = ordinationEntry.querySelector('textarea[name*="[notes]"]');
@@ -579,7 +590,8 @@ function populateExistingConsecrations() {
             id: {{ consecration.id }},
             date: {{ consecration.date.strftime('%Y-%m-%d')|tojson if consecration.date else 'null' }},
             is_sub_conditione: {{ consecration.is_sub_conditione|lower }},
-            is_doubtful: {{ consecration.is_doubtful|lower }},
+            is_doubtfully_valid: {{ consecration.is_doubtfully_valid|lower }},
+            is_doubtful_event: {{ consecration.is_doubtful_event|lower }},
             is_invalid: {{ consecration.is_invalid|lower }},
             notes: {{ consecration.notes|tojson if consecration.notes else 'null' }},
             consecrator: {% if consecration.consecrator %}{
@@ -650,12 +662,22 @@ function populateExistingConsecrations() {
             
             // Populate checkboxes
             const subConditioneInput = consecrationEntry.querySelector('input[name*="[is_sub_conditione]"]');
-            const doubtfulInput = consecrationEntry.querySelector('input[name*="[is_doubtful]"]');
-            const invalidInput = consecrationEntry.querySelector('input[name*="[is_invalid]"]');
+            const doubtfulEventInput = consecrationEntry.querySelector('input[name*="[is_doubtful_event]"]');
+            const validitySelect = consecrationEntry.querySelector('select[name*="[validity]"]');
             
             if (subConditioneInput) subConditioneInput.checked = consecration.is_sub_conditione;
-            if (doubtfulInput) doubtfulInput.checked = consecration.is_doubtful;
-            if (invalidInput) invalidInput.checked = consecration.is_invalid;
+            if (doubtfulEventInput) doubtfulEventInput.checked = consecration.is_doubtful_event;
+            
+            // Set validity dropdown based on is_doubtfully_valid and is_invalid
+            if (validitySelect) {
+                if (consecration.is_invalid) {
+                    validitySelect.value = 'invalid';
+                } else if (consecration.is_doubtfully_valid) {
+                    validitySelect.value = 'doubtfully_valid';
+                } else {
+                    validitySelect.value = 'valid';
+                }
+            }
             
             // Populate notes
             const notesTextarea = consecrationEntry.querySelector('textarea[name*="[notes]"]');

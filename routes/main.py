@@ -532,7 +532,7 @@ def lineage_visualization():
                         'date': ordination.date.strftime('%Y-%m-%d') if ordination.date else '',
                         'color': BLACK_COLOR,
                         'is_invalid': ordination.is_invalid,
-                        'is_doubtful': ordination.is_doubtful
+                        'is_doubtful': ordination.is_doubtfully_valid
                     })
         
         # Create links for consecrations (green arrows)
@@ -546,7 +546,7 @@ def lineage_visualization():
                         'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
                         'color': GREEN_COLOR,
                         'is_invalid': consecration.is_invalid,
-                        'is_doubtful': consecration.is_doubtful
+                        'is_doubtful': consecration.is_doubtfully_valid
                     })
         
         # Create links for co-consecrations (dotted green arrows)
@@ -561,7 +561,7 @@ def lineage_visualization():
                         'color': GREEN_COLOR,
                         'dashed': True,
                         'is_invalid': consecration.is_invalid,
-                        'is_doubtful': consecration.is_doubtful
+                        'is_doubtful': consecration.is_doubtfully_valid
                     })
         
         current_app.logger.debug(f"Lineage visualization: {len(nodes)} nodes, {len(links)} links created")
@@ -790,7 +790,7 @@ def get_lineage_data():
                         'date': ordination.date.strftime('%Y-%m-%d') if ordination.date else '',
                         'color': BLACK_COLOR,
                         'is_invalid': ordination.is_invalid,
-                        'is_doubtful': ordination.is_doubtful
+                        'is_doubtful': ordination.is_doubtfully_valid
                     })
         
         # Create links for consecrations (green arrows)
@@ -804,7 +804,7 @@ def get_lineage_data():
                         'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
                         'color': GREEN_COLOR,
                         'is_invalid': consecration.is_invalid,
-                        'is_doubtful': consecration.is_doubtful
+                        'is_doubtful': consecration.is_doubtfully_valid
                     })
         
         # Create links for co-consecrations (dotted green arrows)
@@ -819,7 +819,7 @@ def get_lineage_data():
                         'color': GREEN_COLOR,
                         'dashed': True,
                         'is_invalid': consecration.is_invalid,
-                        'is_doubtful': consecration.is_doubtful
+                        'is_doubtful': consecration.is_doubtfully_valid
                     })
         
         return jsonify({

@@ -294,8 +294,13 @@ def create_ordinations_from_form(clergy, form):
             ordination.clergy_id = clergy.id
             ordination.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
             ordination.is_sub_conditione = data.get('is_sub_conditione') == 'on'
-            ordination.is_doubtful = data.get('is_doubtful') == 'on'
-            ordination.is_invalid = data.get('is_invalid') == 'on'
+            ordination.is_doubtful_event = data.get('is_doubtful_event') == 'on'
+            
+            # Handle validity dropdown
+            validity = data.get('validity', 'valid')
+            ordination.is_doubtfully_valid = (validity == 'doubtfully_valid')
+            ordination.is_invalid = (validity == 'invalid')
+            
             ordination.notes = data.get('notes', '')
             
             # Handle ordaining bishop
@@ -359,8 +364,13 @@ def create_consecrations_from_form(clergy, form):
             consecration.clergy_id = clergy.id
             consecration.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
             consecration.is_sub_conditione = data.get('is_sub_conditione') == 'on'
-            consecration.is_doubtful = data.get('is_doubtful') == 'on'
-            consecration.is_invalid = data.get('is_invalid') == 'on'
+            consecration.is_doubtful_event = data.get('is_doubtful_event') == 'on'
+            
+            # Handle validity dropdown
+            validity = data.get('validity', 'valid')
+            consecration.is_doubtfully_valid = (validity == 'doubtfully_valid')
+            consecration.is_invalid = (validity == 'invalid')
+            
             consecration.notes = data.get('notes', '')
             
             # Handle consecrator

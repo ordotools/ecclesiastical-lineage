@@ -173,21 +173,22 @@ window.ClergyForm.addOrdinationSection = function() {
                         </div>
                     </div>
                     <div class="row mt-3">
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="ordinations[${this.counters.ordinationCounter}][is_sub_conditione]" id="ordination_sub_conditione_${this.counters.ordinationCounter}">
-                                <label class="form-check-label" for="ordination_sub_conditione_${this.counters.ordinationCounter}">Sub Conditione</label>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <div style="display: flex; flex-direction: column; gap: 0.5em; margin-top: 0.5em;">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="ordinations[${this.counters.ordinationCounter}][is_sub_conditione]" id="ordination_sub_conditione_${this.counters.ordinationCounter}">
+                                    <label class="form-check-label" for="ordination_sub_conditione_${this.counters.ordinationCounter}" style="cursor: pointer;">Sub Conditione</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="ordinations[${this.counters.ordinationCounter}][is_doubtful_event]" id="ordination_doubtful_event_${this.counters.ordinationCounter}">
+                                    <label class="form-check-label" for="ordination_doubtful_event_${this.counters.ordinationCounter}" style="cursor: pointer;">Doubtful Event</label>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="ordinations[${this.counters.ordinationCounter}][is_doubtful_event]" id="ordination_doubtful_event_${this.counters.ordinationCounter}">
-                                <label class="form-check-label" for="ordination_doubtful_event_${this.counters.ordinationCounter}">Doubtful Event</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Validity</label>
-                            <select class="form-control" name="ordinations[${this.counters.ordinationCounter}][validity]">
+                            <select class="form-control" name="ordinations[${this.counters.ordinationCounter}][validity]" style="margin-top: 0.5em;">
                                 <option value="valid">Valid</option>
                                 <option value="doubtfully_valid">Doubtfully Valid</option>
                                 <option value="invalid">Invalid</option>
@@ -241,21 +242,22 @@ window.ClergyForm.addConsecrationSection = function() {
                         </div>
                     </div>
                     <div class="row mt-3">
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="consecrations[${this.counters.consecrationCounter}][is_sub_conditione]" id="consecration_sub_conditione_${this.counters.consecrationCounter}">
-                                <label class="form-check-label" for="consecration_sub_conditione_${this.counters.consecrationCounter}">Sub Conditione</label>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <div style="display: flex; flex-direction: column; gap: 0.5em; margin-top: 0.5em;">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="consecrations[${this.counters.consecrationCounter}][is_sub_conditione]" id="consecration_sub_conditione_${this.counters.consecrationCounter}">
+                                    <label class="form-check-label" for="consecration_sub_conditione_${this.counters.consecrationCounter}" style="cursor: pointer;">Sub Conditione</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="consecrations[${this.counters.consecrationCounter}][is_doubtful_event]" id="consecration_doubtful_event_${this.counters.consecrationCounter}">
+                                    <label class="form-check-label" for="consecration_doubtful_event_${this.counters.consecrationCounter}" style="cursor: pointer;">Doubtful Event</label>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="consecrations[${this.counters.consecrationCounter}][is_doubtful_event]" id="consecration_doubtful_event_${this.counters.consecrationCounter}">
-                                <label class="form-check-label" for="consecration_doubtful_event_${this.counters.consecrationCounter}">Doubtful Event</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Validity</label>
-                            <select class="form-control" name="consecrations[${this.counters.consecrationCounter}][validity]">
+                            <select class="form-control" name="consecrations[${this.counters.consecrationCounter}][validity]" style="margin-top: 0.5em;">
                                 <option value="valid">Valid</option>
                                 <option value="doubtfully_valid">Doubtfully Valid</option>
                                 <option value="invalid">Invalid</option>

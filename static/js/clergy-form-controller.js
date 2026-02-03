@@ -293,26 +293,30 @@ class ClergyFormController {
                     </div>
                     
                     <div class="form-field">
-                        <label class="form-label">Status</label>
-                        <div class="form-check-grid">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" 
-                                       name="ordinations[${index}][is_sub_conditione]" id="ordination_sub_${index}">
-                                <label class="form-check-label" for="ordination_sub_${index}">Sub Conditione</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em;">
+                            <div>
+                                <label class="form-label">Status</label>
+                                <div style="display: flex; flex-direction: column; gap: 0.5em; margin-top: 0.5em;">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" 
+                                               name="ordinations[${index}][is_sub_conditione]" id="ordination_sub_${index}">
+                                        <label class="form-check-label" for="ordination_sub_${index}" style="cursor: pointer;">Sub Conditione</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" 
+                                               name="ordinations[${index}][is_doubtful_event]" id="ordination_doubtful_event_${index}">
+                                        <label class="form-check-label" for="ordination_doubtful_event_${index}" style="cursor: pointer;">Doubtful Event</label>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" 
-                                       name="ordinations[${index}][is_doubtful_event]" id="ordination_doubtful_event_${index}">
-                                <label class="form-check-label" for="ordination_doubtful_event_${index}">Doubtful Event</label>
+                            <div>
+                                <label class="form-label">Validity</label>
+                                <select name="ordinations[${index}][validity]" class="form-control" style="margin-top: 0.5em;">
+                                    <option value="valid">Valid</option>
+                                    <option value="doubtfully_valid">Doubtfully Valid</option>
+                                    <option value="invalid">Invalid</option>
+                                </select>
                             </div>
-                        </div>
-                        <div style="margin-top: 0.5em;">
-                            <label class="form-label">Validity</label>
-                            <select name="ordinations[${index}][validity]" class="form-control">
-                                <option value="valid">Valid</option>
-                                <option value="doubtfully_valid">Doubtfully Valid</option>
-                                <option value="invalid">Invalid</option>
-                            </select>
                         </div>
                     </div>
                     
@@ -356,26 +360,30 @@ class ClergyFormController {
                     </div>
                     
                     <div class="form-field">
-                        <label class="form-label">Status</label>
-                        <div class="form-check-grid">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" 
-                                       name="consecrations[${index}][is_sub_conditione]" id="consecration_sub_${index}">
-                                <label class="form-check-label" for="consecration_sub_${index}">Sub Conditione</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em;">
+                            <div>
+                                <label class="form-label">Status</label>
+                                <div style="display: flex; flex-direction: column; gap: 0.5em; margin-top: 0.5em;">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" 
+                                               name="consecrations[${index}][is_sub_conditione]" id="consecration_sub_${index}">
+                                        <label class="form-check-label" for="consecration_sub_${index}" style="cursor: pointer;">Sub Conditione</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" 
+                                               name="consecrations[${index}][is_doubtful_event]" id="consecration_doubtful_event_${index}">
+                                        <label class="form-check-label" for="consecration_doubtful_event_${index}" style="cursor: pointer;">Doubtful Event</label>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" 
-                                       name="consecrations[${index}][is_doubtful_event]" id="consecration_doubtful_event_${index}">
-                                <label class="form-check-label" for="consecration_doubtful_event_${index}">Doubtful Event</label>
+                            <div>
+                                <label class="form-label">Validity</label>
+                                <select name="consecrations[${index}][validity]" class="form-control" style="margin-top: 0.5em;">
+                                    <option value="valid">Valid</option>
+                                    <option value="doubtfully_valid">Doubtfully Valid</option>
+                                    <option value="invalid">Invalid</option>
+                                </select>
                             </div>
-                        </div>
-                        <div style="margin-top: 0.5em;">
-                            <label class="form-label">Validity</label>
-                            <select name="consecrations[${index}][validity]" class="form-control">
-                                <option value="valid">Valid</option>
-                                <option value="doubtfully_valid">Doubtfully Valid</option>
-                                <option value="invalid">Invalid</option>
-                            </select>
                         </div>
                     </div>
                     

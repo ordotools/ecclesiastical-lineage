@@ -27,19 +27,19 @@ if [ ! -z "$RENDER_PRODUCTION_PG_URL" ]; then
   echo ""
   
   # Check for required tools
-  command -v pg_dump >/dev/null 2>&1 || { echo "❌ pg_dump is required but not installed. Install with: brew install postgresql@16"; exit 1; }
-  command -v psql >/dev/null 2>&1 || { echo "❌ psql is required but not installed. Install with: brew install postgresql@16"; exit 1; }
+  command -v pg_dump >/dev/null 2>&1 || { echo "❌ pg_dump is required but not installed. Install with: brew install postgresql@17"; exit 1; }
+  command -v psql >/dev/null 2>&1 || { echo "❌ psql is required but not installed. Install with: brew install postgresql@17"; exit 1; }
   
   # Check if PostgreSQL is running locally
   echo "🔍 Checking PostgreSQL status..."
   if ! pg_isready -q -h localhost; then
     echo "⚠️  PostgreSQL is not running locally. Starting it..."
-    brew services start postgresql@16
+    brew services start postgresql@17
     sleep 3
     
     if ! pg_isready -q -h localhost; then
       echo "❌ Failed to start PostgreSQL. Please start it manually:"
-      echo "   brew services start postgresql@16"
+      echo "   brew services start postgresql@17"
       exit 1
     fi
   fi

@@ -308,41 +308,48 @@ export async function initializeVisualization() {
     })
     .attr('stroke-width', arrowConfig.stroke ? 2 : 0);
 
-  // Load sprite sheet and create patterns (before creating nodes)
+  // Load sprite sheet and create patterns (before creating nodes) - using cache
   let spriteSheetData = null;
   try {
-    const spriteResponse = await fetch('/api/sprite-sheet');
-    if (spriteResponse.ok) {
-      const contentType = spriteResponse.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await spriteResponse.text();
-        console.warn('Sprite sheet endpoint returned non-JSON response:', contentType, text.substring(0, 200));
-        throw new Error('Invalid response type');
+    // Use cached sprite sheet data if available
+    if (typeof window.getSpriteSheetData === 'function') {
+      spriteSheetData = await window.getSpriteSheetData();
+    } else {
+      // Fallback to direct fetch if cache utility not available
+      const spriteResponse = await fetch('/api/sprite-sheet');
+      if (spriteResponse.ok) {
+        const contentType = spriteResponse.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await spriteResponse.text();
+          console.warn('Sprite sheet endpoint returned non-JSON response:', contentType, text.substring(0, 200));
+          throw new Error('Invalid response type');
+        }
+        spriteSheetData = await spriteResponse.json();
       }
-      spriteSheetData = await spriteResponse.json();
-      if (spriteSheetData && spriteSheetData.success) {
-        const thumbnailSize = spriteSheetData.thumbnail_size || 48;
-        const spriteUrl = spriteSheetData.url;
-        const mapping = spriteSheetData.mapping || {};
+    }
+    
+    if (spriteSheetData && spriteSheetData.success) {
+      const thumbnailSize = spriteSheetData.thumbnail_size || 48;
+      const spriteUrl = spriteSheetData.url;
+      const mapping = spriteSheetData.mapping || {};
+      
+      // Create clipPaths for each clergy member that has a position in the sprite sheet
+      // We'll use direct image elements with clipPaths instead of patterns to prevent tiling
+      nodes.forEach((d) => {
+        // Try both string and number keys since JSON might convert keys
+        const position = mapping[d.id] || mapping[String(d.id)] || mapping[Number(d.id)];
         
-        // Create clipPaths for each clergy member that has a position in the sprite sheet
-        // We'll use direct image elements with clipPaths instead of patterns to prevent tiling
-        nodes.forEach((d) => {
-          // Try both string and number keys since JSON might convert keys
-          const position = mapping[d.id] || mapping[String(d.id)] || mapping[Number(d.id)];
-          
-          if (position && Array.isArray(position) && position.length === 2) {
-            // Create a circular clipPath for the node image (works for both real images and placeholders)
-            const clipId = `clip-avatar-${d.id}`;
-            const clipPath = defs.append('clipPath')
-              .attr('id', clipId);
-            clipPath.append('circle')
-              .attr('r', IMAGE_SIZE/2)
-              .attr('cx', 0)
-              .attr('cy', 0);
-          }
-        });
-      }
+        if (position && Array.isArray(position) && position.length === 2) {
+          // Create a circular clipPath for the node image (works for both real images and placeholders)
+          const clipId = `clip-avatar-${d.id}`;
+          const clipPath = defs.append('clipPath')
+            .attr('id', clipId);
+          clipPath.append('circle')
+            .attr('r', IMAGE_SIZE/2)
+            .attr('cx', 0)
+            .attr('cy', 0);
+        }
+      });
     }
   } catch (error) {
     console.warn('Failed to load sprite sheet, falling back to individual images:', error);

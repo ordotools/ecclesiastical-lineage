@@ -775,9 +775,10 @@ class ImageUploadService:
                     'error': 'Backblaze B2 not configured'
                 }
             
-            # Collect thumbnail URLs and clergy IDs (include ALL clergy, using placeholder for those without images)
-            image_data_list = []  # List of (clergy_id, thumbnail_url_or_none, use_placeholder)
-            placeholder_position = None  # Will store the position of the placeholder in sprite
+            # Collect thumbnail URLs and clergy IDs
+            # Separate clergy with images from those without (to optimize sprite size)
+            clergy_with_images = []  # List of (clergy_id, thumbnail_url) for actual images
+            clergy_without_images = []  # List of clergy_id for placeholders
             
             for clergy in clergy_list:
                 # Get lineage thumbnail URL (48x48 or 64x64)
@@ -799,50 +800,30 @@ class ImageUploadService:
                     if thumbnail_url == '':
                         thumbnail_url = None
                 
-                # Store clergy data (will use placeholder if no valid thumbnail_url)
-                use_placeholder = thumbnail_url is None or thumbnail_url == ''
-                image_data_list.append((clergy.id, thumbnail_url, use_placeholder))
+                # Categorize clergy
+                if thumbnail_url is None or thumbnail_url == '':
+                    clergy_without_images.append(clergy.id)
+                else:
+                    clergy_with_images.append((clergy.id, thumbnail_url))
             
-            if not image_data_list:
+            if not clergy_list:
                 return {
                     'success': False,
                     'error': 'No clergy found to create sprite sheet'
                 }
             
-            num_images = len(image_data_list)
-            rows = (num_images + images_per_row - 1) // images_per_row
-            
-            sprite_width = images_per_row * thumbnail_size
-            sprite_height = rows * thumbnail_size
-            
-            # Create sprite sheet
-            sprite = Image.new('RGB', (sprite_width, sprite_height), (255, 255, 255))
-            
             # Create placeholder silhouette once at fixed position (0, 0)
             placeholder_img = self._create_placeholder_silhouette(thumbnail_size)
             placeholder_position = (0, 0)  # Fixed position for all placeholders
-            sprite.paste(placeholder_img, placeholder_position)
             
-            # Track which clergy need placeholders vs actual images
-            clergy_with_images = []  # List of (clergy_id, thumbnail_url, x, y) for actual images
-            clergy_without_images = []  # List of clergy_id for placeholders
-            
-            # First pass: identify which clergy have images and calculate positions
-            for idx, (clergy_id, thumbnail_url, use_placeholder) in enumerate(image_data_list):
-                # Calculate position
-                x = (idx % images_per_row) * thumbnail_size
-                y = (idx // images_per_row) * thumbnail_size
-                
-                if use_placeholder:
-                    clergy_without_images.append(clergy_id)
-                else:
-                    clergy_with_images.append((clergy_id, thumbnail_url, x, y))
-            
-            # Download and paste each actual thumbnail
+            # Download and process all images first, collecting only successfully processed ones
+            # This ensures we only allocate sprite space for images that actually exist
             position_mapping = {}  # Maps clergy_id to (x, y) position
             placeholder_count = len(clergy_without_images)
+            successfully_processed_images = []  # List of (clergy_id, img) tuples
             
-            for clergy_id, thumbnail_url, x, y in clergy_with_images:
+            # Process actual images - download and prepare them
+            for clergy_id, thumbnail_url in clergy_with_images:
                 try:
                     # Download thumbnail
                     response = requests.get(thumbnail_url, timeout=10)
@@ -859,11 +840,8 @@ class ImageUploadService:
                     if img.mode != 'RGB':
                         img = img.convert('RGB')
                     
-                    # Paste into sprite
-                    sprite.paste(img, (x, y))
-                    
-                    # Store position mapping for clergy with actual images
-                    position_mapping[clergy_id] = (x, y)
+                    # Store successfully processed image
+                    successfully_processed_images.append((clergy_id, img))
                     
                 except Exception as e:
                     current_app.logger.warning(f"Failed to process thumbnail for clergy {clergy_id} ({thumbnail_url}): {e}")
@@ -871,9 +849,39 @@ class ImageUploadService:
                     clergy_without_images.append(clergy_id)
                     placeholder_count += 1
             
+            # Now calculate sprite dimensions based on successfully processed images + 1 placeholder
+            num_images_in_sprite = len(successfully_processed_images) + 1  # +1 for placeholder
+            rows = (num_images_in_sprite + images_per_row - 1) // images_per_row
+            
+            sprite_width = images_per_row * thumbnail_size
+            sprite_height = rows * thumbnail_size
+            
+            # Create sprite sheet with correct dimensions
+            sprite = Image.new('RGB', (sprite_width, sprite_height), (255, 255, 255))
+            
+            # Paste placeholder at position (0, 0)
+            sprite.paste(placeholder_img, placeholder_position)
+            
+            # Paste successfully processed images sequentially (starting after placeholder at index 1)
+            for idx, (clergy_id, img) in enumerate(successfully_processed_images):
+                # Calculate position (index + 1 because placeholder is at index 0)
+                sprite_idx = idx + 1
+                x = (sprite_idx % images_per_row) * thumbnail_size
+                y = (sprite_idx // images_per_row) * thumbnail_size
+                
+                # Paste into sprite
+                sprite.paste(img, (x, y))
+                
+                # Store position mapping for clergy with actual images
+                position_mapping[clergy_id] = (x, y)
+            
             # All clergy without images use the same placeholder position
             for clergy_id in clergy_without_images:
                 position_mapping[clergy_id] = placeholder_position
+            
+            # Update num_images to reflect total clergy (for database tracking)
+            # This represents all clergy entries, not just images in sprite
+            num_images = len(clergy_list)
             
             # Optimize sprite sheet for file size
             # Optional: blur slightly to help compression
@@ -908,7 +916,9 @@ class ImageUploadService:
             # Get public URL
             sprite_url = self.config.get_public_url(object_key)
             
-            current_app.logger.info(f"Created sprite sheet: {sprite_url} ({len(sprite_data)} bytes, {num_images} images, {placeholder_count} placeholders)")
+            # Log optimized sprite info
+            num_actual_in_sprite = len(clergy_with_images) - (placeholder_count - len(clergy_without_images))  # Account for errors
+            current_app.logger.info(f"Created optimized sprite sheet: {sprite_url} ({len(sprite_data)} bytes, {num_images_in_sprite} tiles in sprite [{num_actual_in_sprite} images + 1 placeholder], {num_images} total clergy, {placeholder_count} using placeholder)")
             
             # Save sprite sheet to database
             from models import SpriteSheet, ClergySpritePosition, db
@@ -917,6 +927,7 @@ class ImageUploadService:
             SpriteSheet.query.update({SpriteSheet.is_current: False})
             
             # Create new sprite sheet record
+            # num_images stores total clergy count (for reference), sprite dimensions reflect actual packed size
             sprite_sheet = SpriteSheet(
                 url=sprite_url,
                 object_key=object_key,
@@ -924,7 +935,7 @@ class ImageUploadService:
                 images_per_row=images_per_row,
                 sprite_width=sprite_width,
                 sprite_height=sprite_height,
-                num_images=num_images,
+                num_images=num_images,  # Total clergy entries (for tracking)
                 is_current=True
             )
             db.session.add(sprite_sheet)

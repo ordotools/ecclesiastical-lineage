@@ -284,19 +284,27 @@ class EditorVisualization {
             })
             .attr('stroke-width', arrowConfig.stroke ? 2 : 0);
 
-        // Load sprite sheet and create patterns
+        // Load sprite sheet and create patterns (using cache)
         let spriteSheetData = null;
         try {
-            const spriteResponse = await fetch('/api/sprite-sheet');
-            if (spriteResponse.ok) {
-                const contentType = spriteResponse.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const text = await spriteResponse.text();
-                    console.warn('Sprite sheet endpoint returned non-JSON response:', contentType, text.substring(0, 200));
-                    throw new Error('Invalid response type');
+            // Use cached sprite sheet data if available
+            if (typeof window.getSpriteSheetData === 'function') {
+                spriteSheetData = await window.getSpriteSheetData();
+            } else {
+                // Fallback to direct fetch if cache utility not available
+                const spriteResponse = await fetch('/api/sprite-sheet');
+                if (spriteResponse.ok) {
+                    const contentType = spriteResponse.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        const text = await spriteResponse.text();
+                        console.warn('Sprite sheet endpoint returned non-JSON response:', contentType, text.substring(0, 200));
+                        throw new Error('Invalid response type');
+                    }
+                    spriteSheetData = await spriteResponse.json();
                 }
-                spriteSheetData = await spriteResponse.json();
-                // Store spriteSheetData in instance for later updates
+            }
+            // Store spriteSheetData in instance for later updates
+            if (spriteSheetData) {
                 this.spriteSheetData = spriteSheetData;
                 if (spriteSheetData && spriteSheetData.success) {
                     const thumbnailSize = spriteSheetData.thumbnail_size || 48;
@@ -851,6 +859,11 @@ class EditorVisualization {
         }
         
         console.log('Updating spritesheet:', spriteData.url);
+        
+        // Invalidate cache since we have new sprite data
+        if (typeof window.invalidateSpriteSheetCache === 'function') {
+            window.invalidateSpriteSheetCache();
+        }
         
         // Store updated spriteSheetData
         this.spriteSheetData = spriteData;

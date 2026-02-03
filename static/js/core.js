@@ -159,6 +159,54 @@ export async function initializeVisualization() {
   
   console.log(`Valid links after filtering: ${validLinks.length} out of ${links.length}`);
 
+  const PRE_1968_CONSECRATION_YEAR = 1968;
+  const parseYearFromDate = (dateValue) => {
+    if (!dateValue) return null;
+    const year = parseInt(String(dateValue).slice(0, 4), 10);
+    return Number.isFinite(year) ? year : null;
+  };
+  const shouldMarkPre1968Consecrator = (node, consecratorIds) => {
+    if (!node || !consecratorIds || !consecratorIds.has(node.id)) return false;
+    if (node.consecration_date) return false;
+    if (node.rank && !isBishopRank(node.rank)) return false;
+    return true;
+  };
+
+  const pre1968ConsecrationTargets = new Set();
+  const pre1968SponsorBishops = new Set();
+  validLinks.forEach(link => {
+    const year = parseYearFromDate(link.date);
+    if (year === null || year >= PRE_1968_CONSECRATION_YEAR) {
+      return;
+    }
+
+    if (link.type === 'consecration' || link.type === 'co-consecration') {
+      const targetId = typeof link.target === 'object' && link.target ? link.target.id : link.target;
+      if (targetId !== undefined && targetId !== null) {
+        pre1968ConsecrationTargets.add(targetId);
+      }
+      const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
+      if (sourceId !== undefined && sourceId !== null) {
+        pre1968SponsorBishops.add(sourceId);
+      }
+      return;
+    }
+
+    if (link.type === 'ordination') {
+      const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
+      if (sourceId !== undefined && sourceId !== null) {
+        pre1968SponsorBishops.add(sourceId);
+      }
+    }
+  });
+
+  nodes.forEach(node => {
+    const consecrationYear = parseYearFromDate(node.consecration_date);
+    node.is_pre_1968_consecration = consecrationYear !== null
+      ? consecrationYear < PRE_1968_CONSECRATION_YEAR
+      : pre1968ConsecrationTargets.has(node.id) || shouldMarkPre1968Consecrator(node, pre1968SponsorBishops);
+  });
+
   // Process parallel links (keep for force layout compatibility)
   function processParallelLinks(links) {
     const linkGroups = {};
@@ -340,14 +388,22 @@ export async function initializeVisualization() {
         const position = mapping[d.id] || mapping[String(d.id)] || mapping[Number(d.id)];
         
         if (position && Array.isArray(position) && position.length === 2) {
-          // Create a circular clipPath for the node image (works for both real images and placeholders)
+          // Create a clipPath for the node image (square for pre-1968 consecrations)
           const clipId = `clip-avatar-${d.id}`;
           const clipPath = defs.append('clipPath')
             .attr('id', clipId);
-          clipPath.append('circle')
-            .attr('r', IMAGE_SIZE/2)
-            .attr('cx', 0)
-            .attr('cy', 0);
+          if (d.is_pre_1968_consecration) {
+            clipPath.append('rect')
+              .attr('width', IMAGE_SIZE)
+              .attr('height', IMAGE_SIZE)
+              .attr('x', -IMAGE_SIZE / 2)
+              .attr('y', -IMAGE_SIZE / 2);
+          } else {
+            clipPath.append('circle')
+              .attr('r', IMAGE_SIZE / 2)
+              .attr('cx', 0)
+              .attr('cy', 0);
+          }
         }
       });
     }
@@ -501,37 +557,87 @@ export async function initializeVisualization() {
       .on('drag', dragged)
       .on('end', dragended));
 
-  // Add node circles
+  // Add node shapes (circle or square based on consecration year)
   node.append('circle')
+    .attr('class', 'viz-node-outer viz-node-outer-circle')
     .attr('r', cssNodeOuterRadius)
     .attr('fill', d => d.org_color)
     .attr('stroke', d => d.rank_color)
-    .attr('stroke-width', cssNodeStrokeWidth);
+    .attr('stroke-width', cssNodeStrokeWidth)
+    .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+
+  node.append('rect')
+    .attr('class', 'viz-node-outer viz-node-outer-rect')
+    .attr('width', cssNodeOuterRadius * 2)
+    .attr('height', cssNodeOuterRadius * 2)
+    .attr('x', -cssNodeOuterRadius)
+    .attr('y', -cssNodeOuterRadius)
+    .attr('fill', d => d.org_color)
+    .attr('stroke', d => d.rank_color)
+    .attr('stroke-width', cssNodeStrokeWidth)
+    .style('display', d => d.is_pre_1968_consecration ? null : 'none');
 
   // Add rank indicator
   node.append('circle')
+    .attr('class', 'viz-node-inner viz-node-inner-circle')
     .attr('r', INNER_RADIUS)
     .attr('fill', d => d.rank_color)
     .attr('cx', 0)
-    .attr('cy', 0);
+    .attr('cy', 0)
+    .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
 
-  // Add white background circle for images (will be updated after sprite sheet loads)
-  const bgCircle = node.append('circle')
-    .attr('r', IMAGE_SIZE/2)
+  node.append('rect')
+    .attr('class', 'viz-node-inner viz-node-inner-rect')
+    .attr('width', INNER_RADIUS * 2)
+    .attr('height', INNER_RADIUS * 2)
+    .attr('x', -INNER_RADIUS)
+    .attr('y', -INNER_RADIUS)
+    .attr('fill', d => d.rank_color)
+    .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+
+  // Add white background shape for images (will be updated after sprite sheet loads)
+  node.append('circle')
+    .attr('class', 'viz-node-image-bg viz-node-image-bg-circle')
+    .attr('r', IMAGE_SIZE / 2)
     .attr('fill', 'rgba(255, 255, 255, 1)')
     .attr('cx', 0)
     .attr('cy', 0)
-    .style('opacity', d => d.image_url ? 1 : 0);
+    .style('opacity', d => d.image_url ? 1 : 0)
+    .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
 
-  // Add border circle for images (will be updated after sprite sheet loads)
-  const borderCircle = node.append('circle')
-    .attr('r', IMAGE_SIZE/2)
+  node.append('rect')
+    .attr('class', 'viz-node-image-bg viz-node-image-bg-rect')
+    .attr('width', IMAGE_SIZE)
+    .attr('height', IMAGE_SIZE)
+    .attr('x', -IMAGE_SIZE / 2)
+    .attr('y', -IMAGE_SIZE / 2)
+    .attr('fill', 'rgba(255, 255, 255, 1)')
+    .style('opacity', d => d.image_url ? 1 : 0)
+    .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+
+  // Add border shape for images (will be updated after sprite sheet loads)
+  node.append('circle')
+    .attr('class', 'viz-node-image-border viz-node-image-border-circle')
+    .attr('r', IMAGE_SIZE / 2)
     .attr('fill', 'none')
     .attr('stroke', 'rgba(0, 0, 0, 1)')
     .attr('stroke-width', '0.5px') // Reduced from 1px to 0.5px for smaller nodes
     .attr('cx', 0)
     .attr('cy', 0)
-    .style('opacity', d => d.image_url ? 1 : 0);
+    .style('opacity', d => d.image_url ? 1 : 0)
+    .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+
+  node.append('rect')
+    .attr('class', 'viz-node-image-border viz-node-image-border-rect')
+    .attr('width', IMAGE_SIZE)
+    .attr('height', IMAGE_SIZE)
+    .attr('x', -IMAGE_SIZE / 2)
+    .attr('y', -IMAGE_SIZE / 2)
+    .attr('fill', 'none')
+    .attr('stroke', 'rgba(0, 0, 0, 1)')
+    .attr('stroke-width', '0.5px')
+    .style('opacity', d => d.image_url ? 1 : 0)
+    .style('display', d => d.is_pre_1968_consecration ? null : 'none');
 
   // Add clergy images with sprite sheet or fallback to individual images
   if (spriteSheetData && spriteSheetData.success) {
@@ -587,8 +693,12 @@ export async function initializeVisualization() {
           const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
           if (position && Array.isArray(position) && position.length === 2) {
             // Update background and border circles to show for nodes with sprite positions (including placeholders)
-            bgCircle.filter(node => node.id === d.id).style('opacity', 1);
-            borderCircle.filter(node => node.id === d.id).style('opacity', 1);
+            node.filter(node => node.id === d.id)
+              .selectAll('.viz-node-image-bg')
+              .style('opacity', 1);
+            node.filter(node => node.id === d.id)
+              .selectAll('.viz-node-image-border')
+              .style('opacity', 1);
             return 1;
           }
         }
@@ -602,7 +712,9 @@ export async function initializeVisualization() {
       .attr('y', -IMAGE_SIZE/2)
       .attr('width', IMAGE_SIZE)
       .attr('height', IMAGE_SIZE)
-      .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`)
+      .attr('clip-path', d => d.is_pre_1968_consecration
+        ? 'none'
+        : `circle(${IMAGE_SIZE / 2}px at ${IMAGE_SIZE / 2}px ${IMAGE_SIZE / 2}px)`)
       .style('pointer-events', 'none') // Make images unclickable so they don't interfere with node interactions
       .style('opacity', d => d.image_url ? 1 : 0)
       .on('error', function() {

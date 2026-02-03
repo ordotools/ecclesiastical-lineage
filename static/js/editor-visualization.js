@@ -73,9 +73,63 @@ class EditorVisualization {
                lowerRank.includes('patriarch');
     }
 
+    parseYearFromDate(dateValue) {
+        if (!dateValue) return null;
+        const year = parseInt(String(dateValue).slice(0, 4), 10);
+        return Number.isFinite(year) ? year : null;
+    }
+
+    shouldMarkPre1968Consecrator(node, consecratorIds) {
+        if (!node || !consecratorIds || !consecratorIds.has(node.id)) return false;
+        if (node.consecration_date) return false;
+        if (node.rank && !this.isBishopRank(node.rank)) return false;
+        return true;
+    }
+
+    updatePre1968Flags() {
+        const PRE_1968_CONSECRATION_YEAR = 1968;
+        const pre1968ConsecrationTargets = new Set();
+        const pre1968SponsorBishops = new Set();
+        if (Array.isArray(this.linksData)) {
+            this.linksData.forEach(link => {
+                const year = this.parseYearFromDate(link.date);
+                if (year === null || year >= PRE_1968_CONSECRATION_YEAR) return;
+                if (link && (link.type === 'consecration' || link.type === 'co-consecration')) {
+                    const targetId = typeof link.target === 'object' && link.target ? link.target.id : link.target;
+                    if (targetId !== undefined && targetId !== null) {
+                        pre1968ConsecrationTargets.add(targetId);
+                    }
+                    const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
+                    if (sourceId !== undefined && sourceId !== null) {
+                        pre1968SponsorBishops.add(sourceId);
+                    }
+                    return;
+                }
+
+                if (link && link.type === 'ordination') {
+                    const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
+                    if (sourceId !== undefined && sourceId !== null) {
+                        pre1968SponsorBishops.add(sourceId);
+                    }
+                }
+            });
+        }
+
+        if (Array.isArray(this.nodesData)) {
+            this.nodesData.forEach(node => {
+                const consecrationYear = this.parseYearFromDate(node.consecration_date);
+                node.is_pre_1968_consecration = consecrationYear !== null
+                    ? consecrationYear < PRE_1968_CONSECRATION_YEAR
+                    : pre1968ConsecrationTargets.has(node.id) ||
+                      this.shouldMarkPre1968Consecrator(node, pre1968SponsorBishops);
+            });
+        }
+    }
+
     init(nodesData, linksData) {
         this.nodesData = nodesData;
         this.linksData = linksData;
+        this.updatePre1968Flags();
         
         console.log('Editor visualization - Nodes:', nodesData.length, 'Links:', linksData.length);
         
@@ -318,14 +372,22 @@ class EditorVisualization {
                         const position = mapping[d.id] || mapping[String(d.id)] || mapping[Number(d.id)];
                         
                         if (position && Array.isArray(position) && position.length === 2) {
-                            // Create a circular clipPath for the node image (works for both real images and placeholders)
+                            // Create a clipPath for the node image (square for pre-1968 consecrations)
                             const clipId = `clip-avatar-${d.id}`;
                             const clipPath = defs.append('clipPath')
                                 .attr('id', clipId);
-                            clipPath.append('circle')
-                                .attr('r', IMAGE_SIZE/2)
-                                .attr('cx', 0)
-                                .attr('cy', 0);
+                            if (d.is_pre_1968_consecration) {
+                                clipPath.append('rect')
+                                    .attr('width', IMAGE_SIZE)
+                                    .attr('height', IMAGE_SIZE)
+                                    .attr('x', -IMAGE_SIZE / 2)
+                                    .attr('y', -IMAGE_SIZE / 2);
+                            } else {
+                                clipPath.append('circle')
+                                    .attr('r', IMAGE_SIZE / 2)
+                                    .attr('cx', 0)
+                                    .attr('cy', 0);
+                            }
                         }
                     });
                 }
@@ -461,37 +523,87 @@ class EditorVisualization {
                 this.handleNodeClick(event, d);
             });
 
-        // Add outer circle (organization ring) - matching lineage visualization
+        // Add node shapes (circle or square based on consecration year)
         this.node.append('circle')
+            .attr('class', 'viz-node-outer viz-node-outer-circle')
             .attr('r', OUTER_RADIUS)
             .attr('fill', d => d.org_color)
             .attr('stroke', d => d.rank_color)
-            .attr('stroke-width', 3);
+            .attr('stroke-width', 3)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
 
-        // Add inner circle (rank ring) - matching lineage visualization
+        this.node.append('rect')
+            .attr('class', 'viz-node-outer viz-node-outer-rect')
+            .attr('width', OUTER_RADIUS * 2)
+            .attr('height', OUTER_RADIUS * 2)
+            .attr('x', -OUTER_RADIUS)
+            .attr('y', -OUTER_RADIUS)
+            .attr('fill', d => d.org_color)
+            .attr('stroke', d => d.rank_color)
+            .attr('stroke-width', 3)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+
+        // Add rank indicator
         this.node.append('circle')
+            .attr('class', 'viz-node-inner viz-node-inner-circle')
             .attr('r', INNER_RADIUS)
             .attr('fill', d => d.rank_color)
             .attr('cx', 0)
-            .attr('cy', 0);
+            .attr('cy', 0)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
 
-        // Add white background circle for images (will be updated after sprite sheet loads)
-        const bgCircle = this.node.append('circle')
-            .attr('r', IMAGE_SIZE/2)
+        this.node.append('rect')
+            .attr('class', 'viz-node-inner viz-node-inner-rect')
+            .attr('width', INNER_RADIUS * 2)
+            .attr('height', INNER_RADIUS * 2)
+            .attr('x', -INNER_RADIUS)
+            .attr('y', -INNER_RADIUS)
+            .attr('fill', d => d.rank_color)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+
+        // Add white background shape for images (will be updated after sprite sheet loads)
+        this.node.append('circle')
+            .attr('class', 'viz-node-image-bg viz-node-image-bg-circle')
+            .attr('r', IMAGE_SIZE / 2)
             .attr('fill', 'rgba(255, 255, 255, 1)')
             .attr('cx', 0)
             .attr('cy', 0)
-            .style('opacity', d => d.image_url ? 1 : 0);
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
 
-        // Add border circle for images (will be updated after sprite sheet loads)
-        const borderCircle = this.node.append('circle')
-            .attr('r', IMAGE_SIZE/2)
+        this.node.append('rect')
+            .attr('class', 'viz-node-image-bg viz-node-image-bg-rect')
+            .attr('width', IMAGE_SIZE)
+            .attr('height', IMAGE_SIZE)
+            .attr('x', -IMAGE_SIZE / 2)
+            .attr('y', -IMAGE_SIZE / 2)
+            .attr('fill', 'rgba(255, 255, 255, 1)')
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+
+        // Add border shape for images (will be updated after sprite sheet loads)
+        this.node.append('circle')
+            .attr('class', 'viz-node-image-border viz-node-image-border-circle')
+            .attr('r', IMAGE_SIZE / 2)
             .attr('fill', 'none')
             .attr('stroke', 'rgba(0, 0, 0, 1)')
             .attr('stroke-width', '1px')
             .attr('cx', 0)
             .attr('cy', 0)
-            .style('opacity', d => d.image_url ? 1 : 0);
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+
+        this.node.append('rect')
+            .attr('class', 'viz-node-image-border viz-node-image-border-rect')
+            .attr('width', IMAGE_SIZE)
+            .attr('height', IMAGE_SIZE)
+            .attr('x', -IMAGE_SIZE / 2)
+            .attr('y', -IMAGE_SIZE / 2)
+            .attr('fill', 'none')
+            .attr('stroke', 'rgba(0, 0, 0, 1)')
+            .attr('stroke-width', '1px')
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
 
         // Add clergy images with sprite sheet or fallback to individual images
         if (spriteSheetData && spriteSheetData.success) {
@@ -547,8 +659,12 @@ class EditorVisualization {
                         const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
                         if (position && Array.isArray(position) && position.length === 2) {
                             // Update background and border circles to show for nodes with sprite positions (including placeholders)
-                            bgCircle.filter(node => node.id === d.id).style('opacity', 1);
-                            borderCircle.filter(node => node.id === d.id).style('opacity', 1);
+                            this.node.filter(node => node.id === d.id)
+                                .selectAll('.viz-node-image-bg')
+                                .style('opacity', 1);
+                            this.node.filter(node => node.id === d.id)
+                                .selectAll('.viz-node-image-border')
+                                .style('opacity', 1);
                             return 1;
                         }
                     }
@@ -562,7 +678,9 @@ class EditorVisualization {
                 .attr('y', -IMAGE_SIZE/2)
                 .attr('width', IMAGE_SIZE)
                 .attr('height', IMAGE_SIZE)
-                .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`)
+                .attr('clip-path', d => d.is_pre_1968_consecration
+                    ? 'none'
+                    : `circle(${IMAGE_SIZE / 2}px at ${IMAGE_SIZE / 2}px ${IMAGE_SIZE / 2}px)`)
                 .attr('filter', 'url(#image-inset-shadow)')
                 .style('pointer-events', 'none') // Make images unclickable so they don't interfere with node interactions
                 .style('opacity', d => d.image_url ? 1 : 0)
@@ -772,25 +890,23 @@ class EditorVisualization {
     highlightNode(nodeId) {
         if (!this.node || !this.isInitialized) return;
         
-        const outerRadius = window.OUTER_RADIUS || OUTER_RADIUS || 30; // Fallback to 30 if not defined
-        
         // Clear all highlights first
-        this.node.selectAll('circle').each(function(d) {
-            const circle = d3.select(this);
-            // Reset outer circle (first circle is outer)
-            const r = parseFloat(circle.attr('r'));
-            if (Math.abs(r - outerRadius) < 1) { // Allow small floating point differences
-                circle.attr('stroke-width', 3).attr('stroke', d => d.rank_color);
+        this.node.each(function(d) {
+            const outerShape = d3.select(this).select(d.is_pre_1968_consecration
+                ? '.viz-node-outer-rect'
+                : '.viz-node-outer-circle');
+            if (!outerShape.empty()) {
+                outerShape.attr('stroke-width', 3).attr('stroke', d.rank_color);
             }
         });
         
         // Highlight the selected node
-        this.node.filter(d => d.id === nodeId).selectAll('circle').each(function(d) {
-            const circle = d3.select(this);
-            // Highlight outer circle
-            const r = parseFloat(circle.attr('r'));
-            if (Math.abs(r - outerRadius) < 1) { // Allow small floating point differences
-                circle.attr('stroke-width', 6).attr('stroke', '#ffd700');
+        this.node.filter(d => d.id === nodeId).each(function(d) {
+            const outerShape = d3.select(this).select(d.is_pre_1968_consecration
+                ? '.viz-node-outer-rect'
+                : '.viz-node-outer-circle');
+            if (!outerShape.empty()) {
+                outerShape.attr('stroke-width', 6).attr('stroke', '#ffd700');
             }
         });
     }
@@ -799,13 +915,12 @@ class EditorVisualization {
     clearHighlights() {
         if (!this.node || !this.isInitialized) return;
         
-        const outerRadius = window.OUTER_RADIUS || OUTER_RADIUS || 30; // Fallback to 30 if not defined
-        
-        this.node.selectAll('circle').each(function(d) {
-            const circle = d3.select(this);
-            const r = parseFloat(circle.attr('r'));
-            if (Math.abs(r - outerRadius) < 1) { // Allow small floating point differences
-                circle.attr('stroke-width', 3).attr('stroke', d => d.rank_color);
+        this.node.each(function(d) {
+            const outerShape = d3.select(this).select(d.is_pre_1968_consecration
+                ? '.viz-node-outer-rect'
+                : '.viz-node-outer-circle');
+            if (!outerShape.empty()) {
+                outerShape.attr('stroke-width', 3).attr('stroke', d.rank_color);
             }
         });
     }
@@ -991,6 +1106,8 @@ class EditorVisualization {
                 target: targetNode || link.target
             };
         });
+
+        this.updatePre1968Flags();
         
         // Update link force with the fresh links array - this ensures the force uses correct node references
         this.simulation
@@ -1100,34 +1217,84 @@ class EditorVisualization {
                 this.handleNodeClick(event, d);
             });
         
-        // Add circles and labels to new nodes
+        // Add shapes to new nodes (circle or square based on consecration year)
         newNodeGroups.append('circle')
+            .attr('class', 'viz-node-outer viz-node-outer-circle')
             .attr('r', OUTER_RADIUS)
             .attr('fill', d => d.org_color)
             .attr('stroke', d => d.rank_color)
-            .attr('stroke-width', 3);
+            .attr('stroke-width', 3)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+        
+        newNodeGroups.append('rect')
+            .attr('class', 'viz-node-outer viz-node-outer-rect')
+            .attr('width', OUTER_RADIUS * 2)
+            .attr('height', OUTER_RADIUS * 2)
+            .attr('x', -OUTER_RADIUS)
+            .attr('y', -OUTER_RADIUS)
+            .attr('fill', d => d.org_color)
+            .attr('stroke', d => d.rank_color)
+            .attr('stroke-width', 3)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
         
         newNodeGroups.append('circle')
+            .attr('class', 'viz-node-inner viz-node-inner-circle')
             .attr('r', INNER_RADIUS)
             .attr('fill', d => d.rank_color)
             .attr('cx', 0)
-            .attr('cy', 0);
+            .attr('cy', 0)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
         
-        const bgCircle = newNodeGroups.append('circle')
-            .attr('r', IMAGE_SIZE/2)
+        newNodeGroups.append('rect')
+            .attr('class', 'viz-node-inner viz-node-inner-rect')
+            .attr('width', INNER_RADIUS * 2)
+            .attr('height', INNER_RADIUS * 2)
+            .attr('x', -INNER_RADIUS)
+            .attr('y', -INNER_RADIUS)
+            .attr('fill', d => d.rank_color)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+        
+        newNodeGroups.append('circle')
+            .attr('class', 'viz-node-image-bg viz-node-image-bg-circle')
+            .attr('r', IMAGE_SIZE / 2)
             .attr('fill', 'rgba(255, 255, 255, 1)')
             .attr('cx', 0)
             .attr('cy', 0)
-            .style('opacity', d => d.image_url ? 1 : 0);
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
         
-        const borderCircle = newNodeGroups.append('circle')
-            .attr('r', IMAGE_SIZE/2)
+        newNodeGroups.append('rect')
+            .attr('class', 'viz-node-image-bg viz-node-image-bg-rect')
+            .attr('width', IMAGE_SIZE)
+            .attr('height', IMAGE_SIZE)
+            .attr('x', -IMAGE_SIZE / 2)
+            .attr('y', -IMAGE_SIZE / 2)
+            .attr('fill', 'rgba(255, 255, 255, 1)')
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+        
+        newNodeGroups.append('circle')
+            .attr('class', 'viz-node-image-border viz-node-image-border-circle')
+            .attr('r', IMAGE_SIZE / 2)
             .attr('fill', 'none')
             .attr('stroke', 'rgba(0, 0, 0, 1)')
             .attr('stroke-width', '1px')
             .attr('cx', 0)
             .attr('cy', 0)
-            .style('opacity', d => d.image_url ? 1 : 0);
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+        
+        newNodeGroups.append('rect')
+            .attr('class', 'viz-node-image-border viz-node-image-border-rect')
+            .attr('width', IMAGE_SIZE)
+            .attr('height', IMAGE_SIZE)
+            .attr('x', -IMAGE_SIZE / 2)
+            .attr('y', -IMAGE_SIZE / 2)
+            .attr('fill', 'none')
+            .attr('stroke', 'rgba(0, 0, 0, 1)')
+            .attr('stroke-width', '1px')
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
         
         // Add images (simplified - assumes sprite sheet is already loaded)
         if (this.spriteSheetData && this.spriteSheetData.success) {
@@ -1188,8 +1355,12 @@ class EditorVisualization {
                                        this.spriteSheetData.mapping[String(d.id)] || 
                                        this.spriteSheetData.mapping[Number(d.id)];
                         if (position && Array.isArray(position) && position.length === 2) {
-                            bgCircle.filter(node => node.id === d.id).style('opacity', 1);
-                            borderCircle.filter(node => node.id === d.id).style('opacity', 1);
+                            newNodeGroups.filter(node => node.id === d.id)
+                                .selectAll('.viz-node-image-bg')
+                                .style('opacity', 1);
+                            newNodeGroups.filter(node => node.id === d.id)
+                                .selectAll('.viz-node-image-border')
+                                .style('opacity', 1);
                             return 1;
                         }
                     }
@@ -1216,6 +1387,20 @@ class EditorVisualization {
         
         // Merge new nodes with existing
         this.node = this.node.merge(newNodeGroups);
+
+        // Ensure node shape visibility matches consecration flags
+        this.node.selectAll('.viz-node-outer-circle')
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+        this.node.selectAll('.viz-node-outer-rect')
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+        this.node.selectAll('.viz-node-inner-circle')
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+        this.node.selectAll('.viz-node-inner-rect')
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+        this.node.selectAll('.viz-node-image-bg-circle, .viz-node-image-border-circle')
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+        this.node.selectAll('.viz-node-image-bg-rect, .viz-node-image-border-rect')
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
         
         // CRITICAL: After D3 binds data, ensure datum objects reference simulation nodes
         // D3 might create new objects when binding, so we need to fix references after binding
@@ -1280,48 +1465,53 @@ class EditorVisualization {
             // Update outer radius
             if (nodeStyles.outer_radius !== undefined) {
                 window.OUTER_RADIUS = nodeStyles.outer_radius;
-                this.node.selectAll('circle')
-                    .filter(function(d, i) {
-                        // First circle is outer circle
-                        return i === 0;
-                    })
+                this.node.selectAll('.viz-node-outer-circle')
                     .attr('r', nodeStyles.outer_radius);
+                this.node.selectAll('.viz-node-outer-rect')
+                    .attr('width', nodeStyles.outer_radius * 2)
+                    .attr('height', nodeStyles.outer_radius * 2)
+                    .attr('x', -nodeStyles.outer_radius)
+                    .attr('y', -nodeStyles.outer_radius);
             }
             
             // Update inner radius
             if (nodeStyles.inner_radius !== undefined) {
                 window.INNER_RADIUS = nodeStyles.inner_radius;
-                this.node.selectAll('circle')
-                    .filter(function(d, i) {
-                        // Second circle is inner circle
-                        return i === 1;
-                    })
+                this.node.selectAll('.viz-node-inner-circle')
                     .attr('r', nodeStyles.inner_radius);
+                this.node.selectAll('.viz-node-inner-rect')
+                    .attr('width', nodeStyles.inner_radius * 2)
+                    .attr('height', nodeStyles.inner_radius * 2)
+                    .attr('x', -nodeStyles.inner_radius)
+                    .attr('y', -nodeStyles.inner_radius);
             }
             
             // Update image size
             if (nodeStyles.image_size !== undefined) {
                 window.IMAGE_SIZE = nodeStyles.image_size;
                 const imageRadius = nodeStyles.image_size / 2;
-                this.node.selectAll('circle')
-                    .filter(function(d, i) {
-                        // Third and fourth circles are image background and border
-                        return i === 2 || i === 3;
-                    })
+                this.node.selectAll('.viz-node-image-bg-circle, .viz-node-image-border-circle')
                     .attr('r', imageRadius);
+                this.node.selectAll('.viz-node-image-bg-rect, .viz-node-image-border-rect')
+                    .attr('width', nodeStyles.image_size)
+                    .attr('height', nodeStyles.image_size)
+                    .attr('x', -imageRadius)
+                    .attr('y', -imageRadius);
                 
                 // Update clip paths
                 const defs = this.svg.select('defs');
                 defs.selectAll('clipPath').selectAll('circle')
                     .attr('r', imageRadius);
+                defs.selectAll('clipPath').selectAll('rect')
+                    .attr('width', nodeStyles.image_size)
+                    .attr('height', nodeStyles.image_size)
+                    .attr('x', -imageRadius)
+                    .attr('y', -imageRadius);
             }
             
             // Update stroke width
             if (nodeStyles.stroke_width !== undefined) {
-                this.node.selectAll('circle')
-                    .filter(function(d, i) {
-                        return i === 0; // Outer circle
-                    })
+                this.node.selectAll('.viz-node-outer-circle, .viz-node-outer-rect')
                     .attr('stroke-width', nodeStyles.stroke_width);
             }
             

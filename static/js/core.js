@@ -292,6 +292,9 @@ export async function initializeVisualization() {
   // Arrow size in pixels, plus extra gap so arrow tip clears node edge
   const arrowLengthPx = cssArrowSize + cssArrowExtraGap;
   
+  // Read background color for icon halo
+  const cssSurfaceColor = rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a';
+  
   // Store node dimensions for link coordinate calculation
   const cssNodeOuterRadius = parseFloat(rootStyles.getPropertyValue('--viz-node-outer-radius')) || OUTER_RADIUS;
   const cssNodeStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-node-stroke-width')) || 1;
@@ -490,19 +493,12 @@ export async function initializeVisualization() {
     .enter().append('line')
     .attr('class', d => {
       let classes = 'viz-link';
-      if (d.dashed || d.is_doubtful) classes += ' dashed';
+      if (d.dashed || d.is_doubtfully_valid || d.is_doubtful) classes += ' dashed';
       return classes;
     })
     .attr('stroke', d => {
-      // Invalid links override normal color - orange for ordinations, red for consecrations
-      if (d.is_invalid) {
-        if (d.type === 'ordination') {
-          return cssLinkInvalidOrdinationColor;
-        } else {
-          return cssLinkInvalidConsecrationColor;
-        }
-      }
-      // Use CSS variables based on link type instead of d.color
+      // Always use normal link colors (green/grey) regardless of status
+      // Status is indicated by icon color, not link color
       if (d.type === 'ordination') {
         return cssLinkOrdinationColor;
       } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -514,7 +510,8 @@ export async function initializeVisualization() {
     .attr('stroke-width', cssLinkStrokeWidth)
     .attr('stroke-dasharray', d => {
       // Make doubtful links dotted (or if already dashed from co-consecration)
-      if (d.is_doubtful || d.dashed) {
+      // Use is_doubtfully_valid for new data, is_doubtful for backward compatibility
+      if (d.is_doubtfully_valid || d.is_doubtful || d.dashed) {
         return '5,5';
       }
       return 'none';
@@ -522,15 +519,8 @@ export async function initializeVisualization() {
     .style('opacity', d => d.filtered ? 0 : 1)
     .style('pointer-events', d => d.filtered ? 'none' : 'all')
     .attr('marker-end', d => {
-      // Invalid links use colored arrow markers - orange for ordinations, red for consecrations
-      if (d.is_invalid) {
-        if (d.type === 'ordination') {
-          return 'url(#arrowhead-orange)';
-        } else {
-          return 'url(#arrowhead-red)';
-        }
-      }
-      // Use CSS variables to determine arrow marker
+      // Always use normal arrow markers (black/green) regardless of status
+      // Status is indicated by icon color, not arrow color
       if (d.type === 'ordination') {
         return 'url(#arrowhead-black)';
       } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -542,6 +532,68 @@ export async function initializeVisualization() {
   
   // Keep reference to overlay links for filtering/highlighting
   const link = linkOverlay;
+
+  // Helper function to determine link status from flags
+  function getLinkStatus(d) {
+    // Priority order: invalid > doubtfully_valid > doubtful_event > sub_conditione > valid
+    // Handle backward compatibility with old is_doubtful field
+    if (d.is_invalid) return 'invalid';
+    if (d.is_doubtfully_valid || d.is_doubtful) return 'doubtfully_valid';
+    if (d.is_doubtful_event) return 'doubtful_event';
+    if (d.is_sub_conditione) return 'sub_conditione';
+    return 'valid';
+  }
+
+  // Helper function to get status icon symbol
+  function getStatusIcon(status) {
+    switch (status) {
+      case 'invalid': return '✕';
+      case 'doubtfully_valid': return '?';
+      case 'doubtful_event': return '~';
+      case 'sub_conditione': return 'SC';
+      default: return null; // No icon for valid
+    }
+  }
+
+  // Create status icon layer (rendered after links, before nodes)
+  const linkStatusIcons = container.append('g')
+    .attr('class', 'viz-link-status-icons')
+    .selectAll('g')
+    .data(validLinks.filter(d => getLinkStatus(d) !== 'valid'))
+    .enter().append('g')
+    .attr('class', d => `viz-link-status-icon-group status-${getLinkStatus(d)}`)
+    .style('pointer-events', 'none')
+    .style('opacity', d => d.filtered ? 0 : 1);
+
+  // Add background circle for halo effect
+  linkStatusIcons.append('circle')
+    .attr('r', 10)
+    .attr('fill', cssSurfaceColor) // Background color from CSS variable
+    .attr('opacity', 0.85);
+
+  // Helper function to get status icon color based on color theory
+  function getStatusIconColor(status) {
+    switch (status) {
+      case 'invalid': return '#e74c3c'; // Red - danger, invalid
+      case 'doubtfully_valid': return '#f39c12'; // Orange - caution, warning
+      case 'doubtful_event': return '#e67e22'; // Dark orange - uncertainty, questionable
+      case 'sub_conditione': return '#3498db'; // Blue - conditional, provisional
+      default: return '#ffffff'; // White fallback
+    }
+  }
+
+  // Add text icon
+  linkStatusIcons.append('text')
+    .attr('class', d => `viz-link-status-icon status-${getLinkStatus(d)}`)
+    .text(d => getStatusIcon(getLinkStatus(d)))
+    .attr('text-anchor', 'middle')
+    .attr('dominant-baseline', 'middle')
+    .attr('font-size', '16px')
+    .attr('font-weight', 'bold')
+    .attr('fill', d => getStatusIconColor(getLinkStatus(d)))
+    .attr('stroke', cssSurfaceColor)
+    .attr('stroke-width', '1px')
+    .attr('paint-order', 'stroke');
 
 
   // Create nodes after links (so they render on top)
@@ -817,6 +869,45 @@ export async function initializeVisualization() {
     linkOverlay
       .style('opacity', d => d.filtered ? 0 : 1)
       .style('pointer-events', d => d.filtered ? 'none' : 'all');
+
+    // Update status icons at link midpoints
+    linkStatusIcons.each(function(d) {
+      const dx = d.target.x - d.source.x;
+      const dy = d.target.y - d.source.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist === 0) {
+        // Nodes at same position, hide icon
+        d3.select(this)
+          .attr('transform', `translate(${d.source.x},${d.source.y})`)
+          .style('opacity', 0);
+        return;
+      }
+      
+      // Unit vector along link direction
+      const ux = dx / dist;
+      const uy = dy / dist;
+      
+      // Perpendicular vector for parallel offset (rotate 90 degrees)
+      const px = -uy;
+      const py = ux;
+      
+      const offset = d.parallelOffset || 0;
+      
+      // Calculate midpoint along the visible link (between edge-to-edge points)
+      const x1 = d.source.x + ux * nodeEdgeRadius + offset * px;
+      const y1 = d.source.y + uy * nodeEdgeRadius + offset * py;
+      const x2 = d.target.x - ux * (nodeEdgeRadius + cssLinkGap + arrowLengthPx) + offset * px;
+      const y2 = d.target.y - uy * (nodeEdgeRadius + cssLinkGap + arrowLengthPx) + offset * py;
+      
+      // Midpoint (centered on link, no offset)
+      const midX = (x1 + x2) / 2;
+      const midY = (y1 + y2) / 2;
+      
+      d3.select(this)
+        .attr('transform', `translate(${midX},${midY})`)
+        .style('opacity', d.filtered ? 0 : 1);
+    });
 
     // Update nodes
     node

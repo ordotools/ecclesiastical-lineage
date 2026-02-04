@@ -167,7 +167,8 @@ def visualization_panel():
                         'color': BLACK_COLOR,  # Black for ordinations
                         'date': ordination.date.isoformat() if ordination.date else None,
                         'is_sub_conditione': ordination.is_sub_conditione,
-                        'is_doubtful': ordination.is_doubtfully_valid,
+                        'is_doubtfully_valid': ordination.is_doubtfully_valid,
+                        'is_doubtful_event': ordination.is_doubtful_event,
                         'is_invalid': ordination.is_invalid
                     })
 
@@ -182,7 +183,8 @@ def visualization_panel():
                         'color': GREEN_COLOR,  # Green for consecrations
                         'date': consecration.date.isoformat() if consecration.date else None,
                         'is_sub_conditione': consecration.is_sub_conditione,
-                        'is_doubtful': consecration.is_doubtfully_valid,
+                        'is_doubtfully_valid': consecration.is_doubtfully_valid,
+                        'is_doubtful_event': consecration.is_doubtful_event,
                         'is_invalid': consecration.is_invalid
                     })
 
@@ -268,7 +270,8 @@ def get_visualization_data():
                         'color': BLACK_COLOR,  # Black for ordinations
                         'date': ordination.date.isoformat() if ordination.date else None,
                         'is_sub_conditione': ordination.is_sub_conditione,
-                        'is_doubtful': ordination.is_doubtfully_valid,
+                        'is_doubtfully_valid': ordination.is_doubtfully_valid,
+                        'is_doubtful_event': ordination.is_doubtful_event,
                         'is_invalid': ordination.is_invalid
                     })
 
@@ -283,7 +286,8 @@ def get_visualization_data():
                         'color': GREEN_COLOR,  # Green for consecrations
                         'date': consecration.date.isoformat() if consecration.date else None,
                         'is_sub_conditione': consecration.is_sub_conditione,
-                        'is_doubtful': consecration.is_doubtfully_valid,
+                        'is_doubtfully_valid': consecration.is_doubtfully_valid,
+                        'is_doubtful_event': consecration.is_doubtful_event,
                         'is_invalid': consecration.is_invalid
                     })
 

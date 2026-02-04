@@ -256,12 +256,14 @@ class EditorVisualization {
         const cssArrowConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-consecration-color').trim() || cssLinkConsecrationColor;
         const cssArrowInvalidOrdinationColor = rootStyles.getPropertyValue('--viz-arrow-invalid-ordination-color').trim() || cssLinkInvalidOrdinationColor;
         const cssArrowInvalidConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-invalid-consecration-color').trim() || cssLinkInvalidConsecrationColor;
+        const cssSurfaceColor = rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a';
         
         // Store colors for use in link rendering
         this.cssLinkOrdinationColor = cssLinkOrdinationColor;
         this.cssLinkConsecrationColor = cssLinkConsecrationColor;
         this.cssLinkInvalidOrdinationColor = cssLinkInvalidOrdinationColor;
         this.cssLinkInvalidConsecrationColor = cssLinkInvalidConsecrationColor;
+        this.cssSurfaceColor = cssSurfaceColor;
         
         // Read arrow size and style
         const cssArrowSize = parseFloat(rootStyles.getPropertyValue('--viz-arrow-size')) || 8;
@@ -446,6 +448,39 @@ class EditorVisualization {
             .attr('stroke-width', 1)
             .style('pointer-events', 'none');
 
+        // Helper function to determine link status from flags
+        this.getLinkStatus = function(d) {
+            // Priority order: invalid > doubtfully_valid > doubtful_event > sub_conditione > valid
+            // Handle backward compatibility with old is_doubtful field
+            if (d.is_invalid) return 'invalid';
+            if (d.is_doubtfully_valid || d.is_doubtful) return 'doubtfully_valid';
+            if (d.is_doubtful_event) return 'doubtful_event';
+            if (d.is_sub_conditione) return 'sub_conditione';
+            return 'valid';
+        };
+
+        // Helper function to get status icon symbol
+        this.getStatusIcon = function(status) {
+            switch (status) {
+                case 'invalid': return '✕';
+                case 'doubtfully_valid': return '?';
+                case 'doubtful_event': return '~';
+                case 'sub_conditione': return 'SC';
+                default: return null; // No icon for valid
+            }
+        };
+
+        // Helper function to get status icon color based on color theory
+        this.getStatusIconColor = function(status) {
+            switch (status) {
+                case 'invalid': return '#e74c3c'; // Red - danger, invalid
+                case 'doubtfully_valid': return '#f39c12'; // Orange - caution, warning
+                case 'doubtful_event': return '#e67e22'; // Dark orange - uncertainty, questionable
+                case 'sub_conditione': return '#3498db'; // Blue - conditional, provisional
+                default: return '#ffffff'; // White fallback
+            }
+        };
+
         // Overlay links (visible, edge-to-edge with arrowheads)
         this.linkOverlay = this.g.append('g')
             .attr('class', 'viz-links-overlay')
@@ -454,19 +489,12 @@ class EditorVisualization {
             .enter().append('line')
             .attr('class', d => {
                 let classes = 'viz-link';
-                if (d.dashed || d.is_doubtful) classes += ' dashed';
+                if (d.dashed || d.is_doubtfully_valid || d.is_doubtful) classes += ' dashed';
                 return classes;
             })
             .attr('stroke', d => {
-                // Invalid links override normal color - orange for ordinations, red for consecrations
-                if (d.is_invalid) {
-                    if (d.type === 'ordination') {
-                        return cssLinkInvalidOrdinationColor;
-                    } else {
-                        return cssLinkInvalidConsecrationColor;
-                    }
-                }
-                // Use CSS variables based on link type instead of d.color
+                // Always use normal link colors (green/grey) regardless of status
+                // Status is indicated by icon color, not link color
                 if (d.type === 'ordination') {
                     return cssLinkOrdinationColor;
                 } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -478,21 +506,15 @@ class EditorVisualization {
             .attr('stroke-width', cssLinkStrokeWidth)
             .attr('stroke-dasharray', d => {
                 // Make doubtful links dotted (or if already dashed from co-consecration)
-                if (d.is_doubtful || d.dashed) {
+                // Use is_doubtfully_valid for new data, is_doubtful for backward compatibility
+                if (d.is_doubtfully_valid || d.is_doubtful || d.dashed) {
                     return '5,5';
                 }
                 return 'none';
             })
             .attr('marker-end', d => {
-                // Invalid links use colored arrow markers - orange for ordinations, red for consecrations
-                if (d.is_invalid) {
-                    if (d.type === 'ordination') {
-                        return 'url(#arrowhead-orange)';
-                    } else {
-                        return 'url(#arrowhead-red)';
-                    }
-                }
-                // Use link type to determine arrow marker
+                // Always use normal arrow markers (black/green) regardless of status
+                // Status is indicated by icon color, not arrow color
                 if (d.type === 'ordination') {
                     return 'url(#arrowhead-black)';
                 } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -504,6 +526,35 @@ class EditorVisualization {
         
         // Keep reference to overlay links for compatibility
         this.link = this.linkOverlay;
+
+        // Create status icon layer (rendered after links, before nodes)
+        this.linkStatusIcons = this.g.append('g')
+            .attr('class', 'viz-link-status-icons')
+            .selectAll('g')
+            .data(this.linksData.filter(d => this.getLinkStatus(d) !== 'valid'))
+            .enter().append('g')
+            .attr('class', d => `viz-link-status-icon-group status-${this.getLinkStatus(d)}`)
+            .style('pointer-events', 'none')
+            .style('opacity', d => d.filtered ? 0 : 1);
+
+        // Add background circle for halo effect
+        this.linkStatusIcons.append('circle')
+            .attr('r', 10)
+            .attr('fill', this.cssSurfaceColor) // Background color from CSS variable
+            .attr('opacity', 0.85);
+
+        // Add text icon
+        this.linkStatusIcons.append('text')
+            .attr('class', d => `viz-link-status-icon status-${this.getLinkStatus(d)}`)
+            .text(d => this.getStatusIcon(this.getLinkStatus(d)))
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .attr('font-size', '16px')
+            .attr('font-weight', 'bold')
+            .attr('fill', d => this.getStatusIconColor(this.getLinkStatus(d)))
+            .attr('stroke', this.cssSurfaceColor)
+            .attr('stroke-width', '1px')
+            .attr('paint-order', 'stroke');
         
         // Create nodes - matching lineage visualization exactly
         this.node = this.g.append('g')
@@ -762,6 +813,47 @@ class EditorVisualization {
                     .attr('x2', x2)
                     .attr('y2', y2);
             });
+
+            // Update status icons at link midpoints
+            if (this.linkStatusIcons) {
+                this.linkStatusIcons.each(function(d) {
+                    const dx = d.target.x - d.source.x;
+                    const dy = d.target.y - d.source.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist === 0) {
+                        // Nodes at same position, hide icon
+                        d3.select(this)
+                            .attr('transform', `translate(${d.source.x},${d.source.y})`)
+                            .style('opacity', 0);
+                        return;
+                    }
+                    
+                    // Unit vector along link direction
+                    const ux = dx / dist;
+                    const uy = dy / dist;
+                    
+                    // Perpendicular vector for parallel offset (rotate 90 degrees)
+                    const px = -uy;
+                    const py = ux;
+                    
+                    const offset = d.parallelOffset || 0;
+                    
+                    // Calculate midpoint along the visible link (between edge-to-edge points)
+                    const x1 = d.source.x + ux * nodeEdgeRadius + offset * px;
+                    const y1 = d.source.y + uy * nodeEdgeRadius + offset * py;
+                    const x2 = d.target.x - ux * (nodeEdgeRadius + cssLinkGap + arrowLengthPx) + offset * px;
+                    const y2 = d.target.y - uy * (nodeEdgeRadius + cssLinkGap + arrowLengthPx) + offset * py;
+                    
+                    // Midpoint (centered on link, no offset)
+                    const midX = (x1 + x2) / 2;
+                    const midY = (y1 + y2) / 2;
+                    
+                    d3.select(this)
+                        .attr('transform', `translate(${midX},${midY})`)
+                        .style('opacity', d.filtered ? 0 : 1);
+                });
+            }
             
             // Update nodes
             this.node
@@ -1144,6 +1236,7 @@ class EditorVisualization {
         const cssLinkInvalidOrdinationColor = rootStyles.getPropertyValue('--viz-link-invalid-ordination-color').trim() || ORANGE_COLOR;
         const cssLinkInvalidConsecrationColor = rootStyles.getPropertyValue('--viz-link-invalid-consecration-color').trim() || RED_COLOR;
         const cssLinkStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width')) || 2;
+        const cssSurfaceColor = rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a';
         
         // Bind the same fresh links array to overlay links
         this.linkOverlay = this.linkOverlay.data(this.linksData, linkKey);
@@ -1151,18 +1244,12 @@ class EditorVisualization {
         const newLinkOverlay = this.linkOverlay.enter().append('line')
             .attr('class', d => {
                 let classes = 'viz-link';
-                if (d.dashed || d.is_doubtful) classes += ' dashed';
+                if (d.dashed || d.is_doubtfully_valid || d.is_doubtful) classes += ' dashed';
                 return classes;
             })
             .attr('stroke', d => {
-                // Invalid links override normal color - orange for ordinations, red for consecrations
-                if (d.is_invalid) {
-                    if (d.type === 'ordination') {
-                        return cssLinkInvalidOrdinationColor;
-                    } else {
-                        return cssLinkInvalidConsecrationColor;
-                    }
-                }
+                // Always use normal link colors (green/grey) regardless of status
+                // Status is indicated by icon color, not link color
                 if (d.type === 'ordination') {
                     return cssLinkOrdinationColor;
                 } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -1172,20 +1259,15 @@ class EditorVisualization {
             })
             .attr('stroke-width', cssLinkStrokeWidth)
             .attr('stroke-dasharray', d => {
-                if (d.is_doubtful || d.dashed) {
+                // Use is_doubtfully_valid for new data, is_doubtful for backward compatibility
+                if (d.is_doubtfully_valid || d.is_doubtful || d.dashed) {
                     return '5,5';
                 }
                 return 'none';
             })
             .attr('marker-end', d => {
-                // Invalid links use colored arrow markers - orange for ordinations, red for consecrations
-                if (d.is_invalid) {
-                    if (d.type === 'ordination') {
-                        return 'url(#arrowhead-orange)';
-                    } else {
-                        return 'url(#arrowhead-red)';
-                    }
-                }
+                // Always use normal arrow markers (black/green) regardless of status
+                // Status is indicated by icon color, not arrow color
                 if (d.type === 'ordination') {
                     return 'url(#arrowhead-black)';
                 } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -1194,6 +1276,37 @@ class EditorVisualization {
                 return 'url(#arrowhead-green)';
             });
         this.linkOverlay = this.linkOverlay.merge(newLinkOverlay);
+
+        // Update status icons
+        if (this.linkStatusIcons) {
+            const statusLinks = this.linksData.filter(d => this.getLinkStatus(d) !== 'valid');
+            this.linkStatusIcons = this.linkStatusIcons.data(statusLinks, linkKey);
+            this.linkStatusIcons.exit().remove();
+            const newStatusIconGroups = this.linkStatusIcons.enter().append('g')
+                .attr('class', d => `viz-link-status-icon-group status-${this.getLinkStatus(d)}`)
+                .style('pointer-events', 'none')
+                .style('opacity', d => d.filtered ? 0 : 1);
+
+            // Add background circle for halo effect
+            newStatusIconGroups.append('circle')
+                .attr('r', 10)
+                .attr('fill', rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a') // Background color from CSS variable
+                .attr('opacity', 0.85);
+
+            // Add text icon
+            newStatusIconGroups.append('text')
+                .attr('class', d => `viz-link-status-icon status-${this.getLinkStatus(d)}`)
+                .text(d => this.getStatusIcon(this.getLinkStatus(d)))
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('font-size', '16px')
+                .attr('font-weight', 'bold')
+                .attr('fill', d => this.getStatusIconColor(this.getLinkStatus(d)))
+                .attr('stroke', rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a')
+                .attr('stroke-width', '1px')
+                .attr('paint-order', 'stroke');
+            this.linkStatusIcons = this.linkStatusIcons.merge(newStatusIconGroups);
+        }
         
         // Keep reference to overlay links for compatibility
         this.link = this.linkOverlay;

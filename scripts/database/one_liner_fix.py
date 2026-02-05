@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # One-liner fix for production rank data
-import os, sys; sys.path.append(os.getcwd()); from app import app, db; from models import Rank; exec("""
+import os, sys
+_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+from app import app, db
+from models import Rank
+exec("""
 with app.app_context():
     ranks = Rank.query.all()
     bishop_keywords = ['bishop', 'archbishop', 'cardinal', 'pope', 'patriarch', 'metropolitan']

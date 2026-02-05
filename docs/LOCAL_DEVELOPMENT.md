@@ -134,10 +134,17 @@ This will:
 - Update your `.env` file for local development
 - Start the development server
 
+## Database setup and migrations
+
+- **Schema migrations (Flask-Migrate):** [FLASK_MIGRATE_SETUP.md](FLASK_MIGRATE_SETUP.md)
+- **Syncing from remote / detailed sync options:** [DATABASE_SYNC_SETUP.md](DATABASE_SYNC_SETUP.md)
+
+One-time migration and deployment notes (PostgreSQL migration, SSL on Render) are in [docs/archive/](archive/).
+
 ## File Structure
 
 - `app.py` - Main Flask application
 - `run_local.py` - Simple development runner
 - `start_dev.sh` - Complete development setup script
 - `.env` - Environment variables (create from env.example)
-- `requirements.txt` - Python dependencies 
+- `requirements.txt` - Python dependencies

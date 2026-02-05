@@ -1,5 +1,7 @@
 # Database Migration Guide for RBAC System
 
+**One-time migration** for the RBAC system. For ongoing schema changes use [FLASK_MIGRATE_SETUP.md](FLASK_MIGRATE_SETUP.md).
+
 ## Overview
 
 The new role-based access control (RBAC) system requires database schema changes. This guide provides two approaches to migrate your existing database.

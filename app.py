@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_compress import Compress
 from models import db, User, Role
-# from init_routes import routes  # Temporarily disabled – see scripts/database/init_routes.py for legacy routes
+# Legacy init_routes blueprint lives in scripts/database/init_routes.py (not registered).
 from routes.auth import auth_bp
 from routes.clergy import clergy_bp
 from routes.main import main_bp
@@ -151,7 +151,6 @@ def ensure_admin_user():
 
 ensure_database_schema()
 
-# app.register_blueprint(routes)  # Temporarily disabled – see scripts/database/init_routes.py for legacy routes
 app.register_blueprint(auth_bp)
 app.register_blueprint(clergy_bp)
 app.register_blueprint(main_bp)

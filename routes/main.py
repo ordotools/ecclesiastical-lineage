@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, Response, make_response, g
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, Response, make_response, g, abort
 from services import clergy as clergy_service
 from services.geocoding import geocoding_service
 from utils import audit_log, require_permission, require_permission_api, log_audit_event
@@ -6,6 +6,7 @@ from models import Clergy, ClergyComment, User, db, Organization, Rank, Ordinati
 from constants import GREEN_COLOR, BLACK_COLOR, RED_COLOR, ORANGE_COLOR
 import json
 import base64
+import os
 import requests
 
 main_bp = Blueprint('main', __name__)
@@ -829,8 +830,9 @@ def get_lineage_data():
         }), 500
 
 @main_bp.route('/admin/force-migrate-lineage', methods=['GET', 'POST'])
+@require_permission('manage_metadata')
 def force_migrate_lineage():
-    """Admin endpoint to force migrate lineage data"""
+    """Admin endpoint to force migrate lineage data (destructive). Permission-gated."""
     try:
         from datetime import datetime
         from sqlalchemy import text
@@ -1241,7 +1243,9 @@ def clergy_info_panel():
 
 @main_bp.route('/debug-lineage')
 def debug_lineage():
-    """Debug endpoint to check lineage data"""
+    """Debug endpoint to check lineage data. Not available in production."""
+    if not current_app.debug:
+        abort(404)
     try:
         # Get all clergy for the visualization with relationships loaded
         from sqlalchemy.orm import joinedload
@@ -1560,7 +1564,9 @@ def check_and_create_pastor():
 # Test API endpoint for location creation (no authentication required for testing)
 @main_bp.route('/api/test-locations-add', methods=['POST'])
 def test_add_location():
-    """Test version of location creation API that doesn't require authentication"""
+    """Test version of location creation API. Not available in production."""
+    if not current_app.debug:
+        abort(404)
     try:
         # Handle organization_id
         organization_id = request.form.get('organization_id')
@@ -1624,13 +1630,14 @@ def test_add_location():
             'message': f'Error adding location: {str(e)}'
         }), 500
 
-# Database initialization (for development)
+# Database initialization (for development or with secret)
 @main_bp.route('/init-db')
 def init_db():
-    # This should only be available in development
+    """DB init: only in debug mode, or when INIT_DB_SECRET query param matches env."""
     if not current_app.debug:
-        return 'Not available in production', 404
-    # Implementation will be moved to services
+        secret = request.args.get('secret')
+        if not secret or secret != os.environ.get('INIT_DB_SECRET'):
+            abort(404)
     return jsonify({'success': False, 'message': 'Not implemented yet'}), 501
 
 @main_bp.route('/api/process-cropped-image', methods=['POST'])
@@ -1955,5 +1962,7 @@ def api_living_clergy():
 
 @main_bp.route('/geocoding-test')
 def geocoding_test():
-    """Test page for geocoding functionality"""
+    """Test page for geocoding functionality. Not available in production."""
+    if not current_app.debug:
+        abort(404)
     return render_template('geocoding_test.html')

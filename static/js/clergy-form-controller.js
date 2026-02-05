@@ -293,22 +293,29 @@ class ClergyFormController {
                     </div>
                     
                     <div class="form-field">
-                        <label class="form-label">Status</label>
-                        <div class="form-check-grid">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" 
-                                       name="ordinations[${index}][is_sub_conditione]" id="ordination_sub_${index}">
-                                <label class="form-check-label" for="ordination_sub_${index}">Sub Conditione</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em;">
+                            <div>
+                                <label class="form-label">Status</label>
+                                <div style="display: flex; flex-direction: column; gap: 0.5em; margin-top: 0.5em;">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" 
+                                               name="ordinations[${index}][is_sub_conditione]" id="ordination_sub_${index}">
+                                        <label class="form-check-label" for="ordination_sub_${index}" style="cursor: pointer;">Sub Conditione</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" 
+                                               name="ordinations[${index}][is_doubtful_event]" id="ordination_doubtful_event_${index}">
+                                        <label class="form-check-label" for="ordination_doubtful_event_${index}" style="cursor: pointer;">Doubtful Event</label>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" 
-                                       name="ordinations[${index}][is_doubtful]" id="ordination_doubtful_${index}">
-                                <label class="form-check-label" for="ordination_doubtful_${index}">Doubtful</label>
-                            </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" 
-                                       name="ordinations[${index}][is_invalid]" id="ordination_invalid_${index}">
-                                <label class="form-check-label" for="ordination_invalid_${index}">Invalid</label>
+                            <div>
+                                <label class="form-label">Validity</label>
+                                <select name="ordinations[${index}][validity]" class="form-control" style="margin-top: 0.5em;">
+                                    <option value="valid">Valid</option>
+                                    <option value="doubtfully_valid">Doubtfully Valid</option>
+                                    <option value="invalid">Invalid</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -353,22 +360,29 @@ class ClergyFormController {
                     </div>
                     
                     <div class="form-field">
-                        <label class="form-label">Status</label>
-                        <div class="form-check-grid">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" 
-                                       name="consecrations[${index}][is_sub_conditione]" id="consecration_sub_${index}">
-                                <label class="form-check-label" for="consecration_sub_${index}">Sub Conditione</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em;">
+                            <div>
+                                <label class="form-label">Status</label>
+                                <div style="display: flex; flex-direction: column; gap: 0.5em; margin-top: 0.5em;">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" 
+                                               name="consecrations[${index}][is_sub_conditione]" id="consecration_sub_${index}">
+                                        <label class="form-check-label" for="consecration_sub_${index}" style="cursor: pointer;">Sub Conditione</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" 
+                                               name="consecrations[${index}][is_doubtful_event]" id="consecration_doubtful_event_${index}">
+                                        <label class="form-check-label" for="consecration_doubtful_event_${index}" style="cursor: pointer;">Doubtful Event</label>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" 
-                                       name="consecrations[${index}][is_doubtful]" id="consecration_doubtful_${index}">
-                                <label class="form-check-label" for="consecration_doubtful_${index}">Doubtful</label>
-                            </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" 
-                                       name="consecrations[${index}][is_invalid]" id="consecration_invalid_${index}">
-                                <label class="form-check-label" for="consecration_invalid_${index}">Invalid</label>
+                            <div>
+                                <label class="form-label">Validity</label>
+                                <select name="consecrations[${index}][validity]" class="form-control" style="margin-top: 0.5em;">
+                                    <option value="valid">Valid</option>
+                                    <option value="doubtfully_valid">Doubtfully Valid</option>
+                                    <option value="invalid">Invalid</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -810,8 +824,7 @@ class ClergyFormController {
         const fields = [
             { name: 'date', value: ordination.date },
             { name: 'is_sub_conditione', value: ordination.is_sub_conditione, type: 'checkbox' },
-            { name: 'is_doubtful', value: ordination.is_doubtful, type: 'checkbox' },
-            { name: 'is_invalid', value: ordination.is_invalid, type: 'checkbox' },
+            { name: 'is_doubtful_event', value: ordination.is_doubtful_event, type: 'checkbox' },
             { name: 'notes', value: ordination.notes }
         ];
         
@@ -825,6 +838,18 @@ class ClergyFormController {
                 }
             }
         });
+        
+        // Handle validity dropdown
+        const validitySelect = section.querySelector('select[name*="[validity]"]');
+        if (validitySelect) {
+            if (ordination.is_invalid) {
+                validitySelect.value = 'invalid';
+            } else if (ordination.is_doubtfully_valid) {
+                validitySelect.value = 'doubtfully_valid';
+            } else {
+                validitySelect.value = 'valid';
+            }
+        }
         
         // Handle ordaining bishop
         if (ordination.ordaining_bishop) {
@@ -840,8 +865,7 @@ class ClergyFormController {
         const fields = [
             { name: 'date', value: consecration.date },
             { name: 'is_sub_conditione', value: consecration.is_sub_conditione, type: 'checkbox' },
-            { name: 'is_doubtful', value: consecration.is_doubtful, type: 'checkbox' },
-            { name: 'is_invalid', value: consecration.is_invalid, type: 'checkbox' },
+            { name: 'is_doubtful_event', value: consecration.is_doubtful_event, type: 'checkbox' },
             { name: 'notes', value: consecration.notes }
         ];
         
@@ -855,6 +879,18 @@ class ClergyFormController {
                 }
             }
         });
+        
+        // Handle validity dropdown
+        const validitySelect = section.querySelector('select[name*="[validity]"]');
+        if (validitySelect) {
+            if (consecration.is_invalid) {
+                validitySelect.value = 'invalid';
+            } else if (consecration.is_doubtfully_valid) {
+                validitySelect.value = 'doubtfully_valid';
+            } else {
+                validitySelect.value = 'valid';
+            }
+        }
         
         // Handle consecrator
         if (consecration.consecrator) {

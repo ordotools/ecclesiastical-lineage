@@ -256,18 +256,27 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
-                                    <div style="display: flex; align-items: center; gap: 0.25em;">
-                                        <input type="checkbox" name="ordinations[0][is_sub_conditione]" id="sub_conditione_0" style="margin: 0;">
-                                        <label for="sub_conditione_0" style="color: white; font-size: 0.8em; margin: 0;">Sub Conditione</label>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
+                                    <div>
+                                        <label style="display: block; margin-bottom: 0.5em; font-weight: 400; color: white; font-size: 0.8em;">Status</label>
+                                        <div style="display: flex; flex-direction: column; gap: 0.5em;">
+                                            <div style="display: flex; align-items: center; gap: 0.5em;">
+                                                <input type="checkbox" name="ordinations[0][is_sub_conditione]" id="sub_conditione_0" style="margin: 0;">
+                                                <label for="sub_conditione_0" style="color: white; font-size: 0.8em; margin: 0; cursor: pointer;">Sub Conditione</label>
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 0.5em;">
+                                                <input type="checkbox" name="ordinations[0][is_doubtful_event]" id="doubtful_event_0" style="margin: 0;">
+                                                <label for="doubtful_event_0" style="color: white; font-size: 0.8em; margin: 0; cursor: pointer;">Doubtful Event</label>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div style="display: flex; align-items: center; gap: 0.25em;">
-                                        <input type="checkbox" name="ordinations[0][is_doubtful]" id="doubtful_0" style="margin: 0;">
-                                        <label for="doubtful_0" style="color: white; font-size: 0.8em; margin: 0;">Doubtful</label>
-                                    </div>
-                                    <div style="display: flex; align-items: center; gap: 0.25em;">
-                                        <input type="checkbox" name="ordinations[0][is_invalid]" id="invalid_0" style="margin: 0;">
-                                        <label for="invalid_0" style="color: white; font-size: 0.8em; margin: 0;">Invalid</label>
+                                    <div>
+                                        <label style="display: block; margin-bottom: 0.5em; font-weight: 400; color: white; font-size: 0.8em;">Validity</label>
+                                        <select name="ordinations[0][validity]" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                                            <option value="valid">Valid</option>
+                                            <option value="doubtfully_valid">Doubtfully Valid</option>
+                                            <option value="invalid">Invalid</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div>
@@ -336,18 +345,27 @@
                                         <!-- Additional co-consecrators will be added here -->
                                     </div>
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
-                                    <div style="display: flex; align-items: center; gap: 0.25em;">
-                                        <input type="checkbox" name="consecrations[0][is_sub_conditione]" id="consec_sub_conditione_0" style="margin: 0;">
-                                        <label for="consec_sub_conditione_0" style="color: white; font-size: 0.8em; margin: 0;">Sub Conditione</label>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
+                                    <div>
+                                        <label style="display: block; margin-bottom: 0.5em; font-weight: 400; color: white; font-size: 0.8em;">Status</label>
+                                        <div style="display: flex; flex-direction: column; gap: 0.5em;">
+                                            <div style="display: flex; align-items: center; gap: 0.5em;">
+                                                <input type="checkbox" name="consecrations[0][is_sub_conditione]" id="consec_sub_conditione_0" style="margin: 0;">
+                                                <label for="consec_sub_conditione_0" style="color: white; font-size: 0.8em; margin: 0; cursor: pointer;">Sub Conditione</label>
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 0.5em;">
+                                                <input type="checkbox" name="consecrations[0][is_doubtful_event]" id="consec_doubtful_event_0" style="margin: 0;">
+                                                <label for="consec_doubtful_event_0" style="color: white; font-size: 0.8em; margin: 0; cursor: pointer;">Doubtful Event</label>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div style="display: flex; align-items: center; gap: 0.25em;">
-                                        <input type="checkbox" name="consecrations[0][is_doubtful]" id="consec_doubtful_0" style="margin: 0;">
-                                        <label for="consec_doubtful_0" style="color: white; font-size: 0.8em; margin: 0;">Doubtful</label>
-                                    </div>
-                                    <div style="display: flex; align-items: center; gap: 0.25em;">
-                                        <input type="checkbox" name="consecrations[0][is_invalid]" id="consec_invalid_0" style="margin: 0;">
-                                        <label for="consec_invalid_0" style="color: white; font-size: 0.8em; margin: 0;">Invalid</label>
+                                    <div>
+                                        <label style="display: block; margin-bottom: 0.5em; font-weight: 400; color: white; font-size: 0.8em;">Validity</label>
+                                        <select name="consecrations[0][validity]" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                                            <option value="valid">Valid</option>
+                                            <option value="doubtfully_valid">Doubtfully Valid</option>
+                                            <option value="invalid">Invalid</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div>
@@ -765,18 +783,27 @@ function initializeEmbeddedFormScript() {
                         </div>
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
-                    <div style="display: flex; align-items: center; gap: 0.25em;">
-                        <input type="checkbox" name="ordinations[${ordinationCount}][is_sub_conditione]" id="sub_conditione_${ordinationCount}" style="margin: 0;">
-                        <label for="sub_conditione_${ordinationCount}" style="color: white; font-size: 0.8em; margin: 0;">Sub Conditione</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5em; font-weight: 400; color: white; font-size: 0.8em;">Status</label>
+                        <div style="display: flex; flex-direction: column; gap: 0.5em;">
+                            <div style="display: flex; align-items: center; gap: 0.5em;">
+                                <input type="checkbox" name="ordinations[${ordinationCount}][is_sub_conditione]" id="sub_conditione_${ordinationCount}" style="margin: 0;">
+                                <label for="sub_conditione_${ordinationCount}" style="color: white; font-size: 0.8em; margin: 0; cursor: pointer;">Sub Conditione</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5em;">
+                                <input type="checkbox" name="ordinations[${ordinationCount}][is_doubtful_event]" id="doubtful_event_${ordinationCount}" style="margin: 0;">
+                                <label for="doubtful_event_${ordinationCount}" style="color: white; font-size: 0.8em; margin: 0; cursor: pointer;">Doubtful Event</label>
+                            </div>
+                        </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 0.25em;">
-                        <input type="checkbox" name="ordinations[${ordinationCount}][is_doubtful]" id="doubtful_${ordinationCount}" style="margin: 0;">
-                        <label for="doubtful_${ordinationCount}" style="color: white; font-size: 0.8em; margin: 0;">Doubtful</label>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 0.25em;">
-                        <input type="checkbox" name="ordinations[${ordinationCount}][is_invalid]" id="invalid_${ordinationCount}" style="margin: 0;">
-                        <label for="invalid_${ordinationCount}" style="color: white; font-size: 0.8em; margin: 0;">Invalid</label>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5em; font-weight: 400; color: white; font-size: 0.8em;">Validity</label>
+                        <select name="ordinations[${ordinationCount}][validity]" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                            <option value="valid">Valid</option>
+                            <option value="doubtfully_valid">Doubtfully Valid</option>
+                            <option value="invalid">Invalid</option>
+                        </select>
                     </div>
                 </div>
                 <div>
@@ -841,18 +868,27 @@ function initializeEmbeddedFormScript() {
                         <!-- Additional co-consecrators will be added here -->
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
-                    <div style="display: flex; align-items: center; gap: 0.25em;">
-                        <input type="checkbox" name="consecrations[${consecrationCount}][is_sub_conditione]" id="consec_sub_conditione_${consecrationCount}" style="margin: 0;">
-                        <label for="consec_sub_conditione_${consecrationCount}" style="color: white; font-size: 0.8em; margin: 0;">Sub Conditione</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em; margin-bottom: 0.5em;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5em; font-weight: 400; color: white; font-size: 0.8em;">Status</label>
+                        <div style="display: flex; flex-direction: column; gap: 0.5em;">
+                            <div style="display: flex; align-items: center; gap: 0.5em;">
+                                <input type="checkbox" name="consecrations[${consecrationCount}][is_sub_conditione]" id="consec_sub_conditione_${consecrationCount}" style="margin: 0;">
+                                <label for="consec_sub_conditione_${consecrationCount}" style="color: white; font-size: 0.8em; margin: 0; cursor: pointer;">Sub Conditione</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5em;">
+                                <input type="checkbox" name="consecrations[${consecrationCount}][is_doubtful_event]" id="consec_doubtful_event_${consecrationCount}" style="margin: 0;">
+                                <label for="consec_doubtful_event_${consecrationCount}" style="color: white; font-size: 0.8em; margin: 0; cursor: pointer;">Doubtful Event</label>
+                            </div>
+                        </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 0.25em;">
-                        <input type="checkbox" name="consecrations[${consecrationCount}][is_doubtful]" id="consec_doubtful_${consecrationCount}" style="margin: 0;">
-                        <label for="consec_doubtful_${consecrationCount}" style="color: white; font-size: 0.8em; margin: 0;">Doubtful</label>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 0.25em;">
-                        <input type="checkbox" name="consecrations[${consecrationCount}][is_invalid]" id="consec_invalid_${consecrationCount}" style="margin: 0;">
-                        <label for="consec_invalid_${consecrationCount}" style="color: white; font-size: 0.8em; margin: 0;">Invalid</label>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5em; font-weight: 400; color: white; font-size: 0.8em;">Validity</label>
+                        <select name="consecrations[${consecrationCount}][validity]" style="width: 100%; padding: 0.4em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.8em; color: white;">
+                            <option value="valid">Valid</option>
+                            <option value="doubtfully_valid">Doubtfully Valid</option>
+                            <option value="invalid">Invalid</option>
+                        </select>
                     </div>
                 </div>
                 <div>

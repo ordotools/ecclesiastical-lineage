@@ -46,16 +46,16 @@ export function clearHighlight() {
       nodeGroups.each(function(d) {
         if (d && d.id) {
           const nodeGroup = d3.select(this);
-          // Reset outer circle (first circle) - restore original stroke color
-          const circles = nodeGroup.selectAll('circle');
-          if (circles.size() > 0) {
-            const outerCircle = circles.nodes()[0];
-            if (outerCircle && d.rank_color) {
-              d3.select(outerCircle)
-                .attr('stroke-width', 1)
-                .attr('stroke', d.rank_color)
-                .style('filter', null);
-            }
+          // Reset outer shape - restore original stroke color
+          const outerSelector = d.is_pre_1968_consecration
+            ? '.viz-node-outer-rect'
+            : '.viz-node-outer-circle';
+          const outerShape = nodeGroup.select(outerSelector);
+          if (!outerShape.empty() && d.rank_color) {
+            outerShape
+              .attr('stroke-width', 1)
+              .attr('stroke', d.rank_color)
+              .style('filter', null);
           }
         }
       });
@@ -124,16 +124,16 @@ function highlightNode(nodeId) {
   nodeGroups.each(function(d) {
     if (d && d.id === nodeId) {
       const nodeGroup = d3.select(this);
-      // Highlight outer circle (first circle is the outer one)
-      const circles = nodeGroup.selectAll('circle');
-      if (circles.size() > 0) {
-        const outerCircle = circles.nodes()[0];
-        if (outerCircle) {
-          d3.select(outerCircle)
-            .attr('stroke-width', HIGHLIGHT_STROKE_WIDTH)
-            .attr('stroke', HIGHLIGHT_COLOR)
-            .style('filter', `drop-shadow(0 0 ${HIGHLIGHT_GLOW_RADIUS}px ${HIGHLIGHT_COLOR})`);
-        }
+      // Highlight outer shape
+      const outerSelector = d.is_pre_1968_consecration
+        ? '.viz-node-outer-rect'
+        : '.viz-node-outer-circle';
+      const outerShape = nodeGroup.select(outerSelector);
+      if (!outerShape.empty()) {
+        outerShape
+          .attr('stroke-width', HIGHLIGHT_STROKE_WIDTH)
+          .attr('stroke', HIGHLIGHT_COLOR)
+          .style('filter', `drop-shadow(0 0 ${HIGHLIGHT_GLOW_RADIUS}px ${HIGHLIGHT_COLOR})`);
       }
     }
   });

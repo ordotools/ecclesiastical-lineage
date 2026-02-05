@@ -21,7 +21,8 @@ window.ClergyFormConfig = {
                 id: {{ ordination.id }},
                 date: "{{ ordination.date.strftime('%Y-%m-%d') if ordination.date else '' }}",
                 is_sub_conditione: {{ ordination.is_sub_conditione|lower }},
-                is_doubtful: {{ ordination.is_doubtful|lower }},
+                is_doubtfully_valid: {{ ordination.is_doubtfully_valid|lower }},
+                is_doubtful_event: {{ ordination.is_doubtful_event|lower }},
                 is_invalid: {{ ordination.is_invalid|lower }},
                 notes: "{{ ordination.notes or '' }}",
                 ordaining_bishop: {% if ordination.ordaining_bishop %}{
@@ -37,7 +38,8 @@ window.ClergyFormConfig = {
                 id: {{ consecration.id }},
                 date: "{{ consecration.date.strftime('%Y-%m-%d') if consecration.date else '' }}",
                 is_sub_conditione: {{ consecration.is_sub_conditione|lower }},
-                is_doubtful: {{ consecration.is_doubtful|lower }},
+                is_doubtfully_valid: {{ consecration.is_doubtfully_valid|lower }},
+                is_doubtful_event: {{ consecration.is_doubtful_event|lower }},
                 is_invalid: {{ consecration.is_invalid|lower }},
                 notes: "{{ consecration.notes or '' }}",
                 consecrator: {% if consecration.consecrator %}{

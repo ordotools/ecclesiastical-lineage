@@ -173,23 +173,26 @@ window.ClergyForm.addOrdinationSection = function() {
                         </div>
                     </div>
                     <div class="row mt-3">
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="ordinations[${this.counters.ordinationCounter}][is_sub_conditione]" id="ordination_sub_conditione_${this.counters.ordinationCounter}">
-                                <label class="form-check-label" for="ordination_sub_conditione_${this.counters.ordinationCounter}">Sub Conditione</label>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <div style="display: flex; flex-direction: column; gap: 0.5em; margin-top: 0.5em;">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="ordinations[${this.counters.ordinationCounter}][is_sub_conditione]" id="ordination_sub_conditione_${this.counters.ordinationCounter}">
+                                    <label class="form-check-label" for="ordination_sub_conditione_${this.counters.ordinationCounter}" style="cursor: pointer;">Sub Conditione</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="ordinations[${this.counters.ordinationCounter}][is_doubtful_event]" id="ordination_doubtful_event_${this.counters.ordinationCounter}">
+                                    <label class="form-check-label" for="ordination_doubtful_event_${this.counters.ordinationCounter}" style="cursor: pointer;">Doubtful Event</label>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="ordinations[${this.counters.ordinationCounter}][is_doubtful]" id="ordination_doubtful_${this.counters.ordinationCounter}">
-                                <label class="form-check-label" for="ordination_doubtful_${this.counters.ordinationCounter}">Doubtful</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="ordinations[${this.counters.ordinationCounter}][is_invalid]" id="ordination_invalid_${this.counters.ordinationCounter}">
-                                <label class="form-check-label" for="ordination_invalid_${this.counters.ordinationCounter}">Invalid</label>
-                            </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Validity</label>
+                            <select class="form-control" name="ordinations[${this.counters.ordinationCounter}][validity]" style="margin-top: 0.5em;">
+                                <option value="valid">Valid</option>
+                                <option value="doubtfully_valid">Doubtfully Valid</option>
+                                <option value="invalid">Invalid</option>
+                            </select>
                         </div>
                     </div>
                     <div class="row mt-3">
@@ -239,23 +242,26 @@ window.ClergyForm.addConsecrationSection = function() {
                         </div>
                     </div>
                     <div class="row mt-3">
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="consecrations[${this.counters.consecrationCounter}][is_sub_conditione]" id="consecration_sub_conditione_${this.counters.consecrationCounter}">
-                                <label class="form-check-label" for="consecration_sub_conditione_${this.counters.consecrationCounter}">Sub Conditione</label>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <div style="display: flex; flex-direction: column; gap: 0.5em; margin-top: 0.5em;">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="consecrations[${this.counters.consecrationCounter}][is_sub_conditione]" id="consecration_sub_conditione_${this.counters.consecrationCounter}">
+                                    <label class="form-check-label" for="consecration_sub_conditione_${this.counters.consecrationCounter}" style="cursor: pointer;">Sub Conditione</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="consecrations[${this.counters.consecrationCounter}][is_doubtful_event]" id="consecration_doubtful_event_${this.counters.consecrationCounter}">
+                                    <label class="form-check-label" for="consecration_doubtful_event_${this.counters.consecrationCounter}" style="cursor: pointer;">Doubtful Event</label>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="consecrations[${this.counters.consecrationCounter}][is_doubtful]" id="consecration_doubtful_${this.counters.consecrationCounter}">
-                                <label class="form-check-label" for="consecration_doubtful_${this.counters.consecrationCounter}">Doubtful</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="consecrations[${this.counters.consecrationCounter}][is_invalid]" id="consecration_invalid_${this.counters.consecrationCounter}">
-                                <label class="form-check-label" for="consecration_invalid_${this.counters.consecrationCounter}">Invalid</label>
-                            </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Validity</label>
+                            <select class="form-control" name="consecrations[${this.counters.consecrationCounter}][validity]" style="margin-top: 0.5em;">
+                                <option value="valid">Valid</option>
+                                <option value="doubtfully_valid">Doubtfully Valid</option>
+                                <option value="invalid">Invalid</option>
+                            </select>
                         </div>
                     </div>
                     <div class="row mt-3">
@@ -649,8 +655,8 @@ window.ClergyForm.prefillOrdinationData = function(clergyData) {
                 // Pre-fill ordination fields
                 const dateInput = ordinationSectionItem.querySelector('input[name$="[date]"]');
                 const subConditioneInput = ordinationSectionItem.querySelector('input[name$="[is_sub_conditione]"]');
-                const doubtfulInput = ordinationSectionItem.querySelector('input[name$="[is_doubtful]"]');
-                const invalidInput = ordinationSectionItem.querySelector('input[name$="[is_invalid]"]');
+                const doubtfulEventInput = ordinationSectionItem.querySelector('input[name$="[is_doubtful_event]"]');
+                const validitySelect = ordinationSectionItem.querySelector('select[name$="[validity]"]');
                 const notesTextarea = ordinationSectionItem.querySelector('textarea[name$="[notes]"]');
                 const bishopInput = ordinationSectionItem.querySelector('input[name$="[ordaining_bishop_input]"]');
                 const bishopIdInput = ordinationSectionItem.querySelector('input[name$="[ordaining_bishop_id]"]');
@@ -661,11 +667,17 @@ window.ClergyForm.prefillOrdinationData = function(clergyData) {
                 if (subConditioneInput) {
                     subConditioneInput.checked = ordination.is_sub_conditione || false;
                 }
-                if (doubtfulInput) {
-                    doubtfulInput.checked = ordination.is_doubtful || false;
+                if (doubtfulEventInput) {
+                    doubtfulEventInput.checked = ordination.is_doubtful_event || false;
                 }
-                if (invalidInput) {
-                    invalidInput.checked = ordination.is_invalid || false;
+                if (validitySelect) {
+                    if (ordination.is_invalid) {
+                        validitySelect.value = 'invalid';
+                    } else if (ordination.is_doubtfully_valid) {
+                        validitySelect.value = 'doubtfully_valid';
+                    } else {
+                        validitySelect.value = 'valid';
+                    }
                 }
                 if (notesTextarea && ordination.notes) {
                     notesTextarea.value = ordination.notes;
@@ -714,8 +726,8 @@ window.ClergyForm.prefillConsecrationData = function(clergyData) {
             // Pre-fill consecration fields
             const dateInput = consecrationSectionItem.querySelector('input[name$="[date]"]');
             const subConditioneInput = consecrationSectionItem.querySelector('input[name$="[is_sub_conditione]"]');
-            const doubtfulInput = consecrationSectionItem.querySelector('input[name$="[is_doubtful]"]');
-            const invalidInput = consecrationSectionItem.querySelector('input[name$="[is_invalid]"]');
+            const doubtfulEventInput = consecrationSectionItem.querySelector('input[name$="[is_doubtful_event]"]');
+            const validitySelect = consecrationSectionItem.querySelector('select[name$="[validity]"]');
             const notesTextarea = consecrationSectionItem.querySelector('textarea[name$="[notes]"]');
             const consecratorInput = consecrationSectionItem.querySelector('input[name$="[consecrator_input]"]');
             const consecratorIdInput = consecrationSectionItem.querySelector('input[name$="[consecrator_id]"]');
@@ -726,11 +738,17 @@ window.ClergyForm.prefillConsecrationData = function(clergyData) {
             if (subConditioneInput) {
                 subConditioneInput.checked = consecration.is_sub_conditione || false;
             }
-            if (doubtfulInput) {
-                doubtfulInput.checked = consecration.is_doubtful || false;
+            if (doubtfulEventInput) {
+                doubtfulEventInput.checked = consecration.is_doubtful_event || false;
             }
-            if (invalidInput) {
-                invalidInput.checked = consecration.is_invalid || false;
+            if (validitySelect) {
+                if (consecration.is_invalid) {
+                    validitySelect.value = 'invalid';
+                } else if (consecration.is_doubtfully_valid) {
+                    validitySelect.value = 'doubtfully_valid';
+                } else {
+                    validitySelect.value = 'valid';
+                }
             }
             if (notesTextarea && consecration.notes) {
                 notesTextarea.value = consecration.notes;

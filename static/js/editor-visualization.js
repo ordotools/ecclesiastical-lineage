@@ -73,9 +73,63 @@ class EditorVisualization {
                lowerRank.includes('patriarch');
     }
 
+    parseYearFromDate(dateValue) {
+        if (!dateValue) return null;
+        const year = parseInt(String(dateValue).slice(0, 4), 10);
+        return Number.isFinite(year) ? year : null;
+    }
+
+    shouldMarkPre1968Consecrator(node, consecratorIds) {
+        if (!node || !consecratorIds || !consecratorIds.has(node.id)) return false;
+        if (node.consecration_date) return false;
+        if (node.rank && !this.isBishopRank(node.rank)) return false;
+        return true;
+    }
+
+    updatePre1968Flags() {
+        const PRE_1968_CONSECRATION_YEAR = 1968;
+        const pre1968ConsecrationTargets = new Set();
+        const pre1968SponsorBishops = new Set();
+        if (Array.isArray(this.linksData)) {
+            this.linksData.forEach(link => {
+                const year = this.parseYearFromDate(link.date);
+                if (year === null || year >= PRE_1968_CONSECRATION_YEAR) return;
+                if (link && (link.type === 'consecration' || link.type === 'co-consecration')) {
+                    const targetId = typeof link.target === 'object' && link.target ? link.target.id : link.target;
+                    if (targetId !== undefined && targetId !== null) {
+                        pre1968ConsecrationTargets.add(targetId);
+                    }
+                    const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
+                    if (sourceId !== undefined && sourceId !== null) {
+                        pre1968SponsorBishops.add(sourceId);
+                    }
+                    return;
+                }
+
+                if (link && link.type === 'ordination') {
+                    const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
+                    if (sourceId !== undefined && sourceId !== null) {
+                        pre1968SponsorBishops.add(sourceId);
+                    }
+                }
+            });
+        }
+
+        if (Array.isArray(this.nodesData)) {
+            this.nodesData.forEach(node => {
+                const consecrationYear = this.parseYearFromDate(node.consecration_date);
+                node.is_pre_1968_consecration = consecrationYear !== null
+                    ? consecrationYear < PRE_1968_CONSECRATION_YEAR
+                    : pre1968ConsecrationTargets.has(node.id) ||
+                      this.shouldMarkPre1968Consecrator(node, pre1968SponsorBishops);
+            });
+        }
+    }
+
     init(nodesData, linksData) {
         this.nodesData = nodesData;
         this.linksData = linksData;
+        this.updatePre1968Flags();
         
         console.log('Editor visualization - Nodes:', nodesData.length, 'Links:', linksData.length);
         
@@ -202,12 +256,14 @@ class EditorVisualization {
         const cssArrowConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-consecration-color').trim() || cssLinkConsecrationColor;
         const cssArrowInvalidOrdinationColor = rootStyles.getPropertyValue('--viz-arrow-invalid-ordination-color').trim() || cssLinkInvalidOrdinationColor;
         const cssArrowInvalidConsecrationColor = rootStyles.getPropertyValue('--viz-arrow-invalid-consecration-color').trim() || cssLinkInvalidConsecrationColor;
+        const cssSurfaceColor = rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a';
         
         // Store colors for use in link rendering
         this.cssLinkOrdinationColor = cssLinkOrdinationColor;
         this.cssLinkConsecrationColor = cssLinkConsecrationColor;
         this.cssLinkInvalidOrdinationColor = cssLinkInvalidOrdinationColor;
         this.cssLinkInvalidConsecrationColor = cssLinkInvalidConsecrationColor;
+        this.cssSurfaceColor = cssSurfaceColor;
         
         // Read arrow size and style
         const cssArrowSize = parseFloat(rootStyles.getPropertyValue('--viz-arrow-size')) || 8;
@@ -284,19 +340,27 @@ class EditorVisualization {
             })
             .attr('stroke-width', arrowConfig.stroke ? 2 : 0);
 
-        // Load sprite sheet and create patterns
+        // Load sprite sheet and create patterns (using cache)
         let spriteSheetData = null;
         try {
-            const spriteResponse = await fetch('/api/sprite-sheet');
-            if (spriteResponse.ok) {
-                const contentType = spriteResponse.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const text = await spriteResponse.text();
-                    console.warn('Sprite sheet endpoint returned non-JSON response:', contentType, text.substring(0, 200));
-                    throw new Error('Invalid response type');
+            // Use cached sprite sheet data if available
+            if (typeof window.getSpriteSheetData === 'function') {
+                spriteSheetData = await window.getSpriteSheetData();
+            } else {
+                // Fallback to direct fetch if cache utility not available
+                const spriteResponse = await fetch('/api/sprite-sheet');
+                if (spriteResponse.ok) {
+                    const contentType = spriteResponse.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        const text = await spriteResponse.text();
+                        console.warn('Sprite sheet endpoint returned non-JSON response:', contentType, text.substring(0, 200));
+                        throw new Error('Invalid response type');
+                    }
+                    spriteSheetData = await spriteResponse.json();
                 }
-                spriteSheetData = await spriteResponse.json();
-                // Store spriteSheetData in instance for later updates
+            }
+            // Store spriteSheetData in instance for later updates
+            if (spriteSheetData) {
                 this.spriteSheetData = spriteSheetData;
                 if (spriteSheetData && spriteSheetData.success) {
                     const thumbnailSize = spriteSheetData.thumbnail_size || 48;
@@ -310,14 +374,22 @@ class EditorVisualization {
                         const position = mapping[d.id] || mapping[String(d.id)] || mapping[Number(d.id)];
                         
                         if (position && Array.isArray(position) && position.length === 2) {
-                            // Create a circular clipPath for the node image (works for both real images and placeholders)
+                            // Create a clipPath for the node image (square for pre-1968 consecrations)
                             const clipId = `clip-avatar-${d.id}`;
                             const clipPath = defs.append('clipPath')
                                 .attr('id', clipId);
-                            clipPath.append('circle')
-                                .attr('r', IMAGE_SIZE/2)
-                                .attr('cx', 0)
-                                .attr('cy', 0);
+                            if (d.is_pre_1968_consecration) {
+                                clipPath.append('rect')
+                                    .attr('width', IMAGE_SIZE)
+                                    .attr('height', IMAGE_SIZE)
+                                    .attr('x', -IMAGE_SIZE / 2)
+                                    .attr('y', -IMAGE_SIZE / 2);
+                            } else {
+                                clipPath.append('circle')
+                                    .attr('r', IMAGE_SIZE / 2)
+                                    .attr('cx', 0)
+                                    .attr('cy', 0);
+                            }
                         }
                     });
                 }
@@ -376,6 +448,39 @@ class EditorVisualization {
             .attr('stroke-width', 1)
             .style('pointer-events', 'none');
 
+        // Helper function to determine link status from flags
+        this.getLinkStatus = function(d) {
+            // Priority order: invalid > doubtfully_valid > doubtful_event > sub_conditione > valid
+            // Handle backward compatibility with old is_doubtful field
+            if (d.is_invalid) return 'invalid';
+            if (d.is_doubtfully_valid || d.is_doubtful) return 'doubtfully_valid';
+            if (d.is_doubtful_event) return 'doubtful_event';
+            if (d.is_sub_conditione) return 'sub_conditione';
+            return 'valid';
+        };
+
+        // Helper function to get status icon symbol
+        this.getStatusIcon = function(status) {
+            switch (status) {
+                case 'invalid': return '✕';
+                case 'doubtfully_valid': return '?';
+                case 'doubtful_event': return '~';
+                case 'sub_conditione': return 'SC';
+                default: return null; // No icon for valid
+            }
+        };
+
+        // Helper function to get status icon color based on color theory
+        this.getStatusIconColor = function(status) {
+            switch (status) {
+                case 'invalid': return '#e74c3c'; // Red - danger, invalid
+                case 'doubtfully_valid': return '#f39c12'; // Orange - caution, warning
+                case 'doubtful_event': return '#e67e22'; // Dark orange - uncertainty, questionable
+                case 'sub_conditione': return '#3498db'; // Blue - conditional, provisional
+                default: return '#ffffff'; // White fallback
+            }
+        };
+
         // Overlay links (visible, edge-to-edge with arrowheads)
         this.linkOverlay = this.g.append('g')
             .attr('class', 'viz-links-overlay')
@@ -384,19 +489,12 @@ class EditorVisualization {
             .enter().append('line')
             .attr('class', d => {
                 let classes = 'viz-link';
-                if (d.dashed || d.is_doubtful) classes += ' dashed';
+                if (d.dashed || d.is_doubtfully_valid || d.is_doubtful) classes += ' dashed';
                 return classes;
             })
             .attr('stroke', d => {
-                // Invalid links override normal color - orange for ordinations, red for consecrations
-                if (d.is_invalid) {
-                    if (d.type === 'ordination') {
-                        return cssLinkInvalidOrdinationColor;
-                    } else {
-                        return cssLinkInvalidConsecrationColor;
-                    }
-                }
-                // Use CSS variables based on link type instead of d.color
+                // Always use normal link colors (green/grey) regardless of status
+                // Status is indicated by icon color, not link color
                 if (d.type === 'ordination') {
                     return cssLinkOrdinationColor;
                 } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -408,21 +506,15 @@ class EditorVisualization {
             .attr('stroke-width', cssLinkStrokeWidth)
             .attr('stroke-dasharray', d => {
                 // Make doubtful links dotted (or if already dashed from co-consecration)
-                if (d.is_doubtful || d.dashed) {
+                // Use is_doubtfully_valid for new data, is_doubtful for backward compatibility
+                if (d.is_doubtfully_valid || d.is_doubtful || d.dashed) {
                     return '5,5';
                 }
                 return 'none';
             })
             .attr('marker-end', d => {
-                // Invalid links use colored arrow markers - orange for ordinations, red for consecrations
-                if (d.is_invalid) {
-                    if (d.type === 'ordination') {
-                        return 'url(#arrowhead-orange)';
-                    } else {
-                        return 'url(#arrowhead-red)';
-                    }
-                }
-                // Use link type to determine arrow marker
+                // Always use normal arrow markers (black/green) regardless of status
+                // Status is indicated by icon color, not arrow color
                 if (d.type === 'ordination') {
                     return 'url(#arrowhead-black)';
                 } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -434,6 +526,35 @@ class EditorVisualization {
         
         // Keep reference to overlay links for compatibility
         this.link = this.linkOverlay;
+
+        // Create status icon layer (rendered after links, before nodes)
+        this.linkStatusIcons = this.g.append('g')
+            .attr('class', 'viz-link-status-icons')
+            .selectAll('g')
+            .data(this.linksData.filter(d => this.getLinkStatus(d) !== 'valid'))
+            .enter().append('g')
+            .attr('class', d => `viz-link-status-icon-group status-${this.getLinkStatus(d)}`)
+            .style('pointer-events', 'none')
+            .style('opacity', d => d.filtered ? 0 : 1);
+
+        // Add background circle for halo effect
+        this.linkStatusIcons.append('circle')
+            .attr('r', 10)
+            .attr('fill', this.cssSurfaceColor) // Background color from CSS variable
+            .attr('opacity', 0.85);
+
+        // Add text icon
+        this.linkStatusIcons.append('text')
+            .attr('class', d => `viz-link-status-icon status-${this.getLinkStatus(d)}`)
+            .text(d => this.getStatusIcon(this.getLinkStatus(d)))
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .attr('font-size', '16px')
+            .attr('font-weight', 'bold')
+            .attr('fill', d => this.getStatusIconColor(this.getLinkStatus(d)))
+            .attr('stroke', this.cssSurfaceColor)
+            .attr('stroke-width', '1px')
+            .attr('paint-order', 'stroke');
         
         // Create nodes - matching lineage visualization exactly
         this.node = this.g.append('g')
@@ -453,37 +574,87 @@ class EditorVisualization {
                 this.handleNodeClick(event, d);
             });
 
-        // Add outer circle (organization ring) - matching lineage visualization
+        // Add node shapes (circle or square based on consecration year)
         this.node.append('circle')
+            .attr('class', 'viz-node-outer viz-node-outer-circle')
             .attr('r', OUTER_RADIUS)
             .attr('fill', d => d.org_color)
             .attr('stroke', d => d.rank_color)
-            .attr('stroke-width', 3);
+            .attr('stroke-width', 3)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
 
-        // Add inner circle (rank ring) - matching lineage visualization
+        this.node.append('rect')
+            .attr('class', 'viz-node-outer viz-node-outer-rect')
+            .attr('width', OUTER_RADIUS * 2)
+            .attr('height', OUTER_RADIUS * 2)
+            .attr('x', -OUTER_RADIUS)
+            .attr('y', -OUTER_RADIUS)
+            .attr('fill', d => d.org_color)
+            .attr('stroke', d => d.rank_color)
+            .attr('stroke-width', 3)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+
+        // Add rank indicator
         this.node.append('circle')
+            .attr('class', 'viz-node-inner viz-node-inner-circle')
             .attr('r', INNER_RADIUS)
             .attr('fill', d => d.rank_color)
             .attr('cx', 0)
-            .attr('cy', 0);
+            .attr('cy', 0)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
 
-        // Add white background circle for images (will be updated after sprite sheet loads)
-        const bgCircle = this.node.append('circle')
-            .attr('r', IMAGE_SIZE/2)
+        this.node.append('rect')
+            .attr('class', 'viz-node-inner viz-node-inner-rect')
+            .attr('width', INNER_RADIUS * 2)
+            .attr('height', INNER_RADIUS * 2)
+            .attr('x', -INNER_RADIUS)
+            .attr('y', -INNER_RADIUS)
+            .attr('fill', d => d.rank_color)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+
+        // Add white background shape for images (will be updated after sprite sheet loads)
+        this.node.append('circle')
+            .attr('class', 'viz-node-image-bg viz-node-image-bg-circle')
+            .attr('r', IMAGE_SIZE / 2)
             .attr('fill', 'rgba(255, 255, 255, 1)')
             .attr('cx', 0)
             .attr('cy', 0)
-            .style('opacity', d => d.image_url ? 1 : 0);
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
 
-        // Add border circle for images (will be updated after sprite sheet loads)
-        const borderCircle = this.node.append('circle')
-            .attr('r', IMAGE_SIZE/2)
+        this.node.append('rect')
+            .attr('class', 'viz-node-image-bg viz-node-image-bg-rect')
+            .attr('width', IMAGE_SIZE)
+            .attr('height', IMAGE_SIZE)
+            .attr('x', -IMAGE_SIZE / 2)
+            .attr('y', -IMAGE_SIZE / 2)
+            .attr('fill', 'rgba(255, 255, 255, 1)')
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+
+        // Add border shape for images (will be updated after sprite sheet loads)
+        this.node.append('circle')
+            .attr('class', 'viz-node-image-border viz-node-image-border-circle')
+            .attr('r', IMAGE_SIZE / 2)
             .attr('fill', 'none')
             .attr('stroke', 'rgba(0, 0, 0, 1)')
             .attr('stroke-width', '1px')
             .attr('cx', 0)
             .attr('cy', 0)
-            .style('opacity', d => d.image_url ? 1 : 0);
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+
+        this.node.append('rect')
+            .attr('class', 'viz-node-image-border viz-node-image-border-rect')
+            .attr('width', IMAGE_SIZE)
+            .attr('height', IMAGE_SIZE)
+            .attr('x', -IMAGE_SIZE / 2)
+            .attr('y', -IMAGE_SIZE / 2)
+            .attr('fill', 'none')
+            .attr('stroke', 'rgba(0, 0, 0, 1)')
+            .attr('stroke-width', '1px')
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
 
         // Add clergy images with sprite sheet or fallback to individual images
         if (spriteSheetData && spriteSheetData.success) {
@@ -539,8 +710,12 @@ class EditorVisualization {
                         const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
                         if (position && Array.isArray(position) && position.length === 2) {
                             // Update background and border circles to show for nodes with sprite positions (including placeholders)
-                            bgCircle.filter(node => node.id === d.id).style('opacity', 1);
-                            borderCircle.filter(node => node.id === d.id).style('opacity', 1);
+                            this.node.filter(node => node.id === d.id)
+                                .selectAll('.viz-node-image-bg')
+                                .style('opacity', 1);
+                            this.node.filter(node => node.id === d.id)
+                                .selectAll('.viz-node-image-border')
+                                .style('opacity', 1);
                             return 1;
                         }
                     }
@@ -554,7 +729,9 @@ class EditorVisualization {
                 .attr('y', -IMAGE_SIZE/2)
                 .attr('width', IMAGE_SIZE)
                 .attr('height', IMAGE_SIZE)
-                .attr('clip-path', `circle(${IMAGE_SIZE/2}px at ${IMAGE_SIZE/2}px ${IMAGE_SIZE/2}px)`)
+                .attr('clip-path', d => d.is_pre_1968_consecration
+                    ? 'none'
+                    : `circle(${IMAGE_SIZE / 2}px at ${IMAGE_SIZE / 2}px ${IMAGE_SIZE / 2}px)`)
                 .attr('filter', 'url(#image-inset-shadow)')
                 .style('pointer-events', 'none') // Make images unclickable so they don't interfere with node interactions
                 .style('opacity', d => d.image_url ? 1 : 0)
@@ -636,6 +813,47 @@ class EditorVisualization {
                     .attr('x2', x2)
                     .attr('y2', y2);
             });
+
+            // Update status icons at link midpoints
+            if (this.linkStatusIcons) {
+                this.linkStatusIcons.each(function(d) {
+                    const dx = d.target.x - d.source.x;
+                    const dy = d.target.y - d.source.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist === 0) {
+                        // Nodes at same position, hide icon
+                        d3.select(this)
+                            .attr('transform', `translate(${d.source.x},${d.source.y})`)
+                            .style('opacity', 0);
+                        return;
+                    }
+                    
+                    // Unit vector along link direction
+                    const ux = dx / dist;
+                    const uy = dy / dist;
+                    
+                    // Perpendicular vector for parallel offset (rotate 90 degrees)
+                    const px = -uy;
+                    const py = ux;
+                    
+                    const offset = d.parallelOffset || 0;
+                    
+                    // Calculate midpoint along the visible link (between edge-to-edge points)
+                    const x1 = d.source.x + ux * nodeEdgeRadius + offset * px;
+                    const y1 = d.source.y + uy * nodeEdgeRadius + offset * py;
+                    const x2 = d.target.x - ux * (nodeEdgeRadius + cssLinkGap + arrowLengthPx) + offset * px;
+                    const y2 = d.target.y - uy * (nodeEdgeRadius + cssLinkGap + arrowLengthPx) + offset * py;
+                    
+                    // Midpoint (centered on link, no offset)
+                    const midX = (x1 + x2) / 2;
+                    const midY = (y1 + y2) / 2;
+                    
+                    d3.select(this)
+                        .attr('transform', `translate(${midX},${midY})`)
+                        .style('opacity', d.filtered ? 0 : 1);
+                });
+            }
             
             // Update nodes
             this.node
@@ -764,25 +982,23 @@ class EditorVisualization {
     highlightNode(nodeId) {
         if (!this.node || !this.isInitialized) return;
         
-        const outerRadius = window.OUTER_RADIUS || OUTER_RADIUS || 30; // Fallback to 30 if not defined
-        
         // Clear all highlights first
-        this.node.selectAll('circle').each(function(d) {
-            const circle = d3.select(this);
-            // Reset outer circle (first circle is outer)
-            const r = parseFloat(circle.attr('r'));
-            if (Math.abs(r - outerRadius) < 1) { // Allow small floating point differences
-                circle.attr('stroke-width', 3).attr('stroke', d => d.rank_color);
+        this.node.each(function(d) {
+            const outerShape = d3.select(this).select(d.is_pre_1968_consecration
+                ? '.viz-node-outer-rect'
+                : '.viz-node-outer-circle');
+            if (!outerShape.empty()) {
+                outerShape.attr('stroke-width', 3).attr('stroke', d.rank_color);
             }
         });
         
         // Highlight the selected node
-        this.node.filter(d => d.id === nodeId).selectAll('circle').each(function(d) {
-            const circle = d3.select(this);
-            // Highlight outer circle
-            const r = parseFloat(circle.attr('r'));
-            if (Math.abs(r - outerRadius) < 1) { // Allow small floating point differences
-                circle.attr('stroke-width', 6).attr('stroke', '#ffd700');
+        this.node.filter(d => d.id === nodeId).each(function(d) {
+            const outerShape = d3.select(this).select(d.is_pre_1968_consecration
+                ? '.viz-node-outer-rect'
+                : '.viz-node-outer-circle');
+            if (!outerShape.empty()) {
+                outerShape.attr('stroke-width', 6).attr('stroke', '#ffd700');
             }
         });
     }
@@ -791,13 +1007,12 @@ class EditorVisualization {
     clearHighlights() {
         if (!this.node || !this.isInitialized) return;
         
-        const outerRadius = window.OUTER_RADIUS || OUTER_RADIUS || 30; // Fallback to 30 if not defined
-        
-        this.node.selectAll('circle').each(function(d) {
-            const circle = d3.select(this);
-            const r = parseFloat(circle.attr('r'));
-            if (Math.abs(r - outerRadius) < 1) { // Allow small floating point differences
-                circle.attr('stroke-width', 3).attr('stroke', d => d.rank_color);
+        this.node.each(function(d) {
+            const outerShape = d3.select(this).select(d.is_pre_1968_consecration
+                ? '.viz-node-outer-rect'
+                : '.viz-node-outer-circle');
+            if (!outerShape.empty()) {
+                outerShape.attr('stroke-width', 3).attr('stroke', d.rank_color);
             }
         });
     }
@@ -851,6 +1066,11 @@ class EditorVisualization {
         }
         
         console.log('Updating spritesheet:', spriteData.url);
+        
+        // Invalidate cache since we have new sprite data
+        if (typeof window.invalidateSpriteSheetCache === 'function') {
+            window.invalidateSpriteSheetCache();
+        }
         
         // Store updated spriteSheetData
         this.spriteSheetData = spriteData;
@@ -978,6 +1198,8 @@ class EditorVisualization {
                 target: targetNode || link.target
             };
         });
+
+        this.updatePre1968Flags();
         
         // Update link force with the fresh links array - this ensures the force uses correct node references
         this.simulation
@@ -1014,6 +1236,7 @@ class EditorVisualization {
         const cssLinkInvalidOrdinationColor = rootStyles.getPropertyValue('--viz-link-invalid-ordination-color').trim() || ORANGE_COLOR;
         const cssLinkInvalidConsecrationColor = rootStyles.getPropertyValue('--viz-link-invalid-consecration-color').trim() || RED_COLOR;
         const cssLinkStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width')) || 2;
+        const cssSurfaceColor = rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a';
         
         // Bind the same fresh links array to overlay links
         this.linkOverlay = this.linkOverlay.data(this.linksData, linkKey);
@@ -1021,18 +1244,12 @@ class EditorVisualization {
         const newLinkOverlay = this.linkOverlay.enter().append('line')
             .attr('class', d => {
                 let classes = 'viz-link';
-                if (d.dashed || d.is_doubtful) classes += ' dashed';
+                if (d.dashed || d.is_doubtfully_valid || d.is_doubtful) classes += ' dashed';
                 return classes;
             })
             .attr('stroke', d => {
-                // Invalid links override normal color - orange for ordinations, red for consecrations
-                if (d.is_invalid) {
-                    if (d.type === 'ordination') {
-                        return cssLinkInvalidOrdinationColor;
-                    } else {
-                        return cssLinkInvalidConsecrationColor;
-                    }
-                }
+                // Always use normal link colors (green/grey) regardless of status
+                // Status is indicated by icon color, not link color
                 if (d.type === 'ordination') {
                     return cssLinkOrdinationColor;
                 } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -1042,20 +1259,15 @@ class EditorVisualization {
             })
             .attr('stroke-width', cssLinkStrokeWidth)
             .attr('stroke-dasharray', d => {
-                if (d.is_doubtful || d.dashed) {
+                // Use is_doubtfully_valid for new data, is_doubtful for backward compatibility
+                if (d.is_doubtfully_valid || d.is_doubtful || d.dashed) {
                     return '5,5';
                 }
                 return 'none';
             })
             .attr('marker-end', d => {
-                // Invalid links use colored arrow markers - orange for ordinations, red for consecrations
-                if (d.is_invalid) {
-                    if (d.type === 'ordination') {
-                        return 'url(#arrowhead-orange)';
-                    } else {
-                        return 'url(#arrowhead-red)';
-                    }
-                }
+                // Always use normal arrow markers (black/green) regardless of status
+                // Status is indicated by icon color, not arrow color
                 if (d.type === 'ordination') {
                     return 'url(#arrowhead-black)';
                 } else if (d.type === 'consecration' || d.type === 'co-consecration') {
@@ -1064,6 +1276,37 @@ class EditorVisualization {
                 return 'url(#arrowhead-green)';
             });
         this.linkOverlay = this.linkOverlay.merge(newLinkOverlay);
+
+        // Update status icons
+        if (this.linkStatusIcons) {
+            const statusLinks = this.linksData.filter(d => this.getLinkStatus(d) !== 'valid');
+            this.linkStatusIcons = this.linkStatusIcons.data(statusLinks, linkKey);
+            this.linkStatusIcons.exit().remove();
+            const newStatusIconGroups = this.linkStatusIcons.enter().append('g')
+                .attr('class', d => `viz-link-status-icon-group status-${this.getLinkStatus(d)}`)
+                .style('pointer-events', 'none')
+                .style('opacity', d => d.filtered ? 0 : 1);
+
+            // Add background circle for halo effect
+            newStatusIconGroups.append('circle')
+                .attr('r', 10)
+                .attr('fill', rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a') // Background color from CSS variable
+                .attr('opacity', 0.85);
+
+            // Add text icon
+            newStatusIconGroups.append('text')
+                .attr('class', d => `viz-link-status-icon status-${this.getLinkStatus(d)}`)
+                .text(d => this.getStatusIcon(this.getLinkStatus(d)))
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('font-size', '16px')
+                .attr('font-weight', 'bold')
+                .attr('fill', d => this.getStatusIconColor(this.getLinkStatus(d)))
+                .attr('stroke', rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a')
+                .attr('stroke-width', '1px')
+                .attr('paint-order', 'stroke');
+            this.linkStatusIcons = this.linkStatusIcons.merge(newStatusIconGroups);
+        }
         
         // Keep reference to overlay links for compatibility
         this.link = this.linkOverlay;
@@ -1087,34 +1330,84 @@ class EditorVisualization {
                 this.handleNodeClick(event, d);
             });
         
-        // Add circles and labels to new nodes
+        // Add shapes to new nodes (circle or square based on consecration year)
         newNodeGroups.append('circle')
+            .attr('class', 'viz-node-outer viz-node-outer-circle')
             .attr('r', OUTER_RADIUS)
             .attr('fill', d => d.org_color)
             .attr('stroke', d => d.rank_color)
-            .attr('stroke-width', 3);
+            .attr('stroke-width', 3)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+        
+        newNodeGroups.append('rect')
+            .attr('class', 'viz-node-outer viz-node-outer-rect')
+            .attr('width', OUTER_RADIUS * 2)
+            .attr('height', OUTER_RADIUS * 2)
+            .attr('x', -OUTER_RADIUS)
+            .attr('y', -OUTER_RADIUS)
+            .attr('fill', d => d.org_color)
+            .attr('stroke', d => d.rank_color)
+            .attr('stroke-width', 3)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
         
         newNodeGroups.append('circle')
+            .attr('class', 'viz-node-inner viz-node-inner-circle')
             .attr('r', INNER_RADIUS)
             .attr('fill', d => d.rank_color)
             .attr('cx', 0)
-            .attr('cy', 0);
+            .attr('cy', 0)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
         
-        const bgCircle = newNodeGroups.append('circle')
-            .attr('r', IMAGE_SIZE/2)
+        newNodeGroups.append('rect')
+            .attr('class', 'viz-node-inner viz-node-inner-rect')
+            .attr('width', INNER_RADIUS * 2)
+            .attr('height', INNER_RADIUS * 2)
+            .attr('x', -INNER_RADIUS)
+            .attr('y', -INNER_RADIUS)
+            .attr('fill', d => d.rank_color)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+        
+        newNodeGroups.append('circle')
+            .attr('class', 'viz-node-image-bg viz-node-image-bg-circle')
+            .attr('r', IMAGE_SIZE / 2)
             .attr('fill', 'rgba(255, 255, 255, 1)')
             .attr('cx', 0)
             .attr('cy', 0)
-            .style('opacity', d => d.image_url ? 1 : 0);
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
         
-        const borderCircle = newNodeGroups.append('circle')
-            .attr('r', IMAGE_SIZE/2)
+        newNodeGroups.append('rect')
+            .attr('class', 'viz-node-image-bg viz-node-image-bg-rect')
+            .attr('width', IMAGE_SIZE)
+            .attr('height', IMAGE_SIZE)
+            .attr('x', -IMAGE_SIZE / 2)
+            .attr('y', -IMAGE_SIZE / 2)
+            .attr('fill', 'rgba(255, 255, 255, 1)')
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+        
+        newNodeGroups.append('circle')
+            .attr('class', 'viz-node-image-border viz-node-image-border-circle')
+            .attr('r', IMAGE_SIZE / 2)
             .attr('fill', 'none')
             .attr('stroke', 'rgba(0, 0, 0, 1)')
             .attr('stroke-width', '1px')
             .attr('cx', 0)
             .attr('cy', 0)
-            .style('opacity', d => d.image_url ? 1 : 0);
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+        
+        newNodeGroups.append('rect')
+            .attr('class', 'viz-node-image-border viz-node-image-border-rect')
+            .attr('width', IMAGE_SIZE)
+            .attr('height', IMAGE_SIZE)
+            .attr('x', -IMAGE_SIZE / 2)
+            .attr('y', -IMAGE_SIZE / 2)
+            .attr('fill', 'none')
+            .attr('stroke', 'rgba(0, 0, 0, 1)')
+            .attr('stroke-width', '1px')
+            .style('opacity', d => d.image_url ? 1 : 0)
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
         
         // Add images (simplified - assumes sprite sheet is already loaded)
         if (this.spriteSheetData && this.spriteSheetData.success) {
@@ -1175,8 +1468,12 @@ class EditorVisualization {
                                        this.spriteSheetData.mapping[String(d.id)] || 
                                        this.spriteSheetData.mapping[Number(d.id)];
                         if (position && Array.isArray(position) && position.length === 2) {
-                            bgCircle.filter(node => node.id === d.id).style('opacity', 1);
-                            borderCircle.filter(node => node.id === d.id).style('opacity', 1);
+                            newNodeGroups.filter(node => node.id === d.id)
+                                .selectAll('.viz-node-image-bg')
+                                .style('opacity', 1);
+                            newNodeGroups.filter(node => node.id === d.id)
+                                .selectAll('.viz-node-image-border')
+                                .style('opacity', 1);
                             return 1;
                         }
                     }
@@ -1203,6 +1500,20 @@ class EditorVisualization {
         
         // Merge new nodes with existing
         this.node = this.node.merge(newNodeGroups);
+
+        // Ensure node shape visibility matches consecration flags
+        this.node.selectAll('.viz-node-outer-circle')
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+        this.node.selectAll('.viz-node-outer-rect')
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+        this.node.selectAll('.viz-node-inner-circle')
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+        this.node.selectAll('.viz-node-inner-rect')
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+        this.node.selectAll('.viz-node-image-bg-circle, .viz-node-image-border-circle')
+            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+        this.node.selectAll('.viz-node-image-bg-rect, .viz-node-image-border-rect')
+            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
         
         // CRITICAL: After D3 binds data, ensure datum objects reference simulation nodes
         // D3 might create new objects when binding, so we need to fix references after binding
@@ -1267,48 +1578,53 @@ class EditorVisualization {
             // Update outer radius
             if (nodeStyles.outer_radius !== undefined) {
                 window.OUTER_RADIUS = nodeStyles.outer_radius;
-                this.node.selectAll('circle')
-                    .filter(function(d, i) {
-                        // First circle is outer circle
-                        return i === 0;
-                    })
+                this.node.selectAll('.viz-node-outer-circle')
                     .attr('r', nodeStyles.outer_radius);
+                this.node.selectAll('.viz-node-outer-rect')
+                    .attr('width', nodeStyles.outer_radius * 2)
+                    .attr('height', nodeStyles.outer_radius * 2)
+                    .attr('x', -nodeStyles.outer_radius)
+                    .attr('y', -nodeStyles.outer_radius);
             }
             
             // Update inner radius
             if (nodeStyles.inner_radius !== undefined) {
                 window.INNER_RADIUS = nodeStyles.inner_radius;
-                this.node.selectAll('circle')
-                    .filter(function(d, i) {
-                        // Second circle is inner circle
-                        return i === 1;
-                    })
+                this.node.selectAll('.viz-node-inner-circle')
                     .attr('r', nodeStyles.inner_radius);
+                this.node.selectAll('.viz-node-inner-rect')
+                    .attr('width', nodeStyles.inner_radius * 2)
+                    .attr('height', nodeStyles.inner_radius * 2)
+                    .attr('x', -nodeStyles.inner_radius)
+                    .attr('y', -nodeStyles.inner_radius);
             }
             
             // Update image size
             if (nodeStyles.image_size !== undefined) {
                 window.IMAGE_SIZE = nodeStyles.image_size;
                 const imageRadius = nodeStyles.image_size / 2;
-                this.node.selectAll('circle')
-                    .filter(function(d, i) {
-                        // Third and fourth circles are image background and border
-                        return i === 2 || i === 3;
-                    })
+                this.node.selectAll('.viz-node-image-bg-circle, .viz-node-image-border-circle')
                     .attr('r', imageRadius);
+                this.node.selectAll('.viz-node-image-bg-rect, .viz-node-image-border-rect')
+                    .attr('width', nodeStyles.image_size)
+                    .attr('height', nodeStyles.image_size)
+                    .attr('x', -imageRadius)
+                    .attr('y', -imageRadius);
                 
                 // Update clip paths
                 const defs = this.svg.select('defs');
                 defs.selectAll('clipPath').selectAll('circle')
                     .attr('r', imageRadius);
+                defs.selectAll('clipPath').selectAll('rect')
+                    .attr('width', nodeStyles.image_size)
+                    .attr('height', nodeStyles.image_size)
+                    .attr('x', -imageRadius)
+                    .attr('y', -imageRadius);
             }
             
             // Update stroke width
             if (nodeStyles.stroke_width !== undefined) {
-                this.node.selectAll('circle')
-                    .filter(function(d, i) {
-                        return i === 0; // Outer circle
-                    })
+                this.node.selectAll('.viz-node-outer-circle, .viz-node-outer-rect')
                     .attr('stroke-width', nodeStyles.stroke_width);
             }
             

@@ -801,28 +801,51 @@ function startSpritesheetPolling(clergyId) {
 }
 
 function refreshVisualizationSpritesheet(spriteData) {
+    // Invalidate cache since we have new sprite data
+    if (typeof window.invalidateSpriteSheetCache === 'function') {
+        window.invalidateSpriteSheetCache();
+    }
+    
     // Update visualization spritesheet without full reload
     if (window.editorVisualization && typeof window.editorVisualization.updateSpritesheet === 'function') {
         console.log('Updating visualization spritesheet with new data');
         window.editorVisualization.updateSpritesheet(spriteData);
     } else {
         console.log('Visualization not available, fetching latest spritesheet data');
-        // Fallback: fetch latest spritesheet and update
-        fetch('/api/sprite-sheet')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && window.editorVisualization && typeof window.editorVisualization.updateSpritesheet === 'function') {
-                    window.editorVisualization.updateSpritesheet(data);
-                } else {
-                    // Last resort: soft refresh of the visualization
-                    if (typeof window.softRefreshVisualization === 'function') {
-                        window.softRefreshVisualization();
+        // Use cache utility if available, otherwise fallback to direct fetch
+        if (typeof window.refreshSpriteSheetData === 'function') {
+            window.refreshSpriteSheetData()
+                .then(data => {
+                    if (data && data.success && window.editorVisualization && typeof window.editorVisualization.updateSpritesheet === 'function') {
+                        window.editorVisualization.updateSpritesheet(data);
+                    } else {
+                        // Last resort: soft refresh of the visualization
+                        if (typeof window.softRefreshVisualization === 'function') {
+                            window.softRefreshVisualization();
+                        }
                     }
-                }
-            })
-            .catch(error => {
-                console.error('Error refreshing visualization spritesheet:', error);
-            });
+                })
+                .catch(error => {
+                    console.error('Error refreshing visualization spritesheet:', error);
+                });
+        } else {
+            // Fallback to direct fetch
+            fetch('/api/sprite-sheet')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && window.editorVisualization && typeof window.editorVisualization.updateSpritesheet === 'function') {
+                        window.editorVisualization.updateSpritesheet(data);
+                    } else {
+                        // Last resort: soft refresh of the visualization
+                        if (typeof window.softRefreshVisualization === 'function') {
+                            window.softRefreshVisualization();
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error refreshing visualization spritesheet:', error);
+                });
+        }
     }
 }
 

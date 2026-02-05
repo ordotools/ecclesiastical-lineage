@@ -549,10 +549,7 @@ function checkAndCreatePastor(pastorName) {
     
     return new Promise((resolve, reject) => {
         // Send AJAX request to check and create pastor
-        // Use test API endpoint if we're on the test page, otherwise use the real endpoint
-        const apiEndpoint = window.location.pathname.includes('test-pastor-form') 
-            ? '/api/test-check-and-create-pastor' 
-            : '/api/check-and-create-pastor';
+        const apiEndpoint = '/api/check-and-create-pastor';
         
         console.log('Making API request to', apiEndpoint);
         fetch(apiEndpoint, {
@@ -624,11 +621,6 @@ function submitLocationForm(form, formData, submitButton, originalText) {
     // Determine the correct endpoint based on whether we're editing or adding
     const isEditing = form.action.includes('/edit');
     let endpoint = isEditing ? form.action : '/locations/add';
-    
-    // Use test endpoint if we're on the test page
-    if (window.location.pathname.includes('test-pastor-form') && !isEditing) {
-        endpoint = '/api/test-locations-add';
-    }
     
     console.log('Is editing:', isEditing);
     console.log('Endpoint:', endpoint);

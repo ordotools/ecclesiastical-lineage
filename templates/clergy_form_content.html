@@ -494,7 +494,8 @@ function populateExistingOrdinations() {
             id: {{ ordination.id }},
             date: {{ ordination.date.strftime('%Y-%m-%d')|tojson if ordination.date else 'null' }},
             is_sub_conditione: {{ ordination.is_sub_conditione|lower }},
-            is_doubtful: {{ ordination.is_doubtful|lower }},
+            is_doubtfully_valid: {{ ordination.is_doubtfully_valid|lower }},
+            is_doubtful_event: {{ ordination.is_doubtful_event|lower }},
             is_invalid: {{ ordination.is_invalid|lower }},
             notes: {{ ordination.notes|tojson if ordination.notes else 'null' }},
             ordaining_bishop: {% if ordination.ordaining_bishop %}{
@@ -530,12 +531,22 @@ function populateExistingOrdinations() {
             
             // Populate checkboxes
             const subConditioneInput = ordinationEntry.querySelector('input[name*="[is_sub_conditione]"]');
-            const doubtfulInput = ordinationEntry.querySelector('input[name*="[is_doubtful]"]');
-            const invalidInput = ordinationEntry.querySelector('input[name*="[is_invalid]"]');
+            const doubtfulEventInput = ordinationEntry.querySelector('input[name*="[is_doubtful_event]"]');
+            const validitySelect = ordinationEntry.querySelector('select[name*="[validity]"]');
             
             if (subConditioneInput) subConditioneInput.checked = ordination.is_sub_conditione;
-            if (doubtfulInput) doubtfulInput.checked = ordination.is_doubtful;
-            if (invalidInput) invalidInput.checked = ordination.is_invalid;
+            if (doubtfulEventInput) doubtfulEventInput.checked = ordination.is_doubtful_event;
+            
+            // Set validity dropdown based on is_doubtfully_valid and is_invalid
+            if (validitySelect) {
+                if (ordination.is_invalid) {
+                    validitySelect.value = 'invalid';
+                } else if (ordination.is_doubtfully_valid) {
+                    validitySelect.value = 'doubtfully_valid';
+                } else {
+                    validitySelect.value = 'valid';
+                }
+            }
             
             // Populate notes
             const notesTextarea = ordinationEntry.querySelector('textarea[name*="[notes]"]');
@@ -579,7 +590,8 @@ function populateExistingConsecrations() {
             id: {{ consecration.id }},
             date: {{ consecration.date.strftime('%Y-%m-%d')|tojson if consecration.date else 'null' }},
             is_sub_conditione: {{ consecration.is_sub_conditione|lower }},
-            is_doubtful: {{ consecration.is_doubtful|lower }},
+            is_doubtfully_valid: {{ consecration.is_doubtfully_valid|lower }},
+            is_doubtful_event: {{ consecration.is_doubtful_event|lower }},
             is_invalid: {{ consecration.is_invalid|lower }},
             notes: {{ consecration.notes|tojson if consecration.notes else 'null' }},
             consecrator: {% if consecration.consecrator %}{
@@ -650,12 +662,22 @@ function populateExistingConsecrations() {
             
             // Populate checkboxes
             const subConditioneInput = consecrationEntry.querySelector('input[name*="[is_sub_conditione]"]');
-            const doubtfulInput = consecrationEntry.querySelector('input[name*="[is_doubtful]"]');
-            const invalidInput = consecrationEntry.querySelector('input[name*="[is_invalid]"]');
+            const doubtfulEventInput = consecrationEntry.querySelector('input[name*="[is_doubtful_event]"]');
+            const validitySelect = consecrationEntry.querySelector('select[name*="[validity]"]');
             
             if (subConditioneInput) subConditioneInput.checked = consecration.is_sub_conditione;
-            if (doubtfulInput) doubtfulInput.checked = consecration.is_doubtful;
-            if (invalidInput) invalidInput.checked = consecration.is_invalid;
+            if (doubtfulEventInput) doubtfulEventInput.checked = consecration.is_doubtful_event;
+            
+            // Set validity dropdown based on is_doubtfully_valid and is_invalid
+            if (validitySelect) {
+                if (consecration.is_invalid) {
+                    validitySelect.value = 'invalid';
+                } else if (consecration.is_doubtfully_valid) {
+                    validitySelect.value = 'doubtfully_valid';
+                } else {
+                    validitySelect.value = 'valid';
+                }
+            }
             
             // Populate notes
             const notesTextarea = consecrationEntry.querySelector('textarea[name*="[notes]"]');
@@ -879,18 +901,27 @@ function addOrdination() {
                     </div>
                 </div>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75em; margin-bottom: 0.75em;">
-                <div style="display: flex; align-items: center; gap: 0.25em;">
-                    <input type="checkbox" name="ordinations[${ordinationCount}][is_sub_conditione]" id="sub_conditione_${ordinationCount}" style="margin: 0;">
-                    <label for="sub_conditione_${ordinationCount}" style="color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0;">Sub Conditione</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75em; margin-bottom: 0.75em;">
+                <div>
+                    <label style="display: block; margin-bottom: 0.5em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Status</label>
+                    <div style="display: flex; flex-direction: column; gap: 0.5em;">
+                        <div style="display: flex; align-items: center; gap: 0.5em;">
+                            <input type="checkbox" name="ordinations[${ordinationCount}][is_sub_conditione]" id="sub_conditione_${ordinationCount}" style="margin: 0;">
+                            <label for="sub_conditione_${ordinationCount}" style="color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0; cursor: pointer;">Sub Conditione</label>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5em;">
+                            <input type="checkbox" name="ordinations[${ordinationCount}][is_doubtful_event]" id="doubtful_event_${ordinationCount}" style="margin: 0;">
+                            <label for="doubtful_event_${ordinationCount}" style="color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0; cursor: pointer;">Doubtful Event</label>
+                        </div>
+                    </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 0.25em;">
-                    <input type="checkbox" name="ordinations[${ordinationCount}][is_doubtful]" id="doubtful_${ordinationCount}" style="margin: 0;">
-                    <label for="doubtful_${ordinationCount}" style="color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0;">Doubtful</label>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.25em;">
-                    <input type="checkbox" name="ordinations[${ordinationCount}][is_invalid]" id="invalid_${ordinationCount}" style="margin: 0;">
-                    <label for="invalid_${ordinationCount}" style="color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0;">Invalid</label>
+                <div>
+                    <label style="display: block; margin-bottom: 0.5em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Validity</label>
+                    <select name="ordinations[${ordinationCount}][validity]" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                        <option value="valid">Valid</option>
+                        <option value="doubtfully_valid">Doubtfully Valid</option>
+                        <option value="invalid">Invalid</option>
+                    </select>
                 </div>
             </div>
             <div style="margin-bottom: 0.75em;">
@@ -955,18 +986,27 @@ function addConsecration() {
                     <!-- Additional co-consecrators will be added here -->
                 </div>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75em; margin-bottom: 0.75em;">
-                <div style="display: flex; align-items: center; gap: 0.25em;">
-                    <input type="checkbox" name="consecrations[${consecrationCount}][is_sub_conditione]" id="consec_sub_conditione_${consecrationCount}" style="margin: 0;">
-                    <label for="consec_sub_conditione_${consecrationCount}" style="color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0;">Sub Conditione</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75em; margin-bottom: 0.75em;">
+                <div>
+                    <label style="display: block; margin-bottom: 0.5em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Status</label>
+                    <div style="display: flex; flex-direction: column; gap: 0.5em;">
+                        <div style="display: flex; align-items: center; gap: 0.5em;">
+                            <input type="checkbox" name="consecrations[${consecrationCount}][is_sub_conditione]" id="consec_sub_conditione_${consecrationCount}" style="margin: 0;">
+                            <label for="consec_sub_conditione_${consecrationCount}" style="color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0; cursor: pointer;">Sub Conditione</label>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5em;">
+                            <input type="checkbox" name="consecrations[${consecrationCount}][is_doubtful_event]" id="consec_doubtful_event_${consecrationCount}" style="margin: 0;">
+                            <label for="consec_doubtful_event_${consecrationCount}" style="color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0; cursor: pointer;">Doubtful Event</label>
+                        </div>
+                    </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 0.25em;">
-                    <input type="checkbox" name="consecrations[${consecrationCount}][is_doubtful]" id="consec_doubtful_${consecrationCount}" style="margin: 0;">
-                    <label for="consec_doubtful_${consecrationCount}" style="color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0;">Doubtful</label>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.25em;">
-                    <input type="checkbox" name="consecrations[${consecrationCount}][is_invalid]" id="consec_invalid_${consecrationCount}" style="margin: 0;">
-                    <label for="consec_invalid_${consecrationCount}" style="color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0;">Invalid</label>
+                <div>
+                    <label style="display: block; margin-bottom: 0.5em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Validity</label>
+                    <select name="consecrations[${consecrationCount}][validity]" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                        <option value="valid">Valid</option>
+                        <option value="doubtfully_valid">Doubtfully Valid</option>
+                        <option value="invalid">Invalid</option>
+                    </select>
                 </div>
             </div>
             <div style="margin-bottom: 0.75em;">

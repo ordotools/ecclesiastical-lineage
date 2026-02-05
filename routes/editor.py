@@ -17,6 +17,17 @@ from routes import editor_user_management  # noqa: F401
 from routes import editor_metadata  # noqa: F401
 
 
+class FormFields:
+    """Shared form context for clergy form panel and form content endpoints."""
+
+    def __init__(self, ranks, organizations, statuses):
+        self.ranks = ranks
+        self.organizations = organizations
+        self.statuses = statuses
+        self.form_action = None
+        self.cancel_url = None
+
+
 @editor_bp.route('/editor')
 @require_permission('edit_clergy')
 def editor():
@@ -246,15 +257,6 @@ def clergy_form_panel(clergy_id=None):
     ranks = Rank.query.all()
     organizations = Organization.query.all()
     statuses = Status.query.order_by(Status.badge_position, Status.name).all()
-
-    class FormFields:
-        def __init__(self, ranks, organizations, statuses):
-            self.ranks = ranks
-            self.organizations = organizations
-            self.statuses = statuses
-            self.form_action = None
-            self.cancel_url = None
-
     fields = FormFields(ranks, organizations, statuses)
 
     if clergy_id:
@@ -287,15 +289,6 @@ def clergy_form_content(clergy_id=None):
     ranks = Rank.query.all()
     organizations = Organization.query.all()
     statuses = Status.query.order_by(Status.badge_position, Status.name).all()
-
-    class FormFields:
-        def __init__(self, ranks, organizations, statuses):
-            self.ranks = ranks
-            self.organizations = organizations
-            self.statuses = statuses
-            self.form_action = None
-            self.cancel_url = None
-
     fields = FormFields(ranks, organizations, statuses)
 
     if clergy_id:

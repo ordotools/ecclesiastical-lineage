@@ -1,4 +1,6 @@
 """Editor audit logs, events, and permanent delete routes."""
+from datetime import datetime
+
 from flask import request, render_template, session, jsonify, current_app
 from routes.editor_bp import editor_bp
 from utils import require_permission, log_audit_event
@@ -118,8 +120,6 @@ def clergy_events_table(clergy_id):
 @require_permission('edit_clergy')
 def add_clergy_event():
     """Create a new event tied to a clergy member"""
-    from datetime import datetime
-
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'You must be logged in to add events.'}), 401
 
@@ -258,8 +258,6 @@ def permanently_delete_clergy():
 @require_permission('view_audit_logs')
 def audit_logs_management_modal():
     """HTMX endpoint for audit logs management modal content"""
-    from datetime import datetime
-
     page = request.args.get('page', 1, type=int)
     action_filter = request.args.get('action', '')
     entity_type_filter = request.args.get('entity_type', '')

@@ -194,7 +194,7 @@ def visualization_panel():
 def globe_view_panel():
     """HTMX endpoint for the center panel globe view"""
     try:
-        from routes.main import _get_location_color
+        from routes.locations import _get_location_color
 
         all_locations = Location.query.options(db.joinedload(Location.organization_obj)).filter(Location.is_active == True, Location.deleted == False).all()
         nodes = []

@@ -8,7 +8,7 @@ from models import Clergy, db, Ordination, Consecration
 admin_bp = Blueprint('admin', __name__)
 
 
-@admin_bp.route('/admin/force-migrate-lineage', methods=['GET', 'POST'])
+@admin_bp.route('/admin/force-migrate-lineage', methods=['POST'])
 @require_permission('manage_metadata')
 def force_migrate_lineage():
     from flask import current_app, jsonify

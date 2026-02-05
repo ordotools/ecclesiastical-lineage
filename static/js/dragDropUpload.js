@@ -150,18 +150,15 @@ class DragDropUpload {
         e.preventDefault();
         e.stopPropagation();
         
-        console.log('DragDropUpload: handleDrop called', e);
         
         this.dragCounter = 0;
         this.isDragOver = false;
         this.removeDragOverClass();
         
         const files = e.dataTransfer.files;
-        console.log('DragDropUpload: files dropped', files.length, files);
         
         if (files.length > 0) {
             const file = files[0];
-            console.log('DragDropUpload: processing file', file.name, file.type, file.size);
             this.processFile(file);
         }
         
@@ -176,23 +173,19 @@ class DragDropUpload {
     }
     
     processFile(file) {
-        console.log('DragDropUpload: processFile called', file);
         
         // Validate file type
         if (!this.isValidFileType(file)) {
-            console.log('DragDropUpload: Invalid file type', file.type);
             this.showError('Please select a valid image file.');
             return;
         }
         
         // Validate file size
         if (!this.isValidFileSize(file)) {
-            console.log('DragDropUpload: File too large', file.size, this.maxFileSize);
             this.showError(`File size must be less than ${this.formatFileSize(this.maxFileSize)}.`);
             return;
         }
         
-        console.log('DragDropUpload: File validation passed, calling callbacks');
         
         // Set the file in the input element for form submission
         if (this.fileInput) {
@@ -201,9 +194,7 @@ class DragDropUpload {
                 const dataTransfer = new DataTransfer();
                 dataTransfer.items.add(file);
                 this.fileInput.files = dataTransfer.files;
-                console.log('DragDropUpload: File set in input element');
             } catch (error) {
-                console.log('DragDropUpload: Error setting file in input:', error);
                 // Fallback for older browsers
                 this.fileInput.value = '';
             }

@@ -7,52 +7,41 @@
 window.collectBishopNames = function(form) {
     const bishopNames = new Set();
     
-    console.log('Collecting bishop names...');
     
     // Collect ordaining bishops
     const ordainingBishopInputs = form.querySelectorAll('input[name*="ordaining_bishop_input"]');
-    console.log('Found ordaining bishop inputs:', ordainingBishopInputs.length);
     ordainingBishopInputs.forEach(input => {
         const name = input.value.trim();
         const idInput = input.parentElement.querySelector('input[name*="ordaining_bishop_id"]');
         const id = idInput ? idInput.value : '';
-        console.log(`Ordaining bishop: "${name}", ID: "${id}"`);
         if (name && !id) {
             bishopNames.add(name);
-            console.log(`Added to bishop names: "${name}"`);
         }
     });
     
     // Collect consecrators
     const consecratorInputs = form.querySelectorAll('input[name*="consecrator_input"]');
-    console.log('Found consecrator inputs:', consecratorInputs.length);
     consecratorInputs.forEach(input => {
         const name = input.value.trim();
         const idInput = input.parentElement.querySelector('input[name*="consecrator_id"]');
         const id = idInput ? idInput.value : '';
-        console.log(`Consecrator: "${name}", ID: "${id}"`);
         if (name && !id) {
             bishopNames.add(name);
-            console.log(`Added to bishop names: "${name}"`);
         }
     });
     
     // Collect co-consecrators
     const coConsecratorInputs = form.querySelectorAll('input[name*="co_consecrators"][name*="input"]');
-    console.log('Found co-consecrator inputs:', coConsecratorInputs.length);
     coConsecratorInputs.forEach(input => {
         const name = input.value.trim();
         const idInput = input.parentElement.querySelector('input[name*="id"]');
         const id = idInput ? idInput.value : '';
-        console.log(`Co-consecrator: "${name}", ID: "${id}"`);
         if (name && !id) {
             bishopNames.add(name);
-            console.log(`Added to bishop names: "${name}"`);
         }
     });
     
     const result = Array.from(bishopNames);
-    console.log('Final bishop names to check:', result);
     return result;
 };
 
@@ -141,7 +130,6 @@ window.submitForm = function(form) {
     
     // Add dropped file if exists
     if (window.droppedFile) {
-        console.log('Adding globally stored file to FormData:', window.droppedFile);
         formData.append('clergy_image', window.droppedFile);
     }
     
@@ -166,7 +154,6 @@ window.submitForm = function(form) {
         if (typeof window.updateFormSubmissionProgress === 'function') {
             window.updateFormSubmissionProgress(70, 'Processing response...');
         }
-        console.log('Response status:', response.status);
         
         if (response.ok) {
             return response.json();
@@ -178,7 +165,6 @@ window.submitForm = function(form) {
         if (typeof window.updateFormSubmissionProgress === 'function') {
             window.updateFormSubmissionProgress(90, 'Finalizing...');
         }
-        console.log('Response data:', data);
         if (data.success) {
             // Show success message
             if (typeof window.showNotification === 'function') {
@@ -291,7 +277,6 @@ window.resetSubmitButton = function(button, originalText) {
     document.addEventListener('submit', function(e) {
         // Check if this is our clergy form
         if (e.target && e.target.id === 'clergyForm') {
-            console.log('Clergy form submit event caught via delegation!');
             e.preventDefault();
             e.stopPropagation();
             
@@ -309,7 +294,6 @@ window.resetSubmitButton = function(button, originalText) {
             const bishopNames = window.collectBishopNames(form);
             
             if (bishopNames.length > 0) {
-                console.log('🔄 Found bishops to create:', bishopNames);
                 // Show user feedback about bishop creation
                 if (submitBtn) {
                     submitBtn.textContent = `Creating ${bishopNames.length} bishop record${bishopNames.length > 1 ? 's' : ''}...`;
@@ -318,7 +302,6 @@ window.resetSubmitButton = function(button, originalText) {
                 // Check and create missing bishops
                 window.checkAndCreateBishops(bishopNames)
                     .then(() => {
-                        console.log('🔄 Bishop creation successful, proceeding with form submission');
                         // Update button text for final submission
                         if (submitBtn) {
                             submitBtn.textContent = 'Submitting form...';
@@ -334,7 +317,6 @@ window.resetSubmitButton = function(button, originalText) {
                         }
                     });
             } else {
-                console.log('🔄 No bishops to create, submitting form directly');
                 // No bishops to check, submit directly
                 window.submitForm(form);
             }

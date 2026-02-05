@@ -71,7 +71,7 @@ window.ClergyFormConfig = {
 <!-- Form Action Configuration -->
 {% set form_action = fields.form_action if fields.form_action else (
     url_for('clergy.edit_clergy', clergy_id=clergy.id) if edit_mode and clergy else
-    url_for('main.add_clergy_from_lineage') if context_type else
+    url_for('lineage_api.add_clergy_from_lineage') if context_type else
     url_for('clergy.add_clergy')
 ) %}
 

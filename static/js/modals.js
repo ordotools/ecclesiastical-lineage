@@ -397,7 +397,6 @@ export function openEditClergyModal(clergyId) {
   const modalBody = document.getElementById('clergyFormModalBody');
   
   // Load the edit clergy form
-  console.log(`Opening edit modal for clergy ID: ${clergyId}`);
   fetch(`/clergy/edit_from_lineage/${clergyId}`)
     .then(response => response.text())
     .then(html => {
@@ -412,7 +411,6 @@ export function openEditClergyModal(clergyId) {
       
       // Add event listener for modal close events (X button, Escape key, etc.)
       modal.addEventListener('hidden.bs.modal', function() {
-        console.log('Modal hidden event triggered');
         setModalState(false);
       });
       
@@ -421,32 +419,16 @@ export function openEditClergyModal(clergyId) {
       
       // Wait a moment for the modal to be fully rendered
       setTimeout(() => {
-        console.log('Starting edit form initialization after modal render');
-        
         // Initialize image editor functionality
-        console.log('Initializing image editor functionality for edit form...');
-        console.log('Existing image editor instance:', !!window.imageEditor);
-        console.log('ImageEditor class available:', typeof ImageEditor);
-        
         // Check for image-related form elements
         const imageInput = modalBody.querySelector('#clergyImage');
         const uploadBtn = modalBody.querySelector('#uploadBtn');
         const cropBtn = modalBody.querySelector('#cropExistingBtn');
         const removeBtn = modalBody.querySelector('#removeImageBtn');
-        
-        console.log('Image form elements found in edit form:', {
-          imageInput: !!imageInput,
-          uploadBtn: !!uploadBtn,
-          cropBtn: !!cropBtn,
-          removeBtn: !!removeBtn
-        });
-        
         // Ensure we have an image editor instance
         if (!window.imageEditor && typeof ImageEditor !== 'undefined') {
-          console.log('Creating new ImageEditor instance for edit modal form');
           try {
             window.imageEditor = new ImageEditor();
-            console.log('Image editor created successfully for edit form');
           } catch (error) {
             console.error('Error creating image editor for edit form:', error);
           }
@@ -454,11 +436,9 @@ export function openEditClergyModal(clergyId) {
         
         // Attach event listeners to the form elements
         if (window.imageEditor) {
-          console.log('Attaching image editor event listeners to edit modal form');
           try {
             // Use the image editor's own method to avoid duplication
             window.imageEditor.reattachFormEventListeners();
-            console.log('Image editor form listeners attached successfully to edit form');
           } catch (error) {
             console.error('Error attaching image editor form listeners to edit form:', error);
           }
@@ -470,8 +450,6 @@ export function openEditClergyModal(clergyId) {
       // Override the form submission for modal context
       const form = modalBody.querySelector('#clergyForm');
       if (form) {
-        console.log('Edit form loaded, setting up handlers');
-        
         // Remove any existing HTMX attributes
         form.removeAttribute('hx-post');
         form.removeAttribute('hx-target');
@@ -484,24 +462,9 @@ export function openEditClergyModal(clergyId) {
           
           // Show loading spinner
           showLoadingSpinner(form, 'Updating clergy...');
-          
-          console.log('Edit form submitted, sending data to:', form.action);
-          console.log('Form element:', form);
-          console.log('Form ID:', form.id);
-          console.log('Form method:', form.method);
-          console.log('Form action:', form.action);
-          
           // Debug: Check all form inputs
           const allInputs = form.querySelectorAll('input, select, textarea');
-          console.log('=== ALL FORM INPUTS ===');
           allInputs.forEach((input, index) => {
-            console.log(`Input ${index}:`, {
-              tagName: input.tagName,
-              type: input.type,
-              name: input.name,
-              id: input.id,
-              value: input.value
-            });
           });
           
           // Manually build form data since FormData constructor seems to have issues
@@ -510,7 +473,6 @@ export function openEditClergyModal(clergyId) {
           
           // Check for globally stored dropped file
           if (window.droppedFile) {
-            console.log('Adding globally stored file to FormData:', window.droppedFile);
             formData.append('clergy_image', window.droppedFile);
             // Clear the global file after adding to form data
             delete window.droppedFile;
@@ -518,8 +480,6 @@ export function openEditClergyModal(clergyId) {
           
           // Get all form inputs and manually add them to FormData
           const formInputs = form.querySelectorAll('input, select, textarea');
-          console.log('=== MANUALLY BUILDING FORM DATA ===');
-          
           formInputs.forEach((input) => {
             const name = input.name;
             const value = input.value;
@@ -532,32 +492,26 @@ export function openEditClergyModal(clergyId) {
             if (type === 'checkbox') {
               if (input.checked) {
                 formData.append(name, value);
-                console.log(`Added checkbox: ${name} = "${value}"`);
               }
             } else if (type === 'file') {
               // Handle file inputs
               if (input.files && input.files.length > 0) {
                 formData.append(name, input.files[0]);
-                console.log(`Added file: ${name} = "${input.files[0].name}"`);
               }
             } else {
               // Handle text, select, textarea, etc.
               if (requiredFields.includes(name)) {
                 // Always preserve required fields, even if empty
                 formData.append(name, value || '');
-                console.log(`Added required field: ${name} = "${value || ''}"`);
               } else if (value && value !== 'None' && value !== '') {
                 // For other fields, only include if they have a value and are not "None"
                 formData.append(name, value);
-                console.log(`Added optional field: ${name} = "${value}"`);
               }
             }
           });
           
           // Debug: Log final form data
-          console.log('=== FINAL FORM DATA ===');
           for (let [key, value] of formData.entries()) {
-            console.log(`Final form field: ${key} = "${value}"`);
           }
           
           fetch(form.action, {
@@ -568,14 +522,10 @@ export function openEditClergyModal(clergyId) {
             body: formData
           })
           .then(response => {
-            console.log('Response status:', response.status);
             return response.json();
           })
           .then(data => {
-            console.log('Form submission response:', data);
             if (data.success) {
-              console.log('Clergy updated successfully, refreshing page...');
-              
               // Show success notification
               showNotification('Clergy member updated successfully!', 'success');
               
@@ -591,7 +541,6 @@ export function openEditClergyModal(clergyId) {
               }, 300);
               
               // Refresh the visualization data without reloading the page
-              console.log('Refreshing visualization data...');
               refreshVisualizationData();
             } else {
               // Hide loading spinner on error
@@ -613,13 +562,9 @@ export function openEditClergyModal(clergyId) {
           cancelBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation(); // Prevent event bubbling
-            console.log('Cancel button clicked - setting modal state to false');
             // Set modal state to closed BEFORE hiding the modal
             setModalState(false);
-            console.log('Modal state after setting to false:', getModalState());
-            // Small delay to ensure state change takes effect
             setTimeout(() => {
-              console.log('About to hide modal, modal state:', getModalState());
               bootstrapModal.hide();
             }, 10);
           });
@@ -642,11 +587,9 @@ function openAddClergyModal(contextType, contextClergyId) {
   const modalBody = document.getElementById('clergyFormModalBody');
   
   // Load the clergy form
-  console.log(`Opening modal with context: type=${contextType}, clergy_id=${contextClergyId}`);
   fetch(`/clergy/add_from_lineage?context_type=${contextType}&context_clergy_id=${contextClergyId}`)
     .then(response => response.text())
     .then(html => {
-      console.log('Form HTML loaded, length:', html.length);
       modalBody.innerHTML = html;
       
       // Show the modal
@@ -658,54 +601,30 @@ function openAddClergyModal(contextType, contextClergyId) {
       
       // Add event listener for modal close events (X button, Escape key, etc.)
       modal.addEventListener('hidden.bs.modal', function() {
-        console.log('Modal hidden event triggered (add modal)');
         setModalState(false);
       });
       
       // Wait a moment for the modal to be fully rendered
       setTimeout(() => {
-        console.log('Starting form initialization after modal render');
-        console.log('Available functions check:', {
-          attachAutocomplete: !!window.attachAutocomplete,
-          fuzzySearch: !!window.fuzzySearch
-        });
-        
         // Initialize bishop autocomplete for the loaded form
-        console.log('Calling initModalBishopAutocomplete...');
         initModalBishopAutocomplete();
         
         // Initialize form field visibility based on current rank selection
         const rankSelect = modalBody.querySelector('#rank');
-        console.log('Rank select found:', !!rankSelect);
         if (rankSelect && window.toggleConsecrationFields) {
-          console.log('Calling toggleConsecrationFields with value:', rankSelect.value);
           window.toggleConsecrationFields(rankSelect.value);
         }
         
         // Initialize image editor functionality
-        console.log('Initializing image editor functionality...');
-        console.log('Existing image editor instance:', !!window.imageEditor);
-        console.log('ImageEditor class available:', typeof ImageEditor);
-        
         // Check for image-related form elements
         const imageInput = modalBody.querySelector('#clergyImage');
         const uploadBtn = modalBody.querySelector('#uploadBtn');
         const cropBtn = modalBody.querySelector('#cropExistingBtn');
         const removeBtn = modalBody.querySelector('#removeImageBtn');
-        
-        console.log('Image form elements found:', {
-          imageInput: !!imageInput,
-          uploadBtn: !!uploadBtn,
-          cropBtn: !!cropBtn,
-          removeBtn: !!removeBtn
-        });
-        
         // Ensure we have an image editor instance
         if (!window.imageEditor && typeof ImageEditor !== 'undefined') {
-          console.log('Creating new ImageEditor instance for modal form');
           try {
             window.imageEditor = new ImageEditor();
-            console.log('Image editor created successfully');
           } catch (error) {
             console.error('Error creating image editor:', error);
           }
@@ -713,11 +632,9 @@ function openAddClergyModal(contextType, contextClergyId) {
         
         // Attach event listeners to the form elements
         if (window.imageEditor) {
-          console.log('Attaching image editor event listeners to modal form');
           try {
             // Use the image editor's own method to avoid duplication
             window.imageEditor.reattachFormEventListeners();
-            console.log('Image editor form listeners attached successfully');
           } catch (error) {
             console.error('Error attaching image editor form listeners:', error);
           }
@@ -730,14 +647,9 @@ function openAddClergyModal(contextType, contextClergyId) {
       const form = modalBody.querySelector('#clergyForm');
       if (form) {
         // Debug: Check form fields
-        console.log('Form loaded, checking fields:');
         const ordainingBishopId = form.querySelector('#ordaining_bishop_id');
         const consecratorId = form.querySelector('#consecrator_id');
         const organization = form.querySelector('#organization');
-        console.log('ordaining_bishop_id:', ordainingBishopId ? ordainingBishopId.value : 'not found');
-        console.log('consecrator_id:', consecratorId ? consecratorId.value : 'not found');
-        console.log('organization:', organization ? organization.value : 'not found');
-        
         // Remove any remaining HTMX attributes
         form.removeAttribute('hx-post');
         form.removeAttribute('hx-target');
@@ -753,51 +665,28 @@ function openAddClergyModal(contextType, contextClergyId) {
           // Validate required fields before submission
           const nameInput = form.querySelector('input[name="name"]');
           const rankSelect = form.querySelector('select[name="rank"]');
-          
-          console.log('=== VALIDATION CHECK ===');
-          console.log('Name input found:', !!nameInput);
-          console.log('Name input value:', nameInput ? nameInput.value : 'NOT FOUND');
-          console.log('Rank select found:', !!rankSelect);
-          console.log('Rank select value:', rankSelect ? rankSelect.value : 'NOT FOUND');
-          
           if (!nameInput || !nameInput.value.trim()) {
-            console.log('Validation failed: Name is required');
             showNotification('Name is required', 'error');
             return;
           }
           
           if (!rankSelect || !rankSelect.value) {
-            console.log('Validation failed: Rank is required');
             showNotification('Rank is required', 'error');
             return;
           }
-          
-          console.log('Validation passed, proceeding with form submission');
-          
           // Show loading spinner
           showLoadingSpinner(form, 'Adding clergy...');
-          
-          console.log('Form submitted, sending data to:', form.action);
           const formData = new FormData(form);
           
           // Debug: Log all raw form data before cleaning
-          console.log('=== RAW FORM DATA ===');
           for (let [key, value] of formData.entries()) {
-            console.log(`Raw form field: ${key} = "${value}"`);
           }
           
           // Debug: Check specific form elements
           const orgSelect = form.querySelector('select[name="organization"]');
-          console.log('=== FORM ELEMENT VALUES ===');
-          console.log('Name input value:', nameInput ? nameInput.value : 'NOT FOUND');
-          console.log('Rank select value:', rankSelect ? rankSelect.value : 'NOT FOUND');
-          console.log('Organization select value:', orgSelect ? orgSelect.value : 'NOT FOUND');
-          
           // Debug: Check all form elements
           const allInputs = form.querySelectorAll('input, select, textarea');
-          console.log('=== ALL FORM ELEMENTS ===');
           allInputs.forEach((input, index) => {
-            console.log(`Element ${index}: name="${input.name}", value="${input.value}", type="${input.type}"`);
           });
           
           // Clean up form data - remove empty fields and "None" values, but preserve required fields
@@ -806,7 +695,6 @@ function openAddClergyModal(contextType, contextClergyId) {
           
           // If FormData constructor didn't capture the values properly, manually collect them
           if (formData.entries().next().done) {
-            console.log('FormData is empty, manually collecting form values...');
             const allInputs = form.querySelectorAll('input, select, textarea');
             allInputs.forEach(input => {
               if (input.name && input.name !== '') {
@@ -827,9 +715,7 @@ function openAddClergyModal(contextType, contextClergyId) {
           }
           
           // Log cleaned form data for debugging
-          console.log('=== CLEANED FORM DATA ===');
           for (let [key, value] of cleanedFormData.entries()) {
-            console.log(`Cleaned form field: ${key} = "${value}"`);
           }
           
           fetch(form.action, {
@@ -840,15 +726,10 @@ function openAddClergyModal(contextType, contextClergyId) {
             body: cleanedFormData
           })
           .then(response => {
-            console.log('Response status:', response.status);
             return response.json();
           })
           .then(data => {
-            console.log('Form submission response:', data);
             if (data.success) {
-              console.log('Clergy added successfully, refreshing page...');
-              console.log('New clergy ID:', data.clergy_id);
-              
               // Show success notification
               showNotification('Clergy member added successfully!', 'success');
               
@@ -864,7 +745,6 @@ function openAddClergyModal(contextType, contextClergyId) {
               }, 300);
               
               // Refresh the visualization data without reloading the page
-              console.log('Refreshing visualization data...');
               refreshVisualizationData();
             } else {
               // Hide loading spinner on error
@@ -885,14 +765,9 @@ function openAddClergyModal(contextType, contextClergyId) {
         if (cancelBtn) {
           cancelBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            e.stopPropagation(); // Prevent event bubbling
-            console.log('Cancel button clicked (add modal) - setting modal state to false');
-            // Set modal state to closed BEFORE hiding the modal
+            e.stopPropagation();
             setModalState(false);
-            console.log('Modal state after setting to false:', getModalState());
-            // Small delay to ensure state change takes effect
             setTimeout(() => {
-              console.log('About to hide modal, modal state:', getModalState());
               bootstrapModal.hide();
             }, 10);
           });
@@ -912,7 +787,6 @@ function loadEditFormScripts() {
     const script1 = document.createElement('script');
     script1.src = '/static/js/fuzzySearch.js';
     script1.onload = function() {
-      console.log('fuzzySearch.js loaded for modal');
       // Initialize bishop autocomplete after script loads
       initModalBishopAutocomplete();
     };
@@ -928,26 +802,15 @@ function loadEditFormScripts() {
 
 // Custom function to attach image editor event listeners to HTMX-loaded form
 function attachImageEditorEventListeners(container, imageEditor) {
-  console.log('Attaching image editor event listeners to container');
-  
   const imageInput = container.querySelector('#clergyImage');
   const uploadBtn = container.querySelector('#uploadBtn');
   const cropBtn = container.querySelector('#cropExistingBtn');
   const removeBtn = container.querySelector('#removeImageBtn');
-  
-  console.log('Found elements for event listeners:', {
-    imageInput: !!imageInput,
-    uploadBtn: !!uploadBtn,
-    cropBtn: !!cropBtn,
-    removeBtn: !!removeBtn
-  });
-  
   if (imageInput) {
     // Clone the element to remove all event listeners
     const newImageInput = imageInput.cloneNode(true);
     imageInput.parentNode.replaceChild(newImageInput, imageInput);
     newImageInput.addEventListener('change', (e) => imageEditor.handleFormImageUpload(e));
-    console.log('Image input event listener attached');
   }
   
   if (uploadBtn) {
@@ -958,7 +821,6 @@ function attachImageEditorEventListeners(container, imageEditor) {
       const input = container.querySelector('#clergyImage');
       if (input) input.click();
     });
-    console.log('Upload button event listener attached');
   }
   
   if (cropBtn) {
@@ -966,7 +828,6 @@ function attachImageEditorEventListeners(container, imageEditor) {
     const newCropBtn = cropBtn.cloneNode(true);
     cropBtn.parentNode.replaceChild(newCropBtn, cropBtn);
     newCropBtn.addEventListener('click', async () => await imageEditor.editExistingImage());
-    console.log('Crop button event listener attached');
   }
   
   if (removeBtn) {
@@ -974,29 +835,18 @@ function attachImageEditorEventListeners(container, imageEditor) {
     const newRemoveBtn = removeBtn.cloneNode(true);
     removeBtn.parentNode.replaceChild(newRemoveBtn, removeBtn);
     newRemoveBtn.addEventListener('click', () => imageEditor.removeFormImage());
-    console.log('Remove button event listener attached');
   }
 }
 
 // Initialize bishop autocomplete for modal
 function initModalBishopAutocomplete() {
-  console.log('=== initModalBishopAutocomplete START ===');
-  
   // Get all bishops data from the form (it should be available in the modal)
   const allBishopsScript = document.querySelector('script[data-bishops]');
   let bishopsData = [];
-  
-  console.log('initModalBishopAutocomplete called');
-  console.log('allBishopsScript found:', !!allBishopsScript);
-  
   if (allBishopsScript) {
-    console.log('Script content length:', allBishopsScript.textContent.length);
-    console.log('Script content preview:', allBishopsScript.textContent.substring(0, 200) + '...');
     try {
       bishopsData = JSON.parse(allBishopsScript.textContent);
-      console.log('Bishops data loaded:', bishopsData.length, 'bishops');
       if (bishopsData.length > 0) {
-        console.log('First bishop example:', bishopsData[0]);
       }
     } catch (e) {
       console.error('Error parsing bishops data:', e);
@@ -1004,26 +854,14 @@ function initModalBishopAutocomplete() {
     }
   } else {
     console.warn('No bishops script found in modal');
-    console.log('Available script tags:', document.querySelectorAll('script').length);
-    console.log('Script tags with data-bishops:', document.querySelectorAll('script[data-bishops]').length);
   }
   
   // Initialize autocomplete for both bishop fields
   if (window.attachAutocomplete) {
-    console.log('attachAutocomplete function available');
-    console.log('fuzzySearch function available:', !!window.fuzzySearch);
     const ordainingBishopSearch = document.getElementById('ordaining_bishop_search');
     const ordainingBishopId = document.getElementById('ordaining_bishop_id');
     const ordainingBishopDropdown = document.getElementById('ordainingBishopDropdown');
-    
-    console.log('Ordaining bishop elements found:', {
-      search: !!ordainingBishopSearch,
-      id: !!ordainingBishopId,
-      dropdown: !!ordainingBishopDropdown
-    });
-    
     if (ordainingBishopSearch && ordainingBishopId && ordainingBishopDropdown) {
-      console.log('Initializing ordaining bishop autocomplete');
       window.attachAutocomplete(
         ordainingBishopSearch,
         ordainingBishopId,
@@ -1037,15 +875,7 @@ function initModalBishopAutocomplete() {
     const consecratorSearch = document.getElementById('consecrator_search');
     const consecratorId = document.getElementById('consecrator_id');
     const consecratorDropdown = document.getElementById('consecratorDropdown');
-    
-    console.log('Consecrator elements found:', {
-      search: !!consecratorSearch,
-      id: !!consecratorId,
-      dropdown: !!consecratorDropdown
-    });
-    
     if (consecratorSearch && consecratorId && consecratorDropdown) {
-      console.log('Initializing consecrator autocomplete');
       window.attachAutocomplete(
         consecratorSearch,
         consecratorId,
@@ -1058,8 +888,6 @@ function initModalBishopAutocomplete() {
   } else {
     console.warn('attachAutocomplete function not available');
   }
-  
-  console.log('=== initModalBishopAutocomplete END ===');
 }
 
 // Initialize edit clergy functionality for modal
@@ -1097,38 +925,22 @@ function initModalEditClergy() {
   const modalBody = document.getElementById('clergyFormModalBody');
   if (modalBody) {
     const imageEditorModal = modalBody.querySelector('#imageEditorModal');
-    console.log('Edit modal - Image editor modal found:', !!imageEditorModal);
-    console.log('Edit modal - Existing image editor instance:', !!window.imageEditor);
-    console.log('Edit modal - ImageEditor class available:', typeof ImageEditor);
-    
     // Check for image-related form elements
     const imageInput = modalBody.querySelector('#clergyImage');
     const uploadBtn = modalBody.querySelector('#uploadBtn');
     const cropBtn = modalBody.querySelector('#cropExistingBtn');
     const removeBtn = modalBody.querySelector('#removeImageBtn');
-    
-    console.log('Edit modal - Image form elements found:', {
-      imageInput: !!imageInput,
-      uploadBtn: !!uploadBtn,
-      cropBtn: !!cropBtn,
-      removeBtn: !!removeBtn
-    });
-    
     if (imageEditorModal) {
       if (window.imageEditor) {
-        console.log('Edit modal - Reattaching form event listeners to existing image editor');
         try {
           window.imageEditor.reattachFormEventListeners();
-          console.log('Edit modal - Image editor form listeners reattached successfully');
         } catch (error) {
           console.error('Edit modal - Error reattaching image editor form listeners:', error);
         }
       } else if (typeof ImageEditor !== 'undefined') {
-        console.log('Edit modal - Creating new ImageEditor instance for modal form');
         try {
           window.imageEditor = new ImageEditor();
           window.imageEditor.reattachFormEventListeners();
-          console.log('Edit modal - Image editor created and initialized successfully');
         } catch (error) {
           console.error('Edit modal - Error creating image editor:', error);
         }
@@ -1136,25 +948,17 @@ function initModalEditClergy() {
         console.warn('Edit modal - ImageEditor class not available');
       }
     } else {
-      console.log('Edit modal - No image editor modal found in form');
     }
   }
 }
 
 // Function to refresh visualization data without page reload
 function refreshVisualizationData() {
-  console.log('Refreshing visualization data...');
-  console.log('Current window.linksData before refresh:', window.linksData ? window.linksData.length : 'undefined');
-  
   // Fetch updated data from the server
   fetch('/clergy/lineage-data')
     .then(response => response.json())
     .then(data => {
       if (data.success) {
-        console.log('Data refreshed successfully');
-        console.log('Received links:', data.links ? data.links.length : 'undefined');
-        console.log('Received nodes:', data.nodes ? data.nodes.length : 'undefined');
-        
         // Update the global data
         window.linksData = data.links;
         window.nodesData = data.nodes;

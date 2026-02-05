@@ -36,14 +36,11 @@ function isAnyModalOpen() {
 // Function to update modal state
 function updateModalState() {
   isModalOpen = isAnyModalOpen();
-  console.log('Modal state updated:', isModalOpen);
 }
 
 // Export function to manually update modal state (for use by other modules)
 export function setModalState(open) {
-  console.log('setModalState called with:', open, 'previous state:', isModalOpen);
   isModalOpen = open;
-  console.log('Modal state is now:', isModalOpen);
 }
 
 // Make setModalState available globally for use in templates
@@ -58,23 +55,19 @@ export function getModalState() {
 document.addEventListener('DOMContentLoaded', function() {
   // Listen for Bootstrap modal events with more comprehensive coverage
   document.addEventListener('show.bs.modal', function() {
-    console.log('Bootstrap modal show event detected');
     isModalOpen = true;
   });
   
   document.addEventListener('shown.bs.modal', function() {
-    console.log('Bootstrap modal shown event detected');
     isModalOpen = true;
   });
   
   document.addEventListener('hide.bs.modal', function() {
-    console.log('Bootstrap modal hide event detected');
     // Small delay to ensure modal is fully closed
     setTimeout(updateModalState, 100);
   });
   
   document.addEventListener('hidden.bs.modal', function() {
-    console.log('Bootstrap modal hidden event detected');
     updateModalState();
   });
   
@@ -99,7 +92,6 @@ document.addEventListener('DOMContentLoaded', function() {
         mutation.addedNodes.forEach(function(node) {
           if (node.nodeType === 1) { // Element node
             if (node.classList && (node.classList.contains('modal') || node.querySelector('.modal'))) {
-              console.log('Modal detected in DOM changes');
               setTimeout(updateModalState, 50);
             }
           }
@@ -227,14 +219,12 @@ export function initializeAside() {
     // Use event delegation for the close button since it's loaded via HTMX
     clergyAside.addEventListener('click', (event) => {
       if (event.target.closest('#close-aside')) {
-        console.log('Close button clicked, modal open:', isModalOpen);
         // Only close if no modal is open
         if (!isModalOpen) {
           clergyAside.classList.remove('expanded');
           // Reset to default view distance when closing clergy info panel
           resetToDefaultViewDistance();
         } else {
-          console.log('Panel close prevented - modal is open');
         }
       }
     });
@@ -246,7 +236,6 @@ export function initializeAside() {
         return; // Panel is closed, no need to check anything
       }
       
-      console.log('Click detected on expanded panel, target:', event.target);
       
       // Check if click is inside a modal
       const isInsideModal = event.target.closest('.modal') || 
@@ -254,35 +243,22 @@ export function initializeAside() {
                            event.target.closest('#clergyFormModalBody') ||
                            event.target.closest('#clergyFormModal');
       
-      console.log('Modal detection:', {
-        isModalOpen,
-        isInsideModal,
-        target: event.target,
-        closestModal: event.target.closest('.modal'),
-        closestModalBody: event.target.closest('#clergyFormModalBody'),
-        closestModalId: event.target.closest('#clergyFormModal')
-      });
-      
       // If modal is open and click is inside modal, don't interfere with the click
       if (isModalOpen && isInsideModal) {
-        console.log('Click inside modal - allowing event to proceed');
         return; // Don't interfere with modal interactions
       }
       
       if (isInsideModal) {
-        console.log('Click ignored - inside modal');
         return;
       }
       
       // Check if modal is open (only when panel is expanded)
       if (isAnyModalOpen()) {
-        console.log('Outside click ignored - modal is open');
         return;
       }
       
       // Check if click is inside the aside panel or on a node
       if (clergyAside.contains(event.target) || event.target.closest('.node')) {
-        console.log('Click ignored - inside panel or on node');
         return;
       }
       
@@ -301,17 +277,14 @@ export function initializeAside() {
           return; // Panel is closed, no need to check anything
         }
         
-        console.log('Escape key pressed on expanded panel');
         
         // If a modal is open, don't close the aside panel
         if (isAnyModalOpen()) {
-          console.log('Escape key ignored - modal is open');
           event.stopPropagation();
           return;
         }
         
         // Close the panel
-        console.log('Escape key - closing panel');
         clergyAside.classList.remove('expanded');
         // DISABLED: Center the graph when closing the panel - prevents graph movement
         // centerGraphOnPanelClose();
@@ -415,7 +388,6 @@ function centerGraphOnPanelClose() {
 
 // Initialize filter menu (bottom menu)
 export function initializeFilterMenu() {
-  console.log('Initializing filter menu...');
   
   // Wait a bit to ensure DOM is ready
   const tryInit = () => {
@@ -424,16 +396,8 @@ export function initializeFilterMenu() {
     const viewPriestsToggle = document.getElementById('view-priests-toggle');
     const highlightLineageToggle = document.getElementById('highlight-lineage-toggle');
 
-    console.log('Filter menu elements:', {
-      organizationsBtn: !!organizationsBtn,
-      organizationsMenu: !!organizationsMenu,
-      viewPriestsToggle: !!viewPriestsToggle,
-      highlightLineageToggle: !!highlightLineageToggle
-    });
-
     // If elements don't exist yet, try again after a short delay
     if (!organizationsBtn || !organizationsMenu || !viewPriestsToggle) {
-      console.log('Filter menu elements not found, retrying...');
       setTimeout(tryInit, 100);
       return;
     }
@@ -449,7 +413,6 @@ function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriests
 
   // Initialize organizations dropdown
   if (organizationsBtn && organizationsMenu) {
-    console.log('Initializing organizations dropdown...');
     // Toggle dropdown on button click
     organizationsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -471,7 +434,6 @@ function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriests
       const item = e.target.closest('.filter-dropdown-item');
       if (item) {
         const selectedOrg = item.dataset.org;
-        console.log('Organization selected:', selectedOrg);
         
         // Remove active class from all items
         organizationsMenu.querySelectorAll('.filter-dropdown-item').forEach(i => {
@@ -489,7 +451,6 @@ function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriests
         try {
           const { applyOrganizationFilter } = await import('./filters.js');
           applyOrganizationFilter(selectedOrg);
-          console.log('Organization filter applied:', selectedOrg);
         } catch (error) {
           console.error('Error applying organization filter:', error);
         }
@@ -497,41 +458,29 @@ function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriests
     });
 
     // Fetch and populate organizations
-    console.log('Fetching organizations from /api/organizations...');
-    console.log('Dropdown container:', organizationsMenu);
     fetch('/api/organizations')
       .then(response => {
-        console.log('Organizations API response status:', response.status);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
       })
       .then(data => {
-        console.log('Organizations API data:', data);
-        console.log('Data success:', data.success);
-        console.log('Organizations array:', data.organizations);
-        console.log('Organizations count:', data.organizations ? data.organizations.length : 0);
         
         if (data.success && data.organizations && Array.isArray(data.organizations)) {
           const dropdownContainer = organizationsMenu;
-          console.log('Dropdown container found:', !!dropdownContainer);
           
           // Find the divider
           const divider = dropdownContainer.querySelector('.dropdown-divider');
-          console.log('Divider found:', !!divider);
           
           // Clear existing organization items (keep "All Organizations" and divider)
           const allItems = dropdownContainer.querySelectorAll('.filter-dropdown-item');
-          console.log('Existing items before clearing:', allItems.length);
           allItems.forEach(item => {
             if (item.dataset.org !== 'all') {
-              console.log('Removing item:', item.dataset.org);
               item.remove();
             }
           });
           
-          console.log(`Adding ${data.organizations.length} organizations to dropdown`);
           
           // Create a document fragment for better performance
           const fragment = document.createDocumentFragment();
@@ -543,7 +492,6 @@ function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriests
             orgItem.dataset.org = org.name;
             orgItem.innerHTML = `<span>${org.name}${org.abbreviation ? ` (${org.abbreviation})` : ''}</span>`;
             fragment.appendChild(orgItem);
-            console.log(`Prepared organization ${index + 1}/${data.organizations.length}:`, org.name);
           });
           
           // Insert fragment after divider
@@ -560,20 +508,7 @@ function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriests
             dropdownContainer.appendChild(fragment);
           }
           
-          console.log('Fragment inserted into dropdown');
           
-          // Verify items were added
-          const finalItems = dropdownContainer.querySelectorAll('.filter-dropdown-item');
-          console.log('Final item count:', finalItems.length);
-          console.log('Final items:', Array.from(finalItems).map(item => ({
-            text: item.textContent.trim(),
-            dataset: item.dataset.org
-          })));
-          
-          // Also log the HTML structure
-          console.log('Dropdown HTML after insertion:', dropdownContainer.innerHTML.substring(0, 500));
-          
-          console.log('Organizations added to dropdown successfully');
         } else {
           console.warn('Organizations API returned unsuccessful response:', data);
           console.warn('Response structure:', {
@@ -598,15 +533,12 @@ function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriests
 
   // Initialize view priests toggle - wire it up to the filter system
   if (viewPriestsToggle) {
-    console.log('Initializing view priests toggle...');
     // Import applyPriestFilter to wire up the toggle
     import('./filters.js').then(({ applyPriestFilter }) => {
       viewPriestsToggle.addEventListener('change', (e) => {
-        console.log('View priests toggle changed:', e.target.checked);
         // Apply the filter using the existing filter system
         applyPriestFilter();
       });
-      console.log('View priests toggle event listener added');
     }).catch(error => {
       console.error('Error importing filters module:', error);
     });
@@ -616,17 +548,14 @@ function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriests
 
   // Initialize highlight lineage toggle
   if (highlightLineageToggle) {
-    console.log('Initializing highlight lineage toggle...');
     import('./highlightLineage.js').then(({ setHighlightMode, clearHighlight }) => {
       highlightLineageToggle.addEventListener('change', (e) => {
         const enabled = e.target.checked;
-        console.log('Highlight lineage toggle:', enabled);
         setHighlightMode(enabled);
         if (!enabled) {
           clearHighlight();
         }
       });
-      console.log('Highlight lineage toggle event listener added');
     }).catch(error => {
       console.error('Error importing highlightLineage module:', error);
     });
@@ -634,7 +563,6 @@ function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriests
     console.warn('Highlight lineage toggle not found');
   }
   
-  console.log('Filter menu initialization complete');
 }
 
 // Initialize all UI components

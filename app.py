@@ -1,10 +1,14 @@
 from flask import Flask
 from flask_compress import Compress
 from models import db, User, Role
-# from init_routes import routes  # Temporarily disabled due to route conflicts
+# Legacy init_routes blueprint lives in scripts/database/init_routes.py (not registered).
 from routes.auth import auth_bp
 from routes.clergy import clergy_bp
 from routes.main import main_bp
+from routes.locations import locations_bp
+from routes.lineage_api import lineage_api_bp
+from routes.main_api import main_api_bp
+from routes.admin import admin_bp
 from routes.editor import editor_bp
 from migrations import run_database_migration, initialize_roles_and_permissions
 import os
@@ -32,21 +36,16 @@ if not database_url:
 def fix_database_url(url):
     """Fix database URL to handle SSL connections properly on Render"""
     if url.startswith('postgres://'):
-        # Convert postgres:// to postgresql://
         url = url.replace('postgres://', 'postgresql://', 1)
 
-    # Parse the URL
     parsed = urlparse(url)
 
-    # Add SSL mode parameters for Render PostgreSQL
     if 'onrender.com' in parsed.hostname or 'render.com' in parsed.hostname:
-        # Add SSL mode and other parameters for Render
         if parsed.query:
             query = parsed.query + '&sslmode=require'
         else:
             query = 'sslmode=require'
 
-        # Reconstruct URL with SSL parameters
         fixed_url = urlunparse((
             parsed.scheme,
             parsed.netloc,
@@ -83,9 +82,8 @@ def ensure_database_schema():
     """Ensure all required database columns exist."""
     with app.app_context():
         try:
-            # Create all tables first
             db.create_all()
-            print("✅ All tables created")
+            app.logger.info("All tables created")
 
             # Check if required columns exist in clergy table
             inspector = inspect(db.engine)
@@ -95,8 +93,7 @@ def ensure_database_schema():
             missing_clergy_columns = [col for col in required_clergy_columns if col not in clergy_columns]
 
             if missing_clergy_columns:
-                print(f"⚠️  Missing clergy columns: {missing_clergy_columns}")
-                print("🔧 Adding missing columns...")
+                app.logger.info("Missing clergy columns: %s; adding them", missing_clergy_columns)
 
                 for col in missing_clergy_columns:
                     try:
@@ -110,19 +107,19 @@ def ensure_database_schema():
                             elif col == 'deleted_at':
                                 conn.execute(db.text('ALTER TABLE clergy ADD COLUMN deleted_at TIMESTAMP'))
                             conn.commit()
-                        print(f"✅ Added column: {col}")
+                        app.logger.info("Added column: %s", col)
                     except Exception as e:
-                        print(f"⚠️  Column {col} might already exist: {e}")
+                        app.logger.debug("Column %s might already exist: %s", col, e)
             else:
-                print("✅ All required clergy columns exist")
+                app.logger.info("All required clergy columns exist")
 
             # Initialize roles and permissions
             from migrations import initialize_roles_and_permissions
             initialize_roles_and_permissions()
-            print("✅ Roles and permissions initialized")
+            app.logger.info("Roles and permissions initialized")
 
         except Exception as e:
-            print(f"⚠️  Database schema check failed: {e}")
+            app.logger.warning("Database schema check failed: %s", e)
 
 
 def ensure_admin_user():
@@ -131,14 +128,14 @@ def ensure_admin_user():
         # Check if any Super Admin users exist
         super_admin_role = Role.query.filter_by(name='Super Admin').first()
         if not super_admin_role:
-            print("🔧 No Super Admin role found, initializing roles and permissions...")
+            app.logger.info("No Super Admin role found, initializing roles and permissions")
             initialize_roles_and_permissions()
             super_admin_role = Role.query.filter_by(name='Super Admin').first()
 
         if super_admin_role:
             existing_admin = User.query.filter_by(role_id=super_admin_role.id).first()
             if not existing_admin:
-                print("👤 No Super Admin user found, creating default admin user...")
+                app.logger.info("No Super Admin user found, creating default admin user")
                 admin_user = User(
                     username="admin",
                     role_id=super_admin_role.id
@@ -146,25 +143,25 @@ def ensure_admin_user():
                 admin_user.set_password("admin123")
                 db.session.add(admin_user)
                 db.session.commit()
-                print("✅ Default admin user created successfully!")
-                print("   Username: admin")
-                print("   Password: admin123")
-                print("   ⚠️  IMPORTANT: Change this password after first login!")
+                app.logger.info("Default admin user created (username: admin; change password after first login)")
             else:
-                print(f"ℹ️  Super Admin user already exists: {existing_admin.username}")
+                app.logger.info("Super Admin user already exists: %s", existing_admin.username)
         else:
-            print("❌ Failed to create or find Super Admin role")
+            app.logger.error("Failed to create or find Super Admin role")
     except Exception as e:
-        print(f"⚠️  Admin user creation failed: {e}")
+        app.logger.warning("Admin user creation failed: %s", e)
         db.session.rollback()
 
 
 ensure_database_schema()
 
-# app.register_blueprint(routes)  # Temporarily disabled due to route conflicts
 app.register_blueprint(auth_bp)
 app.register_blueprint(clergy_bp)
 app.register_blueprint(main_bp)
+app.register_blueprint(locations_bp)
+app.register_blueprint(lineage_api_bp)
+app.register_blueprint(main_api_bp)
+app.register_blueprint(admin_bp)
 app.register_blueprint(editor_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(metadata_bp)
@@ -187,24 +184,24 @@ with app.app_context():
     auto_migrate = os.environ.get('AUTO_MIGRATE_ON_STARTUP', '').lower() in ('true', '1', 'yes')
 
     if auto_migrate:
-        print("🔧 AUTO_MIGRATE_ON_STARTUP enabled - Running database migration...")
+        app.logger.info("AUTO_MIGRATE_ON_STARTUP enabled - running database migration")
         try:
             from flask_migrate import upgrade
             upgrade()
-            print("✅ Flask-Migrate upgrade completed")
+            app.logger.info("Flask-Migrate upgrade completed")
         except Exception as e:
-            print(f"⚠️  Flask-Migrate upgrade failed, running fallback migration: {e}")
+            app.logger.warning("Flask-Migrate upgrade failed, running fallback migration: %s", e)
             run_database_migration(app)
     else:
-        print("📋 Automatic migrations disabled on startup")
-        print("   To run migrations manually, use: flask db upgrade")
-        print("   To enable auto-migration, set: AUTO_MIGRATE_ON_STARTUP=true")
+        app.logger.info(
+            "Automatic migrations disabled on startup (use 'flask db upgrade' or set AUTO_MIGRATE_ON_STARTUP=true)"
+        )
 
-    print("🔧 Initializing Backblaze B2...")
+    app.logger.info("Initializing Backblaze B2")
     if init_backblaze_config():
-        print("✅ Backblaze B2 initialized successfully")
+        app.logger.info("Backblaze B2 initialized successfully")
     else:
-        print("⚠️  Backblaze B2 initialization failed - image uploads will not work")
+        app.logger.warning("Backblaze B2 initialization failed - image uploads will not work")
 
     # Ensure admin user exists
     ensure_admin_user()

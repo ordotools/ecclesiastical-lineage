@@ -16,57 +16,46 @@ def _regenerate_sprite_sheet():
         image_upload_service = get_image_upload_service()
         if not image_upload_service.backblaze_configured:
             return
-        
-        # Get all active clergy (include ALL clergy, placeholders will be used for those without images)
+
         all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
-        
         if not all_clergy:
             return
-        
-        # Create sprite sheet (this will save to database and mark old ones as not current)
-        # Placeholders will be automatically added for clergy without images
+
         result = image_upload_service.create_sprite_sheet(all_clergy)
         
         if result['success']:
-            print(f"Sprite sheet regenerated: {result['url']} (saved to database)")
+            current_app.logger.info("Sprite sheet regenerated: %s (saved to database)", result['url'])
         else:
-            print(f"Failed to regenerate sprite sheet: {result.get('error', 'Unknown error')}")
+            current_app.logger.warning("Failed to regenerate sprite sheet: %s", result.get('error', 'Unknown error'))
     except Exception as e:
-        print(f"Error in sprite sheet regeneration: {e}")
-        import traceback
-        traceback.print_exc()
+        current_app.logger.exception("Error in sprite sheet regeneration")
 
 def _regenerate_sprite_sheet_background(clergy_id=None):
     """Regenerate sprite sheet in background thread"""
-    # Capture the app instance from the current request context
     app = current_app._get_current_object()
-    
+
     def background_task():
         try:
             with app.app_context():
-                # Mark as in progress
                 with _sprite_sheet_lock:
                     _sprite_sheet_status['status'] = 'in_progress'
                     _sprite_sheet_status['clergy_id'] = clergy_id
                     _sprite_sheet_status['started_at'] = datetime.utcnow().isoformat()
-                
+
                 image_upload_service = get_image_upload_service()
                 if not image_upload_service.backblaze_configured:
                     with _sprite_sheet_lock:
                         _sprite_sheet_status['status'] = 'error'
                         _sprite_sheet_status['error'] = 'Backblaze B2 not configured'
                     return
-                
-                # Get all active clergy (include ALL clergy, placeholders will be used for those without images)
+
                 all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
-                
                 if not all_clergy:
                     with _sprite_sheet_lock:
                         _sprite_sheet_status['status'] = 'error'
                         _sprite_sheet_status['error'] = 'No clergy found'
                     return
-                
-                # Create sprite sheet (this will save to database and mark old ones as not current)
+
                 result = image_upload_service.create_sprite_sheet(all_clergy)
                 
                 if result['success']:
@@ -76,25 +65,20 @@ def _regenerate_sprite_sheet_background(clergy_id=None):
                         _sprite_sheet_status['url'] = result.get('url')
                         _sprite_sheet_status['mapping'] = result.get('mapping', {})
                         _sprite_sheet_status['completed_at'] = datetime.utcnow().isoformat()
-                    print(f"Sprite sheet regenerated in background: {result['url']}")
+                    current_app.logger.info("Sprite sheet regenerated in background: %s", result['url'])
                 else:
                     with _sprite_sheet_lock:
                         _sprite_sheet_status['status'] = 'error'
                         _sprite_sheet_status['error'] = result.get('error', 'Unknown error')
-                    print(f"Failed to regenerate sprite sheet: {result.get('error', 'Unknown error')}")
+                    current_app.logger.warning("Failed to regenerate sprite sheet: %s", result.get('error', 'Unknown error'))
         except Exception as e:
             with _sprite_sheet_lock:
                 _sprite_sheet_status['status'] = 'error'
                 _sprite_sheet_status['error'] = str(e)
-            print(f"Error in background sprite sheet regeneration: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    # Start background thread
+            current_app.logger.exception("Error in background sprite sheet regeneration")
+
     thread = threading.Thread(target=background_task, daemon=True)
     thread.start()
-    
-    # Return immediately
     return True
 
 def get_sprite_sheet_status():
@@ -125,16 +109,6 @@ def set_clergy_display_name(clergy):
         clergy.display_name = clergy.name
 
 def create_clergy_from_form(form):
-    # Debug: Log form data
-    print(f"=== FORM DATA DEBUG ===")
-    print(f"Form keys: {list(form.keys())}")
-    for key, value in form.items():
-        if hasattr(value, 'filename'):
-            print(f"  {key}: File({value.filename}, {getattr(value, 'content_length', 'unknown')} bytes)")
-        else:
-            print(f"  {key}: {value}")
-    print(f"=== END FORM DATA DEBUG ===")
-    
     clergy = Clergy()
     clergy.name = form.get('name')
     clergy.rank = form.get('rank')
@@ -147,37 +121,24 @@ def create_clergy_from_form(form):
         clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
     if date_of_death:
         clergy.date_of_death = datetime.strptime(date_of_death, '%Y-%m-%d').date()
-    
-    # Handle image upload for new clergy using Backblaze B2
-    # We'll process images after getting the clergy ID
+
     image_data_json = form.get('image_data_json')
     processed_image_data = form.get('processed_image_data')
     file_upload = None
-    
-    # Check for file upload
     if 'clergy_image' in form and hasattr(form['clergy_image'], 'filename') and form['clergy_image'].filename:
         file_upload = form['clergy_image']
-        print(f"File upload detected: {file_upload.filename}, size: {getattr(file_upload, 'content_length', 'unknown')}")
-    
+
     db.session.add(clergy)
-    db.session.flush()  # Get the ID without committing
-    
-    # Process images with Backblaze B2 now that we have the clergy ID
+    db.session.flush()
+
     try:
         image_upload_service = get_image_upload_service()
         
         if image_data_json:
-            # Process comprehensive image data (NEW WORKFLOW - server-processed)
-            print(f"Processing server-processed image data for clergy {clergy.id}")
             try:
                 image_data = json.loads(image_data_json)
-                
-                # CRITICAL: Always use original image URL for clergy.image_url
-                # If original is missing, try to preserve existing original or find it
                 original_url = image_data.get('original')
                 if not original_url:
-                    # For new clergy, original should always be in image_data
-                    # But if missing, try to find it in storage
                     try:
                         response = image_upload_service.s3_client.list_objects_v2(
                             Bucket=image_upload_service.bucket_name,
@@ -186,69 +147,52 @@ def create_clergy_from_form(form):
                         for obj in response.get('Contents', []):
                             key = obj['Key']
                             if 'original_' in key and 'lineage_' not in key and 'detail_' not in key:
-                                original_url = image_upload_service.config.get_public_url(key)
-                                image_data['original'] = original_url
-                                print(f"Found original in storage for new clergy: {original_url}")
-                                break
+                                    original_url = image_upload_service.config.get_public_url(key)
+                                    image_data['original'] = original_url
+                                    break
                     except Exception as e:
-                        print(f"Could not find original in storage: {e}")
-                
-                # Always use original URL for clergy.image_url (never detail or lineage)
+                        current_app.logger.debug("Could not find original in storage: %s", e)
+
                 if original_url:
                     clergy.image_url = original_url
                 else:
-                    # Last resort: use detail but log warning
-                    print(f"WARNING: No original URL found, using detail as fallback for clergy.image_url")
+                    current_app.logger.warning(
+                        "No original URL found, using detail as fallback for clergy.image_url (clergy_id=%s)",
+                        clergy.id,
+                    )
                     clergy.image_url = image_data.get('detail', image_data.get('lineage', ''))
-                
+
                 clergy.image_data = json.dumps(image_data)
-                
-                print(f"Stored server-processed images for clergy {clergy.id}:")
-                for size, url in image_data.items():
-                    if size != 'metadata':
-                        print(f"  - {size}: {url}")
             except json.JSONDecodeError as e:
-                print(f"Failed to parse image data JSON: {e}")
-                
+                current_app.logger.warning("Failed to parse image data JSON: %s", e)
+
         elif file_upload:
-            # Upload original image with size validation (NEW WORKFLOW)
-            print(f"Uploading original image for clergy {clergy.id}")
             result = image_upload_service.upload_original_image(file_upload, clergy.id)
             
             if result['success']:
-                # Store original image URL and image data
                 clergy.image_url = result['url']
                 clergy.image_data = json.dumps(result['image_data'])
-                print(f"Uploaded original image for clergy {clergy.id}: {result['url']}")
             else:
-                print(f"Failed to upload original image for clergy {clergy.id}: {result['error']}")
-                # Don't fail the entire form submission, just log the error
-                
+                current_app.logger.warning(
+                    "Failed to upload original image for clergy %s: %s",
+                    clergy.id, result['error'],
+                )
+
         elif processed_image_data:
-            # Process single image (fallback)
-            print(f"Processing single image for clergy {clergy.id}")
             image_url = image_upload_service.upload_image_from_base64(processed_image_data, clergy.id, 'original')
-            
             if image_url:
                 clergy.image_url = image_url
-                print(f"Uploaded single image for clergy {clergy.id}: {image_url}")
             else:
-                print(f"Failed to upload single image for clergy {clergy.id}")
-                
+                current_app.logger.warning("Failed to upload single image for clergy %s", clergy.id)
+
     except Exception as e:
-        print(f"Error processing images for clergy {clergy.id}: {e}")
-        import traceback
-        traceback.print_exc()
-        # Continue without images rather than failing the entire operation
-    
-    # Handle new ordination and consecration data
+        current_app.logger.exception("Error processing images for clergy %s", clergy.id)
+
     create_ordinations_from_form(clergy, form)
     create_consecrations_from_form(clergy, form)
-    
-    # Handle status indicators
+
     status_ids = form.getlist('status_ids[]') or form.getlist('status_ids')
     if status_ids:
-        # Convert to integers and add statuses
         for status_id in status_ids:
             if status_id:  # Skip empty values
                 try:
@@ -259,24 +203,20 @@ def create_clergy_from_form(form):
                     pass  # Skip invalid status IDs
     
     db.session.commit()
-    
-    # Generate sprite sheet in background (non-blocking)
+
     try:
         _regenerate_sprite_sheet_background(clergy.id)
     except Exception as e:
-        print(f"Warning: Failed to start background sprite sheet generation: {e}")
-        # Don't fail the form submission if sprite generation fails
-    
+        current_app.logger.warning("Failed to start background sprite sheet generation: %s", e)
+
     return clergy
 
 def create_ordinations_from_form(clergy, form):
     """Create ordination records from form data"""
     ordinations_data = {}
-    
-    # Parse ordination data from form
+
     for key, value in form.items():
         if key.startswith('ordinations[') and ']' in key:
-            # Extract index and field name from pattern like "ordinations[1][date]"
             import re
             match = re.match(r'ordinations\[(\d+)\]\[([^\]]+)\]', key)
             if match:
@@ -670,12 +610,10 @@ def edit_clergy_handler(clergy_id):
                         image_upload_service = get_image_upload_service()
                         image_upload_service.delete_clergy_images(clergy.id)
                     except Exception as e:
-                        print(f"Error deleting images for clergy {clergy.id}: {e}")
-                    
-                    # Clear image data when image is removed
+                        current_app.logger.warning("Error deleting images for clergy %s: %s", clergy.id, e)
+
                     clergy.image_url = None
                     clergy.image_data = None
-                    print(f"Image removed for clergy {clergy.name}")
                 else:
                     # Process new image uploads
                     try:
@@ -690,23 +628,14 @@ def edit_clergy_handler(clergy_id):
                             file_upload = request.files['clergy_image']
                         
                         if image_data_json:
-                            # Process comprehensive image data (NEW WORKFLOW - server-processed)
-                            print(f"Processing server-processed image data for clergy {clergy.id}")
                             try:
                                 image_data = json.loads(image_data_json)
-                                
-                                # CRITICAL: Always use original image URL for clergy.image_url
-                                # If original is missing, try to preserve existing original or find it
                                 original_url = image_data.get('original')
                                 if not original_url:
-                                    # Try to preserve existing original URL if it's an original
                                     if clergy.image_url and 'original_' in clergy.image_url:
                                         original_url = clergy.image_url
-                                        print(f"Preserving existing original URL: {original_url}")
-                                        # Add original to image_data if missing
                                         image_data['original'] = original_url
                                     else:
-                                        # Try to find original in storage
                                         try:
                                             response = image_upload_service.s3_client.list_objects_v2(
                                                 Bucket=image_upload_service.bucket_name,
@@ -717,55 +646,43 @@ def edit_clergy_handler(clergy_id):
                                                 if 'original_' in key and 'lineage_' not in key and 'detail_' not in key:
                                                     original_url = image_upload_service.config.get_public_url(key)
                                                     image_data['original'] = original_url
-                                                    print(f"Found original in storage: {original_url}")
                                                     break
                                         except Exception as e:
-                                            print(f"Could not find original in storage: {e}")
-                                
-                                # Always use original URL for clergy.image_url (never detail or lineage)
+                                            current_app.logger.debug("Could not find original in storage: %s", e)
+
                                 if original_url:
                                     clergy.image_url = original_url
                                 else:
-                                    # Last resort: use detail but log warning
-                                    print(f"WARNING: No original URL found, using detail as fallback for clergy.image_url")
+                                    current_app.logger.warning(
+                                        "No original URL found, using detail as fallback for clergy.image_url (clergy_id=%s)",
+                                        clergy.id,
+                                    )
                                     clergy.image_url = image_data.get('detail', image_data.get('lineage', ''))
-                                
+
                                 clergy.image_data = json.dumps(image_data)
-                                
-                                print(f"Stored server-processed images for clergy {clergy.id}:")
-                                for size, url in image_data.items():
-                                    if size != 'metadata':
-                                        print(f"  - {size}: {url}")
                             except json.JSONDecodeError as e:
-                                print(f"Failed to parse image data JSON: {e}")
-                                
+                                current_app.logger.warning("Failed to parse image data JSON: %s", e)
+
                         elif file_upload:
-                            # Upload original image with size validation (NEW WORKFLOW)
-                            print(f"Uploading original image for clergy {clergy.id}")
                             result = image_upload_service.upload_original_image(file_upload, clergy.id)
-                            
                             if result['success']:
-                                # Store original image URL and image data
                                 clergy.image_url = result['url']
                                 clergy.image_data = json.dumps(result['image_data'])
-                                print(f"Uploaded original image for clergy {clergy.id}: {result['url']}")
                             else:
-                                print(f"Failed to upload original image for clergy {clergy.id}: {result['error']}")
-                                # Don't fail the entire form submission, just log the error
-                                
+                                current_app.logger.warning(
+                                    "Failed to upload original image for clergy %s: %s",
+                                    clergy.id, result['error'],
+                                )
+
                         elif processed_image_data:
-                            # Process single image (fallback)
-                            print(f"Processing single image for clergy {clergy.id}")
                             image_url = image_upload_service.upload_image_from_base64(processed_image_data, clergy.id, 'original')
-                            
                             if image_url:
                                 clergy.image_url = image_url
-                                print(f"Uploaded single image for clergy {clergy.id}: {image_url}")
                             else:
-                                print(f"Failed to upload single image for clergy {clergy.id}")
-                                
+                                current_app.logger.warning("Failed to upload single image for clergy %s", clergy.id)
+
                     except Exception as e:
-                        print(f"Error processing images for clergy {clergy.id}: {e}")
+                        current_app.logger.exception("Error processing images for clergy %s", clergy.id)
                         # Continue without images rather than failing the entire operation
                 if date_of_birth:
                     clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
@@ -808,9 +725,8 @@ def edit_clergy_handler(clergy_id):
                 try:
                     _regenerate_sprite_sheet_background(clergy_id)
                 except Exception as e:
-                    print(f"Warning: Failed to start background sprite sheet generation: {e}")
-                    # Don't fail the form submission if sprite generation fails
-                
+                    current_app.logger.warning("Failed to start background sprite sheet generation: %s", e)
+
                 log_audit_event(
                     action='update',
                     entity_type='clergy',

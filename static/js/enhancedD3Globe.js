@@ -44,7 +44,6 @@ class EnhancedD3Globe {
     }
     
     init() {
-        console.log('Initializing Enhanced D3 Globe');
         this.setupSVG();
         this.setupTooltip();
         this.createGradients();
@@ -164,7 +163,6 @@ class EnhancedD3Globe {
             const connection = navigator.connection;
             const effectiveType = connection.effectiveType;
             
-            console.log('Network effective type:', effectiveType);
             
             if (effectiveType === '4g' || effectiveType === '5g') {
                 return 'fast';
@@ -214,7 +212,6 @@ class EnhancedD3Globe {
             
             // Detect connection speed and choose appropriate data source
             const connectionSpeed = await this.detectConnectionSpeed();
-            console.log('Detected connection speed:', connectionSpeed);
             
             // Store connection speed for rendering optimization
             this.connectionSpeed = connectionSpeed;
@@ -228,9 +225,7 @@ class EnhancedD3Globe {
             
             for (const url of dataSources) {
                 try {
-                    console.log(`Loading world data from: ${url}`);
                     world = await d3.json(url);
-                    console.log('Successfully loaded world data');
                     break;
                 } catch (err) {
                     console.warn(`Failed to load from ${url}:`, err);
@@ -297,7 +292,6 @@ class EnhancedD3Globe {
         }
         
         const nodes = window.nodesData;
-        console.log('Adding clergy nodes:', nodes.length);
         
         const locationGroups = this.groupNodesByLocation(nodes);
         const nodeGroup = this.g.append('g').attr('class', 'clergy-nodes');
@@ -412,7 +406,6 @@ class EnhancedD3Globe {
         }
         
         const links = window.linksData;
-        console.log('Adding lineage connections:', links.length);
         
         const linkGroup = this.g.append('g').attr('class', 'lineage-links');
         
@@ -466,7 +459,6 @@ class EnhancedD3Globe {
         
         // Apply detail level based on connection speed
         const detailLevel = this.getDetailLevel();
-        console.log('Rendering world map with detail level:', detailLevel);
         
         // Draw the world map with country colors
         if (worldData.features) {
@@ -489,10 +481,6 @@ class EnhancedD3Globe {
             }
             // For fast connections, render all features
             
-            console.log(`Detail level: ${detailLevel}`);
-            console.log(`Total features: ${totalFeatures}`);
-            console.log(`Features to render: ${featuresToRender.length}`);
-            console.log(`Filtered out: ${totalFeatures - featuresToRender.length} features`);
             
             worldGroup.selectAll('path')
                 .data(featuresToRender)
@@ -557,7 +545,6 @@ class EnhancedD3Globe {
         // Update all paths
         this.g.selectAll('.globe-path').attr('d', this.path);
         
-        console.log('Back-face culling applied with clip angle: 90');
     }
     
     
@@ -832,11 +819,9 @@ class EnhancedD3Globe {
     }
     
     selectClergy(event, clergy) {
-        console.log('Selected clergy:', clergy);
     }
     
     createFallbackVisualization() {
-        console.log('Creating fallback visualization');
         
         // Create gradients for fallback
         this.createGradients();
@@ -883,6 +868,5 @@ class EnhancedD3Globe {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing Enhanced D3 Globe');
     new EnhancedD3Globe();
 });

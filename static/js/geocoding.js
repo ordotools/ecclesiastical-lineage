@@ -14,7 +14,6 @@ class GeocodingService {
             const response = await fetch('/api/geocoding-status');
             const data = await response.json();
             this.isConfigured = data.configured;
-            console.log('Geocoding service status:', data);
         } catch (error) {
             console.warn('Could not check geocoding status:', error);
             this.isConfigured = false;
@@ -199,7 +198,6 @@ class GeocodingService {
     // Initialize geocoding for all address forms on the page
     initializeGeocoding() {
         if (!this.isConfigured) {
-            console.log('Geocoding service not configured, skipping initialization');
             return;
         }
         

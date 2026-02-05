@@ -1,116 +1,14 @@
 # Database Sync Setup Guide
 
-This guide documents the setup process for syncing your local SQLite database with the remote PostgreSQL database on Render for development purposes.
-
-## Overview
-
-This guide covers two approaches for syncing your local development environment with your remote PostgreSQL database on Render:
-
-### **SQLite Approach (Original)**
-- Uses `sync_local_db.sh` to sync from remote PostgreSQL to local SQLite
-- Good for simple development, but has conversion limitations
-
-### **PostgreSQL Approach (Recommended)**
-- Uses `sync_postgres_local.sh` to sync from remote PostgreSQL to local PostgreSQL
-- More reliable, same database type as production
-- Better compatibility and performance
-- Uses the same SECRET_KEY as production for consistent sessions
+For initial dev setup see [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md). For schema migrations (Flask-Migrate) see [FLASK_MIGRATE_SETUP.md](FLASK_MIGRATE_SETUP.md). This guide covers **syncing** your local PostgreSQL with the remote database on Render.
 
 ## Prerequisites
 
-### 1. Install Required Tools
+PostgreSQL 16 and Python env as in [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md). For sync you also need `RENDER_PG_URL` in `.env` (Render dashboard → PostgreSQL → Connect). Use the same `SECRET_KEY` as Render for consistent sessions.
 
-#### For SQLite Approach:
-```bash
-# Install PostgreSQL 16 client tools (to match remote server version)
-brew install postgresql@16
+## Sync options
 
-# Install pgloader (for future reference, though not used in final solution)
-brew install pgloader
-```
-
-#### For PostgreSQL Approach (Recommended):
-```bash
-# Install PostgreSQL 16 client tools and server
-brew install postgresql@16
-
-# Start PostgreSQL service
-brew services start postgresql@16
-```
-
-### 2. Python Environment Setup
-
-Ensure you have a virtual environment with the required dependencies:
-
-```bash
-# Create virtual environment (if not already done)
-python3 -m venv env
-
-# Activate virtual environment
-source env/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-**Note:** If you encounter `psycopg2-binary` installation issues with Python 3.13, consider downgrading to Python 3.12 or 3.11, as `psycopg2-binary==2.9.7` doesn't support Python 3.13 yet.
-
-## Configuration
-
-### 1. Environment Variables
-
-Create a `.env` file in your project root:
-
-#### For SQLite Approach:
-```bash
-# Flask configuration
-SECRET_KEY=your-secret-key-here
-DATABASE_URL=sqlite:///ecclesiastical_lineage.db
-
-# Remote PostgreSQL connection for syncing local database
-RENDER_PG_URL=postgresql://your_user:your_password@your_host:your_port/your_database
-```
-
-#### For PostgreSQL Approach (Recommended):
-```bash
-# Flask configuration
-# Use the same SECRET_KEY as your Render instance for consistent sessions
-SECRET_KEY=your-render-secret-key-here
-DATABASE_URL=postgresql://localhost:5432/ecclesiastical_lineage_dev
-
-# Remote PostgreSQL connection for syncing local database
-RENDER_PG_URL=postgresql://your_user:your_password@your_host:your_port/your_database
-```
-
-**To get your Render SECRET_KEY:**
-1. Go to your Render dashboard
-2. Navigate to your web service
-3. Go to "Environment" tab
-4. Copy the `SECRET_KEY` value
-
-### 2. Get Your Render PostgreSQL URL
-
-1. Go to your Render dashboard
-2. Navigate to your PostgreSQL database
-3. Click on "Connect" or "External Database URL"
-4. Copy the connection string
-
-The URL format will be:
-```
-postgresql://username:password@hostname:port/database_name
-```
-
-## How the Sync Script Works
-
-The `sync_local_db.sh` script performs the following steps:
-
-1. **Loads environment variables** from `.env` file
-2. **Prompts for confirmation** before overwriting local database
-3. **Removes old local database** if it exists
-4. **Initializes database tables** using Flask-SQLAlchemy models
-5. **Exports data** from remote PostgreSQL using `pg_dump`
-6. **Imports data** into local SQLite using a Python script
-7. **Cleans up** temporary files
+**Recommended:** Use `./start_dev.sh` (see LOCAL_DEVELOPMENT) for full setup including sync. For manual sync from remote: `./sync_postgres_local.sh` or `./sync_dev_db.sh` (PostgreSQL). Legacy SQLite sync: `sync_local_db.sh` (has conversion limitations).
 
 ## Usage
 
@@ -170,23 +68,6 @@ This script:
 - Syncs data from your remote PostgreSQL database to local SQLite
 - Overwrites your local database
 - Has conversion limitations between PostgreSQL and SQLite
-
-### Starting the Development Server
-
-```bash
-source env/bin/activate && python3 app.py --port 5001
-```
-
-**Note:** We use port 5001 to avoid conflicts with macOS AirPlay service on port 5000.
-
-### Adding Sample Data (Optional)
-
-If you want to add sample data to your local database for testing:
-
-```bash
-source env/bin/activate
-python3 init_db.py
-```
 
 ## Troubleshooting
 

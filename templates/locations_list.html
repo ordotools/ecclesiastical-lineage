@@ -8,7 +8,7 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2><i class="fas fa-map-marker-alt me-2"></i>Locations</h2>
-                <a href="{{ url_for('main.add_location') }}" class="btn btn-primary">
+                <a href="{{ url_for('locations.add_location') }}" class="btn btn-primary">
                     <i class="fas fa-plus me-1"></i>Add Location
                 </a>
             </div>
@@ -67,11 +67,11 @@
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm" role="group">
-                                            <a href="{{ url_for('main.view_location', location_id=location.id) }}" 
+                                            <a href="{{ url_for('locations.view_location', location_id=location.id) }}" 
                                                class="btn btn-outline-info" title="View Details">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="{{ url_for('main.edit_location', location_id=location.id) }}" 
+                                            <a href="{{ url_for('locations.edit_location', location_id=location.id) }}" 
                                                class="btn btn-outline-primary" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </a>
@@ -94,7 +94,7 @@
                     <i class="fas fa-map-marker-alt fa-3x text-muted mb-3"></i>
                     <h4 class="text-muted">No Locations Found</h4>
                     <p class="text-muted">Get started by adding your first location.</p>
-                    <a href="{{ url_for('main.add_location') }}" class="btn btn-primary">
+                    <a href="{{ url_for('locations.add_location') }}" class="btn btn-primary">
                         <i class="fas fa-plus me-1"></i>Add First Location
                     </a>
                 </div>
@@ -129,7 +129,7 @@
 <script>
 function confirmDelete(locationId, locationName) {
     document.getElementById('deleteLocationName').textContent = locationName;
-    document.getElementById('deleteForm').action = '{{ url_for("main.delete_location", location_id=0) }}'.replace('0', locationId);
+    document.getElementById('deleteForm').action = '{{ url_for("locations.delete_location", location_id=0) }}'.replace('0', locationId);
     
     const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
     modal.show();

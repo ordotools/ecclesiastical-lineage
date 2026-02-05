@@ -24,7 +24,6 @@ async function getSpriteSheetData(forceRefresh = false) {
                 try {
                     const parsed = JSON.parse(cachedData);
                     // Use cached data directly - cache invalidation happens when sprite is updated
-                    console.log('Using cached sprite sheet data');
                     return parsed;
                 } catch (e) {
                     console.warn('Error parsing cached sprite sheet data:', e);
@@ -36,7 +35,6 @@ async function getSpriteSheetData(forceRefresh = false) {
         }
         
         // Fetch fresh data
-        console.log('Fetching sprite sheet data from API');
         const response = await fetch('/api/sprite-sheet', {
             method: 'GET',
             headers: {
@@ -79,7 +77,6 @@ async function getSpriteSheetData(forceRefresh = false) {
 function invalidateSpriteSheetCache() {
     sessionStorage.removeItem(SPRITE_SHEET_CACHE_KEY);
     sessionStorage.removeItem(SPRITE_SHEET_URL_KEY);
-    console.log('Sprite sheet cache invalidated');
 }
 
 /**

@@ -18,7 +18,6 @@ class ClergyFormController {
     }
     
     init() {
-        console.log('Initializing Clergy Form Controller...');
         
         // Always wait for DOM to be ready
         if (document.readyState === 'loading') {
@@ -31,15 +30,12 @@ class ClergyFormController {
     
     setup() {
         try {
-            console.log('Setting up Clergy Form Controller...');
             
             // Check if form exists - if not, this page doesn't have a clergy form
             const form = document.getElementById('clergyForm');
             if (!form) {
-                console.log('No clergy form found on this page - skipping controller initialization');
                 return;
             }
-            console.log('clergyForm element found');
             
             // Check if rank select exists
             const rankSelect = document.getElementById('rank');
@@ -47,7 +43,6 @@ class ClergyFormController {
                 console.error('rank element not found');
                 return;
             }
-            console.log('rank element found');
             
             // Check if consecration section exists
             const consecrationSection = document.getElementById('consecrationsSection');
@@ -55,7 +50,6 @@ class ClergyFormController {
                 console.error('consecrationsSection element not found');
                 return;
             }
-            console.log('consecrationsSection element found');
             
             // Check if consecrations container exists
             const consecrationsContainer = document.getElementById('consecrationsContainer');
@@ -63,12 +57,10 @@ class ClergyFormController {
                 console.error('consecrationsContainer element not found');
                 return;
             }
-            console.log('consecrationsContainer element found');
             
             this.setupEventListeners();
             this.initializeForm();
             this.state.initialized = true;
-            console.log('Clergy Form Controller initialized successfully');
         } catch (error) {
             console.error('Error initializing Clergy Form Controller:', error);
         }
@@ -86,14 +78,11 @@ class ClergyFormController {
         // Ordination controls
         const addOrdinationBtn = document.getElementById('addOrdinationBtn');
         if (addOrdinationBtn) {
-            console.log('Adding event listener to addOrdinationBtn');
             addOrdinationBtn.addEventListener('click', (e) => {
-                console.log('addOrdinationBtn clicked!');
                 e.stopPropagation(); // Prevent event bubbling
                 this.addOrdination();
             });
         } else {
-            console.log('addOrdinationBtn not found');
         }
         
         const clearOrdinationsBtn = document.getElementById('clearOrdinationsBtn');
@@ -156,7 +145,6 @@ class ClergyFormController {
     }
     
     handleRankChange(rankValue) {
-        console.log('Rank changed to:', rankValue);
         
         // Handle papal name field
         this.togglePapalNameField(rankValue);
@@ -183,22 +171,18 @@ class ClergyFormController {
     }
     
     toggleConsecrationSection(rankValue) {
-        console.log('toggleConsecrationSection called with rank:', rankValue);
         const consecrationSection = document.getElementById('consecrationsSection');
         
         if (consecrationSection) {
             const requiresConsecration = rankValue && 
                 ['Bishop', 'Archbishop', 'Cardinal', 'Pope'].includes(rankValue);
             
-            console.log('requiresConsecration:', requiresConsecration);
             
             if (requiresConsecration) {
                 consecrationSection.style.display = 'block';
-                console.log('Showing consecration section');
                 this.ensureConsecrationSection();
             } else {
                 consecrationSection.style.display = 'none';
-                console.log('Hiding consecration section');
                 this.clearConsecrations();
             }
         } else {
@@ -214,12 +198,9 @@ class ClergyFormController {
     }
     
     ensureConsecrationSection() {
-        console.log('ensureConsecrationSection called');
         const container = document.getElementById('consecrationsContainer');
         if (container) {
-            console.log('consecrationsContainer found, children count:', container.children.length);
             if (container.children.length === 0) {
-                console.log('Adding initial consecration section');
                 this.addConsecration();
             }
         } else {
@@ -228,36 +209,30 @@ class ClergyFormController {
     }
     
     addOrdination() {
-        console.log('addOrdination method called, current counter:', this.state.ordinationCounter);
         this.state.ordinationCounter++;
         const container = document.getElementById('ordinationsContainer');
         
         if (container) {
-            console.log('Adding ordination HTML to container');
             const ordinationHtml = this.generateOrdinationHTML(this.state.ordinationCounter);
             container.insertAdjacentHTML('beforeend', ordinationHtml);
             
             // Set up bishop search for this ordination
             this.setupBishopSearch(`ordination_${this.state.ordinationCounter}`);
-            console.log('Ordination section added successfully, new counter:', this.state.ordinationCounter);
         } else {
             console.error('ordinationsContainer not found in addOrdination');
         }
     }
     
     addConsecration() {
-        console.log('addConsecration called, counter:', this.state.consecrationCounter);
         this.state.consecrationCounter++;
         const container = document.getElementById('consecrationsContainer');
         
         if (container) {
-            console.log('Adding consecration HTML to container');
             const consecrationHtml = this.generateConsecrationHTML(this.state.consecrationCounter);
             container.insertAdjacentHTML('beforeend', consecrationHtml);
             
             // Set up bishop search for this consecration
             this.setupBishopSearch(`consecration_${this.state.consecrationCounter}`);
-            console.log('Consecration section added successfully');
         } else {
             console.error('consecrationsContainer not found in addConsecration');
         }
@@ -748,7 +723,6 @@ class ClergyFormController {
     }
     
     prefillForm(clergyData) {
-        console.log('Pre-filling form with data:', clergyData);
         
         if (!clergyData) return;
         
@@ -766,7 +740,6 @@ class ClergyFormController {
             this.handleRankChange(clergyData.rank);
         }
         
-        console.log('Form pre-filled successfully');
     }
     
     prefillBasicFields(clergyData) {
@@ -919,7 +892,6 @@ let clergyFormController;
 function initializeClergyFormController() {
     const form = document.getElementById('clergyForm');
     if (form && !clergyFormController) {
-        console.log('Clergy form detected - initializing controller');
         clergyFormController = new ClergyFormController();
         if (clergyFormController && clergyFormController.state && clergyFormController.state.initialized) {
             window.clergyFormController = clergyFormController;
@@ -936,14 +908,12 @@ if (document.readyState === 'loading') {
 
 // Listen for HTMX content swaps to re-initialize controller when modal content is loaded
 document.addEventListener('htmx:afterSwap', function(event) {
-    console.log('HTMX afterSwap event detected, target:', event.target);
     
     // Check if the swapped content contains a clergy form
     const form = event.target.querySelector('#clergyForm') || 
                 (event.target.id === 'clergyFormModalBody' ? event.target.querySelector('#clergyForm') : null);
     
     if (form) {
-        console.log('Clergy form detected in HTMX swap - re-initializing controller');
         // Reset the controller and re-initialize
         clergyFormController = null;
         window.clergyFormController = null;
@@ -953,22 +923,18 @@ document.addEventListener('htmx:afterSwap', function(event) {
 
 // Listen for Bootstrap modal events to re-initialize controller when modal is shown
 document.addEventListener('shown.bs.modal', function(event) {
-    console.log('Bootstrap modal shown event detected, modal:', event.target);
     
     // Check if this is the clergy form modal
     if (event.target.id === 'clergyFormModal') {
-        console.log('Clergy form modal shown - checking for form and re-initializing controller');
         // Small delay to ensure content is loaded
         setTimeout(() => {
             const form = document.getElementById('clergyForm');
             if (form) {
-                console.log('Clergy form found in modal - re-initializing controller');
                 // Reset the controller and re-initialize
                 clergyFormController = null;
                 window.clergyFormController = null;
                 initializeClergyFormController();
             } else {
-                console.log('No clergy form found in modal yet');
             }
         }, 100);
     }

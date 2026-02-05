@@ -36,7 +36,6 @@ class GlobeGlVisualization {
     }
     
     init() {
-        console.log('Initializing Globe.gl Visualization');
         this.setupContainer();
         this.loadData();
         this.setupGlobe();
@@ -60,15 +59,10 @@ class GlobeGlVisualization {
         this.clergyData = window.nodesData || [];
         this.linksData = window.linksData || [];
         
-        console.log('Loaded clergy data:', this.clergyData.length);
-        console.log('Loaded links data:', this.linksData.length);
     }
     
     setupGlobe() {
         try {
-            console.log('Setting up Globe.gl...');
-            console.log('Globe function available:', typeof Globe);
-            console.log('Container element:', this.container);
             
             // Check if Globe is available
             if (typeof Globe !== 'function') {
@@ -99,21 +93,12 @@ class GlobeGlVisualization {
             const globeElement = this.globe();
             this.container.appendChild(globeElement);
             
-            console.log('Globe initialized successfully');
-            console.log('Container dimensions:', this.container.offsetWidth, 'x', this.container.offsetHeight);
-            console.log('Globe instance:', this.globe);
             
             // Check if canvas was created
             setTimeout(() => {
                 const canvas = this.container.querySelector('canvas');
-                console.log('Canvas element:', canvas);
                 if (canvas) {
-                    console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
-                    console.log('Canvas style:', canvas.style.cssText);
                 } else {
-                    console.log('No canvas found, checking for other elements:');
-                    console.log('Container children:', this.container.children);
-                    console.log('Container innerHTML length:', this.container.innerHTML.length);
                 }
             }, 100);
             
@@ -133,7 +118,6 @@ class GlobeGlVisualization {
     }
     
     addTestPoint() {
-        console.log('Adding test point...');
         const testPoints = [{
             lat: 41.9029,
             lng: 12.4534,
@@ -149,20 +133,16 @@ class GlobeGlVisualization {
             .pointRadius('size')
             .pointResolution(8);
             
-        console.log('Test point added');
     }
     
     addClergyPoints() {
         if (!this.clergyData.length || !this.globe) {
-            console.log('Skipping clergy points - data:', this.clergyData.length, 'globe:', !!this.globe);
             return;
         }
         
-        console.log('Adding clergy points...');
         
         // Group clergy by location
         const locationGroups = this.groupClergyByLocation(this.clergyData);
-        console.log('Location groups:', locationGroups);
         
         // Convert to Globe.gl format
         const points = [];
@@ -187,7 +167,6 @@ class GlobeGlVisualization {
             }
         });
         
-        console.log('Points data:', points);
         
         this.globe
             .pointsData(points)
@@ -196,7 +175,6 @@ class GlobeGlVisualization {
             .pointRadius('size')
             .pointResolution(8);
             
-        console.log('Clergy points added to globe');
     }
     
     addLineageArcs() {
@@ -314,17 +292,14 @@ class GlobeGlVisualization {
     
     onClick(point, event) {
         if (point) {
-            console.log('Selected clergy:', point);
             this.selectClergy(point);
         }
     }
     
     onZoom(zoom) {
-        console.log('Zoom level:', zoom);
     }
     
     onRotate(rotation) {
-        console.log('Rotation:', rotation);
     }
     
     showTooltip(event, clergy) {
@@ -369,7 +344,6 @@ class GlobeGlVisualization {
     
     selectClergy(clergy) {
         // Handle clergy selection
-        console.log('Selected clergy:', clergy);
         // You can add clergy selection logic here
     }
     
@@ -410,7 +384,6 @@ class GlobeGlVisualization {
     }
     
     createFallbackGlobe() {
-        console.log('Creating fallback globe visualization');
         
         // Create a simple fallback visualization with some basic 3D-like styling
         this.container.innerHTML = `
@@ -479,6 +452,5 @@ class GlobeGlVisualization {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing Globe.gl Visualization');
     new GlobeGlVisualization();
 });

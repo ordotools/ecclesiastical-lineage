@@ -402,7 +402,7 @@
         if (addClergyBtn) {
             addClergyBtn.addEventListener('click', function () {
                 // Load the add clergy form in the modal
-                fetch('{{ url_for("main.add_clergy_from_lineage") }}', {
+                fetch('{{ url_for("lineage_api.add_clergy_from_lineage") }}', {
                     method: 'GET',
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'

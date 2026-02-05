@@ -99,4 +99,4 @@ Successfully migrated the Ecclesiastical Lineage application from SQLite to Post
 ✅ Application startup with PostgreSQL working  
 ✅ All scripts updated and functional  
 
-The migration is complete and the application is ready for PostgreSQL-only operation. 
+The migration is complete and the application is ready for PostgreSQL-only operation.

@@ -5,8 +5,6 @@
  * Matches lineage visualization exactly for D3.js nodes, links and physics
  */
 
-console.log('Editor visualization script loaded');
-
 // Visualization constants - matching lineage visualization exactly
 // Prevent duplicate declarations when HTMX loads content
 if (typeof window.LINK_DISTANCE === 'undefined') {
@@ -130,20 +128,12 @@ class EditorVisualization {
         this.nodesData = nodesData;
         this.linksData = linksData;
         this.updatePre1968Flags();
-        
-        console.log('Editor visualization - Nodes:', nodesData.length, 'Links:', linksData.length);
-        
         this.initializeVisualization();
     }
 
     initializeVisualization() {
-        console.log('initializeVisualization called');
         this.container = document.getElementById('editor-graph-container');
-        console.log('Container found:', !!this.container);
-        console.log('D3 available:', !!d3);
-        
         if (!this.container || !d3) {
-            console.log('Container or D3 not available, retrying...');
             setTimeout(() => this.initializeVisualization(), 100);
             return;
         }
@@ -947,7 +937,6 @@ class EditorVisualization {
         
         // Select clergy when clicked
         if (typeof window.selectClergy === 'function') {
-            console.log('Visualization node clicked, selecting clergy:', d.id);
             window.selectClergy(d.id);
         } else {
             console.warn('window.selectClergy not available, falling back to direct HTMX');
@@ -1065,8 +1054,6 @@ class EditorVisualization {
             return;
         }
         
-        console.log('Updating spritesheet:', spriteData.url);
-        
         // Invalidate cache since we have new sprite data
         if (typeof window.invalidateSpriteSheetCache === 'function') {
             window.invalidateSpriteSheetCache();
@@ -1102,8 +1089,6 @@ class EditorVisualization {
                    .attr('height', spriteData.sprite_height || 960);
             }
         });
-        
-        console.log('Spritesheet updated successfully');
     }
     
     updateData(nodesData, linksData) {
@@ -1112,8 +1097,6 @@ class EditorVisualization {
             console.warn('Cannot update data: visualization not initialized');
             return;
         }
-        
-        console.log('Soft refresh: updating data with', nodesData.length, 'nodes,', linksData.length, 'links');
         
         // Store new data
         this.nodesData = nodesData;
@@ -1553,8 +1536,6 @@ class EditorVisualization {
                 this.highlightNode(window.currentSelectedClergyId);
             }, 500);
         }
-        
-        console.log('Soft refresh completed');
     }
     
     applyStyles(styles) {
@@ -1568,8 +1549,6 @@ class EditorVisualization {
             console.warn('Cannot apply styles: no styles provided');
             return;
         }
-        
-        console.log('Applying styles to visualization:', styles);
         
         // Update node styles
         if (styles.node) {
@@ -1775,8 +1754,6 @@ class EditorVisualization {
                     .attr('dy', labelStyles.dy);
             }
         }
-        
-        console.log('Styles applied successfully');
     }
     
     cleanup() {
@@ -1821,22 +1798,14 @@ if (typeof window.editorVisualization === 'undefined') {
 
 // Initialize function for use in templates
 function initializeEditorVisualization(nodesData, linksData) {
-    console.log('initializeEditorVisualization called with:', nodesData.length, 'nodes,', linksData.length, 'links');
-    
-    // Guard against double initialization
     if (window.editorVisualization && window.editorVisualization.isInitialized) {
-        console.log('Visualization already initialized, skipping...');
         return;
     }
     
-    // Cleanup existing instance
     if (window.editorVisualization) {
-        console.log('Cleaning up existing editor visualization instance');
         window.editorVisualization.cleanup();
     }
     
-    // Create new instance
-    console.log('Creating new editor visualization instance');
     window.editorVisualization = new EditorVisualization();
     window.editorVisualization.init(nodesData, linksData);
 }

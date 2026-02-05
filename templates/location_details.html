@@ -14,10 +14,10 @@
                             {{ location.name }}
                         </h4>
                         <div>
-                            <a href="{{ url_for('main.edit_location', location_id=location.id) }}" class="btn btn-primary btn-sm">
+                            <a href="{{ url_for('locations.edit_location', location_id=location.id) }}" class="btn btn-primary btn-sm">
                                 <i class="fas fa-edit me-1"></i>Edit
                             </a>
-                            <a href="{{ url_for('main.locations_list') }}" class="btn btn-secondary btn-sm">
+                            <a href="{{ url_for('locations.locations_list') }}" class="btn btn-secondary btn-sm">
                                 <i class="fas fa-arrow-left me-1"></i>Back to List
                             </a>
                         </div>

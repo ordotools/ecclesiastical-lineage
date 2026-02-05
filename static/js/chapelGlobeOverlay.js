@@ -18,7 +18,6 @@ class ChapelGlobeOverlay {
     }
     
     init() {
-        console.log('Initializing Chapel Globe Overlay');
         this.createOverlayGroup();
         this.loadOrganizationColors();
         this.loadTestData();
@@ -26,12 +25,10 @@ class ChapelGlobeOverlay {
     
     async loadOrganizationColors() {
         try {
-            console.log('Loading organization colors from database...');
             const response = await fetch('/api/organizations');
             const data = await response.json();
             
             if (data.success) {
-                console.log(`Loaded ${data.count} organizations with colors`);
                 this.styles.updateOrganizationColors(data.organizations);
             } else {
                 console.error('Failed to load organization colors:', data.error);
@@ -52,7 +49,6 @@ class ChapelGlobeOverlay {
             .attr('class', 'chapel-overlay-group')
             .style('pointer-events', 'all');
         
-        console.log('Chapel overlay group created');
     }
     
     loadTestData() {
@@ -120,7 +116,6 @@ class ChapelGlobeOverlay {
             }
         ];
         
-        console.log('Loaded test chapel data:', this.chapelData.length);
         this.renderChapels();
     }
     
@@ -178,7 +173,6 @@ class ChapelGlobeOverlay {
             // Add event listeners
             this.addChapelEventListeners();
             
-            console.log(`Rendered ${this.chapelData.length} chapel markers`);
         } catch (error) {
             console.error('Error rendering chapel markers:', error);
         }
@@ -374,7 +368,6 @@ class ChapelGlobeOverlay {
             .attr('stroke-width', selectedStyle.strokeWidth)
             .attr('opacity', selectedStyle.opacity);
         
-        console.log('Selected chapel:', chapel.name);
     }
     
     showChapelTooltip(event, chapel) {

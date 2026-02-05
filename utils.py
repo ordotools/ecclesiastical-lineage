@@ -2,7 +2,7 @@ from functools import wraps
 import re
 import json
 from urllib.parse import urlparse
-from flask import request, redirect, url_for, flash, session, jsonify
+from flask import request, redirect, url_for, flash, session, jsonify, current_app
 from models import db, AuditLog, User
 
 
@@ -61,7 +61,7 @@ def audit_log(action, entity_type, get_entity_id=None, get_entity_name=None, get
                         details=details
                     )
             except Exception as e:
-                print(f"Audit log decorator error: {e}")
+                current_app.logger.warning("Audit log decorator error: %s", e)
             if isinstance(result, tuple):
                 if len(result) == 3:
                     return result[1], result[2]
@@ -130,7 +130,7 @@ def log_audit_event(action, entity_type, entity_id=None, entity_name=None, detai
         db.session.add(audit_log)
         db.session.commit()
     except Exception as e:
-        print(f"Warning: Failed to log audit event: {e}")
+        current_app.logger.warning("Failed to log audit event: %s", e)
         db.session.rollback()
 
 def validate_password(password):
@@ -159,24 +159,18 @@ def is_safe_redirect_url(url):
     """
     if not url:
         return False
-    
-    # Parse the URL
+
     parsed = urlparse(url)
-    
-    # Allow relative URLs (no netloc and starts with /)
+
     if not parsed.netloc and url.startswith('/'):
         return True
-    
-    # For absolute URLs, check if they're from the same host
+
     if parsed.netloc:
-        # Get the current request's host
         current_host = request.host if request else None
         if current_host:
-            # Compare hosts (handle port differences)
             redirect_host = parsed.netloc.split(':')[0]
             current_host_no_port = current_host.split(':')[0]
             if redirect_host == current_host_no_port:
                 return True
-    
-    # Reject all other URLs (external domains, javascript:, data:, etc.)
+
     return False

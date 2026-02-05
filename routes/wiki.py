@@ -102,7 +102,6 @@ def save_page():
 
     user_id = session['user_id']
     data = request.json
-    print(f"DEBUG: save_page payload: {data}")
     slug = data.get('title')
     content = data.get('content')
     clergy_id = data.get('clergy_id')

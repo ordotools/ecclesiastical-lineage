@@ -375,7 +375,6 @@ class LocationMarkerStyles {
         }
         
         // Debug logging
-        console.log('Creating tooltip HTML:', { data, type, persistent });
         
         const baseStyle = persistent ? this.tooltipStyles.persistent : this.tooltipStyles.base;
         const cssClass = persistent ? this.cssClasses.persistentTooltip : this.cssClasses.tooltip;
@@ -493,7 +492,7 @@ class LocationMarkerStyles {
         
         const buttons = [];
         
-        // Google Earth link
+        // TODO: re-enable when map link options are needed
         // const googleEarthUrl = `https://earth.google.com/web/@${lat},${lng},1000a,35y,0h,0t,0r`;
         // buttons.push(`
         //     <a href="${googleEarthUrl}" target="_blank" rel="noopener noreferrer"
@@ -577,12 +576,10 @@ class LocationMarkerStyles {
             return;
         }
         
-        console.log('Showing tooltip with data:', data);
         
         // Create very simple HTML
         const simpleHtml = `<strong>${data.name || 'Unknown Name'}</strong><br>Type: ${data.type || data.location_type || 'Unknown'}<br>Location: ${data.city || 'Unknown'}, ${data.country || 'Unknown'}`;
         
-        console.log('Generated HTML content:', simpleHtml);
         
         // Set tooltip content and position
         tooltip

@@ -59,7 +59,6 @@ class ImageEditor {
         if (imageEditorModal) {
             imageEditorModal.addEventListener('hidden.bs.modal', () => {
                 this.cleanup();
-                console.log('Image editor modal closed, cleaned up resources');
             });
         }
         
@@ -100,8 +99,6 @@ class ImageEditor {
      * Open the image editor with an image
      */
     async openEditor(imageData, originalFile = null) {
-        console.log('Opening image editor with data length:', imageData ? imageData.length : 0);
-        console.log('Original file provided:', !!originalFile);
         
         // Clear any existing processed data to prevent conflicts
         this.clearProcessedData();
@@ -112,14 +109,12 @@ class ImageEditor {
         
         // If we have an original file, use loadOriginalImage() for high-quality editing
         if (originalFile) {
-            console.log('Using loadOriginalImage() for high-quality editing from file');
             try {
                 const originalImageData = await this.loadOriginalImage(originalFile);
                 this.originalImageData = originalImageData;
                 this.originalImageFile = originalFile;
                 this.currentImageData = originalImageData;
                 this.currentEditorImageData = originalImageData;
-                console.log('Original image loaded successfully via loadOriginalImage()');
             } catch (error) {
                 console.error('Error loading original image from file:', error);
                 // Fallback to provided imageData
@@ -140,7 +135,6 @@ class ImageEditor {
         const existingModal = bootstrap.Modal.getInstance(document.getElementById('imageEditorModal'));
         if (existingModal) {
             // Modal is already open, just update the image
-            console.log('Modal already open, updating image');
             this.initializeEditor();
             this.reattachModalEventListeners();
         } else {
@@ -166,7 +160,6 @@ class ImageEditor {
         
         // If we already have the original image loaded, don't override it
         if (editorImage.src && editorImage.src.includes('original_')) {
-            console.log('Original image already loaded, skipping source override');
             // Just initialize the cropper with the existing image
             this.initializeCropper();
             return;
@@ -192,18 +185,10 @@ class ImageEditor {
         
         // Set image source using proxy URL to avoid CORS issues
         const proxyUrl = this.getProxyUrl(imageSrc);
-        console.log('Setting image source:', proxyUrl.substring(0, 100) + '...');
-        console.log('Original image URL:', this.originalImageUrl);
         editorImage.src = proxyUrl;
         
         // Wait for image to load
         editorImage.onload = () => {
-            console.log('Editor image loaded with dimensions:', editorImage.naturalWidth, '×', editorImage.naturalHeight);
-            console.log('Image source type check:', this.currentEditorImageData.substring(0, 50));
-            console.log('Session ID:', this.sessionId);
-            console.log('Image src attribute:', editorImage.src);
-            console.log('Image currentSrc:', editorImage.currentSrc);
-            console.log('Original image URL used:', this.originalImageUrl);
 
             // Additional validation - check if we got the right image
             if (editorImage.naturalWidth <= 48 || editorImage.naturalHeight <= 48) {
@@ -222,7 +207,6 @@ class ImageEditor {
                     return;
                 }
             } else {
-                console.log('SUCCESS: Full resolution image loaded correctly!');
             }
 
             this.updateImageInfo();
@@ -243,7 +227,6 @@ class ImageEditor {
      */
     initializeCropper() {
         const editorImage = document.getElementById('editorImage');
-        console.log('Initializing cropper with image:', !!editorImage);
         
         if (!editorImage) {
             console.error('Editor image element not found');
@@ -252,12 +235,10 @@ class ImageEditor {
         
         // Destroy existing cropper
         if (this.cropper) {
-            console.log('Destroying existing cropper');
             this.cropper.destroy();
         }
         
         // Initialize new cropper - ENFORCE SQUARE CROPPING ONLY
-        console.log('Creating new cropper instance with square-only cropping');
         this.cropper = new Cropper(editorImage, {
             aspectRatio: 1, // LOCKED to square - cannot be changed
             viewMode: 2, // Ensure the entire image is visible
@@ -284,7 +265,6 @@ class ImageEditor {
             cropBoxResizable: true,
             cropBoxMovable: true,
             ready: () => {
-                console.log('Cropper ready callback triggered');
                 this.updateCropDimensions();
                 // Ensure image fits within viewport
                 this.cropper.reset();
@@ -497,15 +477,12 @@ class ImageEditor {
             if (this.originalImageUrl && !this.originalImageUrl.startsWith('data:')) {
                 // Use proxy URL for external images to avoid CORS
                 originalPreviewSrc = this.getProxyUrl(this.originalImageUrl);
-                console.log('Using original image URL for preview:', originalPreviewSrc);
             } else if (this.originalImageData && this.originalImageData.startsWith('data:')) {
                 // Use original data URL if available
                 originalPreviewSrc = this.originalImageData;
-                console.log('Using original image data URL for preview');
             } else {
                 // Fallback to cropped canvas
                 originalPreviewSrc = croppedCanvas.toDataURL('image/jpeg', this.quality / 100);
-                console.log('Using cropped canvas for original preview (no original URL available)');
             }
             
             // Update preview modal
@@ -531,9 +508,6 @@ class ImageEditor {
      * Only creates small (lineage) and large (detail) versions from cropped image
      */
     async applyChanges() {
-        console.log('Apply changes called - NEW WORKFLOW');
-        console.log('Cropper instance:', !!this.cropper);
-        console.log('Is processing:', this.isProcessing);
         
         if (!this.cropper || this.isProcessing) {
             console.warn('Cannot apply changes: cropper not available or already processing');
@@ -590,13 +564,11 @@ class ImageEditor {
                     const clergyIdFromAttr = previewImage.getAttribute('data-clergy-id');
                     if (clergyIdFromAttr) {
                         this.clergyId = clergyIdFromAttr;
-                        console.log('Extracted clergy ID from preview image:', this.clergyId);
                     }
                 }
                 
                 // If still no clergy ID, try extracting from URL
                 if (!this.clergyId) {
-                    console.log('Clergy ID still not found, extracting from URL...');
                     this.extractClergyId();
                 }
                 
@@ -605,12 +577,6 @@ class ImageEditor {
                     throw new Error('Clergy ID is required for image processing. Please ensure you are editing an existing clergy record.');
                 }
             }
-            
-            console.log('Sending cropped image to server:', {
-                clergy_id: this.clergyId,
-                original_object_key: this.originalObjectKey,
-                cropped_image_data_length: croppedImageData.length
-            });
             
             const response = await fetch('/api/process-cropped-image', {
                 method: 'POST',
@@ -734,16 +700,11 @@ class ImageEditor {
      * Extract clergy ID from current form or URL
      */
     extractClergyId() {
-        console.log('Extracting clergy ID...');
-        console.log('Current URL:', window.location.pathname);
-        console.log('Current URL search:', window.location.search);
-        console.log('Current URL hash:', window.location.hash);
         
         // Try multiple URL patterns
         let urlMatch = window.location.pathname.match(/\/editor\/clergy-form-content\/(\d+)/);
         if (urlMatch) {
             this.clergyId = urlMatch[1];
-            console.log('Extracted clergy ID from URL:', this.clergyId);
             return;
         }
         
@@ -751,18 +712,15 @@ class ImageEditor {
         urlMatch = window.location.pathname.match(/\/editor\/clergy-form\/(\d+)/);
         if (urlMatch) {
             this.clergyId = urlMatch[1];
-            console.log('Extracted clergy ID from clergy-form URL:', this.clergyId);
             return;
         }
         
         // Try to get from the form action URL
         const form = document.getElementById('clergyForm');
         if (form && form.action) {
-            console.log('Form action:', form.action);
             const actionMatch = form.action.match(/\/clergy\/(\d+)/);
             if (actionMatch) {
                 this.clergyId = actionMatch[1];
-                console.log('Extracted clergy ID from form action:', this.clergyId);
                 return;
             }
         }
@@ -772,21 +730,17 @@ class ImageEditor {
         const clergyIdParam = urlParams.get('clergy_id') || urlParams.get('id');
         if (clergyIdParam) {
             this.clergyId = clergyIdParam;
-            console.log('Extracted clergy ID from URL parameter:', this.clergyId);
             return;
         }
         
         // Try to get from HTMX data attributes or global variables
         const htmxData = document.querySelector('[hx-get*="clergy-form"]');
         if (htmxData) {
-            console.log('HTMX element found:', htmxData);
             const htmxUrl = htmxData.getAttribute('hx-get');
-            console.log('HTMX URL:', htmxUrl);
             if (htmxUrl) {
                 const htmxMatch = htmxUrl.match(/\/clergy-form\/(\d+)/);
                 if (htmxMatch) {
                     this.clergyId = htmxMatch[1];
-                    console.log('Extracted clergy ID from HTMX URL:', this.clergyId);
                     return;
                 }
             }
@@ -798,21 +752,16 @@ class ImageEditor {
                                 body.querySelector('[data-clergy-id]')?.getAttribute('data-clergy-id');
         if (clergyIdFromData) {
             this.clergyId = clergyIdFromData;
-            console.log('Extracted clergy ID from data attribute:', this.clergyId);
             return;
         }
         
         console.warn('Could not extract clergy ID from URL or form');
-        console.log('Available form elements:', document.querySelectorAll('form'));
-        console.log('Available HTMX elements:', document.querySelectorAll('[hx-get]'));
     }
 
     /**
      * Load original image for editing - always works from original
      */
     async loadOriginalImageForEditing(imageUrl, clergyId) {
-        console.log('Loading original image for editing:', imageUrl);
-        console.log('Clergy ID received:', clergyId);
         
         // Reset any existing data
         this.clearProcessedData();
@@ -823,7 +772,6 @@ class ImageEditor {
         
         // Fallback: Extract clergy ID from URL if not provided
         if (!this.clergyId) {
-            console.log('Clergy ID not provided, extracting from URL...');
             this.extractClergyId();
         }
         
@@ -836,13 +784,10 @@ class ImageEditor {
             }
         }
         
-        console.log('Final stored clergy ID:', this.clergyId);
-        console.log('Original object key:', this.originalObjectKey);
         
         // Check if the URL is a data URL
         if (imageUrl && imageUrl.startsWith('data:')) {
             // Handle data URL directly - convert to blob/file
-            console.log('Detected data URL, converting to blob...');
             try {
                 // Convert data URL to blob using a helper function
                 const dataUrlToBlob = (dataUrl) => {
@@ -858,16 +803,12 @@ class ImageEditor {
                 };
                 
                 const blob = dataUrlToBlob(imageUrl);
-                console.log('Converted data URL to blob:', blob.size, 'bytes');
                 
                 // Create a File object from the blob
                 const file = new File([blob], 'original_image.jpg', { type: blob.type });
-                console.log('Created file object from data URL blob:', file.name, file.size, 'bytes');
                 
                 // Use the loadOriginalImage function to load the file
-                console.log('Using loadOriginalImage() to load the original file...');
                 const imageData = await this.loadOriginalImage(file);
-                console.log('Original image loaded successfully via loadOriginalImage()');
                 
                 // Store the original file and image data
                 this.originalImageFile = file;
@@ -881,7 +822,6 @@ class ImageEditor {
             } catch (error) {
                 console.error('Error converting data URL to blob:', error);
                 // Fallback: use data URL directly
-                console.log('Falling back to using data URL directly...');
                 this.originalImageData = imageUrl;
                 this.currentImageData = imageUrl;
                 this.currentEditorImageData = imageUrl;
@@ -898,23 +838,18 @@ class ImageEditor {
         
         try {
             // Fetch the original image as a blob to maintain full quality
-            console.log('Fetching original image as blob for high-quality editing...');
             const response = await fetch(originalUrlWithCache);
             if (!response.ok) {
                 throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
             }
             
             const blob = await response.blob();
-            console.log('Original image blob size:', blob.size, 'bytes');
             
             // Create a File object from the blob
             const file = new File([blob], 'original_image.jpg', { type: blob.type });
-            console.log('Created file object from blob:', file.name, file.size, 'bytes');
             
             // Use the loadOriginalImage function to load the file
-            console.log('Using loadOriginalImage() to load the original file...');
             const imageData = await this.loadOriginalImage(file);
-            console.log('Original image loaded successfully via loadOriginalImage()');
             
             // Store the original file and image data
             this.originalImageFile = file;
@@ -928,11 +863,9 @@ class ImageEditor {
         } catch (error) {
             console.error('Error loading original image:', error);
             // Fallback to proxy URL loading if blob loading fails
-            console.log('Falling back to proxy URL loading...');
             
             // Use proxy URL to avoid CORS issues, with cache-busting
             const proxyUrl = this.getProxyUrl(originalUrlWithCache);
-            console.log('Using proxy URL for fallback:', proxyUrl);
             
             // Open editor with proxy URL
             await this.openEditor(proxyUrl);
@@ -1040,7 +973,6 @@ class ImageEditor {
      * Re-attach event listeners to modal elements (for when modal is reopened with new image)
      */
     reattachModalEventListeners() {
-        console.log('Reattaching modal event listeners');
         
         // Toolbar buttons (only rotate)
         const rotateLeftBtn = document.getElementById('rotateLeftBtn');
@@ -1136,7 +1068,6 @@ class ImageEditor {
             });
         }
         
-        console.log('Modal event listeners reattached successfully');
     }
     
     /**
@@ -1204,8 +1135,6 @@ class ImageEditor {
             return;
         }
 
-        console.log('Edit existing image called - ALWAYS using original');
-        console.log('Preview image src:', previewImage.src.substring(0, 50) + '...');
         
         // Clear any existing processed data to prevent conflicts
         this.clearProcessedData();
@@ -1213,11 +1142,6 @@ class ImageEditor {
         // Extract clergy ID and original image URL from data attributes
         const clergyId = previewImage.getAttribute('data-clergy-id');
         const originalImageUrl = previewImage.getAttribute('data-original-image');
-        
-        console.log('Image editing metadata:', {
-            clergyId: clergyId,
-            originalImageUrl: originalImageUrl
-        });
 
         // Priority 1: Use data-original-image attribute (always contains original URL)
         if (originalImageUrl && originalImageUrl.length > 0) {
@@ -1229,7 +1153,6 @@ class ImageEditor {
                 return;
             }
             
-            console.log('Using original image URL from data-original-image attribute:', originalImageUrl);
             // Use loadOriginalImageForEditing to fetch the original from Backblaze
             await this.loadOriginalImageForEditing(originalImageUrl, clergyId);
             return;
@@ -1238,7 +1161,6 @@ class ImageEditor {
         // Priority 2: Check current session processed data for original
         const processedData = window.processedImageData;
         if (processedData && processedData.original) {
-            console.log('Using current session processed data original');
             await this.loadOriginalImageForEditing(processedData.original, clergyId);
             return;
         }
@@ -1442,7 +1364,6 @@ class ImageEditor {
      * Refresh the visualization to show updated images
      */
     refreshVisualization() {
-        console.log('Refreshing visualization after image processing...');
         
         // Try to refresh the visualization panel
         const visualizationTarget = document.getElementById('visualization-panel-content');
@@ -1451,7 +1372,6 @@ class ImageEditor {
                 target: visualizationTarget,
                 swap: 'innerHTML'
             }).then(() => {
-                console.log('Visualization refreshed after image processing');
             }).catch(error => {
                 console.error('Visualization refresh failed after image processing:', error);
             });
@@ -1465,7 +1385,6 @@ class ImageEditor {
      */
     clearProcessedData() {
         window.processedImageData = null;
-        console.log('Cleared processed image data');
     }
     
     /**
@@ -1479,7 +1398,6 @@ class ImageEditor {
         if (this.cropper) {
             this.cropper.destroy();
             this.cropper = null;
-            console.log('Destroyed cropper instance');
         }
         
         // Clear image data
@@ -1491,7 +1409,6 @@ class ImageEditor {
         // Reset processing state
         this.isProcessing = false;
         
-        console.log('Image editor cleanup completed');
     }
     
     /**

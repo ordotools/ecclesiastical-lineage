@@ -42,32 +42,23 @@ def _get_location_color(location):
     
     return location_type_colors.get(location.location_type, '#95a5a6')
 
-# Main landing page - now shows lineage visualization
 @main_bp.route('/')
 def index():
     return lineage_visualization()
 
-# Chapel view visualization
 @main_bp.route('/chapel-view')
 def chapel_view():
     current_app.logger.info("=== CHAPEL_VIEW ROUTE CALLED ===")
-    
+
     try:
-        # Get all active locations for the visualization with organization relationship
         all_locations = Location.query.options(db.joinedload(Location.organization_obj)).filter(Location.is_active == True, Location.deleted == False).all()
-        
-        # Log current data status
         current_app.logger.info(f"Found {len(all_locations)} locations in database")
-        
-        # Prepare data for D3.js visualization
+
         nodes = []
-        links = []  # No links for locations, just glowing dots
-        
-        # Create nodes for each location with coordinates
+        links = []
+
         for location in all_locations:
-            # Only include locations that have coordinates
             if location.has_coordinates():
-                # Determine color based on organization first, then location type
                 node_color = _get_location_color(location)
                 
                 nodes.append({
@@ -88,8 +79,7 @@ def chapel_view():
                 })
         
         current_app.logger.info(f"Chapel view visualization: {len(nodes)} location nodes created")
-        
-        # Safely serialize data to JSON
+
         try:
             nodes_json = json.dumps(nodes)
             links_json = json.dumps(links)
@@ -97,10 +87,9 @@ def chapel_view():
         except (TypeError, ValueError) as e:
             current_app.logger.error(f"Error serializing data to JSON: {e}")
             raise e
-            
+
         current_app.logger.info(f"=== RENDERING CHAPEL_VIEW TEMPLATE WITH {len(nodes)} NODES AND {len(links)} LINKS ===")
-        
-        # Get current user if logged in
+
         user = None
         if 'user_id' in session:
             user = User.query.get(session['user_id'])
@@ -122,17 +111,11 @@ def chapel_view():
 def api_chapel_locations():
     """API endpoint to get location data for chapel view visualization"""
     try:
-        # Get all active locations for the visualization with organization relationship
         all_locations = Location.query.options(db.joinedload(Location.organization_obj)).filter(Location.is_active == True, Location.deleted == False).all()
-        
-        # Prepare data for D3.js visualization
         nodes = []
-        
-        # Create nodes for each location with coordinates
+
         for location in all_locations:
-            # Only include locations that have coordinates
             if location.has_coordinates():
-                # Determine color based on organization first, then location type
                 node_color = _get_location_color(location)
                 
                 nodes.append({
@@ -167,7 +150,6 @@ def api_chapel_locations():
             'count': 0
         }), 500
 
-# Location management routes
 @main_bp.route('/locations')
 @require_permission('manage_metadata')
 def locations_list():
@@ -853,15 +835,14 @@ def force_migrate_lineage():
         from datetime import datetime
         from sqlalchemy import text
         
-        print("🔄 Starting FORCED lineage data migration...")
-        
+        current_app.logger.info("Starting forced lineage data migration")
+
         # Clear existing data
         db.session.execute(text("DELETE FROM co_consecrators"))
         db.session.execute(text("DELETE FROM consecration"))
         db.session.execute(text("DELETE FROM ordination"))
         db.session.commit()
-        print("✅ Cleared existing data")
-        
+
         # Get all clergy with relationships loaded
         from sqlalchemy.orm import joinedload
         all_clergy = Clergy.query.options(
@@ -869,8 +850,7 @@ def force_migrate_lineage():
             joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
             joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
         ).filter(Clergy.is_deleted != True).all()
-        print(f"📊 Found {len(all_clergy)} clergy records")
-        
+
         # Create synthetic lineage data
         ordination_count = 0
         consecration_count = 0
@@ -878,9 +858,7 @@ def force_migrate_lineage():
         # Create ordinations for priests (assume they were ordained by bishops)
         bishops = [c for c in all_clergy if c.rank and 'bishop' in c.rank.lower()]
         priests = [c for c in all_clergy if c.rank and 'priest' in c.rank.lower()]
-        
-        print(f"📊 Found {len(bishops)} bishops and {len(priests)} priests")
-        
+
         # Create ordinations for priests
         for priest in priests[:10]:  # Limit to first 10 for testing
             if bishops:
@@ -917,14 +895,13 @@ def force_migrate_lineage():
             )
             db.session.add(consecration)
             consecration_count += 1
-        
-        print(f"✅ Created {ordination_count} ordination records")
-        print(f"✅ Created {consecration_count} consecration records")
-        
-        # Commit all changes
+
         db.session.commit()
-        print("🎉 Force migration completed successfully!")
-        
+        current_app.logger.info(
+            "Force migration completed: %s ordinations, %s consecrations",
+            ordination_count, consecration_count,
+        )
+
         return jsonify({
             'success': True,
             'message': f'Lineage data migration completed: {ordination_count} ordinations, {consecration_count} consecrations'

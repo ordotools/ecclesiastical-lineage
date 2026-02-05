@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, make_response, current_app
 from services import clergy as clergy_service
 from services.clergy import soft_delete_clergy_handler
 from utils import audit_log, require_permission, log_audit_event
@@ -24,14 +24,10 @@ def add_clergy():
     if request.method == 'POST':
         # Handle form submission
         try:
-            print(f"Processing clergy form submission with data: {dict(request.form)}")
             clergy, response = clergy_service.add_clergy_handler()
-            print(f"Clergy created successfully: {clergy.name} (ID: {clergy.id})")
             return response
         except Exception as e:
-            print(f"Error in clergy form submission: {e}")
-            import traceback
-            traceback.print_exc()
+            current_app.logger.exception("Error in clergy form submission")
             
             # Check if this is an HTMX request
             is_htmx = request.headers.get('HX-Request') == 'true'

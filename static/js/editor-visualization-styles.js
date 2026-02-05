@@ -10,7 +10,6 @@
     
     // Check if class already exists - if so, skip everything
     if (window.VisualizationStyleController) {
-        console.log('VisualizationStyleController already exists, skipping script execution...');
         // Still need to initialize/reinitialize the controller
         function initializeStyleController() {
             // Clean up existing controller if panel was reloaded
@@ -35,7 +34,6 @@
     
     // Check if already executed
     if (window._editorVizStylesLoaded) {
-        console.log('Editor visualization styles script already loaded, skipping...');
         return;
     }
     window._editorVizStylesLoaded = true;
@@ -336,7 +334,6 @@ class VisualizationStyleController {
             const data = await response.json();
             
             if (data.success) {
-                console.log('Styles saved successfully');
                 if (saveBtn) {
                     saveBtn.textContent = 'Saved!';
                     setTimeout(() => {

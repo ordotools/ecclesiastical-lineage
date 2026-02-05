@@ -12,7 +12,6 @@ class LocationFormManager {
     }
 
     init() {
-        console.log('LocationFormManager init() called');
         this.loadCountries();
         this.loadClergy();
         this.setupAutocomplete();
@@ -20,16 +19,12 @@ class LocationFormManager {
     }
 
     async loadCountries() {
-        console.log('Loading countries...');
         try {
             const response = await fetch('/api/countries');
-            console.log('Countries API response status:', response.status);
             if (response.ok) {
                 const data = await response.json();
-                console.log('Countries API data:', data);
                 if (data.success) {
                     this.countries = data.countries || [];
-                    console.log('Loaded countries:', this.countries.length);
                     // Autocomplete setup is called in init()
                 } else {
                     console.error('Error loading countries:', data.error);
@@ -43,16 +38,12 @@ class LocationFormManager {
     }
 
     async loadClergy() {
-        console.log('Loading clergy...');
         try {
             const response = await fetch('/api/living-clergy');
-            console.log('Clergy API response status:', response.status);
             if (response.ok) {
                 const data = await response.json();
-                console.log('Clergy API data:', data);
                 if (data.success) {
                     this.clergy = data.clergy || [];
-                    console.log('Loaded clergy:', this.clergy.length);
                     // Autocomplete setup is called in init()
                 } else {
                     console.error('Error loading clergy:', data.error);
@@ -66,8 +57,6 @@ class LocationFormManager {
     }
 
     setupAutocomplete() {
-        console.log('Setting up autocomplete functionality');
-        
         // Setup country autocomplete
         this.setupCountryAutocomplete();
         
@@ -426,7 +415,6 @@ class LocationFormManager {
 
 // Function to clear the location form - make it globally available
 window.clearLocationForm = function() {
-    console.log('Clearing location form...');
     const form = document.getElementById('locationForm');
     if (form) {
         // Reset the form
@@ -472,8 +460,6 @@ window.clearLocationForm = function() {
         const pastorSuggestions = document.getElementById('pastor-suggestions');
         if (countrySuggestions) countrySuggestions.style.display = 'none';
         if (pastorSuggestions) pastorSuggestions.style.display = 'none';
-        
-        console.log('Location form cleared successfully');
     } else {
         console.warn('Location form not found for clearing');
     }
@@ -481,11 +467,6 @@ window.clearLocationForm = function() {
 
 // Function to handle form submission
 window.handleLocationFormSubmit = function(event) {
-    console.log('=== handleLocationFormSubmit called ===');
-    console.log('Event:', event);
-    console.log('Event type:', event.type);
-    console.log('Event target:', event.target);
-    console.log('Preventing default...');
     event.preventDefault();
     
     const form = document.getElementById('locationForm');
@@ -493,9 +474,6 @@ window.handleLocationFormSubmit = function(event) {
         console.error('Location form not found');
         return false;
     }
-    
-    console.log('Form found:', form);
-    console.log('Form action:', form.action);
     
     // Show loading state
     const submitButton = form.querySelector('button[type="submit"]');
@@ -508,13 +486,6 @@ window.handleLocationFormSubmit = function(event) {
     
     // Check if pastor needs to be created
     const pastorName = form.querySelector('#pastor_name').value.trim();
-    console.log('=== PASTOR CREATION DEBUG ===');
-    console.log('Pastor name from form:', pastorName);
-    console.log('Pastor name length:', pastorName.length);
-    console.log('Will create pastor:', !!pastorName);
-    console.log('Form element:', form);
-    console.log('Pastor input element:', form.querySelector('#pastor_name'));
-    console.log('Pastor input value:', form.querySelector('#pastor_name')?.value);
     
     if (pastorName) {
         // Show user feedback about pastor creation
@@ -523,7 +494,6 @@ window.handleLocationFormSubmit = function(event) {
         // Check and create pastor if needed
         checkAndCreatePastor(pastorName)
             .then(() => {
-                console.log('Pastor creation completed, proceeding with form submission...');
                 // Update button text for final submission
                 submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting form...';
                 // Submit the form after pastor is created
@@ -544,14 +514,8 @@ window.handleLocationFormSubmit = function(event) {
 
 // Function to check and create pastor
 function checkAndCreatePastor(pastorName) {
-    console.log('=== checkAndCreatePastor called ===');
-    console.log('Pastor name:', pastorName);
-    
     return new Promise((resolve, reject) => {
-        // Send AJAX request to check and create pastor
         const apiEndpoint = '/api/check-and-create-pastor';
-        
-        console.log('Making API request to', apiEndpoint);
         fetch(apiEndpoint, {
             method: 'POST',
             headers: {
@@ -564,9 +528,6 @@ function checkAndCreatePastor(pastorName) {
             })
         })
         .then(response => {
-            console.log('API response received:', response.status, response.statusText);
-            console.log('Response content type:', response.headers.get('content-type'));
-            
             if (!response.ok) {
                 console.error('API response not OK:', response.status, response.statusText);
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -585,14 +546,7 @@ function checkAndCreatePastor(pastorName) {
             return response.json();
         })
         .then(data => {
-            console.log('API response data:', data);
             if (data.success) {
-                if (data.created) {
-                    console.log(`✅ Created new pastor record for ${data.pastor_name} with ID ${data.pastor_id}`);
-                } else {
-                    console.log(`✅ Found existing pastor record for ${data.pastor_name} with ID ${data.pastor_id}`);
-                }
-                console.log('Pastor creation successful, resolving promise...');
                 resolve();
             } else {
                 console.error('API returned success=false:', data.message);
@@ -614,16 +568,8 @@ function resetSubmitButton(button, originalText) {
 
 // Function to submit the location form
 function submitLocationForm(form, formData, submitButton, originalText) {
-    console.log('=== submitLocationForm called ===');
-    console.log('Form:', form);
-    console.log('FormData:', formData);
-    
-    // Determine the correct endpoint based on whether we're editing or adding
     const isEditing = form.action.includes('/edit');
     let endpoint = isEditing ? form.action : '/locations/add';
-    
-    console.log('Is editing:', isEditing);
-    console.log('Endpoint:', endpoint);
     
     // Submit via AJAX
     fetch(endpoint, {
@@ -632,9 +578,6 @@ function submitLocationForm(form, formData, submitButton, originalText) {
         body: formData
     })
     .then(response => {
-        console.log('Form submission response:', response.status, response.statusText);
-        console.log('Form submission content type:', response.headers.get('content-type'));
-        
         if (!response.ok) {
             console.error('Form submission response not OK:', response.status, response.statusText);
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -654,8 +597,6 @@ function submitLocationForm(form, formData, submitButton, originalText) {
     })
     .then(data => {
         if (data.success) {
-            // Success - handle both add and edit cases
-            console.log('Location saved successfully:', data);
             const location = data.location;
             
             if (isEditing) {
@@ -700,44 +641,33 @@ function submitLocationForm(form, formData, submitButton, originalText) {
 
 // Function to refresh editor panels
 function refreshEditorPanels() {
-    console.log('Refreshing editor panels...');
-    
-    // Use a small delay to ensure the database transaction is committed
     setTimeout(() => {
-        // Refresh clergy list panel (left panel)
         const clergyListPanel = document.querySelector('#clergy-list-panel-content');
         if (clergyListPanel && typeof htmx !== 'undefined') {
-            console.log('Refreshing clergy list panel...');
             htmx.ajax('GET', '/editor/clergy-list', {
                 target: clergyListPanel,
                 swap: 'innerHTML'
             });
         }
         
-        // Refresh chapel list panel (left panel)
         const chapelListPanel = document.querySelector('#chapel-list-panel-content');
         if (chapelListPanel && typeof htmx !== 'undefined') {
-            console.log('Refreshing chapel list panel...');
             htmx.ajax('GET', '/editor/chapel-list', {
                 target: chapelListPanel,
                 swap: 'innerHTML'
             });
         }
         
-        // Refresh visualization panel (center panel)
         const visualizationPanel = document.querySelector('#visualization-panel-content');
         if (visualizationPanel && typeof htmx !== 'undefined') {
-            console.log('Refreshing visualization panel...');
             htmx.ajax('GET', '/editor/visualization', {
                 target: visualizationPanel,
                 swap: 'innerHTML'
             });
         }
         
-        // Refresh globe view if it's visible (center panel)
         const globeViewPanel = document.querySelector('#globe-view-panel-content');
         if (globeViewPanel && typeof htmx !== 'undefined') {
-            console.log('Refreshing globe view panel...');
             htmx.ajax('GET', '/editor/globe-view', {
                 target: globeViewPanel,
                 swap: 'innerHTML'
@@ -749,7 +679,6 @@ function refreshEditorPanels() {
         panelsWithHxGet.forEach(panel => {
             const hxGet = panel.getAttribute('hx-get');
             if (hxGet && (hxGet.includes('clergy-list') || hxGet.includes('chapel-list') || hxGet.includes('visualization') || hxGet.includes('globe-view'))) {
-                console.log(`Refreshing panel with hx-get: ${hxGet}`);
                 htmx.ajax('GET', hxGet, {
                     target: panel,
                     swap: 'innerHTML'
@@ -784,17 +713,9 @@ function initializeLocationForm() {
     // Check if the form exists and we haven't already initialized
     const form = document.getElementById('locationForm');
     if (form && !window.locationFormManager) {
-        console.log('Initializing LocationFormManager');
         window.locationFormManager = new LocationFormManager();
-        
-        // Add form submission event listener
         form.addEventListener('submit', function(e) {
-            console.log('=== FORM SUBMIT EVENT LISTENER ===');
-            console.log('Form submit event fired');
-            console.log('Event target:', e.target);
-            console.log('Form element:', form);
             e.preventDefault();
-            console.log('Calling handleLocationFormSubmit...');
             window.handleLocationFormSubmit(e);
         });
         
@@ -807,17 +728,10 @@ function initializeLocationForm() {
 function checkForLocationForms() {
     const forms = document.querySelectorAll('[data-init-location-form="true"]');
     if (forms.length > 0 && !window.locationFormManager) {
-        console.log('Found location form with data attribute, initializing...');
         window.locationFormManager = new LocationFormManager();
-        
-        // Add form submission event listener to all forms
         forms.forEach(form => {
             form.addEventListener('submit', function(e) {
-                console.log('=== FORM SUBMIT EVENT LISTENER (data attribute) ===');
-                console.log('Form submit event fired for form with data attribute');
-                console.log('Event target:', e.target);
                 e.preventDefault();
-                console.log('Calling handleLocationFormSubmit...');
                 window.handleLocationFormSubmit(e);
             });
         });
@@ -833,14 +747,12 @@ window.checkForLocationForms = checkForLocationForms;
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, checking for location form...');
     initializeLocationForm();
 });
 
 // Also initialize when HTMX loads content
 document.addEventListener('htmx:afterSwap', function(event) {
     if (event.target.querySelector('#locationForm')) {
-        console.log('Location form loaded via HTMX, initializing...');
         // Reset the manager to allow re-initialization
         window.locationFormManager = null;
         initializeLocationForm();
@@ -854,13 +766,9 @@ const maxChecks = 50; // Check for 5 seconds (50 * 100ms)
 function checkForForm() {
     checkCount++;
     if (initializeLocationForm() || checkForLocationForms()) {
-        // Form found and initialized, stop checking
         clearInterval(intervalId);
-        console.log('Location form found and initialized, stopping checks');
     } else if (checkCount >= maxChecks) {
-        // Stop checking after max attempts
         clearInterval(intervalId);
-        console.log('Stopped checking for location form after', maxChecks, 'attempts');
     }
 }
 
@@ -868,8 +776,6 @@ let intervalId = setInterval(checkForForm, 100);
 
 // Function to add a new chapel to the chapel list dynamically
 function addChapelToList(location) {
-    console.log('Adding chapel to list:', location);
-    
     const chapelList = document.getElementById('chapelList');
     if (!chapelList) {
         console.warn('Chapel list container not found');
@@ -879,7 +785,6 @@ function addChapelToList(location) {
     // Check if this is a church-related location type
     const churchTypes = ['church', 'cathedral', 'chapel', 'monastery', 'seminary', 'abbey'];
     if (!churchTypes.includes(location.location_type)) {
-        console.log('Location type not suitable for chapel list:', location.location_type);
         return;
     }
     
@@ -912,24 +817,16 @@ function addChapelToList(location) {
         // Re-attach search functionality to all items
         attachSearchFunctionality();
     }
-    
-    console.log('Chapel added to list successfully');
 }
 
 // Function to add a new chapel to the globe visualization dynamically
 function addChapelToGlobe(location) {
-    console.log('Adding chapel to globe:', location);
-    
-    // Check if location has coordinates
     if (!location.latitude || !location.longitude) {
-        console.log('Location has no coordinates, skipping globe addition');
         return;
     }
     
-    // Check if this is a church-related location type
     const churchTypes = ['church', 'cathedral', 'chapel', 'monastery', 'seminary', 'abbey'];
     if (!churchTypes.includes(location.location_type)) {
-        console.log('Location type not suitable for globe:', location.location_type);
         return;
     }
     
@@ -960,29 +857,17 @@ function addChapelToGlobe(location) {
         window.nodesData.push(locationData);
     }
     
-    // Check if we're in globe view mode
     const isGlobeViewActive = document.querySelector('#globe-container') !== null;
-    console.log('Is globe view active:', isGlobeViewActive);
-    
     if (isGlobeViewActive) {
-        // Try to add to different visualization types
         if (window.chapelGlobeOverlay && typeof window.chapelGlobeOverlay.addChapel === 'function') {
-            console.log('Adding to chapel globe overlay');
             window.chapelGlobeOverlay.addChapel(locationData);
         }
-        
         if (window.geographicVisualization && typeof window.geographicVisualization.addSingleLocationNode === 'function') {
-            console.log('Adding to geographic visualization');
             window.geographicVisualization.addSingleLocationNode(locationData);
         } else if (window.geographicVisualization && typeof window.geographicVisualization.addLocationNodes === 'function') {
-            console.log('Refreshing all location nodes in geographic visualization');
             window.geographicVisualization.addLocationNodes();
         }
-    } else {
-        console.log('Globe view not active, skipping globe update');
     }
-    
-    console.log('Chapel added to globe successfully');
 }
 
 // Function to attach search functionality to chapel items
@@ -1016,8 +901,6 @@ window.handleChapelSearch = function(event) {
 
 // Function to update an existing chapel in the chapel list
 function updateChapelInList(location) {
-    console.log('Updating chapel in list:', location);
-    
     const chapelItem = document.querySelector(`[data-location-id="${location.id}"]`);
     if (!chapelItem) {
         console.warn('Chapel item not found in list for update');
@@ -1035,18 +918,13 @@ function updateChapelInList(location) {
         ${location.pastor_name ? `<div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5);">Pastor: ${location.pastor_name}</div>` : ''}
         ${location.organization ? `<div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.5);">Organization: ${location.organization}</div>` : ''}
     `;
-    
-    console.log('Chapel updated in list successfully');
 }
 
 // Function to remove a chapel from the chapel list
 function removeChapelFromList(locationId) {
-    console.log('Removing chapel from list:', locationId);
-    
     const chapelItem = document.querySelector(`[data-location-id="${locationId}"]`);
     if (chapelItem) {
         chapelItem.remove();
-        console.log('Chapel removed from list successfully');
     } else {
         console.warn('Chapel item not found in list for removal');
     }
@@ -1054,18 +932,12 @@ function removeChapelFromList(locationId) {
 
 // Function to update an existing chapel in the globe visualization
 function updateChapelInGlobe(location) {
-    console.log('Updating chapel in globe:', location);
-    
-    // Check if location has coordinates
     if (!location.latitude || !location.longitude) {
-        console.log('Location has no coordinates, skipping globe update');
         return;
     }
     
-    // Check if this is a church-related location type
     const churchTypes = ['church', 'cathedral', 'chapel', 'monastery', 'seminary', 'abbey'];
     if (!churchTypes.includes(location.location_type)) {
-        console.log('Location type not suitable for globe:', location.location_type);
         return;
     }
     
@@ -1099,67 +971,39 @@ function updateChapelInGlobe(location) {
         }
     }
     
-    // Check if we're in globe view mode
     const isGlobeViewActive = document.querySelector('#globe-container') !== null;
-    console.log('Is globe view active for update:', isGlobeViewActive);
-    
     if (isGlobeViewActive) {
-        // Try to update in different visualization types
         if (window.chapelGlobeOverlay && typeof window.chapelGlobeOverlay.updateChapel === 'function') {
-            console.log('Updating in chapel globe overlay');
             window.chapelGlobeOverlay.updateChapel(locationData);
         }
-        
         if (window.geographicVisualization && typeof window.geographicVisualization.updateSingleLocationNode === 'function') {
-            console.log('Updating in geographic visualization');
             window.geographicVisualization.updateSingleLocationNode(locationData);
         } else if (window.geographicVisualization && typeof window.geographicVisualization.addLocationNodes === 'function') {
-            console.log('Refreshing all location nodes in geographic visualization');
             window.geographicVisualization.addLocationNodes();
         }
-    } else {
-        console.log('Globe view not active, skipping globe update');
     }
-    
-    console.log('Chapel updated in globe successfully');
 }
 
 // Function to remove a chapel from the globe visualization
 function removeChapelFromGlobe(locationId) {
-    console.log('Removing chapel from globe:', locationId);
-    
-    // Remove from global nodes data if it exists
     if (window.nodesData) {
         const index = window.nodesData.findIndex(node => node.id === locationId);
         if (index !== -1) {
             window.nodesData.splice(index, 1);
-            console.log('Removed from nodesData');
         }
     }
     
-    // Check if we're in globe view mode
     const isGlobeViewActive = document.querySelector('#globe-container') !== null;
-    console.log('Is globe view active for removal:', isGlobeViewActive);
-    
     if (isGlobeViewActive) {
-        // Try to remove from different visualization types
         if (window.chapelGlobeOverlay && typeof window.chapelGlobeOverlay.removeChapel === 'function') {
-            console.log('Removing from chapel globe overlay');
             window.chapelGlobeOverlay.removeChapel(locationId);
         }
-        
         if (window.geographicVisualization && typeof window.geographicVisualization.removeLocationNode === 'function') {
-            console.log('Removing from geographic visualization');
             window.geographicVisualization.removeLocationNode(locationId);
         } else if (window.geographicVisualization && typeof window.geographicVisualization.addLocationNodes === 'function') {
-            console.log('Refreshing all location nodes in geographic visualization');
             window.geographicVisualization.addLocationNodes();
         }
-    } else {
-        console.log('Globe view not active, skipping globe removal');
     }
-    
-    console.log('Chapel removed from globe successfully');
 }
 
 // Add a global form submission handler to catch any form submissions that might bypass our custom handler
@@ -1167,17 +1011,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add a global form submission handler for location forms
     document.addEventListener('submit', function(e) {
         if (e.target.id === 'locationForm') {
-            console.log('=== GLOBAL FORM SUBMIT HANDLER ===');
-            console.log('Form submitted via default HTML mechanism');
-            console.log('Event target:', e.target);
-            console.log('Event type:', e.type);
-            console.log('This should not happen if our custom handler is working');
-            
-            // Prevent the default submission
             e.preventDefault();
-            
-            // Call our custom handler
-            console.log('Calling our custom handler...');
             window.handleLocationFormSubmit(e);
         }
     });

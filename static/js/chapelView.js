@@ -180,12 +180,10 @@ class ChapelViewVisualization {
     
     async loadOrganizationColors() {
         try {
-            console.log('Loading organization colors from database...');
             const response = await fetch('/api/organizations');
             const data = await response.json();
             
             if (data.success) {
-                console.log(`Loaded ${data.count} organizations with colors`);
                 this.styles.updateOrganizationColors(data.organizations);
             } else {
                 console.error('Failed to load organization colors:', data.error);
@@ -198,7 +196,6 @@ class ChapelViewVisualization {
     getDetailLevel() {
         // Check if manual detail level is set (for testing)
         if (this.manualDetailLevel) {
-            console.log('Using manual detail level:', this.manualDetailLevel);
             return this.manualDetailLevel;
         }
         
@@ -379,7 +376,6 @@ class ChapelViewVisualization {
     }
     
     init() {
-        console.log('Initializing Chapel View Visualization');
         this.setupSVG();
         this.setupTooltip();
         this.loadWorldData();
@@ -444,7 +440,6 @@ class ChapelViewVisualization {
             .style('opacity', 0)
             .style('display', 'none');
         
-        console.log('Tooltip setup complete:', this.tooltip);
     }
     
     createOceanGradient() {
@@ -497,7 +492,6 @@ class ChapelViewVisualization {
             const connection = navigator.connection;
             const effectiveType = connection.effectiveType;
             
-            console.log('Network effective type:', effectiveType);
             
             if (effectiveType === '4g' || effectiveType === '5g') {
                 return 'fast';
@@ -545,7 +539,6 @@ class ChapelViewVisualization {
         try {
             // Detect connection speed and choose appropriate data source
             const connectionSpeed = await this.detectConnectionSpeed();
-            console.log('Detected connection speed:', connectionSpeed);
             
             // Store connection speed for rendering optimization
             this.connectionSpeed = connectionSpeed;
@@ -560,9 +553,7 @@ class ChapelViewVisualization {
             let world;
             for (const url of dataSources) {
                 try {
-                    console.log(`Trying to load world data from: ${url}`);
                     world = await d3.json(url);
-                    console.log('Successfully loaded world data from:', url);
                     break;
                 } catch (err) {
                     console.warn(`Failed to load from ${url}:`, err);
@@ -605,13 +596,10 @@ class ChapelViewVisualization {
             
             // Debug: Log the first few features to see the data structure
             if (worldData.features && worldData.features.length > 0) {
-                console.log('Sample world data feature:', worldData.features[0]);
-                console.log('Available properties:', Object.keys(worldData.features[0].properties || {}));
             }
             
             // Apply detail level based on connection speed
             const detailLevel = this.getDetailLevel();
-            console.log('Rendering world map with detail level:', detailLevel);
             
             // Advanced filtering based on detail level
             let featuresToRender = worldData.features;
@@ -640,10 +628,6 @@ class ChapelViewVisualization {
             }
             // High detail: Render all features
             
-            console.log(`Detail level: ${detailLevel}`);
-            console.log(`Total features: ${totalFeatures}`);
-            console.log(`Features to render: ${featuresToRender.length}`);
-            console.log(`Filtered out: ${totalFeatures - featuresToRender.length} features`);
             
             // Draw world map with individual country colors
             this.g.selectAll('.country-path')
@@ -702,7 +686,6 @@ class ChapelViewVisualization {
         }
         
         const nodes = window.nodesData;
-        console.log('Adding location nodes:', nodes.length);
         
         // Remove any existing location nodes
         this.g.selectAll('.location-nodes').remove();
@@ -731,7 +714,6 @@ class ChapelViewVisualization {
                     
                     // Add click handler
                     marker.on('click', (event) => {
-                        console.log('Location clicked:', location.name);
                         event.stopPropagation();
                         this.handleLocationClick(event, location);
                     });
@@ -762,7 +744,6 @@ class ChapelViewVisualization {
                 
                 // Add click handler (will be enabled when visible)
                 marker.on('click', (event) => {
-                    console.log('Location clicked:', location.name);
                     event.stopPropagation();
                     this.handleLocationClick(location);
                 });
@@ -780,7 +761,6 @@ class ChapelViewVisualization {
             }
         });
         
-        console.log('Location nodes created successfully');
     }
     
     
@@ -842,7 +822,6 @@ class ChapelViewVisualization {
         
         // window.linksData is already a JavaScript object, not a JSON string
         const links = window.linksData;
-        console.log('Adding lineage connections:', links.length);
         
         const linkGroup = this.g.append('g').attr('class', 'lineage-links');
         
@@ -995,7 +974,6 @@ class ChapelViewVisualization {
             event.preventDefault();
             event.stopPropagation();
             
-            console.log('Touch start:', event.touches.length, 'touches');
             
             if (event.touches.length === 1) {
                 // Single touch - start rotation
@@ -1009,16 +987,13 @@ class ChapelViewVisualization {
                 const target = event.target;
                 if (target.classList.contains('location-marker') || target.closest('.location-marker')) {
                     // Don't start rotation if touching a marker
-                    console.log('Touching location marker, not starting rotation');
                     this.touchState.isTouching = false;
                     return;
                 }
                 
-                console.log('Starting touch rotation');
                 this.svg.classed('dragging', true);
             } else if (event.touches.length === 2) {
                 // Two touches - start pinch zoom
-                console.log('Starting pinch zoom');
                 this.touchState.isPinching = true;
                 this.touchState.isTouching = false;
                 this.touchState.lastPinchDistance = this.getPinchDistance(event.touches);
@@ -1042,7 +1017,6 @@ class ChapelViewVisualization {
                 
                 // Only rotate if there's significant movement (avoid accidental rotation)
                 if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
-                    console.log('Touch rotation:', deltaX, deltaY);
                     
                     this.rotation[0] += deltaX * 0.6;
                     this.rotation[1] -= deltaY * 0.6;
@@ -1063,7 +1037,6 @@ class ChapelViewVisualization {
                     const currentScale = this.projection.scale();
                     const newScale = Math.max(0.5, Math.min(3, currentScale * scaleChange));
                     
-                    console.log('Pinch zoom:', scaleChange, 'new scale:', newScale);
                     
                     this.projection.scale(newScale);
                     this.updateGlobe();
@@ -1082,11 +1055,9 @@ class ChapelViewVisualization {
             event.preventDefault();
             event.stopPropagation();
             
-            console.log('Touch end:', event.touches.length, 'touches remaining');
             
             if (event.touches.length === 0) {
                 // All touches ended
-                console.log('All touches ended');
                 this.touchState.isTouching = false;
                 this.touchState.isPinching = false;
                 this.touchState.lastTouchPosition = null;
@@ -1096,12 +1067,10 @@ class ChapelViewVisualization {
                 
                 // Check for tap (quick touch and release)
                 if (this.touchState.touchStartTime && Date.now() - this.touchState.touchStartTime < 300) {
-                    console.log('Handling tap');
                     this.handleTap(event);
                 }
             } else if (event.touches.length === 1 && this.touchState.isPinching) {
                 // Switched from pinch to single touch
-                console.log('Switched from pinch to single touch');
                 this.touchState.isPinching = false;
                 this.touchState.isTouching = true;
                 this.touchState.lastTouchPosition = this.getTouchPosition(event.touches[0]);
@@ -1115,7 +1084,6 @@ class ChapelViewVisualization {
         const touchCancelHandler = (event) => {
             event.preventDefault();
             event.stopPropagation();
-            console.log('Touch cancelled');
             this.touchState.isTouching = false;
             this.touchState.isPinching = false;
             this.touchState.lastTouchPosition = null;
@@ -1307,28 +1275,21 @@ class ChapelViewVisualization {
     }
     
     handleLocationClick(event, location) {
-        console.log('=== LOCATION CLICKED ===');
-        console.log('Location:', location.name);
-        console.log('Type:', location.location_type);
-        console.log('Coordinates:', [location.latitude, location.longitude]);
         
         // Use persistent tooltip instead of side panel
         this.styles.showPersistentTooltip(event, location, 'location');
     }
     
     selectLocation(event, location) {
-        console.log('Selected location:', location);
         this.showLocationDetails(location);
     }
     
     showLocationDetails(location) {
-        console.log('showLocationDetails called for:', location.name, location);
         const asidePanel = document.getElementById('location-info-panel');
         if (!asidePanel) {
             console.error('location-info-panel not found!');
             return;
         }
-        console.log('Found aside panel:', asidePanel);
         
         // Use organization-based color if available, fall back to location type color
         const color = this.styles.getLocationColorWithOrganization(location.location_type, location.organization, location);
@@ -1393,32 +1354,22 @@ class ChapelViewVisualization {
         
         // Show the aside panel
         const aside = document.getElementById('location-aside');
-        console.log('Found aside element:', aside);
         if (aside) {
-            console.log('Adding show class to aside panel');
             aside.classList.add('show');
             aside.style.transform = 'translateX(0)';
             aside.style.display = 'block';
             aside.style.visibility = 'visible';
-            console.log('Aside panel classes after adding show:', aside.className);
-            console.log('Aside panel styles after forcing show:', {
-                transform: aside.style.transform,
-                display: aside.style.display,
-                visibility: aside.style.visibility
-            });
         } else {
             console.error('location-aside element not found!');
         }
     }
     
     selectClergy(event, clergy) {
-        console.log('Selected clergy:', clergy);
         // You can add clergy selection logic here
         // For example, load clergy details in the side panel
     }
     
     createFallbackVisualization() {
-        console.log('Creating fallback visualization');
         
         // Create ocean gradient for fallback
         this.createOceanGradient();
@@ -1510,10 +1461,7 @@ class ChapelViewVisualization {
     
     // Debug function to test culling behavior
     debugCulling() {
-        console.log('=== Culling Debug Information ===');
         const [rotateX, rotateY, rotateZ] = this.projection.rotate();
-        console.log(`Current rotation: X=${rotateX.toFixed(1)}°, Y=${rotateY.toFixed(1)}°, Z=${rotateZ.toFixed(1)}°`);
-        console.log(`Clip angle: ${this.clipAngle}°`);
         
         // Test some key coordinates
         const testCoords = [
@@ -1529,19 +1477,15 @@ class ChapelViewVisualization {
             { name: 'Equator/Prime Meridian', lng: 0, lat: 0 }
         ];
         
-        console.log('\nVisibility test results:');
         testCoords.forEach(coord => {
             const isVisible = this.isLocationVisible(coord.lng, coord.lat);
             const projection = this.projection([coord.lng, coord.lat]);
-            console.log(`${coord.name}: Visible=${isVisible}, Projection=[${projection[0]?.toFixed(1) || 'undefined'}, ${projection[1]?.toFixed(1) || 'undefined'}]`);
         });
         
-        console.log('=== End Debug Information ===');
     }
     
     // Test function to verify location click functionality
     testLocationClicks() {
-        console.log('=== Testing Location Click Functionality ===');
         
         // Check if location data exists
         if (!window.nodesData || window.nodesData.length === 0) {
@@ -1549,27 +1493,21 @@ class ChapelViewVisualization {
             return;
         }
         
-        console.log(`Found ${window.nodesData.length} locations in data`);
-        console.log('Sample location:', window.nodesData[0]);
         
         // Check if location nodes exist in DOM
         const locationDots = this.g.selectAll('.location-dot');
-        console.log(`Found ${locationDots.size()} location dots in DOM`);
         
         // Test clicking the first visible location
         const firstLocation = window.nodesData[0];
-        console.log('Testing click on first location:', firstLocation.name);
         
         // Simulate a click event
         const mockEvent = { preventDefault: () => {} };
         this.selectLocation(mockEvent, firstLocation);
         
-        console.log('=== End Location Click Test ===');
     }
     
     // Function to refresh location data from the server
     async refreshLocationData() {
-        console.log('Refreshing location data from server...');
         
         try {
             // Fetch updated location data from the API endpoint
@@ -1577,8 +1515,6 @@ class ChapelViewVisualization {
             const data = await response.json();
             
             if (data.success) {
-                console.log(`Updated location data: ${data.count} locations`);
-                console.log('Sample updated location:', data.nodes[0]);
                 
                 // Update the global data
                 window.nodesData = data.nodes;
@@ -1589,7 +1525,6 @@ class ChapelViewVisualization {
                 // Re-render location nodes with updated data
                 this.addLocationNodes();
                 
-                console.log('Location data refreshed successfully');
                 return true;
             } else {
                 console.error('API returned error:', data.error);
@@ -1619,7 +1554,6 @@ class ChapelViewVisualization {
     
     // Method to add a single location node dynamically
     addSingleLocationNode(locationData) {
-        console.log('Adding single location node:', locationData);
         
         if (!this.g || !locationData.latitude || !locationData.longitude) {
             console.warn('Cannot add location node - missing globe or coordinates');
@@ -1661,7 +1595,6 @@ class ChapelViewVisualization {
             
             // Add click handler
             marker.on('click', (event) => {
-                console.log('Location clicked:', locationData.name);
                 event.stopPropagation();
                 this.handleLocationClick(event, locationData);
             });
@@ -1696,7 +1629,6 @@ class ChapelViewVisualization {
             
             // Add click handler (will be enabled when visible)
             marker.on('click', (event) => {
-                console.log('Location clicked:', locationData.name);
                 event.stopPropagation();
                 this.handleLocationClick(event, locationData);
             });
@@ -1715,12 +1647,10 @@ class ChapelViewVisualization {
             });
         }
         
-        console.log('Single location node added successfully');
     }
     
     // Method to update a single location node dynamically
     updateSingleLocationNode(locationData) {
-        console.log('Updating single location node:', locationData);
         
         if (!this.g || !locationData.latitude || !locationData.longitude) {
             console.warn('Cannot update location node - missing globe or coordinates');
@@ -1731,7 +1661,6 @@ class ChapelViewVisualization {
         const existingMarker = this.g.select(`[data-location-id="${locationData.id}"]`);
         
         if (existingMarker.empty()) {
-            console.log('Location marker not found, adding as new node');
             this.addSingleLocationNode(locationData);
             return;
         }
@@ -1769,7 +1698,6 @@ class ChapelViewVisualization {
         
         // Update the click handler with new data
         existingMarker.on('click', (event) => {
-            console.log('Location clicked:', locationData.name);
             event.stopPropagation();
             this.handleLocationClick(event, locationData);
         });
@@ -1787,12 +1715,10 @@ class ChapelViewVisualization {
             this.hideTooltip();
         });
         
-        console.log('Single location node updated successfully');
     }
     
     // Method to remove a single location node dynamically
     removeLocationNode(locationId) {
-        console.log('Removing single location node:', locationId);
         
         if (!this.g) {
             console.warn('Cannot remove location node - globe not available');
@@ -1810,12 +1736,10 @@ class ChapelViewVisualization {
         // Remove the marker
         existingMarker.remove();
         
-        console.log('Single location node removed successfully');
     }
     
     // Cleanup method for reloading the globe
     cleanup() {
-        console.log('Cleaning up ChapelViewVisualization...');
         
         // Clean up touch event listeners
         if (this.touchEventListeners && this.svg && this.svg.node()) {
@@ -1839,23 +1763,16 @@ class ChapelViewVisualization {
         this.isDragging = false;
         this.lastMousePosition = null;
         
-        console.log('ChapelViewVisualization cleanup complete');
     }
 }
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing Chapel View Visualization');
     window.geographicVisualization = new ChapelViewVisualization();
     
     // Add test function to global scope for debugging
     window.testCountryColors = function() {
         if (window.geographicVisualization) {
-            console.log('Testing country color function:');
-            console.log('Italy:', window.geographicVisualization.getCountryColor('Italy'));
-            console.log('France:', window.geographicVisualization.getCountryColor('France'));
-            console.log('Unknown Country:', window.geographicVisualization.getCountryColor('Unknown Country', 0));
-            console.log('Fallback colors:', window.geographicVisualization.fallbackColors);
         }
     };
     
@@ -1883,7 +1800,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (window.geographicVisualization && window.nodesData && window.nodesData.length > 0) {
             const location = window.nodesData[locationIndex];
             if (location) {
-                console.log('Testing click on location:', location.name);
                 const mockEvent = { preventDefault: () => {} };
                 window.geographicVisualization.selectLocation(mockEvent, location);
             } else {
@@ -1897,12 +1813,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add function to list all available locations
     window.listLocations = function() {
         if (window.nodesData && window.nodesData.length > 0) {
-            console.log('Available locations:');
             window.nodesData.forEach((location, index) => {
-                console.log(`${index}: ${location.name} (${location.location_type}) at [${location.longitude}, ${location.latitude}]`);
             });
         } else {
-            console.log('No location data available');
         }
     };
     
@@ -1910,28 +1823,15 @@ document.addEventListener('DOMContentLoaded', function() {
     window.testLocationMarkers = function() {
         if (window.geographicVisualization) {
             const markers = window.geographicVisualization.g.selectAll('.location-marker');
-            console.log('Found location markers:', markers.size());
             
-            markers.each(function(d, i) {
-                const marker = d3.select(this);
-                console.log(`Marker ${i}:`, {
-                    class: marker.attr('class'),
-                    id: marker.attr('data-location-id'),
-                    cx: marker.attr('cx'),
-                    cy: marker.attr('cy'),
-                    pointerEvents: marker.style('pointer-events'),
-                    opacity: marker.style('opacity')
-                });
-            });
+            markers.each(function() {});
             
             // Test if markers are visible and clickable
             const visibleMarkers = markers.filter(function() {
                 const marker = d3.select(this);
                 return marker.style('opacity') !== '0' && marker.style('pointer-events') === 'all';
             });
-            console.log('Visible and clickable markers:', visibleMarkers.size());
         } else {
-            console.log('Geographic visualization not available');
         }
     };
     
@@ -1945,7 +1845,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }).nodes()[0];
             
             if (firstMarker) {
-                console.log('Simulating click on first visible marker');
                 const clickEvent = new MouseEvent('click', {
                     bubbles: true,
                     cancelable: true,
@@ -1953,10 +1852,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 firstMarker.dispatchEvent(clickEvent);
             } else {
-                console.log('No visible clickable markers found');
             }
         } else {
-            console.log('Geographic visualization not available');
         }
     };
     
@@ -1965,19 +1862,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const aside = document.getElementById('location-aside');
         const panel = document.getElementById('location-info-panel');
         
-        console.log('Aside element:', aside);
-        console.log('Panel element:', panel);
         
         if (aside) {
-            console.log('Current aside classes:', aside.className);
-            console.log('Current aside transform:', window.getComputedStyle(aside).transform);
-            console.log('Current aside display:', window.getComputedStyle(aside).display);
-            console.log('Current aside visibility:', window.getComputedStyle(aside).visibility);
         }
         
         if (panel) {
-            console.log('Panel innerHTML length:', panel.innerHTML.length);
-            console.log('Panel innerHTML preview:', panel.innerHTML.substring(0, 200));
         }
     };
     
@@ -1988,42 +1877,23 @@ document.addEventListener('DOMContentLoaded', function() {
             aside.classList.add('show');
             aside.style.transform = 'translateX(0)';
             aside.style.display = 'block';
-            console.log('Forced aside panel to show');
         }
     };
     
     // Add function to debug marker DOM elements
     window.debugMarkerDOM = function() {
-        console.log('=== MARKER DOM DEBUG ===');
         
         // Check SVG structure
         const svg = document.querySelector('.globe-svg');
-        console.log('SVG element:', svg);
         
         // Check location nodes group
         const locationNodes = document.querySelector('.location-nodes');
-        console.log('Location nodes group:', locationNodes);
         
         // Check individual markers
         const markers = document.querySelectorAll('.location-marker');
-        console.log('Number of marker elements found:', markers.length);
         
-        markers.forEach((marker, index) => {
-            console.log(`Marker ${index}:`, {
-                element: marker,
-                cx: marker.getAttribute('cx'),
-                cy: marker.getAttribute('cy'),
-                r: marker.getAttribute('r'),
-                fill: marker.getAttribute('fill'),
-                class: marker.className,
-                style: marker.style.cssText,
-                computedStyle: window.getComputedStyle(marker),
-                pointerEvents: window.getComputedStyle(marker).pointerEvents,
-                cursor: window.getComputedStyle(marker).cursor
-            });
-        });
+        markers.forEach(() => {});
         
-        console.log('=== END MARKER DOM DEBUG ===');
     };
     
     // Add function to test clicking directly on DOM element
@@ -2031,7 +1901,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const markers = document.querySelectorAll('.location-marker');
         if (markers.length > 0) {
             const firstMarker = markers[0];
-            console.log('Testing direct click on first marker:', firstMarker);
             
             // Simulate a click event
             const clickEvent = new MouseEvent('click', {
@@ -2042,7 +1911,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             firstMarker.dispatchEvent(clickEvent);
         } else {
-            console.log('No markers found in DOM');
         }
     };
     
@@ -2051,7 +1919,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const markers = document.querySelectorAll('.location-marker');
         if (markers.length > 0) {
             const firstMarker = markers[0];
-            console.log('Highlighting first marker:', firstMarker);
             
             // Make it very obvious
             firstMarker.style.stroke = '#ff0000';
@@ -2059,9 +1926,7 @@ document.addEventListener('DOMContentLoaded', function() {
             firstMarker.style.filter = 'brightness(2)';
             firstMarker.setAttribute('r', '15');
             
-            console.log('Marker highlighted - you should see a large red-bordered circle');
         } else {
-            console.log('No markers found to highlight');
         }
     };
 });

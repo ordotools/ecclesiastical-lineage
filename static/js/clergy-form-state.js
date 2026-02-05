@@ -5,10 +5,8 @@
 
 // Function to clear form state - idempotent, safe to call multiple times
 window.clearFormState = function() {
-    console.log('clearFormState: Starting form state clearing...');
     const form = document.getElementById('clergyForm');
     if (!form) {
-        console.log('clearFormState: No form found, skipping clear');
         return;
     }
     
@@ -16,14 +14,12 @@ window.clearFormState = function() {
     const ordinationsContainer = document.getElementById('ordinationsContainer');
     if (ordinationsContainer) {
         ordinationsContainer.innerHTML = '';
-        console.log('clearFormState: Cleared ordinations container');
     }
     
     // Clear consecrations container (all dynamic entries)
     const consecrationsContainer = document.getElementById('consecrationsContainer');
     if (consecrationsContainer) {
         consecrationsContainer.innerHTML = '';
-        console.log('clearFormState: Cleared consecrations container');
     }
     
     // Find and clear sample ordination entry (the one with name="ordinations[0][...]")
@@ -43,7 +39,6 @@ window.clearFormState = function() {
                 }
             }
         });
-        console.log('clearFormState: Cleared sample ordination inputs in ordinationsField');
         
         // Also try to find the sample entry div and clear it more aggressively
         const sampleOrdinationDivs = ordinationsSection.querySelectorAll('div[style*="border"]');
@@ -82,7 +77,6 @@ window.clearFormState = function() {
                 }
             }
         });
-        console.log('clearFormState: Cleared sample consecration inputs in consecrationsField');
         
         // Also try to find the sample entry div and clear it more aggressively
         const sampleConsecrationDivs = consecrationsSection.querySelectorAll('.consecration-entry, div[style*="border"]');
@@ -115,20 +109,16 @@ window.clearFormState = function() {
     window.ordinationCount = 1;
     window.consecrationCount = 1;
     window.coConsecratorCount = 1;
-    console.log('clearFormState: Reset counters');
     
     // Clear autocomplete initialization flags to allow re-initialization
     const autocompleteInputs = form.querySelectorAll('input[data-autocomplete-initialized]');
     autocompleteInputs.forEach(input => {
         input.removeAttribute('data-autocomplete-initialized');
     });
-    console.log('clearFormState: Cleared', autocompleteInputs.length, 'autocomplete flags');
     
     // Clear any global file references
     delete window.droppedFile;
     delete window.processedImageData;
-    
-    console.log('clearFormState: Form state cleared successfully');
 };
 
 // Clear form completely - reset all fields and containers (used after submission)
@@ -138,8 +128,6 @@ window.clearFormCompletely = function() {
         console.warn('clearFormCompletely: No form found');
         return;
     }
-    
-    console.log('clearFormCompletely: Starting complete form clear...');
     
     // Use the shared clearFormState function for ordinations/consecrations
     if (typeof window.clearFormState === 'function') {
@@ -196,6 +184,4 @@ window.clearFormCompletely = function() {
     if (consecrationsField) {
         consecrationsField.style.display = 'none';
     }
-    
-    console.log('clearFormCompletely: Form cleared completely');
 };

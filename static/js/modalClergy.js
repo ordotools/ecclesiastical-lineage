@@ -178,28 +178,21 @@
         // Check if form is inside a modal by looking for modal parent
         const isInModal = form.closest('.modal') !== null;
         if (isInModal) {
-            console.log('Form is in modal context, skipping modalClergy.js handler');
             return;
         }
         
-        console.log('Form is not in modal context, attaching modalClergy.js handler');
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(form);
             
             // Check for globally stored dropped file
             if (window.droppedFile) {
-                console.log('Adding globally stored file to FormData:', window.droppedFile);
                 formData.append('clergy_image', window.droppedFile);
                 // Clear the global file after adding to form data
                 delete window.droppedFile;
             }
             
             // Debug logging
-            console.log('Form submission - ordaining_bishop_input:', formData.get('ordaining_bishop_input'));
-            console.log('Form submission - ordaining_bishop_id:', formData.get('ordaining_bishop_id'));
-            console.log('Form submission - consecrator_input:', formData.get('consecrator_input'));
-            console.log('Form submission - consecrator_id:', formData.get('consecrator_id'));
             
             const url = form.getAttribute('action') || window.location.pathname;
             fetch(url, {
@@ -208,7 +201,6 @@
             })
             .then(response => response.json())
             .then(data => {
-                console.log('Form submission response:', data);
                 if (data.success) {
                     // Close the modal
                     const modalEl = document.getElementById('clergyModal');

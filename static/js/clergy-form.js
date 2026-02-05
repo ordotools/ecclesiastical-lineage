@@ -27,7 +27,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 window.ClergyForm.init = function() {
-    console.log('Initializing self-contained clergy form...');
     
     // Set up event listeners
     this.setupEventListeners();
@@ -38,7 +37,6 @@ window.ClergyForm.init = function() {
     // Set up bishop search
     this.initializeBishopSearch();
     
-    console.log('Clergy form initialization complete');
 };
 
 window.ClergyForm.setupEventListeners = function() {
@@ -528,7 +526,6 @@ window.ClergyForm.showTemporaryMessage = function(message, type = 'info') {
 
 // Method to populate existing data for edit mode
 window.ClergyForm.populateExistingData = function() {
-    console.log('Populating existing clergy data...');
     
     // Show sections if they have data
     const ordinationSection = document.getElementById('ordinationSection');
@@ -544,15 +541,12 @@ window.ClergyForm.populateExistingData = function() {
     // Note: Individual ordination/consecration data population will be handled by the template
     // This method is called after the template has already added the sections with data
     
-    console.log('Existing data populated successfully');
 };
 
 // Method to pre-fill form with clergy data
 window.ClergyForm.prefillForm = function(clergyData) {
-    console.log('Pre-filling form with clergy data:', clergyData);
     
     if (!clergyData) {
-        console.log('No clergy data provided for pre-filling');
         return;
     }
     
@@ -574,7 +568,6 @@ window.ClergyForm.prefillForm = function(clergyData) {
         this.toggleOrdinationFields('Priest'); // Default to show ordination
     }
     
-    console.log('Form pre-filled successfully');
 };
 
 // Pre-fill basic form fields

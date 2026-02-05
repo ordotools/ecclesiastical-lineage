@@ -93,13 +93,6 @@ function isBishopRank(rankValue) {
 
 // Initialize the visualization
 export async function initializeVisualization() {
-  console.log('initializeVisualization called');
-  console.log('Window data check:', {
-    linksData: window.linksData,
-    nodesData: window.nodesData,
-    linksLength: window.linksData ? window.linksData.length : 'undefined',
-    nodesLength: window.nodesData ? window.nodesData.length : 'undefined'
-  });
   console.time('Visualization initialization');
   
   // The layout algorithm mutates links and nodes, so create a copy
@@ -120,19 +113,10 @@ export async function initializeVisualization() {
     return;
   }
   
-  console.log('Data validation passed:', {
-    nodesCount: nodesRaw.length,
-    linksCount: linksRaw.length,
-    sampleNode: nodesRaw[0],
-    sampleLink: linksRaw[0]
-  });
-  
-  // Debug: Log link types
   const linkTypes = {};
   linksRaw.forEach(link => {
     linkTypes[link.type] = (linkTypes[link.type] || 0) + 1;
   });
-  console.log('Link types found:', linkTypes);
 
   const nodes = nodesRaw.map(d => ({...d}));
   const links = linksRaw.map(d => ({...d}));
@@ -156,8 +140,6 @@ export async function initializeVisualization() {
     }
     return true;
   });
-  
-  console.log(`Valid links after filtering: ${validLinks.length} out of ${links.length}`);
 
   const PRE_1968_CONSECRATION_YEAR = 1968;
   const parseYearFromDate = (dateValue) => {
@@ -417,7 +399,7 @@ export async function initializeVisualization() {
     }
   }
 
-  // Add filter for inset shadow on images
+  // TODO: re-enable when image inset shadow is needed
   // const filter = defs.append('filter')
   //   .attr('id', 'image-inset-shadow')
   //   .attr('x', '-50%')
@@ -1079,8 +1061,6 @@ export async function initializeVisualization() {
   // Apply initial filters
   applyBackboneOnlyFilter();
   applyPriestFilter();
-
-  console.log('Visualization initialized with force layout');
 }
 
 // View zoom management functions

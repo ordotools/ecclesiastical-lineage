@@ -22,14 +22,11 @@ def editor():
 @require_permission('edit_clergy')
 def clergy_list_panel():
     """HTMX endpoint for the left panel clergy list"""
-    # Load ALL clergy data for client-side filtering
-    # The JavaScript will handle all filtering including search, priests, deleted, etc.
     clergy_list = Clergy.query.order_by(Clergy.name).all()
     organizations = Organization.query.all()
     
     user = User.query.get(session['user_id']) if 'user_id' in session else None
 
-    # Get sprite sheet data for efficient image loading
     sprite_sheet_data = None
     try:
         sprite_sheet = SpriteSheet.query.filter_by(is_current=True).first()
@@ -52,8 +49,8 @@ def clergy_list_panel():
                          organizations=organizations,
                          user=user,
                          sprite_sheet_data=sprite_sheet_data,
-                         search='',  # No initial search
-                         exclude_priests=False,  # No initial filters
+                         search='',
+                         exclude_priests=False,
                          exclude_coconsecrators=False,
                          exclude_organizations=[],
                          show_deleted=False)
@@ -63,9 +60,7 @@ def clergy_list_panel():
 def chapel_list_panel():
     """HTMX endpoint for the left panel chapel list"""
     user = User.query.get(session['user_id']) if 'user_id' in session else None
-    
-    # Get all active locations (chapels) from the database with organization relationship
-    # Filter for church-related location types
+
     church_types = ['church', 'cathedral', 'chapel', 'monastery', 'seminary', 'abbey']
     locations = Location.query.options(db.joinedload(Location.organization_obj)).filter(
         Location.is_active == True,
@@ -80,26 +75,19 @@ def chapel_list_panel():
 @require_permission('edit_clergy')
 def chapel_form_panel(location_id=None):
     """HTMX endpoint for the right panel chapel form"""
-    print("=== CHAPEL FORM ROUTE CALLED ===")
     user = User.query.get(session['user_id']) if 'user_id' in session else None
-    print(f"User: {user}, Location ID: {location_id}")
-    
-    # Get organizations for dropdown
+
     organizations = Organization.query.all()
-    print(f"Found {len(organizations)} organizations for dropdown")
-    
+
     location = None
     if location_id:
         location = Location.query.get(location_id)
         if not location:
             return "Location not found", 404
-    
+
     try:
-        result = render_template('editor_panels/location_form_panel.html', user=user, location=location, organizations=organizations)
-        print("Chapel form template rendered successfully")
-        return result
+        return render_template('editor_panels/location_form_panel.html', user=user, location=location, organizations=organizations)
     except Exception as e:
-        print(f"Error rendering chapel form template: {e}")
         return f"Error: {e}", 500
 
 @editor_bp.route('/editor/visualization')
@@ -107,41 +95,31 @@ def chapel_form_panel(location_id=None):
 def visualization_panel():
     """HTMX endpoint for the center panel visualization"""
     try:
-        # Get only active clergy for the visualization
         all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
-        
-        # Get all organizations and ranks for color lookup
         organizations = {org.name: org.color for org in Organization.query.all()}
         ranks = {rank.name: rank.color for rank in Rank.query.all()}
 
-        # SVG placeholder for clergy without images
         placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="24" r="14" fill="#bdc3c7"/><ellipse cx="32" cy="50" rx="20" ry="12" fill="#bdc3c7"/></svg>'''
         placeholder_data_url = 'data:image/svg+xml;base64,' + base64.b64encode(placeholder_svg.encode('utf-8')).decode('utf-8')
 
-        # Prepare data for D3.js
         nodes = []
         links = []
-        
-        # Create nodes for each clergy
+
         for clergy in all_clergy:
-            # Get organization and rank colors separately (matching lineage visualization)
             org_color = organizations.get(clergy.organization) or '#2c3e50'
             rank_color = ranks.get(clergy.rank) or '#888888'
 
-            # Get image URL - prefer lineage size for visualization, fallback to original
             image_url = placeholder_data_url
             if clergy.image_data:
                 try:
                     image_data = json.loads(clergy.image_data)
-                    # Use lineage size (48x48) for visualization performance
                     image_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
                 except (json.JSONDecodeError, AttributeError):
                     pass
-            
-            # Fallback to clergy.image_url if no image_data or parsing failed
+
             if not image_url or image_url == placeholder_data_url:
                 image_url = clergy.image_url if clergy.image_url else placeholder_data_url
-            
+
             nodes.append({
                 'id': clergy.id,
                 'name': clergy.name,
@@ -156,7 +134,6 @@ def visualization_panel():
                 'is_deleted': clergy.is_deleted
             })
 
-        # Create links for ordinations (black lines)
         for clergy in all_clergy:
             for ordination in clergy.ordinations:
                 if ordination.ordaining_bishop and not ordination.ordaining_bishop.is_deleted:
@@ -172,7 +149,6 @@ def visualization_panel():
                         'is_invalid': ordination.is_invalid
                     })
 
-        # Create links for consecrations (green lines)
         for clergy in all_clergy:
             for consecration in clergy.consecrations:
                 if consecration.consecrator and not consecration.consecrator.is_deleted:
@@ -180,7 +156,7 @@ def visualization_panel():
                         'source': consecration.consecrator.id,
                         'target': clergy.id,
                         'type': 'consecration',
-                        'color': GREEN_COLOR,  # Green for consecrations
+                        'color': GREEN_COLOR,
                         'date': consecration.date.isoformat() if consecration.date else None,
                         'is_sub_conditione': consecration.is_sub_conditione,
                         'is_doubtfully_valid': consecration.is_doubtfully_valid,
@@ -188,7 +164,6 @@ def visualization_panel():
                         'is_invalid': consecration.is_invalid
                     })
 
-        # Convert to JSON for JavaScript
         nodes_json = json.dumps(nodes)
         links_json = json.dumps(links)
 
@@ -207,44 +182,34 @@ def visualization_panel():
 def get_visualization_data():
     """API endpoint for soft refresh - returns JSON data without HTML template"""
     try:
-        # Get only active clergy for the visualization
         all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
-        
-        # Get all organizations and ranks for color lookup
         organizations = {org.name: org.color for org in Organization.query.all()}
         ranks = {rank.name: rank.color for rank in Rank.query.all()}
 
-        # SVG placeholder for clergy without images
         placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="24" r="14" fill="#bdc3c7"/><ellipse cx="32" cy="50" rx="20" ry="12" fill="#bdc3c7"/></svg>'''
         placeholder_data_url = 'data:image/svg+xml;base64,' + base64.b64encode(placeholder_svg.encode('utf-8')).decode('utf-8')
 
-        # Prepare data for D3.js
         nodes = []
         links = []
-        
-        # Create nodes for each clergy
+
         for clergy in all_clergy:
-            # Determine node color based on organization or rank
-            node_color = '#3498db'  # Default blue
+            node_color = '#3498db'
             if clergy.organization and clergy.organization in organizations:
                 node_color = organizations[clergy.organization]
             elif clergy.rank and clergy.rank in ranks:
                 node_color = ranks[clergy.rank]
 
-            # Get image URL - prefer lineage size for visualization, fallback to original
             image_url = placeholder_data_url
             if clergy.image_data:
                 try:
                     image_data = json.loads(clergy.image_data)
-                    # Use lineage size (48x48) for visualization performance
                     image_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
                 except (json.JSONDecodeError, AttributeError):
                     pass
-            
-            # Fallback to clergy.image_url if no image_data or parsing failed
+
             if not image_url or image_url == placeholder_data_url:
                 image_url = clergy.image_url if clergy.image_url else placeholder_data_url
-            
+
             nodes.append({
                 'id': clergy.id,
                 'name': clergy.name,
@@ -252,14 +217,13 @@ def get_visualization_data():
                 'rank': clergy.rank,
                 'organization': clergy.organization,
                 'org_color': node_color,
-                'rank_color': node_color,  # Will be overridden by style settings if needed
+                'rank_color': node_color,
                 'image_url': image_url,
                 'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
                 'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
                 'is_deleted': clergy.is_deleted
             })
 
-        # Create links for ordinations (black lines)
         for clergy in all_clergy:
             for ordination in clergy.ordinations:
                 if ordination.ordaining_bishop and not ordination.ordaining_bishop.is_deleted:
@@ -267,7 +231,7 @@ def get_visualization_data():
                         'source': ordination.ordaining_bishop.id,
                         'target': clergy.id,
                         'type': 'ordination',
-                        'color': BLACK_COLOR,  # Black for ordinations
+                        'color': BLACK_COLOR,
                         'date': ordination.date.isoformat() if ordination.date else None,
                         'is_sub_conditione': ordination.is_sub_conditione,
                         'is_doubtfully_valid': ordination.is_doubtfully_valid,
@@ -275,7 +239,6 @@ def get_visualization_data():
                         'is_invalid': ordination.is_invalid
                     })
 
-        # Create links for consecrations (green lines)
         for clergy in all_clergy:
             for consecration in clergy.consecrations:
                 if consecration.consecrator and not consecration.consecrator.is_deleted:
@@ -283,7 +246,7 @@ def get_visualization_data():
                         'source': consecration.consecrator.id,
                         'target': clergy.id,
                         'type': 'consecration',
-                        'color': GREEN_COLOR,  # Green for consecrations
+                        'color': GREEN_COLOR,
                         'date': consecration.date.isoformat() if consecration.date else None,
                         'is_sub_conditione': consecration.is_sub_conditione,
                         'is_doubtfully_valid': consecration.is_doubtfully_valid,
@@ -363,8 +326,7 @@ def save_visualization_styles():
             }), 400
         
         styles = data['styles']
-        
-        # Validate styles structure
+
         required_keys = ['node', 'link', 'label']
         for key in required_keys:
             if key not in styles:
@@ -372,8 +334,7 @@ def save_visualization_styles():
                     'success': False,
                     'error': f'Invalid styles: missing {key} section'
                 }), 400
-        
-        # Get or create settings record
+
         settings = VisualizationSettings.query.filter_by(setting_key='visualization_styles').first()
         
         if settings:
@@ -408,21 +369,13 @@ def save_visualization_styles():
 def globe_view_panel():
     """HTMX endpoint for the center panel globe view"""
     try:
-        # Get all active locations (chapels, churches, etc.) for the globe visualization with organization relationship
         all_locations = Location.query.options(db.joinedload(Location.organization_obj)).filter(Location.is_active == True, Location.deleted == False).all()
-        
-        # Prepare data for D3.js globe visualization
         nodes = []
         links = []
-        
-        # Create nodes for each location with coordinates
+
         for location in all_locations:
-            # Only include locations that have coordinates
             if location.has_coordinates():
-                # Import the color function from main.py
                 from routes.main import _get_location_color
-                
-                # Determine color based on organization first, then location type
                 node_color = _get_location_color(location)
                 
                 nodes.append({
@@ -442,7 +395,6 @@ def globe_view_panel():
                     'notes': location.notes
                 })
 
-        # Convert to JSON for JavaScript
         nodes_json = json.dumps(nodes)
         links_json = json.dumps(links)
 
@@ -463,13 +415,11 @@ def globe_view_panel():
 def clergy_form_panel(clergy_id=None):
     """HTMX endpoint for the right panel clergy form"""
     user = User.query.get(session['user_id']) if 'user_id' in session else None
-    
-    # Get form data
+
     ranks = Rank.query.all()
     organizations = Organization.query.all()
     statuses = Status.query.order_by(Status.badge_position, Status.name).all()
-    
-    # Create fields object for the form
+
     class FormFields:
         def __init__(self, ranks, organizations, statuses):
             self.ranks = ranks
@@ -479,9 +429,8 @@ def clergy_form_panel(clergy_id=None):
             self.cancel_url = None
     
     fields = FormFields(ranks, organizations, statuses)
-    
+
     if clergy_id:
-        # Edit mode - eagerly load ordination and consecration relationships
         from sqlalchemy.orm import joinedload
         clergy = Clergy.query.options(
             joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
@@ -494,7 +443,6 @@ def clergy_form_panel(clergy_id=None):
                              edit_mode=True, 
                              user=user)
     else:
-        # Add mode
         return render_template('editor_panels/clergy_form.html', 
                              fields=fields, 
                              clergy=None, 
@@ -507,13 +455,11 @@ def clergy_form_panel(clergy_id=None):
 def clergy_form_content(clergy_id=None):
     """HTMX endpoint for the clergy form content only"""
     user = User.query.get(session['user_id']) if 'user_id' in session else None
-    
-    # Get form data
+
     ranks = Rank.query.all()
     organizations = Organization.query.all()
     statuses = Status.query.order_by(Status.badge_position, Status.name).all()
-    
-    # Create fields object for the form
+
     class FormFields:
         def __init__(self, ranks, organizations, statuses):
             self.ranks = ranks
@@ -523,16 +469,15 @@ def clergy_form_content(clergy_id=None):
             self.cancel_url = None
     
     fields = FormFields(ranks, organizations, statuses)
-    
+
     if clergy_id:
-        # Edit mode - eagerly load ordination and consecration relationships
         from sqlalchemy.orm import joinedload
         clergy = Clergy.query.options(
             joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
             joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
             joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
         ).filter(Clergy.id == clergy_id).first_or_404()
-        
+
         return render_template('clergy_form_content.html', 
                              fields=fields, 
                              clergy=clergy, 
@@ -541,7 +486,6 @@ def clergy_form_content(clergy_id=None):
                              context_type=None,
                              context_clergy_id=None)
     else:
-        # Add mode
         return render_template('clergy_form_content.html', 
                              fields=fields, 
                              clergy=None, 
@@ -556,8 +500,7 @@ def audit_logs_panel():
     """HTMX endpoint for the bottom panel audit logs tab"""
     page = request.args.get('page', 1, type=int)
     per_page = 50
-    
-    # Get recent audit logs
+
     logs = AuditLog.query.order_by(AuditLog.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
@@ -569,13 +512,11 @@ def audit_logs_panel():
 def audit_logs_check():
     """API endpoint to check for new audit logs since a given ID"""
     since_id = request.args.get('since', 0, type=int)
-    
-    # Get new logs since the given ID
+
     new_logs = AuditLog.query.filter(
         AuditLog.id > since_id
     ).order_by(AuditLog.created_at.desc()).limit(10).all()
-    
-    # Convert to JSON-serializable format
+
     logs_data = []
     for log in new_logs:
         logs_data.append({

@@ -18,7 +18,7 @@ function isBishopRank(rankValue) {
 const hidePriestsCheckbox = document.getElementById('hide-priests');
 const hidePriestsMobileCheckbox = document.getElementById('hide-priests-mobile');
 
-// Wire up timeline view controls and sync mobile/desktop - Temporarily disabled
+// TODO: re-enable timeline view when UI is ready
 // const timelineViewCheckbox = document.getElementById('timeline-view');
 // const timelineViewMobileCheckbox = document.getElementById('timeline-view-mobile');
 
@@ -45,7 +45,7 @@ export function syncPriestFilters() {
 }
 
 export function syncTimelineFilters() {
-  // Temporarily disabled
+  // TODO: re-enable timeline view when UI is ready
   // if (timelineViewCheckbox && timelineViewMobileCheckbox) {
   //   timelineViewMobileCheckbox.checked = timelineViewCheckbox.checked;
   // }
@@ -91,13 +91,6 @@ export function prepareTimelineData(nodes) {
   // Use 10x the viewport width to spread out the dates
   const timelineWidth = width * 10;
   
-  // Debug: Log the timeline bounds
-  console.log('Timeline bounds:', {
-    minDate: timelineMin.getFullYear(),
-    maxDate: timelineMax.getFullYear(),
-    timelineWidth: timelineWidth
-  });
-  
   return {
     minDate: timelineMin,
     maxDate: timelineMax,
@@ -108,11 +101,9 @@ export function prepareTimelineData(nodes) {
   };
 }
 
-// Function to apply timeline view - Temporarily disabled
+// TODO: re-enable timeline view when UI is ready
 export function applyTimelineView() {
-  // Temporarily disabled - return early
   return;
-  
   // const shouldEnableTimeline = timelineViewCheckbox ? timelineViewCheckbox.checked : false;
   // isTimelineViewEnabled = shouldEnableTimeline;
   
@@ -272,13 +263,11 @@ export function showTimelineElements() {
   }
   
   // Debug: Log the key years
-  console.log('Key timeline years:', keyYears.map(d => d.getFullYear()));
   
   keyYears.forEach(year => {
     const x = timelineData.scale(year);
     
     // Debug: Log each marker position
-    console.log(`Year ${year.getFullYear()}: x = ${x}`);
     
     // Top timeline markers
     timelineLinesTop.append('line')
@@ -633,14 +622,13 @@ export function initializeFilters() {
     });
   }
 
-  // Sync timeline checkboxes when either changes - Temporarily disabled
+  // TODO: re-enable timeline view when UI is ready
   // if (timelineViewCheckbox) {
   //   timelineViewCheckbox.addEventListener('change', function() {
   //     syncTimelineFilters();
   //     applyTimelineView();
   //   });
   // }
-
   // if (timelineViewMobileCheckbox) {
   //   timelineViewMobileCheckbox.addEventListener('change', function() {
   //     syncTimelineFilters();

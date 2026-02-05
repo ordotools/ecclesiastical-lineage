@@ -148,13 +148,6 @@ class WikiApp {
             backdrop: document.getElementById('wiki-backdrop') // Backdrop for syntax highlighting
         };
 
-        // Debug Element Binding
-        console.log('WikiApp Elements:', {
-            saveBtn: !!this.els.saveBtn,
-            visibleToggle: !!this.els.visibleToggle,
-            deletedToggle: !!this.els.deletedToggle
-        });
-
         this.init();
 
         // Initialize Syntax Highlighter
@@ -261,7 +254,6 @@ class WikiApp {
         });
 
         this.els.saveBtn.addEventListener('click', () => {
-            console.log('Save button clicked');
             this.savePage();
         });
 
@@ -432,7 +424,6 @@ class WikiApp {
             const res = await fetch(`/api/wiki/page/${encodeURIComponent(slug)}`);
             if (res.ok) {
                 const data = await res.json();
-                console.log('FetchPage Data:', data);
                 this.pages[slug] = data; // { title, content, updated_at, editor }
                 if (data.clergy_id) {
                     this.selectedClergyId = data.clergy_id;
@@ -535,13 +526,6 @@ class WikiApp {
             slug = titleVal;
         }
 
-        // DEBUG: Check toggle state
-        console.log('SavePage Debug:', {
-            hasToggle: !!this.els.visibleToggle,
-            checked: this.els.visibleToggle ? this.els.visibleToggle.checked : 'N/A',
-            deleted: this.els.deletedToggle ? this.els.deletedToggle.checked : 'N/A'
-        });
-
         const payload = {
             title: slug,
             content: content,
@@ -550,7 +534,6 @@ class WikiApp {
             is_deleted: this.els.deletedToggle ? this.els.deletedToggle.checked : false,
             author_id: this.els.authorSelect ? this.els.authorSelect.value : null
         };
-        console.log('SavePage Payload:', payload);
 
         try {
             const res = await fetch('/api/wiki/save', {
@@ -595,11 +578,9 @@ class WikiApp {
 
     async fetchAllClergy() {
         try {
-            console.log('Fetching all clergy...');
             const res = await fetch('/api/wiki/all-clergy');
             if (res.ok) {
                 this.allClergy = await res.json();
-                console.log('Fetched clergy count:', this.allClergy.length);
             } else {
                 console.error('Failed to fetch clergy:', res.status);
             }
@@ -609,7 +590,6 @@ class WikiApp {
     }
 
     performClergySearch(query) {
-        console.log('Performing search for:', query);
         if (!query || query.length < 2) {
             this.els.clergyDropdown.style.display = 'none';
             return;
@@ -622,9 +602,7 @@ class WikiApp {
 
         // Use the shared fuzzySearch function
         // fuzzySearch(list, query, keyFn) returns [{item, score}, ...]
-        console.log('Calling fuzzySearch with list size:', this.allClergy.length);
         const results = window.fuzzySearch(this.allClergy, query, item => item.name);
-        console.log('Fuzzy search results:', results.length);
 
         // Take top 10 results
         const topResults = results.slice(0, 10).map(r => r.item);
@@ -860,7 +838,6 @@ class WikiApp {
             }
 
             // Populate Metadata Controls
-            console.log('Render Metadata:', { is_visible: page.is_visible, is_deleted: page.is_deleted });
             if (this.els.visibleToggle) this.els.visibleToggle.checked = page.is_visible !== false; // Default true
             if (this.els.deletedToggle) this.els.deletedToggle.checked = page.is_deleted === true;
             if (this.els.authorSelect) this.els.authorSelect.value = page.author_id || '';
@@ -910,9 +887,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Handle "Last updated" and other static text
-    // const footer = document.querySelector('.wiki-footer span');
-    // if (footer) footer.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
 });
 
 /**
@@ -1031,7 +1005,6 @@ function getCaretCoordinates(element, position) {
     };
 
     if (debug) {
-        console.log('Caret Coordinates:', coordinates);
     }
 
     return coordinates;

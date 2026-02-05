@@ -162,10 +162,10 @@
     {% if session.user_id %}
     <div class="admin-nav-container">
         {% if user and user.has_permission('manage_metadata') %}
-        <a href="{{ url_for('main.locations_list') }}" class="btn admin-nav-btn" title="Manage Locations">
+        <a href="{{ url_for('locations.locations_list') }}" class="btn admin-nav-btn" title="Manage Locations">
             <i class="fas fa-map-marker-alt me-2"></i>Locations
         </a>
-        <a href="{{ url_for('main.add_location') }}" class="btn admin-nav-btn" title="Add New Location">
+        <a href="{{ url_for('locations.add_location') }}" class="btn admin-nav-btn" title="Add New Location">
             <i class="fas fa-plus me-2"></i>Add Location
         </a>
         {% endif %}
@@ -517,7 +517,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (addClergyBtn) {
         addClergyBtn.addEventListener('click', function() {
             // Load the add clergy form in the modal
-            fetch('{{ url_for("main.add_clergy_from_lineage") }}', {
+            fetch('{{ url_for("lineage_api.add_clergy_from_lineage") }}', {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'

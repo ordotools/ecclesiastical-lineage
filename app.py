@@ -5,6 +5,10 @@ from models import db, User, Role
 from routes.auth import auth_bp
 from routes.clergy import clergy_bp
 from routes.main import main_bp
+from routes.locations import locations_bp
+from routes.lineage_api import lineage_api_bp
+from routes.main_api import main_api_bp
+from routes.admin import admin_bp
 from routes.editor import editor_bp
 from migrations import run_database_migration, initialize_roles_and_permissions
 import os
@@ -154,6 +158,10 @@ ensure_database_schema()
 app.register_blueprint(auth_bp)
 app.register_blueprint(clergy_bp)
 app.register_blueprint(main_bp)
+app.register_blueprint(locations_bp)
+app.register_blueprint(lineage_api_bp)
+app.register_blueprint(main_api_bp)
+app.register_blueprint(admin_bp)
 app.register_blueprint(editor_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(metadata_bp)

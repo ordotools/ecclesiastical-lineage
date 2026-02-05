@@ -5,9 +5,9 @@ admin_bp = Blueprint('admin', __name__)
 
 def _redirect_to_editor_or_login(anchor, feature_name):
     if 'user_id' in session:
-        return redirect(url_for('editor.editor') + anchor, code=308)
+        return redirect(url_for('editor.editor') + anchor, code=302)
     flash(f'Please log in to access {feature_name}.', 'error')
-    return redirect(url_for('auth.login'), code=308)
+    return redirect(url_for('auth.login'), code=302)
 
 
 @admin_bp.route('/users')

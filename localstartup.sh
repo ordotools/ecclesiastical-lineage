@@ -18,26 +18,60 @@ if [ ! -z "$RENDER_PRODUCTION_PG_URL" ]; then
   command -v pg_dump >/dev/null 2>&1 || { echo "❌ pg_dump is required but not installed. Install with: brew install postgresql@17"; exit 1; }
   command -v psql >/dev/null 2>&1 || { echo "❌ psql is required but not installed. Install with: brew install postgresql@17"; exit 1; }
   
-  # if there is a mismatch between the local and remote database versions, find the version of the remote and export it to PATH and source it
-  # Check for a local/remote pg_dump version mismatch and advise the user what to do if it exists
+  # Detect local and remote version for pg_dump compatibility.
   LOCAL_PG_DUMP_VERSION=$(pg_dump --version | grep -oE '[0-9]+\.[0-9]+')
   REMOTE_PG_VERSION="$(psql "$RENDER_PRODUCTION_PG_URL" -c 'SHOW server_version;' -At | cut -d. -f1,2)"
+
   if [ "$LOCAL_PG_DUMP_VERSION" != "$REMOTE_PG_VERSION" ]; then
     echo "⚠️  Version mismatch: Local pg_dump is $LOCAL_PG_DUMP_VERSION, but remote server version is $REMOTE_PG_VERSION"
     echo ""
-    echo "You should install the matching pg_dump version and run the following commands manually:"
-    echo ""
-    echo "  # If on Mac (Homebrew), run:"
-    echo "  brew install postgresql@${REMOTE_PG_VERSION%%.*}"
-    echo "  export PATH=\"/opt/homebrew/opt/postgresql@$REMOTE_PG_VERSION/bin:\$PATH\""
-    echo ""
-    echo "  # Then re-run this script, or manually run:"
-    echo "  pg_dump --clean --if-exists --no-owner --no-privileges \"$RENDER_PRODUCTION_PG_URL\" > /tmp/remote_dump.sql"
-    echo "  psql \"$DATABASE_URL\" < /tmp/remote_dump.sql"
-    echo ""
-    exit 1
+    PG_MAJOR="${REMOTE_PG_VERSION%%.*}"
+
+    # Try to find the matching pg_dump first
+    PG_DUMP_PATH_MAC="/opt/homebrew/opt/postgresql@$REMOTE_PG_VERSION/bin/pg_dump"
+    PG_DUMP_PATH_INTEL="/usr/local/opt/postgresql@$REMOTE_PG_VERSION/bin/pg_dump"
+    PG_DUMP_PATH_BIN=$(brew --prefix postgresql@$REMOTE_PG_VERSION 2>/dev/null)/bin/pg_dump
+
+    PG_DUMP_CMD=""
+    if [ -x "$PG_DUMP_PATH_MAC" ]; then
+      PG_DUMP_CMD="$PG_DUMP_PATH_MAC"
+    elif [ -x "$PG_DUMP_PATH_INTEL" ]; then
+      PG_DUMP_CMD="$PG_DUMP_PATH_INTEL"
+    elif [ -x "$PG_DUMP_PATH_BIN" ]; then
+      PG_DUMP_CMD="$PG_DUMP_PATH_BIN"
+    fi
+
+    if [ -n "$PG_DUMP_CMD" ]; then
+      echo "✅ Matching pg_dump version found at $PG_DUMP_CMD"
+      echo "The script will use this binary for the export."
+      USE_PG_DUMP="$PG_DUMP_CMD"
+    else
+      echo "❌ Could not find a matching pg_dump binary (v$REMOTE_PG_VERSION) automatically."
+      echo "Please install it. On Mac (Homebrew), run:"
+      echo "  brew install postgresql@$PG_MAJOR"
+      echo ""
+      echo "Then re-run this script."
+      exit 1
+    fi
+
+    # Overwrite pg_dump in PATH for this script only
+    export PATH="$(dirname "$PG_DUMP_CMD"):$PATH"
+    # Double check version now
+    FIXED_PG_DUMP_VERSION=$(pg_dump --version | grep -oE '[0-9]+\.[0-9]+')
+    if [ "$FIXED_PG_DUMP_VERSION" != "$REMOTE_PG_VERSION" ]; then
+      echo "❌ Even after setting PATH, pg_dump version is still $FIXED_PG_DUMP_VERSION (expected $REMOTE_PG_VERSION)"
+      echo "This can happen if your shell or Homebrew did not symlink binaries correctly."
+      echo "Try manually specifying the full path to pg_dump or add it to your PATH before running this script."
+      echo ""
+      echo "For example:"
+      echo "  export PATH=\"$(dirname "$PG_DUMP_CMD"):\$PATH\""
+      echo "  ./localstartup.sh"
+      echo ""
+      exit 1
+    else
+      echo "✅ pg_dump is now the correct version ($FIXED_PG_DUMP_VERSION) in this shell session."
+    fi
   fi
-  
   # Check if PostgreSQL is running locally
   echo "🔍 Checking PostgreSQL status..."
   if ! pg_isready -q -h localhost; then

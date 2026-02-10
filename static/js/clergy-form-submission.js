@@ -289,6 +289,48 @@ window.resetSubmitButton = function(button, originalTextOrHTML) {
                 submitBtn.disabled = true;
             }
 
+            const runStatusInheritanceValidation = () => {
+                if (window.StatusInheritance && typeof window.StatusInheritance.validateFormStatus === 'function') {
+                    if (submitBtn) {
+                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validating status...';
+                    }
+                    return window.StatusInheritance.validateFormStatus(form);
+                }
+                return Promise.resolve({ valid: true, violations: [] });
+            };
+
+            const handleValidationResult = (result) => {
+                if (result && result.valid === false) {
+                    const message = result.message || 'Status inheritance rules not met. Please update the ordination or consecration status.';
+                    if (typeof window.showNotification === 'function') {
+                        window.showNotification(message, 'warning');
+                    } else {
+                        alert(message);
+                    }
+                    if (submitBtn && typeof window.resetSubmitButton === 'function') {
+                        window.resetSubmitButton(submitBtn, submitBtn.dataset.originalHtml || 'Save Clergy Record');
+                    }
+                    return;
+                }
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting form...';
+                }
+                window.submitForm(form);
+            };
+
+            const handleValidationError = (error) => {
+                console.error('Status inheritance validation failed:', error);
+                const message = 'Unable to validate status inheritance. Please try again.';
+                if (typeof window.showNotification === 'function') {
+                    window.showNotification(message, 'error');
+                } else {
+                    alert(message);
+                }
+                if (submitBtn && typeof window.resetSubmitButton === 'function') {
+                    window.resetSubmitButton(submitBtn, submitBtn.dataset.originalHtml || 'Save Clergy Record');
+                }
+            };
+
             // Collect all bishop names that need to be checked
             const bishopNames = window.collectBishopNames(form);
             
@@ -297,12 +339,7 @@ window.resetSubmitButton = function(button, originalTextOrHTML) {
                     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating ' + bishopNames.length + ' bishop record' + (bishopNames.length > 1 ? 's' : '') + '...';
                 }
                 window.checkAndCreateBishops(bishopNames)
-                    .then(() => {
-                        if (submitBtn) {
-                            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting form...';
-                        }
-                        window.submitForm(form);
-                    })
+                    .then(() => runStatusInheritanceValidation().then(handleValidationResult).catch(handleValidationError))
                     .catch(error => {
                         console.error('🔄 Error creating bishops:', error);
                         alert(`Error creating missing bishops: ${error.message}\n\nPlease ensure all bishop names are correct and try again.`);
@@ -311,8 +348,9 @@ window.resetSubmitButton = function(button, originalTextOrHTML) {
                         }
                     });
             } else {
-                // No bishops to check, submit directly
-                window.submitForm(form);
+                runStatusInheritanceValidation()
+                    .then(handleValidationResult)
+                    .catch(handleValidationError);
             }
         }
     });

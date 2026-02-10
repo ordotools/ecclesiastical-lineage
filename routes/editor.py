@@ -28,6 +28,63 @@ class FormFields:
         self.cancel_url = None
 
 
+STATUS_PRIORITY = {
+    'invalid': 4,
+    'doubtfully_valid': 3,
+    'doubtful_event': 2,
+    'sub_conditione': 1,
+    'valid': 0
+}
+
+
+def _get_effective_status(record):
+    validity = 'valid'
+    if getattr(record, 'is_invalid', False):
+        validity = 'invalid'
+    elif getattr(record, 'is_doubtfully_valid', False):
+        validity = 'doubtfully_valid'
+
+    if validity == 'invalid':
+        return 'invalid'
+    if validity == 'doubtfully_valid':
+        return 'doubtfully_valid'
+    if getattr(record, 'is_doubtful_event', False):
+        return 'doubtful_event'
+    if getattr(record, 'is_sub_conditione', False):
+        return 'sub_conditione'
+    return 'valid'
+
+
+def _get_validity_value(record):
+    if getattr(record, 'is_invalid', False):
+        return 'invalid'
+    if getattr(record, 'is_doubtfully_valid', False):
+        return 'doubtfully_valid'
+    return 'valid'
+
+
+def _get_worst_status(statuses):
+    if not statuses:
+        return 'invalid'
+    worst = None
+    for status in statuses:
+        if worst is None or STATUS_PRIORITY.get(status, 0) > STATUS_PRIORITY.get(worst, 0):
+            worst = status
+    return worst or 'invalid'
+
+
+def _get_bishop_summary(bishop):
+    ordination_statuses = [_get_effective_status(ordination) for ordination in bishop.ordinations]
+    consecration_statuses = [_get_effective_status(consecration) for consecration in bishop.consecrations]
+    has_valid_ordination = any(status in ('valid', 'sub_conditione') for status in ordination_statuses)
+    has_valid_consecration = any(status in ('valid', 'sub_conditione') for status in consecration_statuses)
+    return {
+        'has_valid_ordination': has_valid_ordination,
+        'has_valid_consecration': has_valid_consecration,
+        'worst_ordination_status': _get_worst_status(ordination_statuses),
+        'worst_consecration_status': _get_worst_status(consecration_statuses)
+    }
+
 @editor_bp.route('/editor')
 @require_permission('edit_clergy')
 def editor():
@@ -62,16 +119,71 @@ def clergy_list_panel():
     except Exception as e:
         current_app.logger.warning(f"Could not load sprite sheet for clergy list: {e}")
 
+    clergy_list_data = []
+    bishop_ids = set()
+    for clergy in clergy_list:
+        ordinations_data = []
+        for ordination in clergy.ordinations:
+            if ordination.ordaining_bishop_id:
+                bishop_ids.add(ordination.ordaining_bishop_id)
+            ordinations_data.append({
+                'ordaining_bishop_id': ordination.ordaining_bishop_id,
+                'validity': _get_validity_value(ordination),
+                'is_sub_conditione': ordination.is_sub_conditione,
+                'is_doubtful_event': ordination.is_doubtful_event,
+                'is_invalid': ordination.is_invalid,
+                'is_doubtfully_valid': ordination.is_doubtfully_valid
+            })
+        consecrations_data = []
+        for consecration in clergy.consecrations:
+            if consecration.consecrator_id:
+                bishop_ids.add(consecration.consecrator_id)
+            consecrations_data.append({
+                'consecrator_id': consecration.consecrator_id,
+                'validity': _get_validity_value(consecration),
+                'is_sub_conditione': consecration.is_sub_conditione,
+                'is_doubtful_event': consecration.is_doubtful_event,
+                'is_invalid': consecration.is_invalid,
+                'is_doubtfully_valid': consecration.is_doubtfully_valid
+            })
+        clergy_list_data.append({
+            'id': clergy.id,
+            'ordinations': ordinations_data,
+            'consecrations': consecrations_data
+        })
+
+    bishop_validity_map = {}
+    if bishop_ids:
+        bishops = Clergy.query.options(
+            db.joinedload(Clergy.ordinations),
+            db.joinedload(Clergy.consecrations)
+        ).filter(Clergy.id.in_(bishop_ids)).all()
+        for bishop in bishops:
+            bishop_validity_map[bishop.id] = _get_bishop_summary(bishop)
+
     return render_template('editor_panels/clergy_list.html',
                          clergy_list=clergy_list,
                          organizations=organizations,
                          user=user,
                          sprite_sheet_data=sprite_sheet_data,
+                         clergy_list_data_json=json.dumps(clergy_list_data),
+                         bishop_validity_map_json=json.dumps(bishop_validity_map),
                          search='',
                          exclude_priests=False,
                          exclude_coconsecrators=False,
                          exclude_organizations=[],
                          show_deleted=False)
+
+
+@editor_bp.route('/api/bishop-validity/<int:bishop_id>')
+@require_permission('edit_clergy')
+def bishop_validity(bishop_id):
+    """Return validity summary for a bishop's ordinations and consecrations."""
+    bishop = Clergy.query.options(
+        db.joinedload(Clergy.ordinations),
+        db.joinedload(Clergy.consecrations)
+    ).filter(Clergy.id == bishop_id).first_or_404()
+    return jsonify(_get_bishop_summary(bishop))
 
 
 @editor_bp.route('/editor/chapel-list')

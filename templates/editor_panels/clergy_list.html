@@ -210,10 +210,28 @@
     </div>
 </div>
 
+<script type="application/json" id="clergy-list-data-json">{{ clergy_list_data_json|safe }}</script>
+<script type="application/json" id="bishop-validity-map-json">{{ bishop_validity_map_json|safe }}</script>
+
 <script>
 // Store all clergy data for client-side filtering
 if (typeof allClergyData === 'undefined') {
     var allClergyData = [];
+}
+
+let clergyListData = [];
+let bishopValidityMap = {};
+try {
+    const clergyDataEl = document.getElementById('clergy-list-data-json');
+    const bishopDataEl = document.getElementById('bishop-validity-map-json');
+    if (clergyDataEl) {
+        clergyListData = JSON.parse(clergyDataEl.textContent || '[]');
+    }
+    if (bishopDataEl) {
+        bishopValidityMap = JSON.parse(bishopDataEl.textContent || '{}');
+    }
+} catch (error) {
+    console.warn('Failed to parse status inheritance data', error);
 }
 
 // Initialize clergy data from DOM
@@ -541,6 +559,10 @@ function initializeClergyList() {
         setTimeout(() => {
             window.highlightClergyInList(window.currentSelectedClergyId);
         }, 100);
+    }
+
+    if (window.StatusInheritance && typeof window.StatusInheritance.flagClergyListWithViolations === 'function') {
+        window.StatusInheritance.flagClergyListWithViolations(clergyListData, bishopValidityMap);
     }
     
     console.log('Clergy list initialization complete');

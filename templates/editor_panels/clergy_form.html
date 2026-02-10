@@ -1656,6 +1656,7 @@ function initializeClergyAutocompleteDirect(input) {
                         const hiddenInput = input.parentElement.querySelector('input[type="hidden"]');
                         if (hiddenInput) {
                             hiddenInput.value = bishopId;
+                            hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
                         }
                         
                         dropdown.style.display = 'none';

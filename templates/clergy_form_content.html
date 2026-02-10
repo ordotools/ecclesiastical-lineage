@@ -529,7 +529,10 @@ function populateExistingOrdinations() {
             const bishopIdInput = ordinationEntry.querySelector('input[name*="[ordaining_bishop_id]"]');
             if (ordination.ordaining_bishop) {
                 if (bishopInput) bishopInput.value = ordination.ordaining_bishop.name;
-                if (bishopIdInput) bishopIdInput.value = ordination.ordaining_bishop.id;
+                if (bishopIdInput) {
+                    bishopIdInput.value = ordination.ordaining_bishop.id;
+                    bishopIdInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
             }
             
             // Populate checkboxes
@@ -634,7 +637,10 @@ function populateExistingConsecrations() {
             const consecratorIdInput = consecrationEntry.querySelector('input[name*="[consecrator_id]"]');
             if (consecration.consecrator) {
                 if (consecratorInput) consecratorInput.value = consecration.consecrator.name;
-                if (consecratorIdInput) consecratorIdInput.value = consecration.consecrator.id;
+                if (consecratorIdInput) {
+                    consecratorIdInput.value = consecration.consecrator.id;
+                    consecratorIdInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
             }
             
             // Populate co-consecrators
@@ -949,6 +955,9 @@ function addOrdination() {
         if (newInput) {
             initializeSingleClergyAutocomplete(newInput);
         }
+        if (window.StatusInheritance && typeof window.StatusInheritance.handleNewEntry === 'function') {
+            window.StatusInheritance.handleNewEntry(newOrdinationEntry, 'ordination');
+        }
     }
 }
 
@@ -1038,6 +1047,9 @@ function addConsecration() {
         }
         if (coConsecratorInput) {
             initializeSingleClergyAutocomplete(coConsecratorInput);
+        }
+        if (window.StatusInheritance && typeof window.StatusInheritance.handleNewEntry === 'function') {
+            window.StatusInheritance.handleNewEntry(newConsecrationEntry, 'consecration');
         }
     }
 }
@@ -1426,6 +1438,7 @@ function initializeSingleClergyAutocomplete(input) {
                         const hiddenInput = input.parentElement.querySelector('input[type="hidden"]');
                         if (hiddenInput) {
                             hiddenInput.value = bishopId;
+                            hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
                         }
                         
                         dropdown.style.display = 'none';

@@ -1432,6 +1432,23 @@ input:focus + .slider {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
+/* Style toggle: keep in bottom-left of panel. */
+#editor-graph-container #viz-style-toggle {
+  top: auto !important;
+  right: auto !important;
+  bottom: 12px !important;
+  left: 12px !important;
+}
+
+/* Reload button: upper-right corner of panel so it doesn’t cover the style toggle. */
+#editor-graph-container #viz-reload-btn {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  left: auto !important;
+  bottom: auto !important;
+}
+
 /* Button positioning handled by JavaScript when panel opens/closes */
 
 .viz-style-panel {

@@ -48,6 +48,8 @@ class EditorVisualization {
         this.svg = null;
         this.simulation = null;
         this.resizeObserver = null;
+        this.resizeDebounceTimer = null;
+        this.resizeDebounceMs = 180;
         this.nodesData = null;
         this.linksData = null;
         this.isInitialized = false;
@@ -158,14 +160,14 @@ class EditorVisualization {
             .style('position', 'relative')
             .style('z-index', '1');
         
-        // Create zoom behavior - matching lineage visualization
-        const zoom = d3.zoom()
-            .scaleExtent([0.01, 4])
+        // Create zoom behavior - matching lineage visualization (store for centerGraph)
+        this.zoom = d3.zoom()
+            .scaleExtent([0.5, 2])
             .on('zoom', (event) => {
                 this.g.attr('transform', event.transform);
             });
         
-        this.svg.call(zoom);
+        this.svg.call(this.zoom);
         
         // Create main group for zooming/panning
         this.g = this.svg.append('g').attr('class', 'viz-zoom-layer');
@@ -850,11 +852,6 @@ class EditorVisualization {
                 .attr('transform', d => `translate(${d.x},${d.y})`);
         });
         
-        // Center the graph initially
-        setTimeout(() => {
-            this.centerGraph();
-        }, 1000);
-        
         // Re-highlight selected clergy after visualization loads
         if (window.currentSelectedClergyId) {
             setTimeout(() => {
@@ -886,23 +883,22 @@ class EditorVisualization {
 
     handleResize(contentRect) {
         if (!this.isInitialized || !this.svg || !this.simulation) return;
-        
         const newWidth = contentRect.width;
         const newHeight = contentRect.height;
-        
-        // Update SVG dimensions
-        this.svg
-            .attr('width', newWidth)
-            .attr('height', newHeight);
-        
-        // Update simulation center and radial forces to match new container size
-        const RADIAL_RADIUS = 150;
-        const RADIAL_STRENGTH = 0.1;
-        this.simulation
-            .force('center', d3.forceCenter(newWidth / 2, newHeight / 2))
-            .force('radial', d3.forceRadial(RADIAL_RADIUS, newWidth / 2, newHeight / 2).strength(RADIAL_STRENGTH))
-            .alpha(0.3)
-            .restart();
+        if (newWidth === 0 || newHeight === 0) return;
+        if (this.resizeDebounceTimer) clearTimeout(this.resizeDebounceTimer);
+        this.resizeDebounceTimer = setTimeout(() => {
+            this.resizeDebounceTimer = null;
+            if (!this.svg || !this.simulation) return;
+            this.svg.attr('width', newWidth).attr('height', newHeight);
+            const RADIAL_RADIUS = 150;
+            const RADIAL_STRENGTH = 0.1;
+            this.simulation
+                .force('center', d3.forceCenter(newWidth / 2, newHeight / 2))
+                .force('radial', d3.forceRadial(RADIAL_RADIUS, newWidth / 2, newHeight / 2).strength(RADIAL_STRENGTH))
+                .alpha(0.3)
+                .restart();
+        }, this.resizeDebounceMs);
     }
 
     centerGraph() {
@@ -919,13 +915,10 @@ class EditorVisualization {
             .force('radial', d3.forceRadial(RADIAL_RADIUS, width / 2, height / 2).strength(RADIAL_STRENGTH));
         this.simulation.alpha(1).restart();
         
-        // Also center the view
-        setTimeout(() => {
-            this.svg.call(
-                d3.zoom().transform,
-                d3.zoomIdentity
-            );
-        }, 1000);
+        // Also center the view (use same zoom behavior instance)
+        if (this.zoom) {
+            this.svg.call(this.zoom.transform, d3.zoomIdentity);
+        }
     }
 
     handleNodeClick(event, d) {
@@ -1757,12 +1750,15 @@ class EditorVisualization {
     }
     
     cleanup() {
-        // Disconnect resize observer
+        if (this.resizeDebounceTimer) {
+            clearTimeout(this.resizeDebounceTimer);
+            this.resizeDebounceTimer = null;
+        }
         if (this.resizeObserver) {
             this.resizeObserver.disconnect();
             this.resizeObserver = null;
         }
-        
+        this.zoom = null;
         // Stop simulation
         if (this.simulation) {
             this.simulation.stop();

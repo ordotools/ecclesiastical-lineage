@@ -162,7 +162,20 @@
 }
 
 .form-content {
-    /* Container for form content */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.form-content form {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.form-content .form-body {
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 /* Dark theme form grid */
@@ -793,6 +806,10 @@ button:hover,
     margin-top: 2rem;
     padding-top: 2rem;
     border-top: 1px solid #dee2e6;
+    position: sticky;
+    bottom: 0;
+    background: #ffffff;
+    z-index: 10;
 }
 
 /* ===== ADMIN SECTION ===== */

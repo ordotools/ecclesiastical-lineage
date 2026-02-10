@@ -91,6 +91,10 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --status-bar-height: 32px;
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #2B2E32;
@@ -157,8 +161,8 @@
             grid-template-rows: 1fr minmax(200px, 500px);
             grid-template-areas:
                 "left-panel center-panel right-panel"
-                "left-panel bottom-panel bottom-panel";
-            height: calc(100vh - 32px);
+                "left-panel bottom-panel right-panel";
+            height: calc(100vh - var(--status-bar-height));
             gap: 1px;
             background: rgba(255, 255, 255, 0.1);
         }
@@ -384,9 +388,10 @@
             }
         }
 
-        /* Override form styles for the right panel */
+        /* Override form styles for the right panel - reserve space so sticky form-actions sit above status bar */
         .right-panel .panel-content {
             padding: 0.75em;
+            padding-bottom: calc(0.75em + var(--status-bar-height));
         }
 
         /* Make the clergy form fit nicely in the right panel */
@@ -619,7 +624,7 @@
             bottom: 0;
             left: 0;
             right: 0;
-            height: 32px;
+            height: var(--status-bar-height);
             background: #2B2E32;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
@@ -1199,85 +1204,91 @@
             
             // Update current selected clergy ID immediately
             window.currentSelectedClergyId = clergyId;
-            
-            selectClergyTimeout = setTimeout(() => {
-                console.log('Loading form for clergy:', clergyId);
-                
-                // Highlight clergy in list
-                highlightClergyInList(clergyId);
-                
-                // Highlight node in visualization
-                highlightClergyInVisualization(clergyId);
-                
-                // Find the right panel content element
-                const rightPanelContent = document.querySelector('.right-panel .panel-content');
-                if (!rightPanelContent) {
-                    console.error('Right panel content not found!');
-                    return;
-                }
-                
-                // CRITICAL: Clear the form container BEFORE HTMX request to prevent stale data flash
-                // Clear any existing form content immediately and show loading state
-                const existingForm = rightPanelContent.querySelector('#clergyForm');
-                if (existingForm) {
-                    console.log('selectClergy: Clearing existing form before loading new one...');
-                    // Clear ordinations and consecrations containers immediately
-                    const ordinationsContainer = rightPanelContent.querySelector('#ordinationsContainer');
-                    const consecrationsContainer = rightPanelContent.querySelector('#consecrationsContainer');
-                    if (ordinationsContainer) ordinationsContainer.innerHTML = '';
-                    if (consecrationsContainer) consecrationsContainer.innerHTML = '';
-                    
-                    // Clear sample entry inputs
-                    const ordinationInputs = existingForm.querySelectorAll('input[name*="ordinations[0]"], textarea[name*="ordinations[0]"]');
-                    ordinationInputs.forEach(input => {
-                        if (input.type === 'checkbox') input.checked = false;
-                        else input.value = '';
-                    });
-                    
-                    const consecrationInputs = existingForm.querySelectorAll('input[name*="consecrations[0]"], textarea[name*="consecrations[0]"]');
-                    consecrationInputs.forEach(input => {
-                        if (input.type === 'checkbox') input.checked = false;
-                        else input.value = '';
-                    });
-                } else {
-                    // No existing form - show loading placeholder to prevent flash of stale content
-                    rightPanelContent.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading form...</div>';
-                }
-                
-                // Load form content directly (skip intermediate template to avoid nested HTMX)
-                if (clergyId) {
-                    htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
-                        target: rightPanelContent,
-                        swap: 'innerHTML'
-                    }).then(() => {
-                        console.log('Form loaded for clergy:', clergyId);
-                        // NOTE: Do NOT clear form state here - the form has just been loaded with NEW data
-                        // Clearing was already done BEFORE the HTMX request
-                        // Re-highlight after form loads to ensure persistence
-                        highlightClergyInList(clergyId);
-                        highlightClergyInVisualization(clergyId);
-                    }).catch(error => {
-                        console.error('Error loading form:', error);
-                    });
-                } else {
-                    // Load empty form for adding new clergy
-                    htmx.ajax('GET', '/editor/clergy-form-content', {
-                        target: rightPanelContent,
-                        swap: 'innerHTML'
-                    }).then(() => {
-                        console.log('Empty form loaded');
-                        // NOTE: Do NOT clear form state here - the empty form is already clean
-                        // Clearing was already done BEFORE the HTMX request if there was an existing form
-                    }).catch(error => {
-                        console.error('Error loading empty form:', error);
-                    });
-                }
-            }, 50);
 
-            // Dispatch custom event for any other listeners
-            document.body.dispatchEvent(new CustomEvent('clergySeleced', {
-                detail: { clergyId: clergyId }
-            }));
+            // Return a Promise that resolves when the form swap completes (so callers can hide overlay after)
+            return new Promise((resolve, reject) => {
+                selectClergyTimeout = setTimeout(() => {
+                    console.log('Loading form for clergy:', clergyId);
+                    
+                    // Highlight clergy in list
+                    highlightClergyInList(clergyId);
+                    
+                    // Highlight node in visualization
+                    highlightClergyInVisualization(clergyId);
+                    
+                    // Find the right panel content element
+                    const rightPanelContent = document.querySelector('.right-panel .panel-content');
+                    if (!rightPanelContent) {
+                        console.error('Right panel content not found!');
+                        reject(new Error('Right panel content not found'));
+                        return;
+                    }
+                    
+                    // Preserve overlay: target form-content-loader when it exists (keeps #clergyFormContainer and #formSubmissionOverlay)
+                    const formContentLoader = document.querySelector('#clergyFormContainer .form-content-loader');
+                    
+                    if (formContentLoader) {
+                        // Container + overlay exist: only swap form content into the loader
+                        const existingForm = formContentLoader.querySelector('#clergyForm');
+                        if (existingForm) {
+                            const ordinationsContainer = formContentLoader.querySelector('#ordinationsContainer');
+                            const consecrationsContainer = formContentLoader.querySelector('#consecrationsContainer');
+                            if (ordinationsContainer) ordinationsContainer.innerHTML = '';
+                            if (consecrationsContainer) consecrationsContainer.innerHTML = '';
+                            const ordinationInputs = existingForm.querySelectorAll('input[name*="ordinations[0]"], textarea[name*="ordinations[0]"]');
+                            ordinationInputs.forEach(input => {
+                                if (input.type === 'checkbox') input.checked = false;
+                                else input.value = '';
+                            });
+                            const consecrationInputs = existingForm.querySelectorAll('input[name*="consecrations[0]"], textarea[name*="consecrations[0]"]');
+                            consecrationInputs.forEach(input => {
+                                if (input.type === 'checkbox') input.checked = false;
+                                else input.value = '';
+                            });
+                        }
+                        formContentLoader.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading form...</div>';
+                        
+                        const contentUrl = clergyId ? `/editor/clergy-form-content/${clergyId}` : '/editor/clergy-form-content';
+                        htmx.ajax('GET', contentUrl, {
+                            target: formContentLoader,
+                            swap: 'innerHTML'
+                        }).then(() => {
+                            console.log(clergyId ? 'Form loaded for clergy: ' + clergyId : 'Empty form loaded');
+                            if (clergyId) {
+                                highlightClergyInList(clergyId);
+                                highlightClergyInVisualization(clergyId);
+                            }
+                            resolve();
+                        }).catch(error => {
+                            console.error('Error loading form:', error);
+                            reject(error);
+                        });
+                    } else {
+                        // Fallback: clergyFormContainer missing (e.g. direct nav) — load full clergy-form first (includes overlay), then loader's hx-trigger="load" fetches form content
+                        rightPanelContent.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading form...</div>';
+                        const formPanelUrl = clergyId ? `/editor/clergy-form/${clergyId}` : '/editor/clergy-form';
+                        htmx.ajax('GET', formPanelUrl, {
+                            target: rightPanelContent,
+                            swap: 'innerHTML'
+                        }).then(() => {
+                            console.log('Clergy form panel loaded; form content will load via hx-trigger');
+                            if (clergyId) {
+                                highlightClergyInList(clergyId);
+                                highlightClergyInVisualization(clergyId);
+                            }
+                            resolve();
+                        }).catch(error => {
+                            console.error('Error loading clergy form panel:', error);
+                            reject(error);
+                        });
+                    }
+
+                    // Dispatch custom event for any other listeners
+                    document.body.dispatchEvent(new CustomEvent('clergySeleced', {
+                        detail: { clergyId: clergyId }
+                    }));
+                }, 50);
+            });
         }
         
         // Function to highlight clergy in the list

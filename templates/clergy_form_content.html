@@ -21,6 +21,7 @@
             <input type="hidden" name="context_clergy_id" value="{{ context_clergy_id }}">
             {% endif %}
             
+            <div class="form-body">
             <!-- Dynamic Form Layout with Explicit Grid Positioning -->
             <div class="form-container">
                 <!-- Main Form Grid: 2 columns, auto rows -->
@@ -240,6 +241,7 @@
                 {% endif %}
             </div>
             {% endif %}
+            </div><!-- .form-body -->
 
             <!-- Form Actions -->
             <div class="form-actions" style="display: flex; gap: 0.75em; justify-content: flex-end; margin-top: 1.5em; padding-top: 1em; border-top: 1px solid rgba(255, 255, 255, 0.15);">
@@ -248,7 +250,8 @@
                     <i class="fas fa-times" style="margin-right: 0.5em;"></i>Cancel
                 </a>
                 <button type="submit"
-                        style="padding: 0.6em 1.2em; border: 1px solid rgba(76, 175, 80, 0.4); background: rgba(76, 175, 80, 0.15); color: white; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 0.85em;">
+                        class="clergy-save-btn"
+                        style="padding: 0.6em 1.2em; border: 1px solid rgba(76, 175, 80, 0.4); background: rgba(76, 175, 80, 0.15); color: white; border-radius: 4px; font-weight: 500; font-size: 0.85em; cursor: pointer;">
                     <i class="fas fa-save" style="margin-right: 0.5em;"></i>{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}
                 </button>
             </div>

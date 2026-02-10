@@ -441,17 +441,30 @@
     background: rgba(255, 255, 255, 0.05);
 }
 
-/* Submit buttons area */
+/* Submit buttons area - sticky at bottom of panel scroll */
 .right-panel .form-actions {
     margin-top: 1em !important;
     padding-top: 0.75em !important;
     border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+    position: sticky !important;
+    bottom: 0 !important;
+    background: #1e2128 !important;
+    z-index: 10;
 }
 
 .right-panel .form-actions button,
 .right-panel .form-actions a {
     font-size: 0.85em !important;
     padding: 0.5em 1em !important;
+}
+
+/* Disabled save button - clear visual state */
+.right-panel .form-actions button[type="submit"]:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    background: rgba(76, 175, 80, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: rgba(255, 255, 255, 0.5) !important;
 }
 
 /* Form submission overlay */
@@ -743,19 +756,21 @@ function resetSubmitButton(button, originalText) {
 // Note: Overlay functions are now in clergy-form-overlay.js (loaded globally)
 // Use window.showFormSubmissionOverlay(), window.hideFormSubmissionOverlay(), window.updateFormSubmissionProgress()
 
-// Spritesheet polling functions
-let spritesheetPollingInterval = null;
+// Spritesheet polling functions (use window so inline script can run again on HTMX swap)
+if (typeof window.spritesheetPollingInterval === 'undefined') {
+    window.spritesheetPollingInterval = null;
+}
 
 function startSpritesheetPolling(clergyId) {
     // Clear any existing polling
-    if (spritesheetPollingInterval) {
-        clearInterval(spritesheetPollingInterval);
+    if (window.spritesheetPollingInterval) {
+        clearInterval(window.spritesheetPollingInterval);
     }
     
     let pollCount = 0;
     const maxPolls = 60; // Poll for up to 60 seconds (1 second intervals)
     
-    spritesheetPollingInterval = setInterval(() => {
+    window.spritesheetPollingInterval = setInterval(() => {
         pollCount++;
         
         fetch('/api/sprite-sheet-status')
@@ -763,8 +778,8 @@ function startSpritesheetPolling(clergyId) {
             .then(data => {
                 if (data.success && data.status === 'completed') {
                     // Spritesheet generation completed
-                    clearInterval(spritesheetPollingInterval);
-                    spritesheetPollingInterval = null;
+                    clearInterval(window.spritesheetPollingInterval);
+                    window.spritesheetPollingInterval = null;
                     
                     // Show success notification
                     if (typeof window.showNotification === 'function') {
@@ -776,8 +791,8 @@ function startSpritesheetPolling(clergyId) {
                     refreshClergyListImages(data);
                 } else if (data.success && data.status === 'error') {
                     // Error occurred
-                    clearInterval(spritesheetPollingInterval);
-                    spritesheetPollingInterval = null;
+                    clearInterval(window.spritesheetPollingInterval);
+                    window.spritesheetPollingInterval = null;
                     
                     console.error('Spritesheet generation error:', data.error);
                     if (typeof window.showNotification === 'function') {
@@ -793,8 +808,8 @@ function startSpritesheetPolling(clergyId) {
         
         // Stop polling after max attempts
         if (pollCount >= maxPolls) {
-            clearInterval(spritesheetPollingInterval);
-            spritesheetPollingInterval = null;
+            clearInterval(window.spritesheetPollingInterval);
+            window.spritesheetPollingInterval = null;
             console.warn('Spritesheet polling timeout - generation may still be in progress');
         }
     }, 1000); // Poll every second
@@ -1066,45 +1081,45 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
             
             if (data.success) {
                 // Success - soft refresh panels
-                
-                // Soft update clergy list
                 if (data.clergy_id) {
                     softUpdateClergyListItem(data.clergy_id);
                 }
                 
-                // Check if the record was marked for deletion
                 const markDeletedCheckbox = form.querySelector('input[name="mark_deleted"]');
                 const wasMarkedDeleted = markDeletedCheckbox && markDeletedCheckbox.checked;
                 
+                const hideOverlayAndResetButton = () => {
+                    if (typeof window.hideFormSubmissionOverlay === 'function') {
+                        window.hideFormSubmissionOverlay();
+                    }
+                    if (submitBtn) {
+                        const orig = (submitBtn.dataset && submitBtn.dataset.originalHtml) || originalText;
+                        if (typeof window.resetSubmitButton === 'function') {
+                            window.resetSubmitButton(submitBtn, orig);
+                        } else {
+                            submitBtn.innerHTML = orig;
+                            submitBtn.disabled = false;
+                        }
+                    }
+                };
+                
                 if (wasMarkedDeleted) {
-                    // Record was marked for deletion - clear form and switch to add mode
-                    clearFormForNewEntry();
+                    clearFormForNewEntry().then(hideOverlayAndResetButton).catch(hideOverlayAndResetButton);
                     showNotification('Record marked for deletion. Form cleared for new entry.', 'info');
                 } else if (data.clergy_id) {
-                    // Normal save - switch to edit mode and refresh the form
-                    switchToEditMode(data.clergy_id);
+                    switchToEditMode(data.clergy_id).then(hideOverlayAndResetButton).catch(hideOverlayAndResetButton);
                     showNotification('Clergy record saved successfully!', 'success');
-                    
-                    // Dispatch custom event for clergy update
                     document.body.dispatchEvent(new CustomEvent('clergyUpdated', {
-                        detail: { 
-                            clergyId: data.clergy_id,
-                            action: 'updated'
-                        }
+                        detail: { clergyId: data.clergy_id, action: 'updated' }
                     }));
                 } else {
-                    // Fallback - just show success message
+                    hideOverlayAndResetButton();
                     showNotification('Clergy record saved successfully!', 'success');
-                    
-                    // Dispatch custom event for clergy creation
                     document.body.dispatchEvent(new CustomEvent('clergyUpdated', {
-                        detail: { 
-                            action: 'created'
-                        }
+                        detail: { action: 'created' }
                     }));
                 }
                 
-                // Start polling for spritesheet completion if needed
                 if (data.clergy_id) {
                     startSpritesheetPolling(data.clergy_id);
                 }
@@ -1121,33 +1136,33 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
             } else {
                 showNotification('Error saving record: ' + error.message, 'error');
             }
-        })
-        .finally(() => {
-            // Hide overlay using global function
             if (typeof window.hideFormSubmissionOverlay === 'function') {
                 window.hideFormSubmissionOverlay();
             }
-            
-            // Reset button - check if submitBtn exists
             if (submitBtn) {
-                submitBtn.textContent = originalText;
-                submitBtn.disabled = false;
+                const orig = (submitBtn.dataset && submitBtn.dataset.originalHtml) || originalText;
+                if (typeof window.resetSubmitButton === 'function') {
+                    window.resetSubmitButton(submitBtn, orig);
+                } else {
+                    submitBtn.innerHTML = orig;
+                    submitBtn.disabled = false;
+                }
             }
         });
 }
 
 // HTMX event handling with form initialization
 document.body.addEventListener('htmx:afterSwap', function(evt) {
-    // Check if this is a clergy form related HTMX event
-    const isClergyFormContainer = evt.target.closest('#clergyFormContainer');
-    const isFormContentLoader = evt.target.classList.contains('form-content-loader');
-    const containsClergyForm = evt.target.querySelector('#clergyForm');
-    const isClergyForm = evt.target.id === 'clergyForm';
-    const isPanelContent = evt.target.classList.contains('panel-content');
+    // Use evt.detail.target for swap target (htmx.ajax), fallback to evt.target
+    const swapTarget = (evt.detail && evt.detail.target) || evt.target;
+    const isClergyFormContainer = swapTarget.closest('#clergyFormContainer');
+    const isFormContentLoader = swapTarget.classList && swapTarget.classList.contains('form-content-loader');
+    const containsClergyForm = swapTarget.querySelector && swapTarget.querySelector('#clergyForm');
+    const isClergyForm = swapTarget.id === 'clergyForm';
+    const isPanelContent = swapTarget.classList && swapTarget.classList.contains('panel-content');
     
     if (isClergyFormContainer || isFormContentLoader || containsClergyForm || isClergyForm || isPanelContent) {
-        // Double-check that we actually have a clergy form before initializing
-        const clergyForm = evt.target.querySelector('#clergyForm') || (evt.target.id === 'clergyForm' ? evt.target : null);
+        const clergyForm = swapTarget.querySelector('#clergyForm') || (swapTarget.id === 'clergyForm' ? swapTarget : null);
         if (!clergyForm) {
             return;
         }
@@ -1535,58 +1550,43 @@ function initializeDragDropForHTMX() {
     }
 }
 
-// Switch form to edit mode after saving a new clergy record
+// Switch form to edit mode after saving a new clergy record. Returns a Promise that resolves when the form swap completes.
 function switchToEditMode(clergyId) {
-    // Use the same mechanism as selecting a clergy member for editing
-    // This will trigger the proper HTMX request to load the edit form
     if (typeof window.selectClergy === 'function') {
-        window.selectClergy(clergyId);
-    } else {
-        console.error('selectClergy function not found, falling back to manual approach');
-        // Fallback: manually trigger the HTMX request (use direct content endpoint)
-        htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
-            target: '.right-panel .panel-content',
-            swap: 'innerHTML'
-        }).then(() => {
-            // Update selected clergy ID
-            window.currentSelectedClergyId = clergyId;
-            // Clear form state after load
-            if (typeof window.clearGlobalFormState === 'function') {
-                window.clearGlobalFormState();
-            }
-        });
+        return window.selectClergy(clergyId);
     }
+    console.error('selectClergy function not found, falling back to manual approach');
+    return htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
+        target: '.right-panel .panel-content',
+        swap: 'innerHTML'
+    }).then(() => {
+        window.currentSelectedClergyId = clergyId;
+        if (typeof window.clearGlobalFormState === 'function') {
+            window.clearGlobalFormState();
+        }
+    });
 }
 
-// Clear form and switch to add mode after deletion
+// Clear form and switch to add mode after deletion. Returns a Promise that resolves when the form swap completes.
 function clearFormForNewEntry() {
-    // Clear global form state first
     if (typeof window.clearGlobalFormState === 'function') {
         window.clearGlobalFormState();
     }
-    
-    // Clear highlights when clearing form
     if (typeof window.clearClergyHighlights === 'function') {
         window.clearClergyHighlights();
     }
-    
-    // Use the same mechanism as the "Add New Clergy" button
-    // This will trigger the proper HTMX request to load the empty form
     if (typeof window.selectClergy === 'function') {
-        window.selectClergy(null);
-    } else {
-        console.error('selectClergy function not found, falling back to manual approach');
-        // Fallback: manually trigger the HTMX request (use direct content endpoint)
-        htmx.ajax('GET', '/editor/clergy-form-content', {
-            target: '.right-panel .panel-content',
-            swap: 'innerHTML'
-        }).then(() => {
-            // Clear form state after load
-            if (typeof window.clearGlobalFormState === 'function') {
-                window.clearGlobalFormState();
-            }
-        });
+        return window.selectClergy(null);
     }
+    console.error('selectClergy function not found, falling back to manual approach');
+    return htmx.ajax('GET', '/editor/clergy-form-content', {
+        target: '.right-panel .panel-content',
+        swap: 'innerHTML'
+    }).then(() => {
+        if (typeof window.clearGlobalFormState === 'function') {
+            window.clearGlobalFormState();
+        }
+    });
 }
 
 // Simple instant refresh function

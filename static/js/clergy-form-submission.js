@@ -166,53 +166,53 @@ window.submitForm = function(form) {
             window.updateFormSubmissionProgress(90, 'Finalizing...');
         }
         if (data.success) {
-            // Show success message
+            if (typeof window.resetClergyFormDirtyState === 'function') {
+                window.resetClergyFormDirtyState();
+            }
             if (typeof window.showNotification === 'function') {
                 window.showNotification(data.message || 'Clergy record saved successfully!', 'success');
             } else {
                 alert(data.message || 'Clergy record saved successfully!');
             }
             
-            // Check if we're in editor context and use editor-specific handlers
             const isEditorContext = form.closest('#clergyFormContainer') || form.closest('.right-panel');
+            const hideOverlayAndReset = () => {
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn && typeof window.resetSubmitButton === 'function') {
+                    window.resetSubmitButton(submitBtn, submitBtn.dataset.originalHtml || 'Save Clergy Record');
+                }
+                if (typeof window.hideFormSubmissionOverlay === 'function') {
+                    window.hideFormSubmissionOverlay();
+                }
+            };
             
             if (isEditorContext && typeof window.submitFormWithData === 'function') {
-                // Editor-specific handling: use the editor's submission handler for soft updates
-                // But we've already submitted, so just handle the success response
                 if (data.clergy_id && typeof window.softUpdateClergyListItem === 'function') {
                     window.softUpdateClergyListItem(data.clergy_id);
                 }
                 
-                // Check if the record was marked for deletion
                 const markDeletedCheckbox = form.querySelector('input[name="mark_deleted"]');
                 const wasMarkedDeleted = markDeletedCheckbox && markDeletedCheckbox.checked;
                 
-                if (wasMarkedDeleted) {
-                    // Record was marked for deletion - clear form and switch to add mode
-                    if (typeof window.clearFormForNewEntry === 'function') {
-                        window.clearFormForNewEntry();
-                    }
+                if (wasMarkedDeleted && typeof window.clearFormForNewEntry === 'function') {
+                    window.clearFormForNewEntry().then(hideOverlayAndReset).catch(hideOverlayAndReset);
                 } else if (data.clergy_id && typeof window.switchToEditMode === 'function') {
-                    // Normal save - switch to edit mode and refresh the form
-                    window.switchToEditMode(data.clergy_id);
+                    window.switchToEditMode(data.clergy_id).then(hideOverlayAndReset).catch(hideOverlayAndReset);
+                } else {
+                    hideOverlayAndReset();
                 }
                 
-                // Start polling for spritesheet completion if needed
                 if (data.clergy_id && typeof window.startSpritesheetPolling === 'function') {
                     window.startSpritesheetPolling(data.clergy_id);
                 }
             } else {
-                // Non-editor context: use standard form clearing
                 setTimeout(() => {
                     if (typeof window.clearFormCompletely === 'function') {
                         window.clearFormCompletely();
                     }
-                    
-                    // Trigger "add new" event - reload form in add mode
                     if (typeof window.clearFormForNewEntry === 'function') {
                         window.clearFormForNewEntry();
                     } else if (typeof htmx !== 'undefined') {
-                        // Fallback: reload form via HTMX
                         const formContainer = form.closest('#clergyFormContainer') || form.closest('.modal-body');
                         if (formContainer) {
                             htmx.ajax('GET', form.action.replace(/\/edit\/\d+/, '').replace(/\/add/, '') || '/clergy/add', {
@@ -222,20 +222,18 @@ window.submitForm = function(form) {
                         }
                     }
                 }, 500);
+                hideOverlayAndReset();
             }
             
-            // Close the modal if it exists
             const modal = bootstrap?.Modal?.getInstance(document.getElementById('clergyFormModal'));
             if (modal) {
                 setTimeout(() => {
                     modal.hide();
-                    // Notify UI system that modal is closed
                     if (typeof window.setModalState === 'function') {
                         window.setModalState(false);
                     }
                 }, 1000);
             } else if (data.redirect) {
-                // Only redirect if not in modal
                 setTimeout(() => {
                     window.location.href = data.redirect;
                 }, 1000);
@@ -253,19 +251,21 @@ window.submitForm = function(form) {
         }
         const submitBtn = form.querySelector('button[type="submit"]');
         if (submitBtn && typeof window.resetSubmitButton === 'function') {
-            window.resetSubmitButton(submitBtn, 'Save Clergy Record');
+            window.resetSubmitButton(submitBtn, submitBtn.dataset.originalHtml || 'Save Clergy Record');
         }
-    })
-    .finally(() => {
-        // Hide overlay
         if (typeof window.hideFormSubmissionOverlay === 'function') {
             window.hideFormSubmissionOverlay();
         }
+    })
     });
 };
 
-window.resetSubmitButton = function(button, originalText) {
-    button.textContent = originalText;
+window.resetSubmitButton = function(button, originalTextOrHTML) {
+    if (originalTextOrHTML && originalTextOrHTML.includes('<')) {
+        button.innerHTML = originalTextOrHTML;
+    } else {
+        button.textContent = originalTextOrHTML || 'Save Clergy Record';
+    }
     button.disabled = false;
 };
 
@@ -282,11 +282,10 @@ window.resetSubmitButton = function(button, originalText) {
             
             const form = e.target;
             
-            // Show loading state
             const submitBtn = form.querySelector('button[type="submit"]');
-            const originalText = submitBtn ? submitBtn.textContent : 'Save';
             if (submitBtn) {
-                submitBtn.textContent = 'Processing...';
+                submitBtn.dataset.originalHtml = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
                 submitBtn.disabled = true;
             }
 
@@ -294,26 +293,21 @@ window.resetSubmitButton = function(button, originalText) {
             const bishopNames = window.collectBishopNames(form);
             
             if (bishopNames.length > 0) {
-                // Show user feedback about bishop creation
                 if (submitBtn) {
-                    submitBtn.textContent = `Creating ${bishopNames.length} bishop record${bishopNames.length > 1 ? 's' : ''}...`;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating ' + bishopNames.length + ' bishop record' + (bishopNames.length > 1 ? 's' : '') + '...';
                 }
-                
-                // Check and create missing bishops
                 window.checkAndCreateBishops(bishopNames)
                     .then(() => {
-                        // Update button text for final submission
                         if (submitBtn) {
-                            submitBtn.textContent = 'Submitting form...';
+                            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting form...';
                         }
-                        // Submit the form after bishops are created
                         window.submitForm(form);
                     })
                     .catch(error => {
                         console.error('🔄 Error creating bishops:', error);
                         alert(`Error creating missing bishops: ${error.message}\n\nPlease ensure all bishop names are correct and try again.`);
                         if (submitBtn && typeof window.resetSubmitButton === 'function') {
-                            window.resetSubmitButton(submitBtn, originalText);
+                            window.resetSubmitButton(submitBtn, submitBtn.dataset.originalHtml || 'Save Clergy Record');
                         }
                     });
             } else {

@@ -1,7 +1,82 @@
 /**
  * Clergy Form State Management
  * Handles clearing form state when switching between clergy members
+ * and dirty-state tracking (disable save until form has changes)
  */
+
+// --- Dirty State Tracking ---
+
+function getFormState(form) {
+    if (!form) return '';
+    const parts = [];
+    form.querySelectorAll('input, select, textarea').forEach(el => {
+        if (!el.name || el.type === 'hidden') return;
+        if (el.type === 'checkbox' || el.type === 'radio') {
+            parts.push(el.name + '=' + (el.checked ? el.value : '__unchecked__'));
+        } else {
+            parts.push(el.name + '=' + (el.value || ''));
+        }
+    });
+    return parts.sort().join('|');
+}
+
+function isFormDirty(form) {
+    if (!form || !form._dirtyInitialState) return false;
+    return getFormState(form) !== form._dirtyInitialState;
+}
+
+function setSaveButtonEnabled(form, enabled) {
+    const btn = form ? form.querySelector('button[type="submit"]') : null;
+    if (btn) btn.disabled = !enabled;
+}
+
+function attachDirtyListeners(form) {
+    if (!form || form._dirtyListenersAttached) return;
+    form._dirtyListenersAttached = true;
+
+    const checkDirty = () => {
+        if (isFormDirty(form)) setSaveButtonEnabled(form, true);
+    };
+    form._dirtyCheck = checkDirty;
+
+    // MutationObserver for dynamic ordination/consecration rows
+    const ord = document.getElementById('ordinationsContainer');
+    const con = document.getElementById('consecrationsContainer');
+    const ob = new MutationObserver(checkDirty);
+    if (ord) ob.observe(ord, { childList: true, subtree: true });
+    if (con) ob.observe(con, { childList: true, subtree: true });
+}
+
+// Event delegation: single listener on document catches all input/change (works with HTMX-swapped forms)
+function initDirtyDelegation() {
+    if (window._dirtyDelegationInit) return;
+    window._dirtyDelegationInit = true;
+    const handler = (e) => {
+        const form = e.target.closest('#clergyForm');
+        if (form && typeof form._dirtyCheck === 'function') form._dirtyCheck();
+    };
+    document.addEventListener('input', handler, true);
+    document.addEventListener('change', handler, true);
+}
+
+window.initClergyFormDirtyState = function() {
+    initDirtyDelegation();
+    const form = document.getElementById('clergyForm');
+    if (!form) return;
+
+    form._dirtyInitialState = getFormState(form);
+    // Keep button enabled so form can submit; dirty detection can enable if it was disabled
+    setSaveButtonEnabled(form, true);
+    attachDirtyListeners(form);
+};
+
+window.resetClergyFormDirtyState = function() {
+    const form = document.getElementById('clergyForm');
+    if (!form) return;
+
+    form._dirtyInitialState = getFormState(form);
+    setSaveButtonEnabled(form, true);
+};
 
 // Function to clear form state - idempotent, safe to call multiple times
 window.clearFormState = function() {

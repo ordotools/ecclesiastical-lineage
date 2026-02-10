@@ -408,6 +408,7 @@ class VisualizationStyleController {
     
     applyStylesToVisualization() {
         if (!this.styles || !window.editorVisualization) return;
+        if (!window.editorVisualization.isInitialized) return;
         
         // Update CSS variables for any CSS-based styling
         this.updateCSSVariables();

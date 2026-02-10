@@ -441,21 +441,31 @@
     background: rgba(255, 255, 255, 0.05);
 }
 
-/* Submit buttons area - sticky at bottom of panel scroll */
+/* Submit buttons area - sticky at bottom of panel scroll; background from editor-styles.css */
 .right-panel .form-actions {
     margin-top: 1em !important;
     padding-top: 0.75em !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-top: 1px solid var(--editor-border-color-medium) !important;
     position: sticky !important;
     bottom: 0 !important;
-    background: #1e2128 !important;
     z-index: 10;
+    overflow: visible !important;
 }
 
 .right-panel .form-actions button,
 .right-panel .form-actions a {
     font-size: 0.85em !important;
     padding: 0.5em 1em !important;
+}
+
+/* Prevent save button label from clipping (ensure full "Save Clergy Record" is visible) */
+.right-panel .form-actions button[type="submit"],
+.right-panel .form-actions .clergy-save-btn {
+    overflow: visible !important;
+    white-space: nowrap !important;
+    min-width: 0 !important;
+    flex-shrink: 0 !important;
+    color: rgba(255, 255, 255, 1) !important;
 }
 
 /* Disabled save button - clear visual state */

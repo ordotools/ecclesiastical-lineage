@@ -507,13 +507,11 @@ function initializeClergyList() {
     initializeClergyData();
     console.log('Clergy data initialized:', allClergyData.length, 'items');
     
-    // Debug: Check if audit logs tab exists
+    // Debug: Check if audit logs tab exists and is still in the DOM (avoid HTMX insertBefore on detached nodes)
     const auditLogsTab = document.getElementById('clergy-audit-logs-content');
-    console.log('🔍 Audit logs tab exists:', !!auditLogsTab);
-    if (auditLogsTab) {
-        console.log('🔍 Audit logs tab content:', auditLogsTab.innerHTML.substring(0, 100) + '...');
-        
-        // Try to load audit logs content manually
+    const auditTabInDom = auditLogsTab && document.contains(auditLogsTab);
+    console.log('🔍 Audit logs tab exists:', !!auditLogsTab, 'in DOM:', !!auditTabInDom);
+    if (auditTabInDom) {
         console.log('🔍 Attempting to load audit logs content manually...');
         try {
             htmx.ajax('GET', '/editor/audit-logs', {

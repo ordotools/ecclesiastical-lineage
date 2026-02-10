@@ -812,6 +812,41 @@ button:hover,
     z-index: 10;
 }
 
+/* Editor right panel: form-actions match panel; canonical background in editor-styles.css */
+.right-panel .form-actions {
+    margin-top: 1em;
+    padding-top: 0.75em;
+    border-top: 1px solid var(--editor-border-color-medium);
+    background: var(--editor-bg-panel);
+}
+
+.right-panel .form-actions .btn-cancel,
+.right-panel .form-actions a#cancel-btn {
+    padding: 0.5em 1em;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    font-size: 0.85em;
+}
+
+.right-panel .form-actions .clergy-save-btn {
+    padding: 0.5em 1em;
+    border: 1px solid rgba(76, 175, 80, 0.4);
+    background: rgba(76, 175, 80, 0.25);
+    color: #fff;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 0.85em;
+    cursor: pointer;
+}
+
+.right-panel .form-actions .clergy-save-btn i,
+.right-panel .form-actions .btn-cancel i {
+    margin-right: 0.5em;
+}
+
 /* ===== ADMIN SECTION ===== */
 .admin-section {
     background: #fff3cd;

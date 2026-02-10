@@ -256,7 +256,6 @@ window.submitForm = function(form) {
         if (typeof window.hideFormSubmissionOverlay === 'function') {
             window.hideFormSubmissionOverlay();
         }
-    })
     });
 };
 

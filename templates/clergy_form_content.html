@@ -244,15 +244,12 @@
             </div><!-- .form-body -->
 
             <!-- Form Actions -->
-            <div class="form-actions" style="display: flex; gap: 0.75em; justify-content: flex-end; margin-top: 1.5em; padding-top: 1em; border-top: 1px solid rgba(255, 255, 255, 0.15);">
-                <a href="{{ url_for('clergy.clergy_list') }}" id="cancel-btn"
-                   style="padding: 0.6em 1.2em; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); border-radius: 4px; cursor: pointer; font-weight: 400; color: rgba(255, 255, 255, 0.8); text-decoration: none; display: inline-block; font-size: 0.85em;">
-                    <i class="fas fa-times" style="margin-right: 0.5em;"></i>Cancel
+            <div class="form-actions">
+                <a href="{{ url_for('clergy.clergy_list') }}" id="cancel-btn" class="btn-cancel">
+                    <i class="fas fa-times"></i> Cancel
                 </a>
-                <button type="submit"
-                        class="clergy-save-btn"
-                        style="padding: 0.6em 1.2em; border: 1px solid rgba(76, 175, 80, 0.4); background: rgba(76, 175, 80, 0.15); color: white; border-radius: 4px; font-weight: 500; font-size: 0.85em; cursor: pointer;">
-                    <i class="fas fa-save" style="margin-right: 0.5em;"></i>{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}
+                <button type="submit" class="clergy-save-btn">
+                    <i class="fas fa-save"></i> {% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}
                 </button>
             </div>
     </form>

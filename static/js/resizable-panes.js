@@ -85,6 +85,7 @@ class ResizablePanes {
         document.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         document.addEventListener('mouseup', () => this.handleMouseUp());
+        window.addEventListener('editor-bottom-panel-expanded', () => this.updateHandlePositions());
         
         // Prevent text selection during resize
         document.addEventListener('selectstart', (e) => {
@@ -129,8 +130,11 @@ class ResizablePanes {
 
     handleVerticalResize(e, container) {
         const deltaX = e.clientX - this.startX;
-        const containerWidth = container.offsetWidth;
-        
+        const bottomPanel = document.querySelector('.bottom-panel');
+        const bottomHeight = container.classList.contains('bottom-panel-collapsed')
+            ? 40
+            : (bottomPanel ? bottomPanel.offsetHeight : 0);
+
         if (this.currentResizer.id === 'left-resizer') {
             // Resizing between left and center panels
             const newLeftWidth = Math.max(200, Math.min(600, this.startLeftWidth + deltaX));
@@ -144,12 +148,8 @@ class ResizablePanes {
             // Move the left resizer handle
             this.currentResizer.style.left = `${newLeftWidth}px`;
             
-            // Ensure handle height is correct based on bottom panel
-            const bottomPanel = document.querySelector('.bottom-panel');
-            if (bottomPanel) {
-                const newHeight = container.offsetHeight - bottomPanel.offsetHeight;
-                this.currentResizer.style.height = `${newHeight}px`;
-            }
+            const newHeight = container.offsetHeight - bottomHeight;
+            this.currentResizer.style.height = `${newHeight}px`;
             
             // Update bottom resizer position and width to match new left panel width
             const bottomResizer = document.getElementById('bottom-resizer');
@@ -171,12 +171,8 @@ class ResizablePanes {
             // Move the right resizer handle
             this.currentResizer.style.right = `${newRightWidth}px`;
             
-            // Ensure handle height is correct based on bottom panel
-            const bottomPanel = document.querySelector('.bottom-panel');
-            if (bottomPanel) {
-                const newHeight = container.offsetHeight - bottomPanel.offsetHeight;
-                this.currentResizer.style.height = `${newHeight}px`;
-            }
+            const newHeight = container.offsetHeight - bottomHeight;
+            this.currentResizer.style.height = `${newHeight}px`;
             
             // Update bottom resizer width to account for new right panel width
             const bottomResizer = document.getElementById('bottom-resizer');
@@ -229,32 +225,35 @@ class ResizablePanes {
     }
 
     storeInitialDimensions() {
-        // Get actual current panel dimensions
         const leftPanel = document.querySelector('.left-panel');
         const rightPanel = document.querySelector('.right-panel');
         const bottomPanel = document.querySelector('.bottom-panel');
+        const container = document.querySelector('.editor-container');
         
-        if (!leftPanel || !rightPanel || !bottomPanel) return;
+        if (!leftPanel || !rightPanel || !bottomPanel || !container) return;
         
-        // Store actual current dimensions
         this.startLeftWidth = leftPanel.offsetWidth;
         this.startRightWidth = rightPanel.offsetWidth;
-        this.startBottomHeight = bottomPanel.offsetHeight;
+        this.startBottomHeight = container.classList.contains('bottom-panel-collapsed')
+            ? 40
+            : bottomPanel.offsetHeight;
     }
 
     saveLayout() {
-        // Save actual panel dimensions
         const leftPanel = document.querySelector('.left-panel');
         const rightPanel = document.querySelector('.right-panel');
         const bottomPanel = document.querySelector('.bottom-panel');
+        const container = document.querySelector('.editor-container');
         
-        if (!leftPanel || !rightPanel || !bottomPanel) return;
+        if (!leftPanel || !rightPanel || !bottomPanel || !container) return;
         
-        const layout = {
-            leftWidth: leftPanel.offsetWidth,
-            rightWidth: rightPanel.offsetWidth,
-            bottomHeight: bottomPanel.offsetHeight
-        };
+        const layout = JSON.parse(localStorage.getItem('editorLayout') || '{}');
+        layout.leftWidth = leftPanel.offsetWidth;
+        layout.rightWidth = rightPanel.offsetWidth;
+        // When collapsed, keep last expanded height for next expand
+        if (!container.classList.contains('bottom-panel-collapsed')) {
+            layout.bottomHeight = bottomPanel.offsetHeight;
+        }
         
         localStorage.setItem('editorLayout', JSON.stringify(layout));
     }
@@ -268,15 +267,21 @@ class ResizablePanes {
             const container = document.querySelector('.editor-container');
             
             if (container) {
+                const collapsed = container.classList.contains('bottom-panel-collapsed');
                 // Handle new format (dimensions)
-                if (layout.leftWidth && layout.rightWidth && layout.bottomHeight) {
+                if (layout.leftWidth && layout.rightWidth) {
                     container.style.gridTemplateColumns = `${layout.leftWidth}px 1fr ${layout.rightWidth}px`;
-                    container.style.gridTemplateRows = `1fr ${layout.bottomHeight}px`;
+                    // Only restore bottom row when not collapsed (start with strip)
+                    if (!collapsed && layout.bottomHeight) {
+                        container.style.gridTemplateRows = `1fr ${layout.bottomHeight}px`;
+                    }
                 }
                 // Handle old format (CSS strings) - backward compatibility
                 else if (layout.gridTemplateColumns && layout.gridTemplateRows) {
                     container.style.gridTemplateColumns = layout.gridTemplateColumns;
-                    container.style.gridTemplateRows = layout.gridTemplateRows;
+                    if (!collapsed) {
+                        container.style.gridTemplateRows = layout.gridTemplateRows;
+                    }
                 }
                 
                 // Update handle positions after layout is applied
@@ -293,7 +298,6 @@ class ResizablePanes {
         const container = document.querySelector('.editor-container');
         if (!container) return;
         
-        // Get actual computed dimensions from the grid
         const leftPanel = document.querySelector('.left-panel');
         const rightPanel = document.querySelector('.right-panel');
         const bottomPanel = document.querySelector('.bottom-panel');
@@ -302,27 +306,25 @@ class ResizablePanes {
         
         const leftWidth = leftPanel.offsetWidth;
         const rightWidth = rightPanel.offsetWidth;
-        const bottomHeight = bottomPanel.offsetHeight;
+        const collapsed = container.classList.contains('bottom-panel-collapsed');
+        const bottomHeight = collapsed ? 40 : bottomPanel.offsetHeight;
+        const verticalHeight = container.offsetHeight - bottomHeight;
         
-        // Update handle positions
         const leftResizer = document.getElementById('left-resizer');
         const rightResizer = document.getElementById('right-resizer');
         const bottomResizer = document.getElementById('bottom-resizer');
         
         if (leftResizer) {
             leftResizer.style.left = `${leftWidth}px`;
-            leftResizer.style.height = `${container.offsetHeight - bottomHeight}px`;
+            leftResizer.style.height = `${verticalHeight}px`;
         }
         
         if (rightResizer) {
             rightResizer.style.right = `${rightWidth}px`;
-            rightResizer.style.height = `${container.offsetHeight - bottomHeight}px`;
+            rightResizer.style.height = `${verticalHeight}px`;
         }
         
-        if (bottomResizer) {
-            // Position the bottom resizer at the top of the bottom panel (above the tab bar)
-            const bottomTabs = document.querySelector('.bottom-tabs');
-            const tabBarHeight = bottomTabs ? bottomTabs.offsetHeight : 0;
+        if (bottomResizer && !collapsed) {
             bottomResizer.style.top = `${container.offsetHeight - bottomHeight}px`;
             bottomResizer.style.left = `${leftWidth}px`;
             bottomResizer.style.width = `${container.offsetWidth - leftWidth}px`;

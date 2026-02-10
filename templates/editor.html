@@ -163,6 +163,24 @@
             background: rgba(255, 255, 255, 0.1);
         }
 
+        /* Bottom panel collapsed: short strip by default */
+        .editor-container.bottom-panel-collapsed {
+            grid-template-rows: 1fr 40px;
+        }
+
+        .editor-container.bottom-panel-collapsed .bottom-panel .bottom-tab-content {
+            display: none !important;
+        }
+
+        .editor-container.bottom-panel-collapsed .bottom-tabs {
+            flex-wrap: nowrap;
+            flex-shrink: 0;
+        }
+
+        .editor-container.bottom-panel-collapsed #bottom-resizer {
+            display: none !important;
+        }
+
         .panel {
             background: #2B2E32;
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -277,8 +295,28 @@
         /* Bottom panel tabs */
         .bottom-tabs {
             display: flex;
+            align-items: center;
             background: rgba(255, 255, 255, 0.05);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #bottom-panel-toggle {
+            margin-left: auto;
+            padding: 0.35em 0.75em;
+            font-size: 0.8em;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            gap: 0.35em;
+            flex-shrink: 0;
+        }
+
+        #bottom-panel-toggle:hover {
+            background: rgba(255, 255, 255, 0.15);
         }
 
         .bottom-tab {
@@ -373,6 +411,9 @@
                 grid-template-columns: minmax(150px, 300px) 1fr minmax(200px, 400px);
                 grid-template-rows: 1fr minmax(150px, 400px);
             }
+            .editor-container.bottom-panel-collapsed {
+                grid-template-rows: 1fr 40px;
+            }
         }
 
         @media (max-width: 768px) {
@@ -384,6 +425,9 @@
                     "left-panel"
                     "right-panel"
                     "bottom-panel";
+            }
+            .editor-container.bottom-panel-collapsed {
+                grid-template-rows: 200px 1fr 300px 40px;
             }
         }
 
@@ -845,7 +889,7 @@
         </div>
     </div>
 
-    <div class="editor-container">
+    <div class="editor-container bottom-panel-collapsed">
         <!-- Left Panel: Clergy List -->
         <div class="panel left-panel">
             <div class="panel-header">
@@ -910,6 +954,10 @@
                     <i class="fas fa-user-cog"></i>
                     Settings
                 </button>
+                <button type="button" id="bottom-panel-toggle" aria-expanded="false" aria-controls="statistics-content events-content settings-content" title="Expand bottom panel">
+                    <i class="fas fa-chevron-up"></i>
+                    <span>Expand</span>
+                </button>
             </div>
 
             <div class="bottom-tab-content active" id="statistics-content" hx-get="/editor/statistics" hx-trigger="load"
@@ -939,10 +987,15 @@
     </div>
 
     <script>
-        // Bottom panel tab switching functionality
+        // Bottom panel tab switching and expand/collapse
+        const BOTTOM_STRIP_HEIGHT = 40;
+        const DEFAULT_EXPANDED_HEIGHT = 250;
+
         document.addEventListener('DOMContentLoaded', function () {
             const bottomTabs = document.querySelectorAll('.bottom-tab');
             const bottomTabContents = document.querySelectorAll('.bottom-tab-content');
+            const container = document.querySelector('.editor-container');
+            const toggleBtn = document.getElementById('bottom-panel-toggle');
 
             bottomTabs.forEach(tab => {
                 tab.addEventListener('click', function () {
@@ -963,6 +1016,49 @@
                         }
                     }
                 });
+            });
+
+            function getEditorLayout() {
+                try {
+                    const raw = localStorage.getItem('editorLayout');
+                    return raw ? JSON.parse(raw) : {};
+                } catch (_) {
+                    return {};
+                }
+            }
+
+            function saveBottomHeight(height) {
+                const layout = getEditorLayout();
+                layout.bottomHeight = height;
+                localStorage.setItem('editorLayout', JSON.stringify(layout));
+            }
+
+            toggleBtn.addEventListener('click', function () {
+                const isCollapsed = container.classList.contains('bottom-panel-collapsed');
+                if (isCollapsed) {
+                    container.classList.remove('bottom-panel-collapsed');
+                    const layout = getEditorLayout();
+                    const h = Math.max(150, Math.min(500, layout.bottomHeight || DEFAULT_EXPANDED_HEIGHT));
+                    container.style.gridTemplateRows = `1fr ${h}px`;
+                    toggleBtn.setAttribute('aria-expanded', 'true');
+                    toggleBtn.setAttribute('title', 'Collapse bottom panel');
+                    toggleBtn.querySelector('i').className = 'fas fa-chevron-down';
+                    toggleBtn.querySelector('span').textContent = 'Collapse';
+                    requestAnimationFrame(function () {
+                        window.dispatchEvent(new CustomEvent('editor-bottom-panel-expanded'));
+                    });
+                } else {
+                    const bottomPanel = document.querySelector('.bottom-panel');
+                    if (bottomPanel && bottomPanel.offsetHeight > BOTTOM_STRIP_HEIGHT) {
+                        saveBottomHeight(bottomPanel.offsetHeight);
+                    }
+                    container.classList.add('bottom-panel-collapsed');
+                    container.style.gridTemplateRows = '';
+                    toggleBtn.setAttribute('aria-expanded', 'false');
+                    toggleBtn.setAttribute('title', 'Expand bottom panel');
+                    toggleBtn.querySelector('i').className = 'fas fa-chevron-up';
+                    toggleBtn.querySelector('span').textContent = 'Expand';
+                }
             });
         });
 

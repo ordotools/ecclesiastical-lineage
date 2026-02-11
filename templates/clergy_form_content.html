@@ -493,6 +493,8 @@ function populateExistingOrdinations() {
         {
             id: {{ ordination.id }},
             date: {{ ordination.date.strftime('%Y-%m-%d')|tojson if ordination.date else 'null' }},
+            date_unknown: {{ (ordination.date is none)|lower }},
+            year: {{ ordination.year|tojson if ordination.year else 'null' }},
             is_sub_conditione: {{ ordination.is_sub_conditione|lower }},
             is_doubtfully_valid: {{ ordination.is_doubtfully_valid|lower }},
             is_doubtful_event: {{ ordination.is_doubtful_event|lower }},
@@ -515,10 +517,17 @@ function populateExistingOrdinations() {
         addOrdination();
         const ordinationEntry = container.lastElementChild;
         if (ordinationEntry) {
-            // Populate date
-            const dateInput = ordinationEntry.querySelector('input[name*="[date]"]');
-            if (dateInput && ordination.date) {
-                dateInput.value = ordination.date;
+            // Populate date / date unknown
+            const dateBlock = ordinationEntry.querySelector('.ordination-date-block');
+            if (dateBlock) {
+                if (ordination.date_unknown) {
+                    window.toggleDateUnknown && window.toggleDateUnknown(dateBlock, true);
+                    const yearInput = dateBlock.querySelector('input[name*="[year]"]');
+                    if (yearInput && ordination.year) yearInput.value = ordination.year;
+                } else {
+                    const dateInput = dateBlock.querySelector('input[name*="[date]"]');
+                    if (dateInput && ordination.date) dateInput.value = ordination.date;
+                }
             }
             
             // Populate ordaining bishop
@@ -592,6 +601,8 @@ function populateExistingConsecrations() {
         {
             id: {{ consecration.id }},
             date: {{ consecration.date.strftime('%Y-%m-%d')|tojson if consecration.date else 'null' }},
+            date_unknown: {{ (consecration.date is none)|lower }},
+            year: {{ consecration.year|tojson if consecration.year else 'null' }},
             is_sub_conditione: {{ consecration.is_sub_conditione|lower }},
             is_doubtfully_valid: {{ consecration.is_doubtfully_valid|lower }},
             is_doubtful_event: {{ consecration.is_doubtful_event|lower }},
@@ -623,10 +634,17 @@ function populateExistingConsecrations() {
         addConsecration();
         const consecrationEntry = container.lastElementChild;
         if (consecrationEntry) {
-            // Populate date
-            const dateInput = consecrationEntry.querySelector('input[name*="[date]"]');
-            if (dateInput && consecration.date) {
-                dateInput.value = consecration.date;
+            // Populate date / date unknown
+            const dateBlock = consecrationEntry.querySelector('.consecration-date-block');
+            if (dateBlock) {
+                if (consecration.date_unknown) {
+                    window.toggleDateUnknown && window.toggleDateUnknown(dateBlock, true);
+                    const yearInput = dateBlock.querySelector('input[name*="[year]"]');
+                    if (yearInput && consecration.year) yearInput.value = consecration.year;
+                } else {
+                    const dateInput = dateBlock.querySelector('input[name*="[date]"]');
+                    if (dateInput && consecration.date) dateInput.value = consecration.date;
+                }
             }
             
             // Populate consecrator
@@ -894,9 +912,17 @@ function addOrdination() {
     const ordinationHtml = `
         <div class="ordination-entry" style="border-left: 3px solid rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.03); padding: 1em; margin-bottom: 1em; border-radius: 0 4px 4px 0;">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75em; margin-bottom: 0.75em;">
-                <div>
+                <div class="ordination-date-block">
                     <label style="display: block; margin-bottom: 0.25em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Date</label>
-                    <input type="date" name="ordinations[${ordinationCount}][date]" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                    <div class="date-input-wrapper">
+                        <input type="date" name="ordinations[${ordinationCount}][date]" class="ordination-date-input" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                    </div>
+                    <div class="date-unknown-wrapper" style="display: none;">
+                        <input type="hidden" name="ordinations[${ordinationCount}][date_unknown]" value="">
+                        <input type="number" name="ordinations[${ordinationCount}][year]" placeholder="Year (optional)" min="1" max="9999" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                    </div>
+                    <a href="#" class="date-unknown-link" style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6); margin-top: 0.25em; display: inline-block;">date unknown</a>
+                    <a href="#" class="specify-date-link" style="display: none; font-size: 0.75em; color: rgba(255, 255, 255, 0.6); margin-top: 0.25em;">specify date</a>
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 0.25em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Ordaining Bishop</label>
@@ -966,9 +992,17 @@ function addConsecration() {
     const consecrationHtml = `
         <div class="consecration-entry" style="border-left: 3px solid rgba(46, 175, 80, 0.3); background: rgba(46, 175, 80, 0.03); padding: 1em; margin-bottom: 1em; border-radius: 0 4px 4px 0;">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75em; margin-bottom: 0.75em;">
-                <div>
+                <div class="consecration-date-block">
                     <label style="display: block; margin-bottom: 0.25em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Date</label>
-                    <input type="date" name="consecrations[${consecrationCount}][date]" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                    <div class="date-input-wrapper">
+                        <input type="date" name="consecrations[${consecrationCount}][date]" class="consecration-date-input" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                    </div>
+                    <div class="date-unknown-wrapper" style="display: none;">
+                        <input type="hidden" name="consecrations[${consecrationCount}][date_unknown]" value="">
+                        <input type="number" name="consecrations[${consecrationCount}][year]" placeholder="Year (optional)" min="1" max="9999" style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+                    </div>
+                    <a href="#" class="date-unknown-link" style="font-size: 0.75em; color: rgba(255, 255, 255, 0.6); margin-top: 0.25em; display: inline-block;">date unknown</a>
+                    <a href="#" class="specify-date-link" style="display: none; font-size: 0.75em; color: rgba(255, 255, 255, 0.6); margin-top: 0.25em;">specify date</a>
                 </div>
                 <div>
                     <label style="display: block; margin-bottom: 0.25em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Consecrator</label>
@@ -1048,6 +1082,33 @@ function addConsecration() {
         if (window.StatusInheritance && typeof window.StatusInheritance.handleNewEntry === 'function') {
             window.StatusInheritance.handleNewEntry(newConsecrationEntry, 'consecration');
         }
+    }
+}
+
+function toggleDateUnknown(block, isUnknown) {
+    const dateWrapper = block.querySelector('.date-input-wrapper');
+    const unknownWrapper = block.querySelector('.date-unknown-wrapper');
+    const dateLink = block.querySelector('.date-unknown-link');
+    const specifyLink = block.querySelector('.specify-date-link');
+    const dateInput = block.querySelector('input[type="date"]');
+    const hiddenInput = block.querySelector('input[name*="[date_unknown]"]');
+    const yearInput = block.querySelector('input[name*="[year]"]');
+    if (isUnknown) {
+        dateWrapper.style.display = 'none';
+        unknownWrapper.style.display = 'block';
+        dateLink.style.display = 'none';
+        specifyLink.style.display = 'inline-block';
+        if (dateInput) { dateInput.value = ''; dateInput.removeAttribute('required'); }
+        if (hiddenInput) hiddenInput.value = '1';
+        if (yearInput) yearInput.value = yearInput.value || '';
+    } else {
+        dateWrapper.style.display = 'block';
+        unknownWrapper.style.display = 'none';
+        dateLink.style.display = 'inline-block';
+        specifyLink.style.display = 'none';
+        if (dateInput) dateInput.setAttribute('required', 'required');
+        if (hiddenInput) hiddenInput.value = '';
+        if (yearInput) yearInput.value = '';
     }
 }
 
@@ -1137,6 +1198,18 @@ if (!window.clergyFormEventListenersAttached) {
             if (entry) {
                 entry.remove();
             }
+        }
+        if (e.target && e.target.classList.contains('date-unknown-link')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const block = e.target.closest('.ordination-date-block, .consecration-date-block');
+            if (block) toggleDateUnknown(block, true);
+        }
+        if (e.target && e.target.classList.contains('specify-date-link')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const block = e.target.closest('.ordination-date-block, .consecration-date-block');
+            if (block) toggleDateUnknown(block, false);
         }
         
         // Image upload functionality
@@ -1358,6 +1431,7 @@ if (!window.clergyFormEventListenersAttached) {
     window.addOrdination = addOrdination;
     window.addConsecration = addConsecration;
     window.addCoConsecrator = addCoConsecrator;
+    window.toggleDateUnknown = toggleDateUnknown;
     
     // Make initialization function globally available
     window.initializeFormFromRank = initializeFormFromRank;

@@ -229,38 +229,51 @@ def create_ordinations_from_form(clergy, form):
     
     # Create ordination records
     for index, data in ordinations_data.items():
-        if data.get('date'):  # Only create if date is provided
-            ordination = Ordination()
-            ordination.clergy_id = clergy.id
-            ordination.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
-            ordination.is_sub_conditione = data.get('is_sub_conditione') == 'on'
-            ordination.is_doubtful_event = data.get('is_doubtful_event') == 'on'
-            
-            # Handle validity dropdown
-            validity = data.get('validity', 'valid')
-            ordination.is_doubtfully_valid = (validity == 'doubtfully_valid')
-            ordination.is_invalid = (validity == 'invalid')
-            
-            ordination.notes = data.get('notes', '')
-            
-            # Handle ordaining bishop
-            ordaining_bishop_id = data.get('ordaining_bishop_id')
-            ordaining_bishop_input = data.get('ordaining_bishop_input')
-            if ordaining_bishop_id and ordaining_bishop_id != 'None':
-                ordination.ordaining_bishop_id = int(ordaining_bishop_id)
-            elif ordaining_bishop_input:
-                # Check if bishop exists by name
-                existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
-                if existing:
-                    ordination.ordaining_bishop_id = existing.id
-                else:
-                    # Auto-create missing ordaining bishop
-                    new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
-                    db.session.add(new_bishop)
-                    db.session.flush()
-                    ordination.ordaining_bishop_id = new_bishop.id
-            
-            db.session.add(ordination)
+        date_val = (data.get('date') or '').strip()
+        date_unknown = data.get('date_unknown') in ('1', 'true', 'on')
+        year_val = (data.get('year') or '').strip()
+        if not date_val and not date_unknown:
+            continue
+        ordination = Ordination()
+        ordination.clergy_id = clergy.id
+        if date_val:
+            ordination.date = datetime.strptime(date_val, '%Y-%m-%d').date()
+            ordination.year = None
+        else:
+            ordination.date = None
+            try:
+                ordination.year = int(year_val) if year_val else None
+            except (ValueError, TypeError):
+                ordination.year = None
+        
+        ordination.is_sub_conditione = data.get('is_sub_conditione') == 'on'
+        ordination.is_doubtful_event = data.get('is_doubtful_event') == 'on'
+        
+        # Handle validity dropdown
+        validity = data.get('validity', 'valid')
+        ordination.is_doubtfully_valid = (validity == 'doubtfully_valid')
+        ordination.is_invalid = (validity == 'invalid')
+        
+        ordination.notes = data.get('notes', '')
+        
+        # Handle ordaining bishop
+        ordaining_bishop_id = data.get('ordaining_bishop_id')
+        ordaining_bishop_input = data.get('ordaining_bishop_input')
+        if ordaining_bishop_id and ordaining_bishop_id != 'None':
+            ordination.ordaining_bishop_id = int(ordaining_bishop_id)
+        elif ordaining_bishop_input:
+            # Check if bishop exists by name
+            existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
+            if existing:
+                ordination.ordaining_bishop_id = existing.id
+            else:
+                # Auto-create missing ordaining bishop
+                new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
+                db.session.add(new_bishop)
+                db.session.flush()
+                ordination.ordaining_bishop_id = new_bishop.id
+        
+        db.session.add(ordination)
 
 def create_consecrations_from_form(clergy, form):
     """Create consecration records from form data"""
@@ -299,61 +312,74 @@ def create_consecrations_from_form(clergy, form):
     
     # Create consecration records
     for index, data in consecrations_data.items():
-        if data.get('date'):  # Only create if date is provided
-            consecration = Consecration()
-            consecration.clergy_id = clergy.id
-            consecration.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
-            consecration.is_sub_conditione = data.get('is_sub_conditione') == 'on'
-            consecration.is_doubtful_event = data.get('is_doubtful_event') == 'on'
-            
-            # Handle validity dropdown
-            validity = data.get('validity', 'valid')
-            consecration.is_doubtfully_valid = (validity == 'doubtfully_valid')
-            consecration.is_invalid = (validity == 'invalid')
-            
-            consecration.notes = data.get('notes', '')
-            
-            # Handle consecrator
-            consecrator_id = data.get('consecrator_id')
-            consecrator_input = data.get('consecrator_input')
-            if consecrator_id and consecrator_id != 'None':
-                consecration.consecrator_id = int(consecrator_id)
-            elif consecrator_input:
+        date_val = (data.get('date') or '').strip()
+        date_unknown = data.get('date_unknown') in ('1', 'true', 'on')
+        year_val = (data.get('year') or '').strip()
+        if not date_val and not date_unknown:
+            continue
+        consecration = Consecration()
+        consecration.clergy_id = clergy.id
+        if date_val:
+            consecration.date = datetime.strptime(date_val, '%Y-%m-%d').date()
+            consecration.year = None
+        else:
+            consecration.date = None
+            try:
+                consecration.year = int(year_val) if year_val else None
+            except (ValueError, TypeError):
+                consecration.year = None
+        
+        consecration.is_sub_conditione = data.get('is_sub_conditione') == 'on'
+        consecration.is_doubtful_event = data.get('is_doubtful_event') == 'on'
+        
+        # Handle validity dropdown
+        validity = data.get('validity', 'valid')
+        consecration.is_doubtfully_valid = (validity == 'doubtfully_valid')
+        consecration.is_invalid = (validity == 'invalid')
+        
+        consecration.notes = data.get('notes', '')
+        
+        # Handle consecrator
+        consecrator_id = data.get('consecrator_id')
+        consecrator_input = data.get('consecrator_input')
+        if consecrator_id and consecrator_id != 'None':
+            consecration.consecrator_id = int(consecrator_id)
+        elif consecrator_input:
+            # Check if bishop exists by name
+            existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
+            if existing:
+                consecration.consecrator_id = existing.id
+            else:
+                # Auto-create missing consecrator
+                new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
+                db.session.add(new_bishop)
+                db.session.flush()
+                consecration.consecrator_id = new_bishop.id
+        
+        db.session.add(consecration)
+        db.session.flush()  # Get the ID for co-consecrators
+        
+        # Handle co-consecrators
+        co_consecrators_data = data.get('co_consecrators', {})
+        for co_index, co_data in co_consecrators_data.items():
+            co_consecrator_id = co_data.get('id')
+            co_consecrator_input = co_data.get('input')
+            if co_consecrator_id and co_consecrator_id != 'None':
+                # Add to many-to-many relationship
+                co_consecrator = Clergy.query.get(int(co_consecrator_id))
+                if co_consecrator:
+                    consecration.co_consecrators.append(co_consecrator)
+            elif co_consecrator_input:
                 # Check if bishop exists by name
-                existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
+                existing = Clergy.query.filter_by(name=co_consecrator_input.strip()).first()
                 if existing:
-                    consecration.consecrator_id = existing.id
+                    consecration.co_consecrators.append(existing)
                 else:
-                    # Auto-create missing consecrator
-                    new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
+                    # Auto-create missing co-consecrator
+                    new_bishop = Clergy(name=co_consecrator_input.strip(), rank='Bishop')
                     db.session.add(new_bishop)
                     db.session.flush()
-                    consecration.consecrator_id = new_bishop.id
-            
-            db.session.add(consecration)
-            db.session.flush()  # Get the ID for co-consecrators
-            
-            # Handle co-consecrators
-            co_consecrators_data = data.get('co_consecrators', {})
-            for co_index, co_data in co_consecrators_data.items():
-                co_consecrator_id = co_data.get('id')
-                co_consecrator_input = co_data.get('input')
-                if co_consecrator_id and co_consecrator_id != 'None':
-                    # Add to many-to-many relationship
-                    co_consecrator = Clergy.query.get(int(co_consecrator_id))
-                    if co_consecrator:
-                        consecration.co_consecrators.append(co_consecrator)
-                elif co_consecrator_input:
-                    # Check if bishop exists by name
-                    existing = Clergy.query.filter_by(name=co_consecrator_input.strip()).first()
-                    if existing:
-                        consecration.co_consecrators.append(existing)
-                    else:
-                        # Auto-create missing co-consecrator
-                        new_bishop = Clergy(name=co_consecrator_input.strip(), rank='Bishop')
-                        db.session.add(new_bishop)
-                        db.session.flush()
-                        consecration.co_consecrators.append(new_bishop)
+                    consecration.co_consecrators.append(new_bishop)
 
 def update_ordinations_from_form(clergy, form):
     """Update ordination records from form data (for editing)"""

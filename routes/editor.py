@@ -128,6 +128,9 @@ def clergy_list_panel():
                 bishop_ids.add(ordination.ordaining_bishop_id)
             ordinations_data.append({
                 'ordaining_bishop_id': ordination.ordaining_bishop_id,
+                'date': ordination.date.isoformat() if ordination.date else None,
+                'date_unknown': ordination.date is None,
+                'year': ordination.year,
                 'validity': _get_validity_value(ordination),
                 'is_sub_conditione': ordination.is_sub_conditione,
                 'is_doubtful_event': ordination.is_doubtful_event,
@@ -140,6 +143,9 @@ def clergy_list_panel():
                 bishop_ids.add(consecration.consecrator_id)
             consecrations_data.append({
                 'consecrator_id': consecration.consecrator_id,
+                'date': consecration.date.isoformat() if consecration.date else None,
+                'date_unknown': consecration.date is None,
+                'year': consecration.year,
                 'validity': _get_validity_value(consecration),
                 'is_sub_conditione': consecration.is_sub_conditione,
                 'is_doubtful_event': consecration.is_doubtful_event,
@@ -275,7 +281,7 @@ def visualization_panel():
                         'target': clergy.id,
                         'type': 'ordination',
                         'color': BLACK_COLOR,
-                        'date': ordination.date.isoformat() if ordination.date else None,
+                        'date': ordination.display_date,
                         'is_sub_conditione': ordination.is_sub_conditione,
                         'is_doubtfully_valid': ordination.is_doubtfully_valid,
                         'is_doubtful_event': ordination.is_doubtful_event,
@@ -290,7 +296,7 @@ def visualization_panel():
                         'target': clergy.id,
                         'type': 'consecration',
                         'color': GREEN_COLOR,
-                        'date': consecration.date.isoformat() if consecration.date else None,
+                        'date': consecration.display_date,
                         'is_sub_conditione': consecration.is_sub_conditione,
                         'is_doubtfully_valid': consecration.is_doubtfully_valid,
                         'is_doubtful_event': consecration.is_doubtful_event,

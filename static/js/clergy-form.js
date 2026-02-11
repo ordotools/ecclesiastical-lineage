@@ -82,6 +82,49 @@ window.ClergyForm.setupEventListeners = function() {
     
     // Image upload functionality
     this.setupImageUpload();
+    
+    // Date unknown toggle (delegation)
+    const form = document.getElementById('clergyForm');
+    if (form) {
+        form.addEventListener('click', (e) => {
+            if (e.target.classList.contains('date-unknown-link')) {
+                e.preventDefault();
+                const block = e.target.closest('.ordination-date-block, .consecration-date-block');
+                if (block) this.toggleDateUnknown(block, true);
+            } else if (e.target.classList.contains('specify-date-link')) {
+                e.preventDefault();
+                const block = e.target.closest('.ordination-date-block, .consecration-date-block');
+                if (block) this.toggleDateUnknown(block, false);
+            }
+        });
+    }
+};
+
+window.ClergyForm.toggleDateUnknown = function(block, isUnknown) {
+    const dateWrapper = block.querySelector('.date-input-wrapper');
+    const unknownWrapper = block.querySelector('.date-unknown-wrapper');
+    const dateLink = block.querySelector('.date-unknown-link');
+    const specifyLink = block.querySelector('.specify-date-link');
+    const dateInput = block.querySelector('input[type="date"]');
+    const hiddenInput = block.querySelector('input[name*="[date_unknown]"]');
+    const yearInput = block.querySelector('input[name*="[year]"]');
+    if (isUnknown) {
+        dateWrapper.style.display = 'none';
+        unknownWrapper.style.display = 'block';
+        dateLink.style.display = 'none';
+        specifyLink.style.display = 'inline-block';
+        if (dateInput) { dateInput.value = ''; dateInput.removeAttribute('required'); }
+        if (hiddenInput) hiddenInput.value = '1';
+        if (yearInput) yearInput.value = yearInput.value || '';
+    } else {
+        dateWrapper.style.display = 'block';
+        unknownWrapper.style.display = 'none';
+        dateLink.style.display = 'inline-block';
+        specifyLink.style.display = 'none';
+        if (dateInput) dateInput.setAttribute('required', 'required');
+        if (hiddenInput) hiddenInput.value = '';
+        if (yearInput) yearInput.value = '';
+    }
 };
 
 window.ClergyForm.initializeExistingData = function() {
@@ -155,9 +198,17 @@ window.ClergyForm.addOrdinationSection = function() {
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-6 ordination-date-block">
                             <label class="form-label">Date of Ordination *</label>
-                            <input type="date" class="form-control" name="ordinations[${this.counters.ordinationCounter}][date]" required>
+                            <div class="date-input-wrapper">
+                                <input type="date" class="form-control" name="ordinations[${this.counters.ordinationCounter}][date]" required>
+                            </div>
+                            <div class="date-unknown-wrapper" style="display: none;">
+                                <input type="hidden" name="ordinations[${this.counters.ordinationCounter}][date_unknown]" value="">
+                                <input type="number" class="form-control" name="ordinations[${this.counters.ordinationCounter}][year]" placeholder="Year (optional)" min="1" max="9999">
+                            </div>
+                            <a href="#" class="date-unknown-link" style="font-size: 0.8em; margin-top: 0.25em; display: inline-block;">date unknown</a>
+                            <a href="#" class="specify-date-link" style="display: none; font-size: 0.8em; margin-top: 0.25em;">specify date</a>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Ordaining Bishop</label>
@@ -224,9 +275,17 @@ window.ClergyForm.addConsecrationSection = function() {
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-6 consecration-date-block">
                             <label class="form-label">Date of Consecration *</label>
-                            <input type="date" class="form-control" name="consecrations[${this.counters.consecrationCounter}][date]" required>
+                            <div class="date-input-wrapper">
+                                <input type="date" class="form-control" name="consecrations[${this.counters.consecrationCounter}][date]" required>
+                            </div>
+                            <div class="date-unknown-wrapper" style="display: none;">
+                                <input type="hidden" name="consecrations[${this.counters.consecrationCounter}][date_unknown]" value="">
+                                <input type="number" class="form-control" name="consecrations[${this.counters.consecrationCounter}][year]" placeholder="Year (optional)" min="1" max="9999">
+                            </div>
+                            <a href="#" class="date-unknown-link" style="font-size: 0.8em; margin-top: 0.25em; display: inline-block;">date unknown</a>
+                            <a href="#" class="specify-date-link" style="display: none; font-size: 0.8em; margin-top: 0.25em;">specify date</a>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Consecrator</label>
@@ -646,7 +705,8 @@ window.ClergyForm.prefillOrdinationData = function(clergyData) {
             
             if (ordinationSectionItem) {
                 // Pre-fill ordination fields
-                const dateInput = ordinationSectionItem.querySelector('input[name$="[date]"]');
+                const dateBlock = ordinationSectionItem.querySelector('.ordination-date-block');
+                const dateInput = dateBlock ? dateBlock.querySelector('input[name$="[date]"]') : null;
                 const subConditioneInput = ordinationSectionItem.querySelector('input[name$="[is_sub_conditione]"]');
                 const doubtfulEventInput = ordinationSectionItem.querySelector('input[name$="[is_doubtful_event]"]');
                 const validitySelect = ordinationSectionItem.querySelector('select[name$="[validity]"]');
@@ -654,8 +714,14 @@ window.ClergyForm.prefillOrdinationData = function(clergyData) {
                 const bishopInput = ordinationSectionItem.querySelector('input[name$="[ordaining_bishop_input]"]');
                 const bishopIdInput = ordinationSectionItem.querySelector('input[name$="[ordaining_bishop_id]"]');
                 
-                if (dateInput && ordination.date) {
-                    dateInput.value = ordination.date;
+                if (dateBlock) {
+                    if (ordination.date_unknown) {
+                        this.toggleDateUnknown(dateBlock, true);
+                        const yearInput = dateBlock.querySelector('input[name$="[year]"]');
+                        if (yearInput && ordination.year) yearInput.value = ordination.year;
+                    } else if (dateInput && ordination.date) {
+                        dateInput.value = ordination.date;
+                    }
                 }
                 if (subConditioneInput) {
                     subConditioneInput.checked = ordination.is_sub_conditione || false;
@@ -717,7 +783,8 @@ window.ClergyForm.prefillConsecrationData = function(clergyData) {
         
         if (consecrationSectionItem) {
             // Pre-fill consecration fields
-            const dateInput = consecrationSectionItem.querySelector('input[name$="[date]"]');
+            const dateBlock = consecrationSectionItem.querySelector('.consecration-date-block');
+            const dateInput = dateBlock ? dateBlock.querySelector('input[name$="[date]"]') : null;
             const subConditioneInput = consecrationSectionItem.querySelector('input[name$="[is_sub_conditione]"]');
             const doubtfulEventInput = consecrationSectionItem.querySelector('input[name$="[is_doubtful_event]"]');
             const validitySelect = consecrationSectionItem.querySelector('select[name$="[validity]"]');
@@ -725,8 +792,14 @@ window.ClergyForm.prefillConsecrationData = function(clergyData) {
             const consecratorInput = consecrationSectionItem.querySelector('input[name$="[consecrator_input]"]');
             const consecratorIdInput = consecrationSectionItem.querySelector('input[name$="[consecrator_id]"]');
             
-            if (dateInput && consecration.date) {
-                dateInput.value = consecration.date;
+            if (dateBlock) {
+                if (consecration.date_unknown) {
+                    this.toggleDateUnknown(dateBlock, true);
+                    const yearInput = dateBlock.querySelector('input[name$="[year]"]');
+                    if (yearInput && consecration.year) yearInput.value = consecration.year;
+                } else if (dateInput && consecration.date) {
+                    dateInput.value = consecration.date;
+                }
             }
             if (subConditioneInput) {
                 subConditioneInput.checked = consecration.is_sub_conditione || false;

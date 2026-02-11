@@ -135,7 +135,7 @@ class Clergy(db.Model):
         
         # Check if they were already a bishop on that date
         # Check new consecrations table for valid consecrations before the date
-        valid_consecrations = [c for c in self.consecrations if c.date <= date and not c.is_invalid]
+        valid_consecrations = [c for c in self.consecrations if c.date and c.date <= date and not c.is_invalid]
         if valid_consecrations:
             return True
         
@@ -156,12 +156,16 @@ class Clergy(db.Model):
         return None
 
     def get_all_ordinations(self):
-        """Get all ordinations ordered by date."""
-        return sorted(self.ordinations, key=lambda x: x.date)
+        """Get all ordinations ordered by date (or year when date is null)."""
+        def _key(o):
+            return (0, o.date) if o.date else (1, o.year or 0)
+        return sorted(self.ordinations, key=_key)
 
     def get_all_consecrations(self):
-        """Get all consecrations ordered by date."""
-        return sorted(self.consecrations, key=lambda x: x.date)
+        """Get all consecrations ordered by date (or year when date is null)."""
+        def _key(c):
+            return (0, c.date) if c.date else (1, c.year or 0)
+        return sorted(self.consecrations, key=_key)
 
     def __repr__(self):
         return f'<Clergy {self.name}>'
@@ -260,7 +264,8 @@ class Status(db.Model):
 class Ordination(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False)
-    date = db.Column(db.Date, nullable=False)
+    date = db.Column(db.Date, nullable=True)
+    year = db.Column(db.Integer, nullable=True)
     ordaining_bishop_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=True)
     is_sub_conditione = db.Column(db.Boolean, default=False, nullable=False)
     is_doubtfully_valid = db.Column(db.Boolean, default=False, nullable=False)
@@ -273,14 +278,24 @@ class Ordination(db.Model):
     # Relationships
     clergy = db.relationship('Clergy', foreign_keys=[clergy_id], backref='ordinations')
     ordaining_bishop = db.relationship('Clergy', foreign_keys=[ordaining_bishop_id], backref='ordinations_performed')
-    
+
+    @property
+    def display_date(self):
+        """For templates/APIs: date string, year, or 'Date unknown'."""
+        if self.date:
+            return self.date.strftime('%Y-%m-%d')
+        if self.year:
+            return str(self.year)
+        return 'Date unknown'
+
     def __repr__(self):
-        return f'<Ordination {self.clergy.name if self.clergy else self.clergy_id} on {self.date}>'
+        return f'<Ordination {self.clergy.name if self.clergy else self.clergy_id} on {self.display_date}>'
 
 class Consecration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False)
-    date = db.Column(db.Date, nullable=False)
+    date = db.Column(db.Date, nullable=True)
+    year = db.Column(db.Integer, nullable=True)
     consecrator_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=True)
     is_sub_conditione = db.Column(db.Boolean, default=False, nullable=False)
     is_doubtfully_valid = db.Column(db.Boolean, default=False, nullable=False)
@@ -294,9 +309,18 @@ class Consecration(db.Model):
     clergy = db.relationship('Clergy', foreign_keys=[clergy_id], backref='consecrations')
     consecrator = db.relationship('Clergy', foreign_keys=[consecrator_id], backref='consecrations_performed')
     co_consecrators = db.relationship('Clergy', secondary=co_consecrators, backref='co_consecrations_performed')
-    
+
+    @property
+    def display_date(self):
+        """For templates/APIs: date string, year, or 'Date unknown'."""
+        if self.date:
+            return self.date.strftime('%Y-%m-%d')
+        if self.year:
+            return str(self.year)
+        return 'Date unknown'
+
     def __repr__(self):
-        return f'<Consecration {self.clergy.name if self.clergy else self.clergy_id} on {self.date}>'
+        return f'<Consecration {self.clergy.name if self.clergy else self.clergy_id} on {self.display_date}>'
 
 class ClergyEvent(db.Model):
     __tablename__ = 'clergy_events'

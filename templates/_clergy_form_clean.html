@@ -20,6 +20,8 @@ window.ClergyFormConfig = {
             {
                 id: {{ ordination.id }},
                 date: "{{ ordination.date.strftime('%Y-%m-%d') if ordination.date else '' }}",
+                date_unknown: {{ (ordination.date is none)|lower }},
+                year: {{ ordination.year|tojson if ordination.year else 'null' }},
                 is_sub_conditione: {{ ordination.is_sub_conditione|lower }},
                 is_doubtfully_valid: {{ ordination.is_doubtfully_valid|lower }},
                 is_doubtful_event: {{ ordination.is_doubtful_event|lower }},
@@ -37,6 +39,8 @@ window.ClergyFormConfig = {
             {
                 id: {{ consecration.id }},
                 date: "{{ consecration.date.strftime('%Y-%m-%d') if consecration.date else '' }}",
+                date_unknown: {{ (consecration.date is none)|lower }},
+                year: {{ consecration.year|tojson if consecration.year else 'null' }},
                 is_sub_conditione: {{ consecration.is_sub_conditione|lower }},
                 is_doubtfully_valid: {{ consecration.is_doubtfully_valid|lower }},
                 is_doubtful_event: {{ consecration.is_doubtful_event|lower }},

@@ -96,17 +96,17 @@ def get_lineage_data():
             ordination_date = None
             po = clergy.get_primary_ordination()
             if po:
-                ordination_date = po.date.strftime('%Y-%m-%d') if po.date else None
+                ordination_date = po.display_date
             elif clergy.ordinations:
-                fo = sorted(clergy.ordinations, key=lambda x: x.date)[0]
-                ordination_date = fo.date.strftime('%Y-%m-%d') if fo.date else None
+                fo = clergy.get_all_ordinations()[0]
+                ordination_date = fo.display_date
             consecration_date = None
             pc = clergy.get_primary_consecration()
             if pc:
-                consecration_date = pc.date.strftime('%Y-%m-%d') if pc.date else None
+                consecration_date = pc.display_date
             elif clergy.consecrations:
-                fc = sorted(clergy.consecrations, key=lambda x: x.date)[0]
-                consecration_date = fc.date.strftime('%Y-%m-%d') if fc.date else None
+                fc = clergy.get_all_consecrations()[0]
+                consecration_date = fc.display_date
             nodes.append({
                 'id': clergy.id,
                 'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
@@ -128,7 +128,7 @@ def get_lineage_data():
                 if ordination.ordaining_bishop:
                     links.append({
                         'source': ordination.ordaining_bishop.id, 'target': clergy.id, 'type': 'ordination',
-                        'date': ordination.date.strftime('%Y-%m-%d') if ordination.date else '',
+                        'date': ordination.display_date,
                         'color': BLACK_COLOR,
                         'is_invalid': ordination.is_invalid, 'is_doubtfully_valid': ordination.is_doubtfully_valid,
                         'is_doubtful_event': ordination.is_doubtful_event, 'is_sub_conditione': ordination.is_sub_conditione
@@ -138,7 +138,7 @@ def get_lineage_data():
                 if consecration.consecrator:
                     links.append({
                         'source': consecration.consecrator.id, 'target': clergy.id, 'type': 'consecration',
-                        'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
+                        'date': consecration.display_date,
                         'color': GREEN_COLOR,
                         'is_invalid': consecration.is_invalid, 'is_doubtfully_valid': consecration.is_doubtfully_valid,
                         'is_doubtful_event': consecration.is_doubtful_event, 'is_sub_conditione': consecration.is_sub_conditione
@@ -148,7 +148,7 @@ def get_lineage_data():
                 for co_consecrator in consecration.co_consecrators:
                     links.append({
                         'source': co_consecrator.id, 'target': clergy.id, 'type': 'co-consecration',
-                        'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '',
+                        'date': consecration.display_date,
                         'color': GREEN_COLOR, 'dashed': True,
                         'is_invalid': consecration.is_invalid, 'is_doubtfully_valid': consecration.is_doubtfully_valid,
                         'is_doubtful_event': consecration.is_doubtful_event, 'is_sub_conditione': consecration.is_sub_conditione
@@ -300,12 +300,12 @@ def debug_lineage():
             for ordination in clergy.ordinations:
                 if ordination.ordaining_bishop:
                     links.append({'source': ordination.ordaining_bishop.id, 'target': clergy.id, 'type': 'ordination',
-                                 'date': ordination.date.strftime('%Y-%m-%d') if ordination.date else '', 'color': BLACK_COLOR})
+                                 'date': ordination.display_date, 'color': BLACK_COLOR})
         for clergy in all_clergy:
             for consecration in clergy.consecrations:
                 if consecration.consecrator:
                     links.append({'source': consecration.consecrator.id, 'target': clergy.id, 'type': 'consecration',
-                                 'date': consecration.date.strftime('%Y-%m-%d') if consecration.date else '', 'color': GREEN_COLOR})
+                                 'date': consecration.display_date, 'color': GREEN_COLOR})
         return jsonify({
             'nodes_count': len(nodes), 'links_count': len(links),
             'nodes': nodes[:5], 'links': links[:5],

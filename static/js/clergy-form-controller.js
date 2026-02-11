@@ -108,6 +108,44 @@ class ClergyFormController {
         const form = document.getElementById('clergyForm');
         if (form) {
             form.addEventListener('submit', (e) => this.validateForm(e));
+            form.addEventListener('click', (e) => {
+                if (e.target.classList.contains('date-unknown-link')) {
+                    e.preventDefault();
+                    const block = e.target.closest('.ordination-date-block, .consecration-date-block');
+                    if (block) this.toggleDateUnknown(block, true);
+                } else if (e.target.classList.contains('specify-date-link')) {
+                    e.preventDefault();
+                    const block = e.target.closest('.ordination-date-block, .consecration-date-block');
+                    if (block) this.toggleDateUnknown(block, false);
+                }
+            });
+        }
+    }
+    
+    toggleDateUnknown(block, isUnknown) {
+        const dateWrapper = block.querySelector('.date-input-wrapper');
+        const unknownWrapper = block.querySelector('.date-unknown-wrapper');
+        const dateLink = block.querySelector('.date-unknown-link');
+        const specifyLink = block.querySelector('.specify-date-link');
+        const dateInput = block.querySelector('input[type="date"]');
+        const hiddenInput = block.querySelector('input[name*="[date_unknown]"]');
+        const yearInput = block.querySelector('input[name*="[year]"]');
+        if (isUnknown) {
+            dateWrapper.style.display = 'none';
+            unknownWrapper.style.display = 'block';
+            dateLink.style.display = 'none';
+            specifyLink.style.display = 'inline-block';
+            if (dateInput) { dateInput.value = ''; dateInput.removeAttribute('required'); }
+            if (hiddenInput) hiddenInput.value = '1';
+            if (yearInput) yearInput.value = yearInput.value || '';
+        } else {
+            dateWrapper.style.display = 'block';
+            unknownWrapper.style.display = 'none';
+            dateLink.style.display = 'inline-block';
+            specifyLink.style.display = 'none';
+            if (dateInput) dateInput.setAttribute('required', 'required');
+            if (hiddenInput) hiddenInput.value = '';
+            if (yearInput) yearInput.value = '';
         }
     }
     
@@ -251,9 +289,17 @@ class ClergyFormController {
                 </div>
                 
                 <div class="form-grid">
-                    <div class="form-field">
+                    <div class="form-field ordination-date-block">
                         <label class="form-label required">Date of Ordination</label>
-                        <input type="date" name="ordinations[${index}][date]" class="form-control" required>
+                        <div class="date-input-wrapper">
+                            <input type="date" name="ordinations[${index}][date]" class="form-control ordination-date-input" required>
+                        </div>
+                        <div class="date-unknown-wrapper" style="display: none;">
+                            <input type="hidden" name="ordinations[${index}][date_unknown]" value="">
+                            <input type="number" name="ordinations[${index}][year]" class="form-control" placeholder="Year (optional)" min="1" max="9999">
+                        </div>
+                        <a href="#" class="date-unknown-link" style="font-size: 0.8em; color: rgba(0,0,0,0.5); margin-top: 0.25em; display: inline-block;">date unknown</a>
+                        <a href="#" class="specify-date-link" style="display: none; font-size: 0.8em; color: rgba(0,0,0,0.5); margin-top: 0.25em;">specify date</a>
                     </div>
                     
                     <div class="form-field">
@@ -318,9 +364,17 @@ class ClergyFormController {
                 </div>
                 
                 <div class="form-grid">
-                    <div class="form-field">
+                    <div class="form-field consecration-date-block">
                         <label class="form-label required">Date of Consecration</label>
-                        <input type="date" name="consecrations[${index}][date]" class="form-control" required>
+                        <div class="date-input-wrapper">
+                            <input type="date" name="consecrations[${index}][date]" class="form-control consecration-date-input" required>
+                        </div>
+                        <div class="date-unknown-wrapper" style="display: none;">
+                            <input type="hidden" name="consecrations[${index}][date_unknown]" value="">
+                            <input type="number" name="consecrations[${index}][year]" class="form-control" placeholder="Year (optional)" min="1" max="9999">
+                        </div>
+                        <a href="#" class="date-unknown-link" style="font-size: 0.8em; color: rgba(0,0,0,0.5); margin-top: 0.25em; display: inline-block;">date unknown</a>
+                        <a href="#" class="specify-date-link" style="display: none; font-size: 0.8em; color: rgba(0,0,0,0.5); margin-top: 0.25em;">specify date</a>
                     </div>
                     
                     <div class="form-field">
@@ -794,8 +848,19 @@ class ClergyFormController {
     }
     
     fillOrdinationSection(section, ordination) {
+        const dateBlock = section.querySelector('.ordination-date-block');
+        if (dateBlock) {
+            if (ordination.date_unknown) {
+                this.toggleDateUnknown(dateBlock, true);
+                const yearInput = dateBlock.querySelector('input[name*="[year]"]');
+                if (yearInput && ordination.year) yearInput.value = ordination.year;
+            } else {
+                const dateInput = dateBlock.querySelector('input[name*="[date]"]');
+                if (dateInput && ordination.date) dateInput.value = ordination.date;
+            }
+        }
+        
         const fields = [
-            { name: 'date', value: ordination.date },
             { name: 'is_sub_conditione', value: ordination.is_sub_conditione, type: 'checkbox' },
             { name: 'is_doubtful_event', value: ordination.is_doubtful_event, type: 'checkbox' },
             { name: 'notes', value: ordination.notes }
@@ -835,8 +900,19 @@ class ClergyFormController {
     }
     
     fillConsecrationSection(section, consecration) {
+        const dateBlock = section.querySelector('.consecration-date-block');
+        if (dateBlock) {
+            if (consecration.date_unknown) {
+                this.toggleDateUnknown(dateBlock, true);
+                const yearInput = dateBlock.querySelector('input[name*="[year]"]');
+                if (yearInput && consecration.year) yearInput.value = consecration.year;
+            } else {
+                const dateInput = dateBlock.querySelector('input[name*="[date]"]');
+                if (dateInput && consecration.date) dateInput.value = consecration.date;
+            }
+        }
+        
         const fields = [
-            { name: 'date', value: consecration.date },
             { name: 'is_sub_conditione', value: consecration.is_sub_conditione, type: 'checkbox' },
             { name: 'is_doubtful_event', value: consecration.is_doubtful_event, type: 'checkbox' },
             { name: 'notes', value: consecration.notes }

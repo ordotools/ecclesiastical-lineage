@@ -897,9 +897,12 @@ function refreshClergyListImages(spriteData) {
                 if (currentStyle && currentStyle.includes('url(')) {
                     const urlMatch = currentStyle.match(/url\(['"]?([^'"]+)['"]?\)/);
                     if (urlMatch && urlMatch[1]) {
-                        const url = new URL(urlMatch[1]);
-                        url.searchParams.set('_t', Date.now());
-                        spriteDiv.style.backgroundImage = `url('${url.toString()}')`;
+                        const urlStr = urlMatch[1];
+                        if (!urlStr.startsWith('data:')) {
+                            const url = new URL(urlStr);
+                            url.searchParams.set('_t', Date.now());
+                            spriteDiv.style.backgroundImage = `url('${url.toString()}')`;
+                        }
                     }
                 }
             }
@@ -908,6 +911,7 @@ function refreshClergyListImages(spriteData) {
         // Update regular img elements with cache-busting
         const photoElement = photoContainer.querySelector('img');
         if (photoElement && photoElement.src) {
+            if (photoElement.src.startsWith('data:')) return;
             try {
                 const url = new URL(photoElement.src);
                 url.searchParams.set('_t', Date.now());
@@ -951,6 +955,7 @@ async function softUpdateClergyListItem(clergyId) {
                 const img = photoContainer.querySelector('img');
                 const sprite = photoContainer.querySelector('.clergy-item-photo-sprite');
                 if (img && img.src) {
+                    if (!img.src.startsWith('data:')) {
                     try {
                         const url = new URL(img.src);
                         url.searchParams.set('_t', Date.now());
@@ -959,10 +964,11 @@ async function softUpdateClergyListItem(clergyId) {
                         const separator = img.src.includes('?') ? '&' : '?';
                         img.src = img.src + separator + '_t=' + Date.now();
                     }
+                    }
                 }
                 if (sprite && sprite.style.backgroundImage) {
                     const urlMatch = sprite.style.backgroundImage.match(/url\(['"]?([^'"]+)['"]?\)/);
-                    if (urlMatch && urlMatch[1]) {
+                    if (urlMatch && urlMatch[1] && !urlMatch[1].startsWith('data:')) {
                         try {
                             const url = new URL(urlMatch[1]);
                             url.searchParams.set('_t', Date.now());

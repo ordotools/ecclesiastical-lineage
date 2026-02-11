@@ -413,6 +413,8 @@ class VisualizationStyleController {
         // Update CSS variables for any CSS-based styling
         this.updateCSSVariables();
         
+        if (!window.editorVisualization.svg || !window.editorVisualization.node || !window.editorVisualization.link) return;
+        
         // Apply styles using the visualization's applyStyles method (for JavaScript/D3 attributes)
         if (typeof window.editorVisualization.applyStyles === 'function') {
             window.editorVisualization.applyStyles(this.styles);

@@ -215,20 +215,26 @@
 
 <script>
 // Store all clergy data for client-side filtering
-if (typeof allClergyData === 'undefined') {
-    var allClergyData = [];
+if (typeof window.allClergyData === 'undefined') {
+    window.allClergyData = [];
 }
 
-let clergyListData = [];
-let bishopValidityMap = {};
+// Use window-scoped globals so HTMX reloads don't redeclare them
+if (typeof window.clergyListData === 'undefined') {
+    window.clergyListData = [];
+}
+if (typeof window.bishopValidityMap === 'undefined') {
+    window.bishopValidityMap = {};
+}
+
 try {
     const clergyDataEl = document.getElementById('clergy-list-data-json');
     const bishopDataEl = document.getElementById('bishop-validity-map-json');
     if (clergyDataEl) {
-        clergyListData = JSON.parse(clergyDataEl.textContent || '[]');
+        window.clergyListData = JSON.parse(clergyDataEl.textContent || '[]');
     }
     if (bishopDataEl) {
-        bishopValidityMap = JSON.parse(bishopDataEl.textContent || '{}');
+        window.bishopValidityMap = JSON.parse(bishopDataEl.textContent || '{}');
     }
 } catch (error) {
     console.warn('Failed to parse status inheritance data', error);
@@ -236,7 +242,7 @@ try {
 
 // Initialize clergy data from DOM
 function initializeClergyData() {
-    allClergyData = Array.from(document.querySelectorAll('.clergy-item')).map(item => ({
+    window.allClergyData = Array.from(document.querySelectorAll('.clergy-item')).map(item => ({
         id: parseInt(item.dataset.clergyId),
         name: item.dataset.name,
         rank: item.dataset.rank,
@@ -273,7 +279,7 @@ function applyFilters() {
         }
     }
     
-    let filteredData = allClergyData;
+    let filteredData = window.allClergyData;
     
     // Apply deleted filter
     if (!showDeleted) {
@@ -308,7 +314,7 @@ function applyFilters() {
     }
     
     // Update visibility of clergy items
-    allClergyData.forEach(clergy => {
+    window.allClergyData.forEach(clergy => {
         const isVisible = filteredData.includes(clergy);
         clergy.element.style.display = isVisible ? 'flex' : 'none';
     });
@@ -560,7 +566,7 @@ function initializeClergyList() {
     }
 
     if (window.StatusInheritance && typeof window.StatusInheritance.flagClergyListWithViolations === 'function') {
-        window.StatusInheritance.flagClergyListWithViolations(clergyListData, bishopValidityMap);
+        window.StatusInheritance.flagClergyListWithViolations(window.clergyListData, window.bishopValidityMap);
     }
     
     console.log('Clergy list initialization complete');

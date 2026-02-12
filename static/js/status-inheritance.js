@@ -289,11 +289,12 @@
         });
     }
 
-    function flagClergyListWithViolations(clergyListData, bishopValidityMap) {
+    function flagClergyListWithViolations(clergyListData, bishopValidityMap, skipBishopIds) {
         if (!Array.isArray(clergyListData)) {
             return;
         }
         const map = bishopValidityMap || {};
+        const skipSet = new Set((skipBishopIds || []).map(id => Number(id)));
         clergyListData.forEach(clergy => {
             const clergyElement = document.querySelector(`[data-clergy-id="${clergy.id}"]`);
             if (!clergyElement) {
@@ -305,7 +306,7 @@
                     return;
                 }
                 const bishopId = ordination.ordaining_bishop_id;
-                if (!bishopId) {
+                if (!bishopId || skipSet.has(bishopId)) {
                     return;
                 }
                 const summary = normalizeSummary(map[String(bishopId)] || map[bishopId]) || defaultSummary();
@@ -318,7 +319,7 @@
                     return;
                 }
                 const bishopId = consecration.consecrator_id;
-                if (!bishopId) {
+                if (!bishopId || skipSet.has(bishopId)) {
                     return;
                 }
                 const summary = normalizeSummary(map[String(bishopId)] || map[bishopId]) || defaultSummary();
@@ -368,15 +369,16 @@
         }
     }
 
-    function validateFormStatus(form) {
+    function validateFormStatus(form, options) {
         const container = form || document;
+        const skipBishopIds = new Set((options?.skipBishopIds || []).map(id => Number(id)));
         const entries = [];
         const ordinationEntries = container.querySelectorAll('.ordination-entry');
         const consecrationEntries = container.querySelectorAll('.consecration-entry');
 
         ordinationEntries.forEach(entry => {
             const bishopId = getEntryBishopId(entry, 'ordination');
-            if (!bishopId) {
+            if (!bishopId || skipBishopIds.has(bishopId)) {
                 return;
             }
             entries.push({
@@ -388,7 +390,7 @@
         });
         consecrationEntries.forEach(entry => {
             const bishopId = getEntryBishopId(entry, 'consecration');
-            if (!bishopId) {
+            if (!bishopId || skipBishopIds.has(bishopId)) {
                 return;
             }
             entries.push({
@@ -452,6 +454,23 @@
         const containsForm = target.querySelector && target.querySelector('#clergyForm');
         if (containsForm || target.id === 'clergyForm') {
             setTimeout(() => refreshFormRestrictions(target), 150);
+        }
+        const containsClergyList = target.querySelector && (target.querySelector('.clergy-list-section') || target.querySelector('#clergyListContainer'));
+        if (containsClergyList || target.classList?.contains('clergy-list-section')) {
+            const skipIds = window._lastNewlyCreatedBishopIds || [];
+            let clergyListData = window.clergyListData;
+            if (!clergyListData || !Array.isArray(clergyListData)) {
+                const jsonEl = target.querySelector && target.querySelector('#clergy-list-data-json');
+                if (jsonEl) {
+                    try {
+                        clergyListData = JSON.parse(jsonEl.textContent || '[]');
+                    } catch (_) {}
+                }
+            }
+            if (Array.isArray(clergyListData) && typeof flagClergyListWithViolations === 'function') {
+                flagClergyListWithViolations(clergyListData, window.bishopValidityMap, skipIds);
+            }
+            if (skipIds.length) window._lastNewlyCreatedBishopIds = null;
         }
     });
 

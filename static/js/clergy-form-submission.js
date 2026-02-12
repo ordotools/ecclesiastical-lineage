@@ -47,7 +47,6 @@ window.collectBishopNames = function(form) {
 
 window.checkAndCreateBishops = function(bishopNames) {
         return new Promise((resolve, reject) => {
-            // Send AJAX request to check and create bishops
             fetch('/api/check-and-create-bishops', {
                 method: 'POST',
                 headers: {
@@ -61,9 +60,8 @@ window.checkAndCreateBishops = function(bishopNames) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Update form with the created bishop IDs
                     updateFormWithBishopIds(data.bishop_mapping);
-                    resolve();
+                    resolve(data);
                 } else {
                     reject(new Error(data.message || 'Failed to create bishops'));
                 }
@@ -72,6 +70,28 @@ window.checkAndCreateBishops = function(bishopNames) {
                 reject(error);
             });
         });
+};
+
+window.allFormBishopsAreNewlyCreated = function(form, newlyCreatedIds) {
+    if (!form || !Array.isArray(newlyCreatedIds) || newlyCreatedIds.length === 0) {
+        return false;
+    }
+    const createdSet = new Set(newlyCreatedIds.map(id => Number(id)));
+    const formBishopIds = new Set();
+    const collect = (entries, type) => {
+        const selector = type === 'consecration' ? 'input[name*="[consecrator_id]"]' : 'input[name*="[ordaining_bishop_id]"]';
+        entries.forEach(entry => {
+            const input = entry.querySelector(selector);
+            if (input && input.value) {
+                const id = parseInt(input.value, 10);
+                if (!Number.isNaN(id)) formBishopIds.add(id);
+            }
+        });
+    };
+    collect(form.querySelectorAll('.ordination-entry'), 'ordination');
+    collect(form.querySelectorAll('.consecration-entry'), 'consecration');
+    if (formBishopIds.size === 0) return false;
+    return [...formBishopIds].every(id => createdSet.has(id));
 };
 
 window.updateFormWithBishopIds = function(bishopMapping) {
@@ -179,7 +199,7 @@ window.submitForm = function(form) {
             const hideOverlayAndReset = () => {
                 const submitBtn = form.querySelector('button[type="submit"]');
                 if (submitBtn && typeof window.resetSubmitButton === 'function') {
-                    window.resetSubmitButton(submitBtn, submitBtn.dataset.originalHtml || 'Save Clergy Record');
+                    window.resetSubmitButton(submitBtn, submitBtn._originalHtml || 'Save Clergy Record');
                 }
                 if (typeof window.hideFormSubmissionOverlay === 'function') {
                     window.hideFormSubmissionOverlay();
@@ -251,7 +271,7 @@ window.submitForm = function(form) {
         }
         const submitBtn = form.querySelector('button[type="submit"]');
         if (submitBtn && typeof window.resetSubmitButton === 'function') {
-            window.resetSubmitButton(submitBtn, submitBtn.dataset.originalHtml || 'Save Clergy Record');
+            window.resetSubmitButton(submitBtn, submitBtn._originalHtml || 'Save Clergy Record');
         }
         if (typeof window.hideFormSubmissionOverlay === 'function') {
             window.hideFormSubmissionOverlay();
@@ -283,17 +303,17 @@ window.resetSubmitButton = function(button, originalTextOrHTML) {
             
             const submitBtn = form.querySelector('button[type="submit"]');
             if (submitBtn) {
-                submitBtn.dataset.originalHtml = submitBtn.innerHTML;
+                submitBtn._originalHtml = submitBtn.innerHTML;
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
                 submitBtn.disabled = true;
             }
 
-            const runStatusInheritanceValidation = () => {
+            const runStatusInheritanceValidation = (skipBishopIds) => {
                 if (window.StatusInheritance && typeof window.StatusInheritance.validateFormStatus === 'function') {
                     if (submitBtn) {
                         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validating status...';
                     }
-                    return window.StatusInheritance.validateFormStatus(form);
+                    return window.StatusInheritance.validateFormStatus(form, { skipBishopIds });
                 }
                 return Promise.resolve({ valid: true, violations: [] });
             };
@@ -306,13 +326,15 @@ window.resetSubmitButton = function(button, originalTextOrHTML) {
                     } else {
                         alert(message);
                     }
-                    if (submitBtn && typeof window.resetSubmitButton === 'function') {
-                        window.resetSubmitButton(submitBtn, submitBtn.dataset.originalHtml || 'Save Clergy Record');
+                    const btn = form.querySelector('button[type="submit"]');
+                    if (btn && typeof window.resetSubmitButton === 'function') {
+                        window.resetSubmitButton(btn, btn._originalHtml || 'Save Clergy Record');
                     }
                     return;
                 }
-                if (submitBtn) {
-                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting form...';
+                const btn = form.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting form...';
                 }
                 window.submitForm(form);
             };
@@ -325,8 +347,9 @@ window.resetSubmitButton = function(button, originalTextOrHTML) {
                 } else {
                     alert(message);
                 }
-                if (submitBtn && typeof window.resetSubmitButton === 'function') {
-                    window.resetSubmitButton(submitBtn, submitBtn.dataset.originalHtml || 'Save Clergy Record');
+                const btn = form.querySelector('button[type="submit"]');
+                if (btn && typeof window.resetSubmitButton === 'function') {
+                    window.resetSubmitButton(btn, btn._originalHtml || 'Save Clergy Record');
                 }
             };
 
@@ -338,12 +361,25 @@ window.resetSubmitButton = function(button, originalTextOrHTML) {
                     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating ' + bishopNames.length + ' bishop record' + (bishopNames.length > 1 ? 's' : '') + '...';
                 }
                 window.checkAndCreateBishops(bishopNames)
-                    .then(() => runStatusInheritanceValidation().then(handleValidationResult).catch(handleValidationError))
+                    .then(async (data) => {
+                        window._lastNewlyCreatedBishopIds = data.newly_created_bishop_ids || [];
+                        await Promise.resolve();
+                        if (window.allFormBishopsAreNewlyCreated && window.allFormBishopsAreNewlyCreated(form, window._lastNewlyCreatedBishopIds)) {
+                            const btn = form.querySelector('button[type="submit"]');
+                            if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting form...';
+                            window.submitForm(form);
+                            return;
+                        }
+                        return runStatusInheritanceValidation(window._lastNewlyCreatedBishopIds)
+                            .then(handleValidationResult)
+                            .catch(handleValidationError);
+                    })
                     .catch(error => {
                         console.error('🔄 Error creating bishops:', error);
                         alert(`Error creating missing bishops: ${error.message}\n\nPlease ensure all bishop names are correct and try again.`);
-                        if (submitBtn && typeof window.resetSubmitButton === 'function') {
-                            window.resetSubmitButton(submitBtn, submitBtn.dataset.originalHtml || 'Save Clergy Record');
+                        const btn = form.querySelector('button[type="submit"]');
+                        if (btn && typeof window.resetSubmitButton === 'function') {
+                            window.resetSubmitButton(btn, btn._originalHtml || 'Save Clergy Record');
                         }
                     });
             } else {

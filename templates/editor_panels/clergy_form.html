@@ -703,9 +703,8 @@ function checkAndCreateBishops(bishopNames) {
         })
         .then(data => {
             if (data.success) {
-                // Update form with the created bishop IDs
                 updateFormWithBishopIds(data.bishop_mapping);
-                resolve();
+                resolve(data);
             } else {
                 reject(new Error(data.message || 'Failed to create bishops'));
             }
@@ -758,8 +757,12 @@ function updateFormWithBishopIds(bishopMapping) {
     });
 }
 
-function resetSubmitButton(button, originalText) {
-    button.textContent = originalText;
+function resetSubmitButton(button, originalTextOrHTML) {
+    if (originalTextOrHTML && originalTextOrHTML.includes && originalTextOrHTML.includes('<')) {
+        button.innerHTML = originalTextOrHTML;
+    } else {
+        button.textContent = originalTextOrHTML || 'Save Clergy Record';
+    }
     button.disabled = false;
 }
 
@@ -1109,7 +1112,7 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
                         window.hideFormSubmissionOverlay();
                     }
                     if (submitBtn) {
-                        const orig = (submitBtn.dataset && submitBtn.dataset.originalHtml) || originalText;
+                        const orig = submitBtn._originalHtml || (submitBtn.dataset && submitBtn.dataset.originalHtml) || originalText;
                         if (typeof window.resetSubmitButton === 'function') {
                             window.resetSubmitButton(submitBtn, orig);
                         } else {
@@ -1156,7 +1159,7 @@ function submitFormWithData(form, formData, submitBtn, originalText) {
                 window.hideFormSubmissionOverlay();
             }
             if (submitBtn) {
-                const orig = (submitBtn.dataset && submitBtn.dataset.originalHtml) || originalText;
+                const orig = submitBtn._originalHtml || (submitBtn.dataset && submitBtn.dataset.originalHtml) || originalText;
                 if (typeof window.resetSubmitButton === 'function') {
                     window.resetSubmitButton(submitBtn, orig);
                 } else {

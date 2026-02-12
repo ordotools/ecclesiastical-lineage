@@ -566,7 +566,10 @@ function initializeClergyList() {
     }
 
     if (window.StatusInheritance && typeof window.StatusInheritance.flagClergyListWithViolations === 'function') {
-        window.StatusInheritance.flagClergyListWithViolations(window.clergyListData, window.bishopValidityMap);
+        const skipIds = window._lastNewlyCreatedBishopIds || [];
+        window.StatusInheritance.flagClergyListWithViolations(
+            window.clergyListData, window.bishopValidityMap, skipIds
+        );
     }
     
     console.log('Clergy list initialization complete');

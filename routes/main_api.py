@@ -15,8 +15,9 @@ def check_and_create_bishops():
         data = request.get_json()
         bishop_names = data.get('bishop_names', [])
         if not bishop_names:
-            return jsonify({'success': True, 'bishop_mapping': {}})
+            return jsonify({'success': True, 'bishop_mapping': {}, 'newly_created_bishop_ids': []})
         bishop_mapping = {}
+        newly_created_ids = []
         for name in bishop_names:
             name = name.strip()
             if not name:
@@ -29,10 +30,16 @@ def check_and_create_bishops():
                 db.session.add(new_bishop)
                 db.session.flush()
                 bishop_mapping[name] = new_bishop.id
+                newly_created_ids.append(new_bishop.id)
                 log_audit_event(action='create', entity_type='clergy', entity_id=new_bishop.id, entity_name=new_bishop.name,
                                details={'rank': new_bishop.rank, 'auto_created': True, 'reason': 'Missing bishop for ordination/consecration'})
         db.session.commit()
-        return jsonify({'success': True, 'bishop_mapping': bishop_mapping, 'message': f'Created {len([b for b in bishop_mapping.values() if b])} new bishop records'})
+        return jsonify({
+            'success': True,
+            'bishop_mapping': bishop_mapping,
+            'newly_created_bishop_ids': newly_created_ids,
+            'message': f'Created {len(newly_created_ids)} new bishop records'
+        })
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'Error creating bishops: {str(e)}')

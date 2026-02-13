@@ -655,84 +655,6 @@ class WikiApp {
         this.els.authorSelect.value = currentVal; // Restore if any (though render usually overwrites)
     }
 
-    parseWikiText(text) {
-        if (!text) return { contentLines: [], definitions: {} };
-        const lines = text.split('\n');
-        const definitions = {};
-        const contentLines = [];
-
-        // 1. First pass: Extract citation definitions [^1]: ...
-        lines.forEach(line => {
-            const citationMatch = line.match(/^\[\^(\d+)\]:\s*(.*)/);
-            if (citationMatch) {
-                definitions[citationMatch[1]] = citationMatch[2];
-            } else {
-                contentLines.push(line);
-            }
-        });
-
-        return { contentLines, definitions };
-    }
-
-    renderContent(content) {
-        if (!content) return '<div class="wiki-empty-state">Page does not exist yet. Click "Edit" to create it.</div>';
-
-        const { contentLines, definitions } = this.parseWikiText(content);
-        let html = '';
-
-        const processText = (text) => {
-            // Split by tokens: [[...]], **...**, [^...]
-            const parts = text.split(/(\[\[.*?\]\])|(\*{2}.*?\*{2})|(\[\^\d+\])/g).filter(Boolean);
-
-            return parts.map(part => {
-                if (part.startsWith('[[') && part.endsWith(']]')) {
-                    const raw = part.slice(2, -2);
-                    const [target, label] = raw.split('|');
-                    const displayLabel = label || target;
-                    // Check if page exists in our known list (partial knowledge from list fetch)
-                    const exists = !!this.pages[target];
-                    // Note: 'exists' check here is weak if we haven't fetched 'target' yet 
-                    // but we have fetched the full list of titles so it should be accurate enough.
-                    const className = exists ? 'wiki-link exists' : 'wiki-link';
-                    const title = exists ? `Go to ${target}` : 'Page does not exist yet';
-                    return `<button class="${className}" data-target="${target}" title="${title}">${displayLabel}</button>`;
-                }
-                if (part.startsWith('**') && part.endsWith('**')) {
-                    return `<strong>${part.slice(2, -2)}</strong>`;
-                }
-                if (part.match(/^\[\^\d+\]$/)) {
-                    const id = part.slice(2, -1);
-                    return `<sup class="wiki-cit-sup"><a href="#ref-${id}">[${id}]</a></sup>`;
-                }
-                return part;
-            }).join('');
-        };
-
-        const renderedLines = contentLines.map(line => {
-            if (line.startsWith('# ')) return `<h1>${processText(line.substring(2))}</h1>`;
-            if (line.startsWith('## ')) return `<h2>${processText(line.substring(3))}</h2>`;
-            if (line.startsWith('### ')) return `<h3>${processText(line.substring(4))}</h3>`;
-            if (line.startsWith('- ')) return `<li>${processText(line.substring(2))}</li>`;
-            if (line.trim() === '') return '<div style="height: 1rem;"></div>';
-            return `<p>${processText(line)}</p>`;
-        }).join('');
-
-        html += renderedLines;
-
-        if (Object.keys(definitions).length > 0) {
-            html += `<div class="wiki-references">
-                <h3><i class="fas fa-book-open"></i> References</h3>
-                <ol>
-                    ${Object.entries(definitions).map(([id, text]) =>
-                `<li id="ref-${id}">${text}</li>`
-            ).join('')}
-                </ol>
-            </div>`;
-        }
-
-        return html;
-    }
-
     renderSidebarList() {
         // Check if logged in by presence of auth-only elements (e.g. New Page button or Edit button)
         // newBtn is good proxy as it's for auth users
@@ -847,7 +769,8 @@ class WikiApp {
             if (this.els.contentArea) this.els.contentArea.classList.remove('wiki-editing-mode');
             this.els.viewContainer.style.display = 'block';
             this.els.editContainer.style.display = 'none';
-            this.els.viewContainer.innerHTML = this.renderContent(page.content);
+            const renderer = window.wikiRenderer || new WikiRenderer();
+            this.els.viewContainer.innerHTML = renderer.render(page.content, { pages: this.pages });
             if (this.els.editBtn) this.els.editBtn.style.display = 'inline-flex';
             if (this.els.saveBtn) this.els.saveBtn.style.display = 'none';
             if (this.els.cancelBtn) this.els.cancelBtn.style.display = 'none';

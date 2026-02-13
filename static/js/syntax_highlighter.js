@@ -47,8 +47,10 @@ class WikiSyntaxHighlighter {
 
         // Markdown Highlighting Rules
 
-        // 1. Headers (# Heading) -> .h-header
-        highlighted = highlighted.replace(/^((#+)\s+.*)$/gm, '<span class="h-header">$1</span>');
+        // 1. Headers - match most-specific first (h3, h2, h1)
+        highlighted = highlighted.replace(/^(###+\s+.*)$/gm, '<span class="h-h3">$1</span>');
+        highlighted = highlighted.replace(/^(##\s+.*)$/gm, '<span class="h-h2">$1</span>');
+        highlighted = highlighted.replace(/^(#\s+.*)$/gm, '<span class="h-h1">$1</span>');
 
         // 2. Bold (**text**) -> .h-bold
         highlighted = highlighted.replace(/(\*\*.+?\*\*)/g, '<span class="h-bold">$1</span>');

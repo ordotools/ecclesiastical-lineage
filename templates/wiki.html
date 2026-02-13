@@ -198,6 +198,7 @@
 {% block scripts %}
 <script type="module" src="{{ url_for('static', filename='js/utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
+<script src="{{ url_for('static', filename='js/wiki-renderer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/wiki.js') }}?v={{ range(1, 10000) | random }}"></script>
 <script src="{{ url_for('static', filename='js/syntax_highlighter.js') }}"></script>
 {% endblock %}

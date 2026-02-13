@@ -837,73 +837,66 @@
     color: transparent;
 }
 
-/* Highlighting Classes */
-.h-header {
-    font-weight: bold;
-    color: #111827;
-    font-size: 1.1em;
-    /* slight increase */
+/* Highlighting Classes - color/background only to avoid cursor misalignment */
+.h-h1 {
+    background-color: #e2e8f0;
+    color: #0f172a;
+}
+
+.h-h2 {
+    background-color: #f1f5f9;
+    color: #1e293b;
+}
+
+.h-h3 {
+    background-color: #f8fafc;
+    color: #334155;
 }
 
 .h-bold {
-    font-weight: bold;
-    color: #000;
+    color: #111827;
 }
 
 .h-italic {
-    font-style: italic;
     color: #4b5563;
 }
 
 .h-link {
-    color: #2563eb;
-    /* Blue link color */
-    font-weight: 500;
+    background-color: #dbeafe;
+    color: #1d4ed8;
 }
 
 .h-citation {
-    color: #2563eb;
-    vertical-align: super;
-    font-size: 0.75em;
+    background-color: #e0e7ff;
+    color: #4338ca;
 }
 
-/* Ensure backdrop extends full height for scrolling */
-.wiki-backdrop {
-    padding-bottom: 2rem;
-    /* Add some buffer */
-}
-
-/* Expanded Markdown Highlighting */
 .h-list {
-    color: #059669;
-    /* emerald-600 */
+    background-color: #ecfdf5;
+    color: #047857;
 }
 
 .h-quote {
-    color: #6b7280;
-    /* gray-500 */
-    font-style: italic;
+    background-color: #fef3c7;
+    color: #92400e;
 }
 
 .h-hr {
-    color: #d1d5db;
-    /* gray-300 */
-    border-bottom: 2px solid #e5e7eb;
-    display: inline-block;
-    width: 100%;
-    font-weight: bold;
+    background-color: #f3f4f6;
+    color: #9ca3af;
 }
 
 .h-code-inline {
     background-color: #f3f4f6;
     color: #dc2626;
-    /* red-600 */
-    border-radius: 4px;
-    font-family: monospace;
 }
 
 .h-code-block {
-    color: #dc2626;
     background-color: #f3f4f6;
-    display: block;
+    color: #dc2626;
+}
+
+/* Ensure backdrop extends full height for scrolling */
+.wiki-backdrop {
+    padding-bottom: 2rem;
 }

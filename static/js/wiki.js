@@ -132,7 +132,8 @@ class WikiApp {
             clergyAside: document.getElementById('wiki-clergy-aside'),
             mainTitle: document.getElementById('wiki-main-title'),
             contentArea: document.getElementById('wiki-content-area'),
-            backBtn: document.getElementById('wiki-back-btn'),
+            exitBtn: document.getElementById('wiki-exit-btn'),
+            exitWrap: document.getElementById('wiki-exit-wrap'),
             toggleSidebarBtn: document.getElementById('wiki-toggle-sidebar'),
             editBtn: document.getElementById('wiki-edit-btn'),
             saveBtn: document.getElementById('wiki-save-btn'),
@@ -174,12 +175,13 @@ class WikiApp {
         // Initial load
         // Get slug from URL if it exists
         const pathParts = window.location.pathname.split('/');
-        // /wiki/Something => ["", "wiki", "Something"]
-        if (pathParts.length > 2 && pathParts[1] === 'wiki') {
-            const slug = decodeURIComponent(pathParts.slice(2).join('/'));
+        // /wiki/Something => ["", "wiki", "Something"]; /wiki => Main Page
+        if (pathParts.length >= 2 && pathParts[1] === 'wiki') {
+            const slug = pathParts.length > 2 ? decodeURIComponent(pathParts.slice(2).join('/')) : 'Main Page';
             if (slug) {
                 this.currentSlug = slug;
                 this.history = [slug];
+                history.replaceState({ slug }, '', `/wiki/${encodeURIComponent(slug)}`);
             }
         }
 
@@ -189,7 +191,7 @@ class WikiApp {
     bindEvents() {
         // Navigation
         window.addEventListener('popstate', (e) => {
-            if (e.state && e.state.slug) {
+            if (e.state?.slug) {
                 this.navigate(e.state.slug, false);
             }
         });
@@ -246,7 +248,7 @@ class WikiApp {
             });
         }
 
-        this.els.backBtn.addEventListener('click', () => this.handleBack());
+        if (this.els.exitBtn) this.els.exitBtn.addEventListener('click', () => this.handleExit());
 
         if (this.els.editBtn) {
             this.els.editBtn.addEventListener('click', () => {
@@ -672,8 +674,8 @@ class WikiApp {
         this.els.viewContainer.innerHTML = renderer.render(content, { pages: this.pages, clergySummaries });
         this.els.viewContainer.querySelectorAll('.wiki-link').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const target = e.target.dataset.target;
-                this.navigate(target);
+                const target = btn.dataset.target;
+                if (target) this.navigate(target);
             });
         });
         this.initLineageCharts();
@@ -764,21 +766,9 @@ class WikiApp {
         if (this.els.contentArea) this.els.contentArea.scrollTop = 0;
     }
 
-    handleBack() {
-        if (this.history.length > 1) {
-            this.history.pop();
-            const prev = this.history[this.history.length - 1];
-            this.currentSlug = prev;
-            this.isEditing = false;
-            // Update URL
-            history.pushState({ slug: prev }, '', `/wiki/${prev}`);
-
-            if (!this.pages[prev] || this.pages[prev].content === null) {
-                this.fetchPage(prev);
-            } else {
-                this.render();
-            }
-        }
+    handleExit() {
+        this.isEditing = false;
+        this.render();
     }
 
 
@@ -1007,9 +997,7 @@ class WikiApp {
 
         // Header State
         this.els.mainTitle.textContent = page.title;
-        // Disable back button if history is short OR if we are in 'new page' mode and history is 1 (just initial)
-        this.els.backBtn.disabled = this.history.length <= 1;
-        this.els.backBtn.style.opacity = this.els.backBtn.disabled ? '0.3' : '1';
+        if (this.els.exitWrap) this.els.exitWrap.style.cssText = this.isEditing ? 'display: flex; align-items: center; gap: 0.5rem;' : 'display: none;';
 
         // Content
         if (this.isEditing) {

@@ -344,14 +344,14 @@ def _clergy_to_lineage_node(clergy, organizations, ranks):
 
 
 def _clergy_image_url(clergy):
-    """Extract image URL for clergy (profile/lineage display)."""
+    """Extract image URL for clergy profile aside. Prefer higher-res: original > detail > lineage."""
     placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="24" r="14" fill="#bdc3c7"/><ellipse cx="32" cy="50" rx="20" ry="12" fill="#bdc3c7"/></svg>'''
     placeholder_data_url = 'data:image/svg+xml;base64,' + base64.b64encode(placeholder_svg.encode('utf-8')).decode('utf-8')
     image_url = placeholder_data_url
     if clergy.image_data:
         try:
             data = json.loads(clergy.image_data)
-            image_url = data.get('lineage', data.get('detail', data.get('original', ''))) or clergy.image_url or placeholder_data_url
+            image_url = data.get('original', data.get('detail', data.get('lineage', ''))) or clergy.image_url or placeholder_data_url
         except (json.JSONDecodeError, AttributeError):
             pass
     if not image_url or image_url == placeholder_data_url:

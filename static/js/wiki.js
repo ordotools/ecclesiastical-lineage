@@ -592,11 +592,14 @@ class WikiApp {
             if (!res.ok || clergyId !== (this.pages[this.currentSlug]?.clergy_id)) return;
             const p = await res.json();
             const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-            const dates = [p.date_of_birth, p.date_of_death].filter(Boolean).map(d => d.split('-')[0]).join('–');
+            const yob = p.date_of_birth ? p.date_of_birth.split('-')[0] : null;
+            const yod = p.date_of_death ? p.date_of_death.split('-')[0] : null;
+            const datesStr = yob ? `b. ${yob} - ${yod ? 'd. ' + yod : 'present'}` : (yod ? 'd. ' + yod : '');
             let html = `
-                <img class="wiki-profile-image" src="${esc(p.image_url)}" alt="${esc(p.name)}" />
-                <div class="wiki-profile-name">${esc(p.name)}</div>
-                <div class="wiki-profile-meta">${[p.rank, p.organization, dates ? `(${dates})` : ''].filter(Boolean).join(' · ')}</div>
+            <div class="wiki-profile-name">${esc(p.name)}</div>
+            <img class="wiki-profile-image" src="${esc(p.image_url)}" alt="${esc(p.name)}" />
+            ${(p.rank || p.organization) ? `<div class="wiki-profile-rank-org">${p.rank ? `<span class="wiki-profile-rank">${esc(p.rank)}</span>` : ''}${p.rank && p.organization ? ' · ' : ''}${p.organization ? `<span class="wiki-profile-org">${esc(p.organization)}</span>` : ''}</div>` : ''}
+            ${datesStr ? `<div class="wiki-profile-dates">${esc(datesStr)}</div>` : ''}
             `;
             if (p.ordinations?.length) {
                 html += `<div class="wiki-profile-section"><div class="wiki-profile-section-title">Ordination</div><ul class="wiki-profile-list">`;

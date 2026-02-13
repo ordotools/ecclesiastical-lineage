@@ -237,11 +237,28 @@
 }
 
 .wiki-clergy-aside .wiki-profile-image {
-    width: 120px;
-    height: 120px;
+    width: 100%;
+    aspect-ratio: 1;
     object-fit: cover;
     border-radius: 0.5rem;
     margin-bottom: 0.75rem;
+}
+
+.wiki-clergy-aside .wiki-profile-rank,
+.wiki-clergy-aside .wiki-profile-org,
+.wiki-clergy-aside .wiki-profile-dates {
+    text-align: center;
+}
+
+.wiki-clergy-aside .wiki-profile-rank-org {
+    text-align: center;
+}
+
+.wiki-clergy-aside .wiki-profile-rank,
+.wiki-clergy-aside .wiki-profile-org {
+    font-size: 0.8125rem;
+    color: var(--wiki-text-secondary);
+    margin-bottom: 0.25rem;
 }
 
 .wiki-clergy-aside .wiki-profile-name {
@@ -251,7 +268,8 @@
     margin-bottom: 0.25rem;
 }
 
-.wiki-clergy-aside .wiki-profile-meta {
+.wiki-clergy-aside .wiki-profile-dates {
+    font-size: 0.8125rem;
     color: var(--wiki-text-secondary);
     margin-bottom: 1rem;
 }

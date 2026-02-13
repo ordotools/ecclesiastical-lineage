@@ -467,7 +467,7 @@
 
 .wiki-textarea:focus {
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.5);
-    border-color: transparent;
+    border-color: var(--wiki-primary-color);
 }
 
 .edit-tip-box {
@@ -834,13 +834,18 @@
     flex-direction: column;
 }
 
-.wiki-content-area.wiki-editing-mode .wiki-article {
+.wiki-content-area.wiki-editing-mode .wiki-content-flex {
+    flex: 1;
+    min-height: 0;
+}
 
+.wiki-content-area.wiki-editing-mode .wiki-article {
     max-width: 100%;
     height: 100%;
     margin: 0;
     display: flex;
     flex-direction: column;
+    min-height: 0;
 }
 
 .wiki-content-area.wiki-editing-mode .wiki-editor {
@@ -952,6 +957,7 @@
 .wiki-editor-container {
     position: relative;
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -993,6 +999,7 @@
     /* Let clicks pass through */
     border-color: transparent;
     /* Textarea handles border */
+    overflow: hidden;
 }
 
 .wiki-textarea {

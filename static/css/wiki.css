@@ -213,6 +213,92 @@
     background-color: var(--wiki-content-bg);
 }
 
+.wiki-content-flex {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.wiki-content-flex .wiki-article {
+    flex: 1;
+    min-width: 0;
+}
+
+.wiki-clergy-aside {
+    width: 280px;
+    flex-shrink: 0;
+    padding: 1rem 0 0 1.5rem;
+    border-left: 1px solid var(--wiki-border-color);
+    position: sticky;
+    top: 0;
+    font-size: 0.875rem;
+}
+
+.wiki-clergy-aside .wiki-profile-image {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.wiki-clergy-aside .wiki-profile-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--wiki-text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.wiki-clergy-aside .wiki-profile-meta {
+    color: var(--wiki-text-secondary);
+    margin-bottom: 1rem;
+}
+
+.wiki-clergy-aside .wiki-profile-section {
+    margin-top: 1rem;
+}
+
+.wiki-clergy-aside .wiki-profile-section-title {
+    font-weight: 600;
+    color: var(--wiki-text-primary);
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.wiki-clergy-aside .wiki-profile-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.wiki-clergy-aside .wiki-profile-list li {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.wiki-clergy-aside .wiki-profile-list li:last-child {
+    border-bottom: none;
+}
+
+.wiki-clergy-aside .wiki-profile-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--wiki-primary-color);
+    cursor: pointer;
+    font-size: inherit;
+    font-family: inherit;
+    text-align: left;
+}
+
+.wiki-clergy-aside .wiki-profile-link:hover {
+    text-decoration: underline;
+}
+
 .wiki-article {
     max-width: 65ch;
     margin: 0 auto;

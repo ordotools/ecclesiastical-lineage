@@ -343,6 +343,120 @@ def _clergy_to_lineage_node(clergy, organizations, ranks):
     }
 
 
+def _clergy_image_url(clergy):
+    """Extract image URL for clergy (profile/lineage display)."""
+    placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="24" r="14" fill="#bdc3c7"/><ellipse cx="32" cy="50" rx="20" ry="12" fill="#bdc3c7"/></svg>'''
+    placeholder_data_url = 'data:image/svg+xml;base64,' + base64.b64encode(placeholder_svg.encode('utf-8')).decode('utf-8')
+    image_url = placeholder_data_url
+    if clergy.image_data:
+        try:
+            data = json.loads(clergy.image_data)
+            image_url = data.get('lineage', data.get('detail', data.get('original', ''))) or clergy.image_url or placeholder_data_url
+        except (json.JSONDecodeError, AttributeError):
+            pass
+    if not image_url or image_url == placeholder_data_url:
+        image_url = clergy.image_url or placeholder_data_url
+    return image_url
+
+
+def _clergy_to_profile(clergy, clergy_id_to_wiki_slug):
+    """Build full profile JSON for clergy aside."""
+    ords = [o for o in clergy.get_all_ordinations() if not o.is_invalid]
+    cons = [c for c in clergy.get_all_consecrations() if not c.is_invalid]
+    ords_data = [{
+        'display_date': o.display_date,
+        'ordaining_bishop': {
+            'id': o.ordaining_bishop.id,
+            'name': o.ordaining_bishop.name if o.ordaining_bishop else 'Unknown',
+            'wiki_slug': clergy_id_to_wiki_slug.get(o.ordaining_bishop.id) if o.ordaining_bishop else None,
+        } if o.ordaining_bishop else {'id': None, 'name': 'Unknown', 'wiki_slug': None},
+    } for o in ords]
+    cons_data = [{
+        'display_date': c.display_date,
+        'consecrator': {
+            'id': c.consecrator.id,
+            'name': c.consecrator.name if c.consecrator else 'Unknown',
+            'wiki_slug': clergy_id_to_wiki_slug.get(c.consecrator.id) if c.consecrator else None,
+        } if c.consecrator else {'id': None, 'name': 'Unknown', 'wiki_slug': None},
+    } for c in cons]
+
+    payload = {
+        'image_url': _clergy_image_url(clergy),
+        'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
+        'rank': clergy.rank or '',
+        'organization': clergy.organization or '',
+        'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
+        'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
+        'ordinations': ords_data,
+        'consecrations': cons_data,
+    }
+
+    if _is_bishop(clergy):
+        ord_performed = [o for o in getattr(clergy, 'ordinations_performed', []) if not o.is_invalid]
+        cons_performed = [c for c in getattr(clergy, 'consecrations_performed', []) if not c.is_invalid]
+        def _key_ord(o):
+            return (0, o.date) if o.date else (1, o.year or 0)
+        def _key_cons(c):
+            return (0, c.date) if c.date else (1, c.year or 0)
+        ord_performed = sorted(ord_performed, key=_key_ord)
+        cons_performed = sorted(cons_performed, key=_key_cons)
+        payload['ordained'] = [{
+            'display_date': o.display_date,
+            'clergy': {
+                'id': o.clergy.id,
+                'name': o.clergy.name if o.clergy else 'Unknown',
+                'wiki_slug': clergy_id_to_wiki_slug.get(o.clergy.id) if o.clergy else None,
+            } if o.clergy else {'id': None, 'name': 'Unknown', 'wiki_slug': None},
+        } for o in ord_performed]
+        payload['consecrated'] = [{
+            'display_date': c.display_date,
+            'clergy': {
+                'id': c.clergy.id,
+                'name': c.clergy.name if c.clergy else 'Unknown',
+                'wiki_slug': clergy_id_to_wiki_slug.get(c.clergy.id) if c.clergy else None,
+            } if c.clergy else {'id': None, 'name': 'Unknown', 'wiki_slug': None},
+        } for c in cons_performed]
+    else:
+        payload['ordained'] = []
+        payload['consecrated'] = []
+
+    return payload
+
+
+@wiki_bp.route('/api/wiki/clergy/<int:clergy_id>/profile', methods=['GET'])
+def get_clergy_profile(clergy_id):
+    """Full profile for clergy aside: image, dates, ordinations, consecrations, ordained/consecrated (if bishop)."""
+    clergy = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+        joinedload(Clergy.ordinations_performed).joinedload(Ordination.clergy),
+        joinedload(Clergy.consecrations_performed).joinedload(Consecration.clergy),
+    ).filter_by(id=clergy_id, is_deleted=False).first()
+    if not clergy:
+        return jsonify({'error': 'Not found'}), 404
+
+    ids = {clergy.id}
+    for o in clergy.ordinations:
+        if o.ordaining_bishop and not o.is_invalid:
+            ids.add(o.ordaining_bishop.id)
+    for c in clergy.consecrations:
+        if c.consecrator and not c.is_invalid:
+            ids.add(c.consecrator.id)
+    for o in getattr(clergy, 'ordinations_performed', []):
+        if o.clergy and not o.is_invalid:
+            ids.add(o.clergy.id)
+    for c in getattr(clergy, 'consecrations_performed', []):
+        if c.clergy and not c.is_invalid:
+            ids.add(c.clergy.id)
+
+    slug_rows = WikiPage.query.filter(
+        WikiPage.clergy_id.in_(ids), WikiPage.is_deleted == False
+    ).with_entities(WikiPage.clergy_id, WikiPage.title).all()
+    clergy_id_to_wiki_slug = {r.clergy_id: r.title for r in slug_rows if r.clergy_id}
+
+    return jsonify(_clergy_to_profile(clergy, clergy_id_to_wiki_slug))
+
+
 @wiki_bp.route('/api/wiki/lineage/<path:identifier>', methods=['GET'])
 def get_lineage_subset(identifier):
     """

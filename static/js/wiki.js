@@ -129,6 +129,7 @@ class WikiApp {
             pagesList: document.getElementById('wiki-pages-list'),
             backlinksSection: document.getElementById('wiki-backlinks-section'),
             backlinksList: document.getElementById('wiki-backlinks-list'),
+            clergyAside: document.getElementById('wiki-clergy-aside'),
             mainTitle: document.getElementById('wiki-main-title'),
             contentArea: document.getElementById('wiki-content-area'),
             backBtn: document.getElementById('wiki-back-btn'),
@@ -571,6 +572,72 @@ class WikiApp {
         });
     }
 
+    renderPersonLink(person, esc) {
+        if (!person) return esc('Unknown');
+        if (person.wiki_slug) {
+            return `<button type="button" class="wiki-profile-link wiki-link" data-target="${esc(person.wiki_slug)}">${esc(person.name)}</button>`;
+        }
+        return esc(person.name);
+    }
+
+    async fetchAndRenderClergyAside(clergyId) {
+        if (!this.els.clergyAside) return;
+        if (!clergyId || this.isEditing) {
+            this.els.clergyAside.style.display = 'none';
+            this.els.clergyAside.innerHTML = '';
+            return;
+        }
+        try {
+            const res = await fetch(`/api/wiki/clergy/${clergyId}/profile`);
+            if (!res.ok || clergyId !== (this.pages[this.currentSlug]?.clergy_id)) return;
+            const p = await res.json();
+            const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            const dates = [p.date_of_birth, p.date_of_death].filter(Boolean).map(d => d.split('-')[0]).join('–');
+            let html = `
+                <img class="wiki-profile-image" src="${esc(p.image_url)}" alt="${esc(p.name)}" />
+                <div class="wiki-profile-name">${esc(p.name)}</div>
+                <div class="wiki-profile-meta">${[p.rank, p.organization, dates ? `(${dates})` : ''].filter(Boolean).join(' · ')}</div>
+            `;
+            if (p.ordinations?.length) {
+                html += `<div class="wiki-profile-section"><div class="wiki-profile-section-title">Ordination</div><ul class="wiki-profile-list">`;
+                p.ordinations.forEach(o => {
+                    html += `<li>${esc(o.display_date)} — ${this.renderPersonLink(o.ordaining_bishop, esc)}</li>`;
+                });
+                html += `</ul></div>`;
+            }
+            if (p.consecrations?.length) {
+                html += `<div class="wiki-profile-section"><div class="wiki-profile-section-title">Consecration</div><ul class="wiki-profile-list">`;
+                p.consecrations.forEach(c => {
+                    html += `<li>${esc(c.display_date)} — ${this.renderPersonLink(c.consecrator, esc)}</li>`;
+                });
+                html += `</ul></div>`;
+            }
+            if (p.ordained?.length) {
+                html += `<div class="wiki-profile-section"><div class="wiki-profile-section-title">Ordained</div><ul class="wiki-profile-list">`;
+                p.ordained.forEach(o => {
+                    html += `<li>${esc(o.display_date)} — ${this.renderPersonLink(o.clergy, esc)}</li>`;
+                });
+                html += `</ul></div>`;
+            }
+            if (p.consecrated?.length) {
+                html += `<div class="wiki-profile-section"><div class="wiki-profile-section-title">Consecrated</div><ul class="wiki-profile-list">`;
+                p.consecrated.forEach(c => {
+                    html += `<li>${esc(c.display_date)} — ${this.renderPersonLink(c.clergy, esc)}</li>`;
+                });
+                html += `</ul></div>`;
+            }
+            this.els.clergyAside.innerHTML = html;
+            this.els.clergyAside.style.display = 'block';
+            this.els.clergyAside.querySelectorAll('.wiki-profile-link[data-target]').forEach(btn => {
+                btn.addEventListener('click', () => this.navigate(btn.dataset.target));
+            });
+        } catch (err) {
+            console.error('Failed to fetch clergy profile', err);
+            this.els.clergyAside.style.display = 'none';
+            this.els.clergyAside.innerHTML = '';
+        }
+    }
+
     extractClergyShortcodeIds(content) {
         if (!content) return [];
         const ids = new Set();
@@ -921,6 +988,10 @@ class WikiApp {
             this.els.mainTitle.textContent = "Loading...";
             this.els.viewContainer.innerHTML = '<div style="padding: 2rem; text-align: center; color: #666;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
             if (this.els.editBtn) this.els.editBtn.disabled = true;
+            if (this.els.clergyAside) {
+                this.els.clergyAside.style.display = 'none';
+                this.els.clergyAside.innerHTML = '';
+            }
             return;
         }
 
@@ -940,6 +1011,10 @@ class WikiApp {
         // Content
         if (this.isEditing) {
             if (this.els.backlinksSection) this.els.backlinksSection.style.display = 'none';
+            if (this.els.clergyAside) {
+                this.els.clergyAside.style.display = 'none';
+                this.els.clergyAside.innerHTML = '';
+            }
             if (this.els.contentArea) this.els.contentArea.classList.add('wiki-editing-mode');
             this.els.viewContainer.style.display = 'none';
             this.els.editContainer.style.display = 'flex';
@@ -990,6 +1065,7 @@ class WikiApp {
             this.els.editContainer.style.display = 'none';
             const slugForRender = this.currentSlug;
             this.renderViewContent(slugForRender, page.content);
+            this.fetchAndRenderClergyAside(page.clergy_id);
             if (this.els.editBtn) {
                 this.els.editBtn.style.display = 'inline-flex';
                 this.els.editBtn.disabled = !isNewPage && page.content === null;

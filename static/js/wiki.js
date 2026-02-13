@@ -774,8 +774,7 @@ class WikiApp {
                 }
                 console.error('Save failed', errText);
             } else {
-                // Success
-                this.isEditing = false;
+                // Success - stay in editor
                 // Fetch the fresh data (including new timestamp)
                 await this.fetchPage(slug);
                 this.navigate(slug, false);

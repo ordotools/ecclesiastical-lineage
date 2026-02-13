@@ -249,6 +249,9 @@ class WikiApp {
 
         if (this.els.editBtn) {
             this.els.editBtn.addEventListener('click', () => {
+                if (this.isLoading) return;
+                const isNewPage = this.currentSlug === null;
+                if (!isNewPage && this.pages[this.currentSlug]?.content === null) return;
                 this.isEditing = true;
                 this.render();
             });
@@ -918,6 +921,7 @@ class WikiApp {
         if (this.isLoading) {
             this.els.mainTitle.textContent = "Loading...";
             this.els.viewContainer.innerHTML = '<div style="padding: 2rem; text-align: center; color: #666;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+            if (this.els.editBtn) this.els.editBtn.disabled = true;
             return;
         }
 
@@ -966,10 +970,11 @@ class WikiApp {
             if (this.editorSlug !== effectiveSlug) {
                 if (isNewPage) {
                     this.els.textarea.value = `## Introduction\n\nStart writing your article here...`;
-                } else {
+                    this.editorSlug = effectiveSlug;
+                } else if (page.content !== null) {
                     this.els.textarea.value = page.content || `# ${page.title}\n\nStart writing...`;
+                    this.editorSlug = effectiveSlug;
                 }
-                this.editorSlug = effectiveSlug;
                 // Trigger syntax highlighter sync
                 if (this.highlighter) this.highlighter.sync();
             }
@@ -986,7 +991,10 @@ class WikiApp {
             this.els.editContainer.style.display = 'none';
             const slugForRender = this.currentSlug;
             this.renderViewContent(slugForRender, page.content);
-            if (this.els.editBtn) this.els.editBtn.style.display = 'inline-flex';
+            if (this.els.editBtn) {
+                this.els.editBtn.style.display = 'inline-flex';
+                this.els.editBtn.disabled = !isNewPage && page.content === null;
+            }
             if (this.els.saveBtn) this.els.saveBtn.style.display = 'none';
             if (this.els.cancelBtn) this.els.cancelBtn.style.display = 'none';
 
@@ -1139,8 +1147,3 @@ function getCaretCoordinates(element, position) {
 
     return coordinates;
 }
-
-// Initialize the app
-document.addEventListener('DOMContentLoaded', () => {
-    window.wikiApp = new WikiApp();
-});

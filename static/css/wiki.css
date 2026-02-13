@@ -4,6 +4,7 @@
     --wiki-sidebar-width: 260px;
     --wiki-header-height: 56px;
     --wiki-bg-color: #f3f4f6;
+    --wiki-content-bg: white;
     /* gray-100 */
     --wiki-border-color: #e5e7eb;
     /* gray-200 */
@@ -152,6 +153,24 @@
     font-weight: 500;
 }
 
+.wiki-backlinks-section {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--wiki-border-color);
+}
+
+.wiki-backlinks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.wiki-backlinks-empty {
+    font-size: 0.875rem;
+    color: #9ca3af;
+    font-style: italic;
+}
+
 /* Main Content */
 .wiki-main {
     flex: 1;
@@ -191,7 +210,7 @@
     flex: 1;
     overflow-y: auto;
     padding: 2.5rem 2rem;
-    background-color: white;
+    background-color: var(--wiki-content-bg);
 }
 
 .wiki-article {
@@ -355,6 +374,59 @@
     margin-bottom: 1rem;
     font-size: 0.875rem;
     color: #1e40af;
+}
+
+.edit-tip-box kbd {
+    background-color: #e0e7ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 0.25rem;
+    padding: 0.1em 0.35em;
+    font-size: 0.8em;
+    font-family: inherit;
+}
+
+.wiki-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0.35rem 0;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.wiki-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.5rem;
+    background-color: #f9fafb;
+    border: 1px solid var(--wiki-border-color);
+    border-radius: 0.375rem;
+    color: var(--wiki-text-secondary);
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.wiki-toolbar-btn:hover {
+    background-color: #f3f4f6;
+    color: var(--wiki-primary-color);
+    border-color: #d1d5db;
+}
+
+.wiki-toolbar-btn:active {
+    background-color: #e5e7eb;
+}
+
+.wiki-toolbar-sep {
+    width: 1px;
+    height: 1.25rem;
+    background-color: var(--wiki-border-color);
+    margin: 0 0.25rem;
 }
 
 /* References */
@@ -866,6 +938,16 @@
     color: #1d4ed8;
 }
 
+.h-clergy {
+    background-color: #dcfce7;
+    color: #15803d;
+}
+
+.h-lineage {
+    background-color: #e0f2fe;
+    color: #0369a1;
+}
+
 .h-citation {
     background-color: #e0e7ff;
     color: #4338ca;
@@ -894,6 +976,72 @@
 .h-code-block {
     background-color: #f3f4f6;
     color: #dc2626;
+}
+
+/* Image drop zone feedback */
+.wiki-editor-container.wiki-drag-over {
+    outline: 2px dashed var(--wiki-primary-color);
+    outline-offset: 2px;
+    background-color: var(--wiki-primary-light);
+}
+
+/* Images and figures */
+.wiki-figure {
+    margin: 1rem 0;
+}
+.wiki-figure img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 0.375rem;
+}
+.wiki-figure figcaption {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--wiki-text-secondary);
+    text-align: left;
+}
+
+/* Clergy shortcode output */
+.wiki-clergy-summary {
+    background-color: #f0fdf4;
+    color: #166534;
+    padding: 0.1em 0.35em;
+    border-radius: 0.25rem;
+}
+.wiki-clergy-list {
+    display: inline-block;
+}
+.wiki-clergy-sublist {
+    margin: 0.25em 0 0 1em;
+    padding-left: 1em;
+    font-size: 0.9em;
+}
+.wiki-clergy-unknown {
+    color: #9ca3af;
+    font-style: italic;
+}
+
+/* Lineage chart shortcode - blends with wiki content background */
+.wiki-lineage-chart-wrapper {
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+.wiki-lineage-chart {
+    min-height: 280px;
+    min-width: 960px;
+    width: max-content;
+    border: 1px solid var(--wiki-content-bg);
+    border-radius: 0.375rem;
+    background-color: var(--wiki-content-bg);
+}
+.wiki-lineage-svg {
+    display: block;
+}
+.wiki-lineage-error {
+    padding: 1rem;
+    color: #9ca3af;
+    font-size: 0.875rem;
 }
 
 /* Ensure backdrop extends full height for scrolling */

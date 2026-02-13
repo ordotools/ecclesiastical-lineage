@@ -127,6 +127,8 @@ class WikiApp {
             sidebar: document.querySelector('.wiki-sidebar'),
             searchInput: document.querySelector('.wiki-search-input'),
             pagesList: document.getElementById('wiki-pages-list'),
+            backlinksSection: document.getElementById('wiki-backlinks-section'),
+            backlinksList: document.getElementById('wiki-backlinks-list'),
             mainTitle: document.getElementById('wiki-main-title'),
             contentArea: document.getElementById('wiki-content-area'),
             backBtn: document.getElementById('wiki-back-btn'),
@@ -137,6 +139,7 @@ class WikiApp {
             newBtn: document.getElementById('wiki-new-page-btn'), // Updated ID
             randomBtn: document.getElementById('wiki-random-btn'),
             editContainer: document.getElementById('wiki-edit-container'),
+            editorContainer: document.querySelector('.wiki-editor-container'),
             viewContainer: document.getElementById('wiki-view-container'),
             textarea: document.getElementById('wiki-textarea'),
             titleInput: document.getElementById('wiki-edit-title-input'),
@@ -158,6 +161,9 @@ class WikiApp {
 
     async init() {
         this.bindEvents();
+        this.bindToolbar();
+        this.bindKeyboardShortcuts();
+        this.bindImageDrop();
         await Promise.all([
             this.fetchPageList(),
             this.fetchAllClergy(),
@@ -384,6 +390,120 @@ class WikiApp {
         if (this.highlighter) this.highlighter.sync();
     }
 
+    insertAtCursor(text) {
+        const ta = this.els.textarea;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const before = ta.value.substring(0, start);
+        const after = ta.value.substring(end);
+        ta.value = before + text + after;
+        const newPos = start + text.length;
+        ta.setSelectionRange(newPos, newPos);
+        ta.focus();
+        if (this.highlighter) this.highlighter.sync();
+    }
+
+    /**
+     * Wrap selection with before/after. If no selection, insert both and place cursor between.
+     */
+    wrapSelection(before, after) {
+        const ta = this.els.textarea;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const sel = ta.value.substring(start, end);
+        ta.value = ta.value.substring(0, start) + before + sel + after + ta.value.substring(end);
+        const newEnd = start + before.length + sel.length;
+        ta.setSelectionRange(start + before.length, newEnd);
+        ta.focus();
+        if (this.highlighter) this.highlighter.sync();
+    }
+
+    bindImageDrop() {
+        const container = this.els.editorContainer;
+        if (!container || !this.els.textarea) return;
+        if (container.hasAttribute('data-wiki-drop-bound')) return;
+        container.setAttribute('data-wiki-drop-bound', 'true');
+
+        ['dragenter', 'dragover'].forEach(ev => {
+            container.addEventListener(ev, (e) => {
+                if (e.dataTransfer.types.includes('Files')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.dataTransfer.dropEffect = 'copy';
+                    container.classList.add('wiki-drag-over');
+                }
+            });
+        });
+        container.addEventListener('dragleave', (e) => {
+            if (!container.contains(e.relatedTarget)) container.classList.remove('wiki-drag-over');
+        });
+        container.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            container.classList.remove('wiki-drag-over');
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+            if (files.length === 0) return;
+            this.els.textarea.focus();
+            for (const file of files) {
+                const fd = new FormData();
+                fd.append('file', file);
+                try {
+                    const res = await fetch('/api/wiki/upload', { method: 'POST', body: fd });
+                    const data = await res.json();
+                    if (data.url) {
+                        const alt = file.name.replace(/\.[^.]*$/, '');
+                        this.insertAtCursor(`\n![${alt}](${data.url})\n`);
+                    }
+                } catch (err) {
+                    console.error('Image upload failed', err);
+                }
+            }
+        });
+    }
+
+    bindToolbar() {
+        const toolbar = document.querySelector('.wiki-toolbar');
+        if (!toolbar || !this.els.textarea) return;
+        toolbar.querySelectorAll('.wiki-toolbar-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.els.textarea.focus();
+                const action = btn.dataset.action;
+                if (action === 'bold') this.wrapSelection('**', '**');
+                else if (action === 'italic') this.wrapSelection('*', '*');
+                else if (action === 'h1') this.wrapSelection('\n# ', '\n');
+                else if (action === 'h2') this.wrapSelection('\n## ', '\n');
+                else if (action === 'h3') this.wrapSelection('\n### ', '\n');
+                else if (action === 'link') {
+                    this.insertAtCursor('[[');
+                    this.performArticleSearch('');
+                } else if (action === 'citation') this.insertAtCursor('[^1]');
+            });
+        });
+    }
+
+    bindKeyboardShortcuts() {
+        if (!this.els.textarea) return;
+        this.els.textarea.addEventListener('keydown', (e) => {
+            const isMod = e.ctrlKey || e.metaKey;
+            if (!isMod) return;
+            if (e.key === 'b') {
+                e.preventDefault();
+                this.wrapSelection('**', '**');
+            } else if (e.key === 'i') {
+                e.preventDefault();
+                this.wrapSelection('*', '*');
+            } else if (e.key === 'k') {
+                e.preventDefault();
+                this.insertAtCursor('[[');
+                this.performArticleSearch('');
+            } else if (e.key === 's') {
+                e.preventDefault();
+                if (this.isEditing) this.savePage();
+            }
+        });
+    }
+
     getCurrentPage() {
         return this.pages[this.currentSlug] || {
             title: this.currentSlug,
@@ -413,6 +533,100 @@ class WikiApp {
             this.renderSidebarList();
         } catch (err) {
             console.error('Failed to fetch page list', err);
+        }
+    }
+
+    async fetchBacklinks(slug) {
+        if (!this.els.backlinksSection || !this.els.backlinksList) return;
+        try {
+            const res = await fetch(`/api/wiki/backlinks/${encodeURIComponent(slug)}`);
+            const list = res.ok ? await res.json() : [];
+            this.renderBacklinks(list, slug);
+        } catch (err) {
+            console.error('Failed to fetch backlinks', err);
+            this.renderBacklinks([], slug);
+        }
+    }
+
+    renderBacklinks(list, currentSlug) {
+        if (!this.els.backlinksSection || !this.els.backlinksList) return;
+        if (this.isEditing) {
+            this.els.backlinksSection.style.display = 'none';
+            return;
+        }
+        this.els.backlinksSection.style.display = 'block';
+        const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        this.els.backlinksList.innerHTML = list
+            .filter(p => p.slug !== currentSlug)
+            .map(p => `<button type="button" class="wiki-page-link wiki-backlink" data-slug="${esc(p.slug)}">${esc(p.title)}</button>`)
+            .join('');
+        if (this.els.backlinksList.innerHTML === '') {
+            this.els.backlinksList.innerHTML = '<span class="wiki-backlinks-empty">None</span>';
+        }
+        this.els.backlinksList.querySelectorAll('.wiki-backlink').forEach(btn => {
+            btn.addEventListener('click', () => this.navigate(btn.dataset.slug));
+        });
+    }
+
+    extractClergyShortcodeIds(content) {
+        if (!content) return [];
+        const ids = new Set();
+        content.replace(/\{\{clergy:(\d+)(?::\w+)?\}\}/g, (_, id) => { ids.add(parseInt(id, 10)); return ''; });
+        return [...ids];
+    }
+
+    async fetchClergySummaries(ids) {
+        if (ids.length === 0) return {};
+        if (ids.length === 1) {
+            try {
+                const res = await fetch(`/api/wiki/clergy/${ids[0]}/summary`);
+                if (res.ok) return { [ids[0]]: await res.json() };
+            } catch (e) { /* ignore */ }
+            return {};
+        }
+        try {
+            const res = await fetch(`/api/wiki/clergy/summaries?ids=${ids.join(',')}`);
+            if (res.ok) return await res.json();
+        } catch (e) { /* ignore */ }
+        return {};
+    }
+
+    async renderViewContent(slugForRender, content) {
+        const ids = this.extractClergyShortcodeIds(content);
+        const clergySummaries = await this.fetchClergySummaries(ids);
+        if (slugForRender !== this.currentSlug || this.isEditing) return;
+        const renderer = window.wikiRenderer || new WikiRenderer();
+        this.els.viewContainer.innerHTML = renderer.render(content, { pages: this.pages, clergySummaries });
+        this.els.viewContainer.querySelectorAll('.wiki-link').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const target = e.target.dataset.target;
+                this.navigate(target);
+            });
+        });
+        this.initLineageCharts();
+        this.fetchBacklinks(slugForRender);
+    }
+
+    async initLineageCharts() {
+        if (!this.els.viewContainer || typeof window.renderStaticLineageChart !== 'function') return;
+        const charts = this.els.viewContainer.querySelectorAll('.wiki-lineage-chart[data-lineage-id], .wiki-lineage-chart[data-lineage-name]');
+        for (const el of charts) {
+            const id = el.dataset.lineageId;
+            const name = el.dataset.lineageName;
+            const ident = id || name;
+            if (!ident) continue;
+            try {
+                const res = await fetch(`/api/wiki/lineage/${encodeURIComponent(ident)}`);
+                if (res.ok) {
+                    const { nodes, links } = await res.json();
+                    window.renderStaticLineageChart(nodes, links, el);
+                } else {
+                    el.innerHTML = '<p class="wiki-lineage-error">Lineage not found.</p>';
+                }
+            } catch (err) {
+                console.error('Lineage chart failed', err);
+                el.innerHTML = '<p class="wiki-lineage-error">Failed to load lineage.</p>';
+            }
         }
     }
 
@@ -722,6 +936,7 @@ class WikiApp {
 
         // Content
         if (this.isEditing) {
+            if (this.els.backlinksSection) this.els.backlinksSection.style.display = 'none';
             if (this.els.contentArea) this.els.contentArea.classList.add('wiki-editing-mode');
             this.els.viewContainer.style.display = 'none';
             this.els.editContainer.style.display = 'flex';
@@ -765,23 +980,15 @@ class WikiApp {
             if (this.els.authorSelect) this.els.authorSelect.value = page.author_id || '';
 
         } else {
-            this.editorSlug = null; // Reset editor tracking when leaving edit mode
+            this.editorSlug = null;
             if (this.els.contentArea) this.els.contentArea.classList.remove('wiki-editing-mode');
             this.els.viewContainer.style.display = 'block';
             this.els.editContainer.style.display = 'none';
-            const renderer = window.wikiRenderer || new WikiRenderer();
-            this.els.viewContainer.innerHTML = renderer.render(page.content, { pages: this.pages });
+            const slugForRender = this.currentSlug;
+            this.renderViewContent(slugForRender, page.content);
             if (this.els.editBtn) this.els.editBtn.style.display = 'inline-flex';
             if (this.els.saveBtn) this.els.saveBtn.style.display = 'none';
             if (this.els.cancelBtn) this.els.cancelBtn.style.display = 'none';
-
-            // Re-bind dynamic links
-            this.els.viewContainer.querySelectorAll('.wiki-link').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const target = e.target.dataset.target;
-                    this.navigate(target);
-                });
-            });
 
             // Update Footer Timestamp
             const footer = document.querySelector('.wiki-footer span');

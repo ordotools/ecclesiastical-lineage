@@ -1,9 +1,18 @@
-from flask import Blueprint, render_template, request, jsonify, session
-from models import db, WikiPage, User, Clergy
+import os
+import uuid
+from flask import Blueprint, render_template, request, jsonify, session, current_app
+from werkzeug.utils import secure_filename
+from sqlalchemy.orm import joinedload
+from models import db, WikiPage, User, Clergy, Ordination, Consecration, Organization, Rank
+from constants import GREEN_COLOR, BLACK_COLOR
 from datetime import datetime
 from sqlalchemy import or_
+import json
+import base64
 
 wiki_bp = Blueprint('wiki', __name__)
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 @wiki_bp.route('/wiki')
 def wiki():
@@ -180,6 +189,236 @@ def restore_page(page_id):
     page.is_deleted = False
     db.session.commit()
     return jsonify({'success': True})
+
+def _clergy_to_summary(clergy):
+    ords = [o for o in clergy.ordinations if not o.is_invalid]
+    cons = [c for c in clergy.consecrations if not c.is_invalid]
+    return {
+        'id': clergy.id,
+        'name': clergy.name,
+        'rank': clergy.rank or '',
+        'organization': clergy.organization or '',
+        'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
+        'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
+        'ordinations': [{'display_date': o.display_date, 'ordaining_bishop_name': o.ordaining_bishop.name if o.ordaining_bishop else ''} for o in ords],
+        'consecrations': [{'display_date': c.display_date, 'consecrator_name': c.consecrator.name if c.consecrator else ''} for c in cons],
+    }
+
+
+@wiki_bp.route('/api/wiki/clergy/summaries', methods=['GET'])
+def get_clergy_summaries_batch():
+    """Batch fetch clergy summaries. Query: ?ids=1,2,3"""
+    ids_param = request.args.get('ids', '')
+    if not ids_param:
+        return jsonify({})
+    try:
+        ids = [int(x.strip()) for x in ids_param.split(',') if x.strip()]
+    except ValueError:
+        return jsonify({'error': 'Invalid ids'}), 400
+    if not ids:
+        return jsonify({})
+    clergy_list = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+    ).filter(Clergy.id.in_(ids), Clergy.is_deleted == False).all()
+    return jsonify({c.id: _clergy_to_summary(c) for c in clergy_list})
+
+
+@wiki_bp.route('/api/wiki/clergy/<int:clergy_id>/summary', methods=['GET'])
+def get_clergy_summary(clergy_id):
+    """Return summary for clergy shortcode: id, name, rank, org, dates, ordinations, consecrations."""
+    clergy = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+    ).filter_by(id=clergy_id, is_deleted=False).first()
+    if not clergy:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify(_clergy_to_summary(clergy))
+
+
+@wiki_bp.route('/api/wiki/clergy/by-name/<path:name>', methods=['GET'])
+def get_clergy_by_name(name):
+    """Lookup clergy by name (first match). Returns summary JSON or 404."""
+    clergy = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+    ).filter(Clergy.name.ilike(name), Clergy.is_deleted == False).first()
+    if not clergy:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify(_clergy_to_summary(clergy))
+
+
+def _is_bishop(clergy):
+    """Check if clergy has bishop rank (ordained bishops)."""
+    if not clergy or not clergy.rank:
+        return False
+    rank = Rank.query.filter_by(name=clergy.rank).first()
+    return rank and rank.is_bishop
+
+
+def _get_lineage_subset(clergy_id):
+    """
+    Traverse ordination (if priest) and consecration chain upward from clergy.
+    Returns (node_ids_set, links_list) where links have source/target/type/date/color.
+    """
+    clergy = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+    ).filter_by(id=clergy_id, is_deleted=False).first()
+    if not clergy:
+        return set(), []
+
+    node_ids = {clergy_id}
+    links = []
+    visited = set()
+
+    def add_node(c):
+        if c and c.id and c.id not in visited:
+            node_ids.add(c.id)
+
+    def traverse_consecration_chain(cid):
+        if cid in visited:
+            return
+        visited.add(cid)
+        c = Clergy.query.options(
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+        ).filter_by(id=cid, is_deleted=False).first()
+        if not c:
+            return
+        pc = c.get_primary_consecration()
+        if not pc or not pc.consecrator:
+            return
+        add_node(pc.consecrator)
+        links.append({
+            'source': pc.consecrator.id, 'target': cid, 'type': 'consecration',
+            'date': pc.display_date, 'color': GREEN_COLOR,
+        })
+        traverse_consecration_chain(pc.consecrator.id)
+
+    is_bishop = _is_bishop(clergy)
+    if is_bishop:
+        traverse_consecration_chain(clergy_id)
+    else:
+        # Priest: find ordaining bishop, add ordination link, then traverse consecration chain
+        po = clergy.get_primary_ordination()
+        if po and po.ordaining_bishop:
+            ob = po.ordaining_bishop
+            add_node(ob)
+            links.append({
+                'source': ob.id, 'target': clergy_id, 'type': 'ordination',
+                'date': po.display_date, 'color': BLACK_COLOR,
+            })
+            traverse_consecration_chain(ob.id)
+
+    return node_ids, links
+
+
+def _clergy_to_lineage_node(clergy, organizations, ranks):
+    """Build a lineage node dict matching main lineage viz format."""
+    org_color = organizations.get(clergy.organization) or '#2c3e50'
+    rank_color = ranks.get(clergy.rank) or '#888888'
+    placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="24" r="14" fill="#bdc3c7"/><ellipse cx="32" cy="50" rx="20" ry="12" fill="#bdc3c7"/></svg>'''
+    placeholder_data_url = 'data:image/svg+xml;base64,' + base64.b64encode(placeholder_svg.encode('utf-8')).decode('utf-8')
+    image_url = placeholder_data_url
+    if clergy.image_data:
+        try:
+            data = json.loads(clergy.image_data)
+            image_url = data.get('lineage', data.get('detail', data.get('original', ''))) or clergy.image_url or placeholder_data_url
+        except (json.JSONDecodeError, AttributeError):
+            pass
+    if not image_url:
+        image_url = clergy.image_url or placeholder_data_url
+    po = clergy.get_primary_ordination()
+    pc = clergy.get_primary_consecration()
+    ord_date = po.display_date if po else (clergy.ordinations[0].display_date if getattr(clergy, 'ordinations', None) and clergy.ordinations else None)
+    cons_date = pc.display_date if pc else (clergy.consecrations[0].display_date if getattr(clergy, 'consecrations', None) and clergy.consecrations else None)
+    return {
+        'id': clergy.id,
+        'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
+        'rank': clergy.rank,
+        'organization': clergy.organization,
+        'org_color': org_color,
+        'rank_color': rank_color,
+        'image_url': image_url,
+        'ordination_date': ord_date,
+        'consecration_date': cons_date,
+    }
+
+
+@wiki_bp.route('/api/wiki/lineage/<path:identifier>', methods=['GET'])
+def get_lineage_subset(identifier):
+    """
+    Get lineage subset for a clergy by ID or name.
+    Returns { nodes: [...], links: [...] } matching main lineage viz format.
+    """
+    clergy = None
+    try:
+        cid = int(identifier)
+        clergy = Clergy.query.filter_by(id=cid, is_deleted=False).first()
+    except ValueError:
+        clergy = Clergy.query.filter(Clergy.name.ilike(identifier), Clergy.is_deleted == False).first()
+    if not clergy:
+        return jsonify({'error': 'Not found'}), 404
+
+    node_ids, links = _get_lineage_subset(clergy.id)
+    clergy_list = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+    ).filter(Clergy.id.in_(node_ids), Clergy.is_deleted == False).all()
+
+    organizations = {o.name: o.color for o in Organization.query.all()}
+    ranks = {r.name: r.color for r in Rank.query.all()}
+    nodes = [_clergy_to_lineage_node(c, organizations, ranks) for c in clergy_list]
+    return jsonify({'nodes': nodes, 'links': links})
+
+
+@wiki_bp.route('/api/wiki/backlinks/<path:slug>', methods=['GET'])
+def get_backlinks(slug):
+    """Pages that link to this page via [[slug]] or [[slug|...]]."""
+    query = WikiPage.query.filter_by(is_deleted=False)
+    if 'user_id' not in session:
+        query = query.filter_by(is_visible=True)
+    # Escape LIKE special chars: % and _ (use \ as escape char)
+    safe = slug.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+    pattern1 = f'%[[{safe}]]%'
+    pattern2 = f'%[[{safe}|%'
+    query = query.filter(or_(
+        WikiPage.markdown.ilike(pattern1, escape='\\'),
+        WikiPage.markdown.ilike(pattern2, escape='\\')
+    ))
+    pages = query.all()
+    return jsonify([{'title': p.title, 'slug': p.title} for p in pages])
+
+
+def _allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@wiki_bp.route('/api/wiki/upload', methods=['POST'])
+def upload_image():
+    """Accept image upload and save to static/wiki/img/. Returns { url } for use in markdown."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return jsonify({'error': 'No file'}), 400
+    if not _allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file type'}), 400
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    safe_name = secure_filename(file.filename)
+    base = safe_name.rsplit('.', 1)[0][:50] or 'img'
+    unique = f"{base}_{uuid.uuid4().hex[:8]}.{ext}"
+    img_dir = os.path.join(current_app.static_folder, 'wiki', 'img')
+    os.makedirs(img_dir, exist_ok=True)
+    path = os.path.join(img_dir, unique)
+    try:
+        file.save(path)
+    except OSError as e:
+        current_app.logger.warning(f"Wiki image upload failed: {e}")
+        return jsonify({'error': 'Save failed'}), 500
+    url = f"/static/wiki/img/{unique}"
+    return jsonify({'url': url})
+
 
 @wiki_bp.route('/api/wiki/page/<int:page_id>/toggle-visibility', methods=['POST'])
 def toggle_visibility(page_id):

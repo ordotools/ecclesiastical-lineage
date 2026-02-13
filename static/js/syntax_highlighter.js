@@ -61,6 +61,12 @@ class WikiSyntaxHighlighter {
         // 4. Wiki Links ([[Link]]) -> .h-link
         highlighted = highlighted.replace(/(\[\[.+?\]\])/g, '<span class="h-link">$1</span>');
 
+        // 4b. Clergy shortcodes ({{clergy:id}} or {{clergy:id:suffix}}) -> .h-clergy
+        highlighted = highlighted.replace(/(\{\{clergy:\d+(?::\w+)?\}\})/g, '<span class="h-clergy">$1</span>');
+
+        // 4c. Lineage shortcodes ({{lineage:id}} or {{lineage:Name}}) -> .h-lineage
+        highlighted = highlighted.replace(/(\{\{lineage:[^}]+\}\})/g, '<span class="h-lineage">$1</span>');
+
         // 5. Citations ([^1]) -> .h-citation
         highlighted = highlighted.replace(/(\[\^.+?\])/g, '<span class="h-citation">$1</span>');
 

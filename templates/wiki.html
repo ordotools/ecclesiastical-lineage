@@ -63,6 +63,14 @@
                     <!-- JS Populated -->
                 </div>
             </div>
+
+            <!-- Backlinks (view mode only) -->
+            <div id="wiki-backlinks-section" class="wiki-backlinks-section" style="display: none;">
+                <div class="wiki-page-list-header">Backlinks</div>
+                <div id="wiki-backlinks-list" class="wiki-backlinks-list">
+                    <!-- JS Populated -->
+                </div>
+            </div>
         </div>
 
         <div
@@ -170,6 +178,36 @@
                         <code>**bold**</code>,
                         <code>*italic*</code>.
                         Citations: <code>[^1]</code> and <code>[^1]: Source</code>.
+                        Clergy: <code>{% raw %}{{clergy:123}}{% endraw %}</code> or <code>{% raw %}{{clergy:123:ordinations}}{% endraw %}</code>.
+                        Lineage: <code>{% raw %}{{lineage:123}}{% endraw %}</code> or <code>{% raw %}{{lineage:Clergy Name}}{% endraw %}</code>.
+                        Drag and drop images to insert.
+                        Shortcuts: <kbd>Ctrl+B</kbd> bold, <kbd>Ctrl+I</kbd> italic, <kbd>Ctrl+K</kbd> link, <kbd>Ctrl+S</kbd> save.
+                    </div>
+
+                    <div class="wiki-toolbar">
+                        <button type="button" class="wiki-toolbar-btn" data-action="bold" title="Bold (Ctrl+B)">
+                            <i class="fas fa-bold"></i>
+                        </button>
+                        <button type="button" class="wiki-toolbar-btn" data-action="italic" title="Italic (Ctrl+I)">
+                            <i class="fas fa-italic"></i>
+                        </button>
+                        <span class="wiki-toolbar-sep"></span>
+                        <button type="button" class="wiki-toolbar-btn" data-action="h1" title="Heading 1">
+                            <i class="fas fa-heading"></i> 1
+                        </button>
+                        <button type="button" class="wiki-toolbar-btn" data-action="h2" title="Heading 2">
+                            <i class="fas fa-heading"></i> 2
+                        </button>
+                        <button type="button" class="wiki-toolbar-btn" data-action="h3" title="Heading 3">
+                            <i class="fas fa-heading"></i> 3
+                        </button>
+                        <span class="wiki-toolbar-sep"></span>
+                        <button type="button" class="wiki-toolbar-btn" data-action="link" title="Link (Ctrl+K)">
+                            <i class="fas fa-link"></i>
+                        </button>
+                        <button type="button" class="wiki-toolbar-btn" data-action="citation" title="Citation">
+                            <i class="fas fa-quote-right"></i>
+                        </button>
                     </div>
 
                     <div class="wiki-editor-container">
@@ -198,6 +236,8 @@
 {% block scripts %}
 <script type="module" src="{{ url_for('static', filename='js/utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
+<script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/wiki-lineage-chart.js') }}"></script>
 <script src="{{ url_for('static', filename='js/wiki-renderer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/wiki.js') }}?v={{ range(1, 10000) | random }}"></script>
 <script src="{{ url_for('static', filename='js/syntax_highlighter.js') }}"></script>

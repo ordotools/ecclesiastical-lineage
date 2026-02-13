@@ -595,6 +595,43 @@ class ImageUploadService:
             current_app.logger.error(f"Failed to delete images for clergy {clergy_id}: {e}")
             return False
     
+    WIKI_ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+    def upload_wiki_image(self, file):
+        """
+        Upload a wiki image to Backblaze B2.
+
+        Args:
+            file: Werkzeug FileStorage from request.files
+
+        Returns:
+            str: Public URL of the uploaded image, or None if failed/not configured
+        """
+        if not self.backblaze_configured:
+            return None
+        if not file or not file.filename:
+            return None
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        if ext not in self.WIKI_ALLOWED_EXTENSIONS:
+            return None
+        base = ''.join(c for c in (file.filename.rsplit('.', 1)[0][:50] or 'img') if c.isalnum() or c in '-_') or 'img'
+        object_key = f"wiki/img/{base}_{uuid.uuid4().hex[:8]}.{ext}"
+        content_type = file.content_type or self._get_content_type(f'.{ext}')
+        try:
+            file.seek(0)
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=object_key,
+                Body=file.read(),
+                ContentType=content_type
+            )
+            public_url = self.config.get_public_url(object_key)
+            current_app.logger.info(f"Uploaded wiki image: {public_url}")
+            return public_url
+        except Exception as e:
+            current_app.logger.error(f"Failed to upload wiki image: {e}")
+            return None
+
     def _generate_object_key(self, clergy_id, image_type, file_extension):
         """Generate a unique object key for the image"""
         unique_id = str(uuid.uuid4())[:8]

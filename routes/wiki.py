@@ -1,8 +1,6 @@
-import os
-import uuid
 from flask import Blueprint, render_template, request, jsonify, session, current_app
-from werkzeug.utils import secure_filename
 from sqlalchemy.orm import joinedload
+from services.image_upload import get_image_upload_service
 from models import db, WikiPage, User, Clergy, Ordination, Consecration, Organization, Rank
 from constants import GREEN_COLOR, BLACK_COLOR
 from datetime import datetime
@@ -396,7 +394,7 @@ def _allowed_file(filename):
 
 @wiki_bp.route('/api/wiki/upload', methods=['POST'])
 def upload_image():
-    """Accept image upload and save to static/wiki/img/. Returns { url } for use in markdown."""
+    """Accept image upload and save to Backblaze B2. Returns { url } for use in markdown."""
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     file = request.files.get('file')
@@ -404,19 +402,10 @@ def upload_image():
         return jsonify({'error': 'No file'}), 400
     if not _allowed_file(file.filename):
         return jsonify({'error': 'Invalid file type'}), 400
-    ext = file.filename.rsplit('.', 1)[1].lower()
-    safe_name = secure_filename(file.filename)
-    base = safe_name.rsplit('.', 1)[0][:50] or 'img'
-    unique = f"{base}_{uuid.uuid4().hex[:8]}.{ext}"
-    img_dir = os.path.join(current_app.static_folder, 'wiki', 'img')
-    os.makedirs(img_dir, exist_ok=True)
-    path = os.path.join(img_dir, unique)
-    try:
-        file.save(path)
-    except OSError as e:
-        current_app.logger.warning(f"Wiki image upload failed: {e}")
-        return jsonify({'error': 'Save failed'}), 500
-    url = f"/static/wiki/img/{unique}"
+    service = get_image_upload_service()
+    url = service.upload_wiki_image(file)
+    if not url:
+        return jsonify({'error': 'Image storage not configured or upload failed'}), 503
     return jsonify({'url': url})
 
 

@@ -176,6 +176,8 @@ def lineage_visualization():
                         'is_doubtful_event': consecration.is_doubtful_event, 'is_sub_conditione': consecration.is_sub_conditione
                     })
         root_clergy_ids = {lr.clergy_id for lr in LineageRoot.query.all()}
+        for n in nodes:
+            n['is_lineage_root'] = n['id'] in root_clergy_ids
         if root_clergy_ids:
             exclude_ids = _get_ancestors_of_roots(root_clergy_ids, links)
             visible_ids = {c.id for c in all_clergy} - exclude_ids

@@ -182,6 +182,7 @@ export async function initializeVisualization() {
     }
   });
 
+  const useSquareNode = (d) => d.is_pre_1968_consecration || !!d.is_lineage_root;
   nodes.forEach(node => {
     const consecrationYear = parseYearFromDate(node.consecration_date);
     node.is_pre_1968_consecration = consecrationYear !== null
@@ -377,7 +378,7 @@ export async function initializeVisualization() {
           const clipId = `clip-avatar-${d.id}`;
           const clipPath = defs.append('clipPath')
             .attr('id', clipId);
-          if (d.is_pre_1968_consecration) {
+          if (useSquareNode(d)) {
             clipPath.append('rect')
               .attr('width', IMAGE_SIZE)
               .attr('height', IMAGE_SIZE)
@@ -591,14 +592,14 @@ export async function initializeVisualization() {
       .on('drag', dragged)
       .on('end', dragended));
 
-  // Add node shapes (circle or square based on consecration year)
+  // Add node shapes (circle or square based on consecration year or lineage root)
   node.append('circle')
     .attr('class', 'viz-node-outer viz-node-outer-circle')
     .attr('r', cssNodeOuterRadius)
     .attr('fill', d => d.org_color)
     .attr('stroke', d => d.rank_color)
     .attr('stroke-width', cssNodeStrokeWidth)
-    .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+    .style('display', d => useSquareNode(d) ? 'none' : null);
 
   node.append('rect')
     .attr('class', 'viz-node-outer viz-node-outer-rect')
@@ -609,7 +610,7 @@ export async function initializeVisualization() {
     .attr('fill', d => d.org_color)
     .attr('stroke', d => d.rank_color)
     .attr('stroke-width', cssNodeStrokeWidth)
-    .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+    .style('display', d => useSquareNode(d) ? null : 'none');
 
   // Add rank indicator
   node.append('circle')
@@ -618,7 +619,7 @@ export async function initializeVisualization() {
     .attr('fill', d => d.rank_color)
     .attr('cx', 0)
     .attr('cy', 0)
-    .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+    .style('display', d => useSquareNode(d) ? 'none' : null);
 
   node.append('rect')
     .attr('class', 'viz-node-inner viz-node-inner-rect')
@@ -627,7 +628,7 @@ export async function initializeVisualization() {
     .attr('x', -INNER_RADIUS)
     .attr('y', -INNER_RADIUS)
     .attr('fill', d => d.rank_color)
-    .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+    .style('display', d => useSquareNode(d) ? null : 'none');
 
   // Add white background shape for images (will be updated after sprite sheet loads)
   node.append('circle')
@@ -637,7 +638,7 @@ export async function initializeVisualization() {
     .attr('cx', 0)
     .attr('cy', 0)
     .style('opacity', d => d.image_url ? 1 : 0)
-    .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+    .style('display', d => useSquareNode(d) ? 'none' : null);
 
   node.append('rect')
     .attr('class', 'viz-node-image-bg viz-node-image-bg-rect')
@@ -647,7 +648,7 @@ export async function initializeVisualization() {
     .attr('y', -IMAGE_SIZE / 2)
     .attr('fill', 'rgba(255, 255, 255, 1)')
     .style('opacity', d => d.image_url ? 1 : 0)
-    .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+    .style('display', d => useSquareNode(d) ? null : 'none');
 
   // Add border shape for images (will be updated after sprite sheet loads)
   node.append('circle')
@@ -659,7 +660,7 @@ export async function initializeVisualization() {
     .attr('cx', 0)
     .attr('cy', 0)
     .style('opacity', d => d.image_url ? 1 : 0)
-    .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+    .style('display', d => useSquareNode(d) ? 'none' : null);
 
   node.append('rect')
     .attr('class', 'viz-node-image-border viz-node-image-border-rect')
@@ -671,7 +672,7 @@ export async function initializeVisualization() {
     .attr('stroke', 'rgba(0, 0, 0, 1)')
     .attr('stroke-width', '0.5px')
     .style('opacity', d => d.image_url ? 1 : 0)
-    .style('display', d => d.is_pre_1968_consecration ? null : 'none');
+    .style('display', d => useSquareNode(d) ? null : 'none');
 
   // Add clergy images with sprite sheet or fallback to individual images
   if (spriteSheetData && spriteSheetData.success) {
@@ -746,7 +747,7 @@ export async function initializeVisualization() {
       .attr('y', -IMAGE_SIZE/2)
       .attr('width', IMAGE_SIZE)
       .attr('height', IMAGE_SIZE)
-      .attr('clip-path', d => d.is_pre_1968_consecration
+      .attr('clip-path', d => useSquareNode(d)
         ? 'none'
         : `circle(${IMAGE_SIZE / 2}px at ${IMAGE_SIZE / 2}px ${IMAGE_SIZE / 2}px)`)
       .style('pointer-events', 'none') // Make images unclickable so they don't interfere with node interactions

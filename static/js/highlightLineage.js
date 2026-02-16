@@ -47,9 +47,8 @@ export function clearHighlight() {
         if (d && d.id) {
           const nodeGroup = d3.select(this);
           // Reset outer shape - restore original stroke color
-          const outerSelector = d.is_pre_1968_consecration
-            ? '.viz-node-outer-rect'
-            : '.viz-node-outer-circle';
+          const useSquare = d.is_pre_1968_consecration || d.is_lineage_root;
+          const outerSelector = useSquare ? '.viz-node-outer-rect' : '.viz-node-outer-circle';
           const outerShape = nodeGroup.select(outerSelector);
           if (!outerShape.empty() && d.rank_color) {
             outerShape
@@ -125,9 +124,8 @@ function highlightNode(nodeId) {
     if (d && d.id === nodeId) {
       const nodeGroup = d3.select(this);
       // Highlight outer shape
-      const outerSelector = d.is_pre_1968_consecration
-        ? '.viz-node-outer-rect'
-        : '.viz-node-outer-circle';
+      const useSquare = d.is_pre_1968_consecration || d.is_lineage_root;
+      const outerSelector = useSquare ? '.viz-node-outer-rect' : '.viz-node-outer-circle';
       const outerShape = nodeGroup.select(outerSelector);
       if (!outerShape.empty()) {
         outerShape

@@ -27,17 +27,17 @@
         return {
             has_valid_ordination: !!summary.has_valid_ordination,
             has_valid_consecration: !!summary.has_valid_consecration,
-            worst_ordination_status: summary.worst_ordination_status || 'invalid',
-            worst_consecration_status: summary.worst_consecration_status || 'invalid'
+            worst_ordination_status: summary.worst_ordination_status || 'valid',
+            worst_consecration_status: summary.worst_consecration_status || 'valid'
         };
     }
 
     function defaultSummary() {
         return {
-            has_valid_ordination: false,
-            has_valid_consecration: false,
-            worst_ordination_status: 'invalid',
-            worst_consecration_status: 'invalid'
+            has_valid_ordination: true,
+            has_valid_consecration: true,
+            worst_ordination_status: 'valid',
+            worst_consecration_status: 'valid'
         };
     }
 

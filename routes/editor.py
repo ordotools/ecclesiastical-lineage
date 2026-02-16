@@ -65,7 +65,7 @@ def _get_validity_value(record):
 
 def _get_worst_status(statuses):
     if not statuses:
-        return 'invalid'
+        return 'valid'  # missing data = presume valid
     worst = None
     for status in statuses:
         if worst is None or STATUS_PRIORITY.get(status, 0) > STATUS_PRIORITY.get(worst, 0):
@@ -76,8 +76,8 @@ def _get_worst_status(statuses):
 def _get_bishop_summary(bishop):
     ordination_statuses = [_get_effective_status(ordination) for ordination in bishop.ordinations]
     consecration_statuses = [_get_effective_status(consecration) for consecration in bishop.consecrations]
-    has_valid_ordination = any(status in ('valid', 'sub_conditione') for status in ordination_statuses)
-    has_valid_consecration = any(status in ('valid', 'sub_conditione') for status in consecration_statuses)
+    has_valid_ordination = (not ordination_statuses) or any(status in ('valid', 'sub_conditione') for status in ordination_statuses)
+    has_valid_consecration = (not consecration_statuses) or any(status in ('valid', 'sub_conditione') for status in consecration_statuses)
     return {
         'has_valid_ordination': has_valid_ordination,
         'has_valid_consecration': has_valid_consecration,

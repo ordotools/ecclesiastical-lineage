@@ -111,8 +111,10 @@ class WikiRenderer {
         return `<figure class="wiki-figure"><img src="${safeUrl}" alt="${safeAlt}" /></figure>`;
     }
 
-    processText(text, pages) {
-        const parts = text.split(/(\[\[.*?\]\])|(\*{2}.*?\*{2})|(\[\^\d+\])|(!\[[^\]]*\]\([^)]+\))/g).filter(Boolean);
+    processText(text, pages, ctx = {}) {
+        const esc = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        if (!ctx.citeOccurrence) ctx.citeOccurrence = {};
+        const parts = text.split(/(\[\[.*?\]\])|(\*{2}.*?\*{2})|(\*[^*]+?\*)|(\[\^\d+\])|(!\[[^\]]*\]\([^)]+\))|(\[[^\]]+\]\([^)]+\))|(~~.+?~~)|(`[^`]+`)/g).filter(Boolean);
 
         return parts.map(part => {
             if (part.startsWith('[[') && part.endsWith(']]')) {
@@ -122,46 +124,106 @@ class WikiRenderer {
                 const exists = !!pages[target];
                 const className = exists ? 'wiki-link exists' : 'wiki-link';
                 const title = exists ? `Go to ${target}` : 'Page does not exist yet';
-                return `<button class="${className}" data-target="${target}" title="${title}">${displayLabel}</button>`;
+                return `<button class="${className}" data-target="${esc(target)}" title="${esc(title)}">${esc(displayLabel)}</button>`;
             }
             if (part.startsWith('**') && part.endsWith('**')) {
-                return `<strong>${part.slice(2, -2)}</strong>`;
+                return `<strong>${this.processText(part.slice(2, -2), pages, ctx)}</strong>`;
+            }
+            if (part.startsWith('*') && part.endsWith('*') && part.length > 1) {
+                return `<em>${this.processText(part.slice(1, -1), pages, ctx)}</em>`;
+            }
+            if (part.startsWith('~~') && part.endsWith('~~')) {
+                return `<del>${esc(part.slice(2, -2))}</del>`;
+            }
+            if (part.startsWith('`') && part.endsWith('`') && part.length > 1) {
+                return `<code>${esc(part.slice(1, -1))}</code>`;
             }
             if (part.match(/^\[\^\d+\]$/)) {
                 const id = part.slice(2, -1);
-                return `<sup class="wiki-cit-sup"><a href="#ref-${id}">[${id}]</a></sup>`;
+                const occ = ctx.citeOccurrence[id] ?? 0;
+                ctx.citeOccurrence[id] = occ + 1;
+                const citeId = `cite-${esc(id)}-${occ}`;
+                return `<sup class="wiki-cit-sup"><a href="#ref-${esc(id)}" id="${citeId}" title="Jump to reference">[${esc(id)}]</a></sup>`;
             }
             const img = this.parseImage(part);
             if (img) return this.renderImage(img.alt, img.url, img.title);
+            // External link [text](url)
+            const extLink = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+            if (extLink) {
+                return `<a href="${esc(extLink[2])}" target="_blank" rel="noopener noreferrer">${this.processText(extLink[1], pages, ctx)}</a>`;
+            }
             return part;
         }).join('');
     }
 
     processLines(contentLines, definitions, pages) {
-        const processText = (t) => this.processText(t, pages);
+        const ctx = { citeOccurrence: {} };
+        const processText = (t, useCtx = true) => this.processText(t, pages, useCtx ? ctx : {});
         const imgBlockRe = /^\s*!\[[^\]]*\]\([^)]+\)\s*$/;
         const lineageBlockRe = /^\s*<div class="wiki-lineage-chart-wrapper"><div class="wiki-lineage-chart" data-lineage-(?:id|name)="[^"]*"><\/div><\/div>\s*$/;
 
-        const renderedLines = contentLines.map(line => {
-            if (line.startsWith('# ')) return `<h1>${processText(line.substring(2))}</h1>`;
-            if (line.startsWith('## ')) return `<h2>${processText(line.substring(3))}</h2>`;
-            if (line.startsWith('### ')) return `<h3>${processText(line.substring(4))}</h3>`;
-            if (line.startsWith('- ')) return `<li>${processText(line.substring(2))}</li>`;
-            if (line.trim() === '') return '<div style="height: 1rem;"></div>';
-            if (imgBlockRe.test(line)) return processText(line.trim());
-            if (lineageBlockRe.test(line)) return line.trim();
-            return `<p>${processText(line)}</p>`;
-        }).join('');
+        // Handle fenced code blocks (``` ... ```) before line-by-line processing
+        let processed = contentLines;
+        const codeBlockRe = /^```(\w*)\s*$/;
+        let inCodeBlock = false;
+        let codeBlockLang = '';
+        let codeBlockLines = [];
+        const outLines = [];
 
-        let html = renderedLines;
+        for (let i = 0; i < processed.length; i++) {
+            const line = processed[i];
+            const cbMatch = line.match(codeBlockRe);
+            if (cbMatch) {
+                if (!inCodeBlock) {
+                    inCodeBlock = true;
+                    codeBlockLang = cbMatch[1] || '';
+                    codeBlockLines = [];
+                } else {
+                    const esc = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    outLines.push(`<pre class="wiki-code-block"><code${codeBlockLang ? ` class="language-${codeBlockLang}"` : ''}>${esc(codeBlockLines.join('\n'))}</code></pre>`);
+                    inCodeBlock = false;
+                }
+                continue;
+            }
+            if (inCodeBlock) {
+                codeBlockLines.push(line);
+                continue;
+            }
+
+            if (line.startsWith('# ')) { outLines.push(`<h1>${processText(line.substring(2))}</h1>`); continue; }
+            if (line.startsWith('## ')) { outLines.push(`<h2>${processText(line.substring(3))}</h2>`); continue; }
+            if (line.startsWith('### ')) { outLines.push(`<h3>${processText(line.substring(4))}</h3>`); continue; }
+            if (line.startsWith('#### ')) { outLines.push(`<h4>${processText(line.substring(5))}</h4>`); continue; }
+            if (line.startsWith('##### ')) { outLines.push(`<h5>${processText(line.substring(6))}</h5>`); continue; }
+            if (line.startsWith('###### ')) { outLines.push(`<h6>${processText(line.substring(7))}</h6>`); continue; }
+            if (line.startsWith('- ') || line.startsWith('* ')) { outLines.push(`<li>${processText(line.substring(2))}</li>`); continue; }
+            if (/^\d+\.\s+/.test(line)) { outLines.push(`<li>${processText(line.replace(/^\d+\.\s+/, ''))}</li>`); continue; }
+            if (line.trim() === '') { outLines.push('<div style="height: 1rem;"></div>'); continue; }
+            if (/^-{3,}\s*$/.test(line.trim())) { outLines.push('<hr class="wiki-hr" />'); continue; }
+            if (line.startsWith('> ')) { outLines.push(`<blockquote class="wiki-blockquote">${processText(line.substring(2))}</blockquote>`); continue; }
+            if (imgBlockRe.test(line)) { outLines.push(processText(line.trim())); continue; }
+            if (lineageBlockRe.test(line)) { outLines.push(line.trim()); continue; }
+            outLines.push(`<p>${processText(line)}</p>`);
+        }
+        if (inCodeBlock) {
+            const esc = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            outLines.push(`<pre class="wiki-code-block"><code>${esc(codeBlockLines.join('\n'))}</code></pre>`);
+        }
+
+        let html = outLines.join('');
 
         if (Object.keys(definitions).length > 0) {
+            const esc = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             html += `<div class="wiki-references">
                 <h3><i class="fas fa-book-open"></i> References</h3>
                 <ol>
-                    ${Object.entries(definitions).map(([id, text]) =>
-                `<li id="ref-${id}">${text}</li>`
-            ).join('')}
+                    ${Object.entries(definitions).map(([id, text]) => {
+                        const defHtml = processText(text, false);
+                        const backLink = (ctx.citeOccurrence[id] !== undefined && ctx.citeOccurrence[id] > 0)
+                            ? ` <a href="#cite-${esc(id)}-0" class="wiki-cite-back" title="Back to citation">↩</a>`
+                            : '';
+                        return `<li id="ref-${esc(id)}">${defHtml}${backLink}</li>`;
+                    }).join('')}
                 </ol>
             </div>`;
         }

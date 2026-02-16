@@ -55,11 +55,19 @@ class WikiSyntaxHighlighter {
         // 2. Bold (**text**) -> .h-bold
         highlighted = highlighted.replace(/(\*\*.+?\*\*)/g, '<span class="h-bold">$1</span>');
 
+        // 2b. Strikethrough (~~text~~) -> .h-strikethrough
+        highlighted = highlighted.replace(/(~~.+?~~)/g, '<span class="h-strikethrough">$1</span>');
+
         // 3. Italic (*text* or _text_) -> .h-italic
         highlighted = highlighted.replace(/(\*[^*]+?\*)|(\_[^_]+?\_)/g, '<span class="h-italic">$&</span>');
 
         // 4. Wiki Links ([[Link]]) -> .h-link
         highlighted = highlighted.replace(/(\[\[.+?\]\])/g, '<span class="h-link">$1</span>');
+
+        // 4a. Images ![alt](url) - must be before ext link
+        highlighted = highlighted.replace(/(!\[[^\]]*\]\([^)]+\))/g, '<span class="h-image">$1</span>');
+        // 4a2. External links [text](url) - exclude ! prefix (images)
+        highlighted = highlighted.replace(/(?<!!)(\[[^\]]+\]\([^)]+\))/g, '<span class="h-extlink">$1</span>');
 
         // 4b. Clergy shortcodes ({{clergy:id}} or {{clergy:id:suffix}}) -> .h-clergy
         highlighted = highlighted.replace(/(\{\{clergy:\d+(?::\w+)?\}\})/g, '<span class="h-clergy">$1</span>');

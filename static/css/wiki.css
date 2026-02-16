@@ -534,12 +534,29 @@
 }
 
 /* References */
+.wiki-cit-sup a {
+    color: var(--wiki-primary-color);
+    text-decoration: none;
+}
+.wiki-cit-sup a:hover {
+    text-decoration: underline;
+}
+
 .wiki-cit-sup {
     font-size: 0.75rem;
     font-weight: 700;
-    color: var(--wiki-primary-color);
     user-select: none;
     vertical-align: super;
+}
+
+.wiki-cite-back {
+    font-size: 0.7rem;
+    margin-left: 0.35rem;
+    color: var(--wiki-primary-color);
+    text-decoration: none;
+}
+.wiki-cite-back:hover {
+    text-decoration: underline;
 }
 
 .wiki-references {
@@ -1062,6 +1079,21 @@
 .h-citation {
     background-color: #e0e7ff;
     color: #4338ca;
+}
+
+.h-extlink {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+.h-image {
+    background-color: #e0f2fe;
+    color: #0369a1;
+}
+
+.h-strikethrough {
+    color: #9ca3af;
+    text-decoration: line-through;
 }
 
 .h-list {

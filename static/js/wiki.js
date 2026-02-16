@@ -379,9 +379,12 @@ class WikiApp {
     }
 
     insertArticleLink(title, query) {
-        const cursor = this.els.textarea.selectionStart;
+        const cursor = this.els.textarea.selectionEnd; // end of selection (or cursor) for query boundary
         const text = this.els.textarea.value;
-        const before = text.substring(0, cursor - query.length - 2); // -2 for [[
+        const sub = text.substring(0, cursor);
+        const openIdx = sub.lastIndexOf('[[');
+        if (openIdx === -1) return;
+        const before = text.substring(0, openIdx);
         const after = text.substring(cursor);
 
         this.els.textarea.value = `${before}[[${title}]]${after}`;
@@ -422,6 +425,74 @@ class WikiApp {
         ta.setSelectionRange(start + before.length, newEnd);
         ta.focus();
         if (this.highlighter) this.highlighter.sync();
+    }
+
+    /**
+     * Insert templated text and select a range (placeholder) for user to type.
+     * @param {string} template - Full text to insert
+     * @param {number} cursorStartOffset - Start of selection within inserted text
+     * @param {number} cursorEndOffset - End of selection within inserted text
+     */
+    insertWithPlaceholder(template, cursorStartOffset, cursorEndOffset) {
+        const ta = this.els.textarea;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const before = ta.value.substring(0, start);
+        const after = ta.value.substring(end);
+        ta.value = before + template + after;
+        const selStart = start + cursorStartOffset;
+        const selEnd = start + cursorEndOffset;
+        ta.setSelectionRange(selStart, selEnd);
+        ta.focus();
+        if (this.highlighter) this.highlighter.sync();
+    }
+
+    /**
+     * Find next available footnote number by scanning content for [^n].
+     */
+    getNextFootnoteNumber() {
+        const text = this.els.textarea.value;
+        const matches = text.matchAll(/\[\^(\d+)\]/g);
+        let maxN = 0;
+        for (const m of matches) {
+            const n = parseInt(m[1], 10);
+            if (n > maxN) maxN = n;
+        }
+        return maxN + 1;
+    }
+
+    /**
+     * Insert footnote ref [^n] at cursor and definition [^n]: at end; jump to definition.
+     */
+    insertFootnoteSmart() {
+        const n = this.getNextFootnoteNumber();
+        const ref = `[^${n}]`;
+        const def = `\n[^${n}]: `;
+        const ta = this.els.textarea;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const before = ta.value.substring(0, start);
+        const after = ta.value.substring(end);
+
+        const inserted = before + ref + after;
+        ta.value = inserted + def;
+        ta.setSelectionRange(inserted.length + def.length, inserted.length + def.length);
+        ta.focus();
+        if (this.highlighter) this.highlighter.sync();
+    }
+
+    /**
+     * Jump cursor to the references section (first [^n]: definition) in the textarea.
+     */
+    jumpToReferences() {
+        const text = this.els.textarea.value;
+        const match = text.match(/(?:^|\n)(\[\^\d+\]:\s*)/);
+        if (match) {
+            const pos = text.indexOf(match[0]) + match[0].length; // cursor after "[^n]: "
+            this.els.textarea.setSelectionRange(pos, pos);
+            this.els.textarea.focus();
+            this.els.textarea.scrollTop = this.els.textarea.scrollHeight;
+        }
     }
 
     bindImageDrop() {
@@ -477,37 +548,114 @@ class WikiApp {
                 const action = btn.dataset.action;
                 if (action === 'bold') this.wrapSelection('**', '**');
                 else if (action === 'italic') this.wrapSelection('*', '*');
+                else if (action === 'strikethrough') this.wrapSelection('~~', '~~');
                 else if (action === 'h1') this.wrapSelection('\n# ', '\n');
                 else if (action === 'h2') this.wrapSelection('\n## ', '\n');
                 else if (action === 'h3') this.wrapSelection('\n### ', '\n');
+                else if (action === 'h4') this.wrapSelection('\n#### ', '\n');
+                else if (action === 'h5') this.wrapSelection('\n##### ', '\n');
+                else if (action === 'h6') this.wrapSelection('\n###### ', '\n');
                 else if (action === 'link') {
-                    this.insertAtCursor('[[');
-                    this.performArticleSearch('');
-                } else if (action === 'citation') this.insertAtCursor('[^1]');
+                    this.insertWithPlaceholder('[[Page Name]]', 2, 12);
+                    this.performArticleSearch('Page Name');
+                } else if (action === 'extlink') {
+                    this.insertWithPlaceholder('[link text](https://)', 1, 10);
+                } else if (action === 'image') {
+                    this.insertWithPlaceholder('![alt text](https://)', 2, 11);
+                } else if (action === 'citation') this.insertFootnoteSmart();
+                else if (action === 'jumpref') this.jumpToReferences();
+                else if (action === 'code') this.wrapSelection('`', '`');
+                else if (action === 'codeblock') this.insertWithPlaceholder('\n```\n\n```\n', 5, 5);
+                else if (action === 'blockquote') this.insertAtCursor('\n> ');
+                else if (action === 'bullet') this.insertAtCursor('\n- ');
+                else if (action === 'ordered') this.insertAtCursor('\n1. ');
+                else if (action === 'hr') this.insertAtCursor('\n---\n');
             });
         });
     }
 
     bindKeyboardShortcuts() {
-        if (!this.els.textarea) return;
-        this.els.textarea.addEventListener('keydown', (e) => {
+        const target = this.els.editContainer || this.els.textarea;
+        if (!target || !this.els.textarea) return;
+        const handler = (e) => {
             const isMod = e.ctrlKey || e.metaKey;
-            if (!isMod) return;
-            if (e.key === 'b') {
-                e.preventDefault();
-                this.wrapSelection('**', '**');
-            } else if (e.key === 'i') {
-                e.preventDefault();
-                this.wrapSelection('*', '*');
-            } else if (e.key === 'k') {
-                e.preventDefault();
-                this.insertAtCursor('[[');
-                this.performArticleSearch('');
-            } else if (e.key === 's') {
+            const isShift = e.shiftKey;
+
+            if (isMod && e.key === 's') {
                 e.preventDefault();
                 if (this.isEditing) this.savePage();
+                return;
             }
-        });
+
+            if (isMod && !isShift) {
+                if (e.key === 'b') {
+                    e.preventDefault();
+                    this.wrapSelection('**', '**');
+                } else if (e.key === 'i') {
+                    e.preventDefault();
+                    this.wrapSelection('*', '*');
+                } else if (e.key === 'k') {
+                    e.preventDefault();
+                    this.insertWithPlaceholder('[[Page Name]]', 2, 12);
+                    this.performArticleSearch('Page Name');
+                } else if (e.key === 'l') {
+                    e.preventDefault();
+                    this.insertWithPlaceholder('[link text](https://)', 1, 10);
+                } else if (e.key === '`') {
+                    e.preventDefault();
+                    this.wrapSelection('`', '`');
+                }
+                return;
+            }
+
+            if (isMod && isShift) {
+                if (e.key === 'E' && this.isEditing) {
+                    e.preventDefault();
+                    this.jumpToReferences();
+                } else if (e.key === 'K') {
+                    e.preventDefault();
+                    this.insertWithPlaceholder('![alt text](https://)', 2, 11);
+                } else if (e.key === 'B') {
+                    e.preventDefault();
+                    this.insertAtCursor('\n> ');
+                } else if (e.key === '7') {
+                    e.preventDefault();
+                    this.insertAtCursor('\n1. ');
+                } else if (e.key === '8') {
+                    e.preventDefault();
+                    this.insertAtCursor('\n- ');
+                } else if (e.key === '-' || e.key === '_') {
+                    e.preventDefault();
+                    this.insertAtCursor('\n---\n');
+                } else if (e.key === 'X') {
+                    e.preventDefault();
+                    this.wrapSelection('~~', '~~');
+                } else if (e.key === '`' || e.key === '~') {
+                    e.preventDefault();
+                    this.insertWithPlaceholder('\n```\n\n```\n', 5, 5);
+                } else if (e.key === '1') {
+                    e.preventDefault();
+                    this.wrapSelection('\n# ', '\n');
+                } else if (e.key === '2') {
+                    e.preventDefault();
+                    this.wrapSelection('\n## ', '\n');
+                } else if (e.key === '3') {
+                    e.preventDefault();
+                    this.wrapSelection('\n### ', '\n');
+                } else if (e.key === '4') {
+                    e.preventDefault();
+                    this.wrapSelection('\n#### ', '\n');
+                } else if (e.key === '5') {
+                    e.preventDefault();
+                    this.wrapSelection('\n##### ', '\n');
+                } else if (e.key === '6') {
+                    e.preventDefault();
+                    this.wrapSelection('\n###### ', '\n');
+                }
+                return;
+            }
+        };
+        target.addEventListener('keydown', handler);
     }
 
     getCurrentPage() {

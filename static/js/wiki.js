@@ -166,6 +166,7 @@ class WikiApp {
         this.bindToolbar();
         this.bindKeyboardShortcuts();
         this.bindImageDrop();
+        this.bindInputRepairs();
         await Promise.all([
             this.fetchPageList(),
             this.fetchAllClergy(),
@@ -307,6 +308,19 @@ class WikiApp {
                 }
             });
         }
+    }
+
+    bindInputRepairs() {
+        const ta = this.els.textarea;
+        if (!ta || typeof WikiSyntaxRepairs === 'undefined') return;
+        let debounceTimer;
+        ta.addEventListener('input', () => {
+            if (!this.isEditing) return;
+            const text = ta.value;
+            if (!/\[\^\d+\]/.test(text) && !/\[\^\d+\]:/.test(text) && !/^\s*\d+\.\s+/m.test(text)) return;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => this.applyRepairs(), 400);
+        });
     }
 
     performArticleSearch(query) {
@@ -463,7 +477,7 @@ class WikiApp {
 
     /**
      * Insert footnote ref [^n] at cursor and definition [^n]: at end; jump to definition.
-     * Runs renumberAll() so footnotes stay in correct order.
+     * Runs applyRepairs() so footnotes stay in correct order.
      */
     insertFootnoteSmart() {
         const n = this.getNextFootnoteNumber();
@@ -478,135 +492,14 @@ class WikiApp {
         const inserted = before + ref + after;
         ta.value = inserted + def;
         ta.setSelectionRange(inserted.length + def.length, inserted.length + def.length);
-        this.renumberAll();
+        this.applyRepairs();
         ta.focus();
         if (this.highlighter) this.highlighter.sync();
     }
 
-    /**
-     * Renumber footnotes 1..n by order of first citation in document reading order.
-     * Body = all lines except the definitions block (before + after); refs in defs excluded.
-     * Duplicate definitions: first wins. Uses placeholders to avoid replace collisions.
-     * @param {string} text
-     * @returns {string}
-     */
-    renumberFootnotes(text) {
-        const defLineRe = /^\[\^(\d+)\]:\s*(.*)$/;
-        const lines = text.split('\n');
-
-        // 1. Split: find first [^n]: line
-        let defStart = -1;
-        let defEnd = -1;
-        for (let i = 0; i < lines.length; i++) {
-            if (defLineRe.test(lines[i])) {
-                if (defStart === -1) defStart = i;
-                defEnd = i;
-            } else if (defStart >= 0) {
-                break;
-            }
-        }
-
-        const body = defStart >= 0
-            ? [...lines.slice(0, defStart), ...lines.slice(defEnd + 1)].join('\n')
-            : text;
-        const defBlockLines = defStart >= 0 ? lines.slice(defStart, defEnd + 1) : [];
-
-        // 2. Build ref order from body only
-        const refOrder = [];
-        const seenRef = new Set();
-        for (const m of body.matchAll(/\[\^(\d+)\](?!:)/g)) {
-            const id = m[1];
-            if (!seenRef.has(id)) {
-                seenRef.add(id);
-                refOrder.push(id);
-            }
-        }
-
-        // 3. Parse definitions block: keep first per id
-        const defs = {};
-        for (const line of defBlockLines) {
-            const match = line.match(defLineRe);
-            if (match && !(match[1] in defs)) defs[match[1]] = match[2] ?? '';
-        }
-
-        const defOnly = Object.keys(defs).filter(id => !seenRef.has(id));
-        const orderedIds = [...refOrder, ...defOnly];
-        if (orderedIds.length === 0) return text;
-
-        const oldToNew = {};
-        orderedIds.forEach((oldId, i) => { oldToNew[oldId] = String(i + 1); });
-
-        // 4. Replace refs via placeholders to avoid collision (e.g. [^3]->[^1] then [^1]->[^2] would overwrite)
-        const PREFIX = '\uFFFF';  // temp placeholder (private use) to avoid replace collisions
-        let out = text;
-        orderedIds.forEach(oldId => {
-            out = out.replace(new RegExp(`\\[\\^${oldId}\\](?!:)`, 'g'), `[^${PREFIX}${oldId}${PREFIX}]`);
-        });
-        orderedIds.forEach(oldId => {
-            out = out.replace(new RegExp(`\\[\\^${PREFIX}${oldId}${PREFIX}\\]`, 'g'), `[^${oldToNew[oldId]}]`);
-        });
-
-        // 5. Rebuild definitions block
-        if (defStart >= 0) {
-            const newDefLines = orderedIds.map(oldId => `[^${oldToNew[oldId]}]: ${defs[oldId] ?? ''}`);
-            const before = lines.slice(0, defStart).join('\n');
-            const after = lines.slice(defEnd + 1).join('\n');
-            const sepBefore = defStart === 0 ? '' : '\n';
-            const sepAfter = after ? '\n' : '';
-            out = before + sepBefore + newDefLines.join('\n') + sepAfter + after;
-        }
-        return out;
-    }
-
-    /**
-     * Renumber ordered list items within each contiguous list block (1., 2., 3., ...).
-     * @param {string} text
-     * @returns {string}
-     */
-    renumberOrderedLists(text) {
-        const lines = text.split('\n');
-        const orderedRe = /^(\s*)(\d+)\.(\s+)/;
-        const result = [];
-        let i = 0;
-        while (i < lines.length) {
-            const m = lines[i].match(orderedRe);
-            if (!m) {
-                result.push(lines[i]);
-                i++;
-                continue;
-            }
-            const block = [];
-            let j = i;
-            while (j < lines.length) {
-                const mm = lines[j].match(orderedRe);
-                if (!mm) break;
-                block.push({ indent: mm[1], num: mm[2], rest: mm[3] + lines[j].slice(m[0].length) });
-                j++;
-            }
-            let num = 1;
-            block.forEach(b => {
-                result.push(b.indent + num + '.' + b.rest);
-                num++;
-            });
-            i = j;
-        }
-        return result.join('\n');
-    }
-
-    /**
-     * Run footnote and ordered-list renumbering on the entire textarea content.
-     */
-    renumberAll() {
-        const ta = this.els.textarea;
-        if (!ta) return;
-        const before = ta.value;
-        let out = this.renumberFootnotes(before);
-        out = this.renumberOrderedLists(out);
-        if (out !== before) {
-            const pos = Math.min(ta.selectionStart, out.length);
-            ta.value = out;
-            ta.setSelectionRange(pos, pos);
-            if (this.highlighter) this.highlighter.sync();
+    applyRepairs(opts = {}) {
+        if (typeof WikiSyntaxRepairs !== 'undefined') {
+            WikiSyntaxRepairs.applyRepairsToEditor(this.els.textarea, { wikiApp: this, ...opts });
         }
     }
 
@@ -699,7 +592,7 @@ class WikiApp {
                 else if (action === 'bullet') this.insertAtCursor('\n- ');
                 else if (action === 'ordered') {
                     this.insertAtCursor('\n1. ');
-                    this.renumberAll();
+                    this.applyRepairs();
                 }
                 else if (action === 'hr') this.insertAtCursor('\n---\n');
             });
@@ -712,6 +605,17 @@ class WikiApp {
         const handler = (e) => {
             const isMod = e.ctrlKey || e.metaKey;
             const isShift = e.shiftKey;
+
+            if (!isMod && this.isEditing && typeof WikiSyntaxRepairs !== 'undefined') {
+                if (e.key === ']' || e.key === 'Tab') {
+                    const ta = this.els.textarea;
+                    const pos = e.key === ']' ? ta.selectionEnd : ta.selectionStart;
+                    const ctx = WikiSyntaxRepairs.getCursorContext(ta.value, pos);
+                    if (ctx && (ctx.type === 'ref' || ctx.type === 'def')) {
+                        this.applyRepairs({ only: ['footnotes'] });
+                    }
+                }
+            }
 
             if (isMod && e.key === 's') {
                 e.preventDefault();
@@ -741,6 +645,11 @@ class WikiApp {
             }
 
             if (isMod && isShift) {
+                if (e.key === 'R') {
+                    e.preventDefault();
+                    if (this.isEditing) this.applyRepairs();
+                    return;
+                }
                 if (e.key === 'E' && this.isEditing) {
                     e.preventDefault();
                     this.jumpToReferences();
@@ -753,7 +662,7 @@ class WikiApp {
                 } else if (e.key === '7') {
                     e.preventDefault();
                     this.insertAtCursor('\n1. ');
-                    this.renumberAll();
+                    this.applyRepairs();
                 } else if (e.key === '8') {
                     e.preventDefault();
                     this.insertAtCursor('\n- ');
@@ -1066,7 +975,7 @@ class WikiApp {
     }
 
     async savePage() {
-        this.renumberAll();
+        this.applyRepairs();
         const content = this.els.textarea.value;
         let slug = this.currentSlug;
 

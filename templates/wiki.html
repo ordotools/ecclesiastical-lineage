@@ -185,7 +185,7 @@
                         Clergy: <code>{% raw %}{{clergy:123}}{% endraw %}</code> or <code>{% raw %}{{clergy:123:ordinations}}{% endraw %}</code>.
                         Lineage: <code>{% raw %}{{lineage:123}}{% endraw %}</code> or <code>{% raw %}{{lineage:Clergy Name}}{% endraw %}</code>.
                         Drag and drop images to insert.
-                        <strong>Shortcuts:</strong> <kbd>Ctrl+B</kbd> bold, <kbd>Ctrl+I</kbd> italic, <kbd>Ctrl+K</kbd> wikilink, <kbd>Ctrl+L</kbd> link, <kbd>Ctrl+Shift+K</kbd> image, <kbd>Ctrl+Shift+E</kbd> jump to references, <kbd>Ctrl+`</kbd> code, <kbd>Ctrl+Shift+`</kbd> block, <kbd>Ctrl+Shift+B</kbd> blockquote, <kbd>Ctrl+Shift+7</kbd> ordered list, <kbd>Ctrl+Shift+8</kbd> bullet list, <kbd>Ctrl+Shift+-</kbd> rule, <kbd>Ctrl+Shift+X</kbd> strikethrough, <kbd>Ctrl+Shift+1-6</kbd> headings, <kbd>Ctrl+S</kbd> save.
+                        <strong>Shortcuts:</strong> <kbd>Ctrl+B</kbd> bold, <kbd>Ctrl+I</kbd> italic, <kbd>Ctrl+K</kbd> wikilink, <kbd>Ctrl+L</kbd> link, <kbd>Ctrl+Shift+K</kbd> image, <kbd>Ctrl+Shift+E</kbd> jump to references, <kbd>Ctrl+Shift+R</kbd> run syntax repairs, <kbd>Ctrl+`</kbd> code, <kbd>Ctrl+Shift+`</kbd> block, <kbd>Ctrl+Shift+B</kbd> blockquote, <kbd>Ctrl+Shift+7</kbd> ordered list, <kbd>Ctrl+Shift+8</kbd> bullet list, <kbd>Ctrl+Shift+-</kbd> rule, <kbd>Ctrl+Shift+X</kbd> strikethrough, <kbd>Ctrl+Shift+1-6</kbd> headings, <kbd>Ctrl+S</kbd> save.
                     </div>
 
                     <div class="wiki-toolbar">
@@ -286,6 +286,7 @@
 <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/wiki-lineage-chart.js') }}"></script>
 <script src="{{ url_for('static', filename='js/wiki-renderer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/wiki-syntax-repairs.js') }}"></script>
 <script src="{{ url_for('static', filename='js/wiki.js') }}?v={{ range(1, 10000) | random }}"></script>
 <script src="{{ url_for('static', filename='js/syntax_highlighter.js') }}"></script>
 {% endblock %}

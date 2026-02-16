@@ -68,15 +68,39 @@ class WikiRenderer {
         const lines = text.split('\n');
         const definitions = {};
         const contentLines = [];
+        const defFirstRe = /^\[\^(\d+)\]:\s*(.*)/;
+        const continuationRe = /^(    |\t)(.*)$/;
+        const defLineRe = /^\[\^(\d+)\]:/;
 
-        lines.forEach(line => {
-            const citationMatch = line.match(/^\[\^(\d+)\]:\s*(.*)/);
-            if (citationMatch) {
-                definitions[citationMatch[1]] = citationMatch[2];
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const defMatch = line.match(defFirstRe);
+            if (defMatch) {
+                if (!(defMatch[1] in definitions)) { // first-wins for duplicate defs
+                    let content = defMatch[2] ?? '';
+                    let j = i + 1;
+                    while (j < lines.length) {
+                        const cont = lines[j].match(continuationRe);
+                        if (cont && !defLineRe.test(lines[j])) {
+                            content += '\n' + lines[j];
+                            j++;
+                        } else {
+                            break;
+                        }
+                    }
+                    definitions[defMatch[1]] = content;
+                }
+                let k = i + 1;
+                while (k < lines.length) {
+                    const c = lines[k].match(continuationRe);
+                    if (c && !defLineRe.test(lines[k])) k++;
+                    else break;
+                }
+                i = k - 1;
             } else {
                 contentLines.push(line);
             }
-        });
+        }
 
         return { contentLines, definitions };
     }

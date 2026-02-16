@@ -18,6 +18,10 @@
     /* blue-700 */
     --wiki-primary-light: #eff6ff;
     /* blue-50 */
+    /* Option 1 typography (Wikipedia-inspired) */
+    --wiki-font-size: 1.0625rem;
+    --wiki-line-height: 1.75;
+    --wiki-article-max-width: 65ch;
 }
 
 .wiki-wrapper {
@@ -319,11 +323,12 @@
 }
 
 .wiki-article {
-    max-width: 65ch;
+    max-width: var(--wiki-article-max-width);
     margin: 0 auto;
     min-height: 100%;
     font-family: 'Merriweather', serif;
-    /* Serif for content */
+    font-size: var(--wiki-font-size);
+    line-height: var(--wiki-line-height);
 }
 
 /* Typography & Markdown Content */
@@ -369,6 +374,72 @@
 
 .wiki-article li {
     margin-bottom: 0.25rem;
+}
+
+/* Blockquotes */
+.wiki-article .wiki-blockquote {
+    margin: 1rem 0;
+    padding: 0.5rem 0 0.5rem 1rem;
+    border-left: 4px solid var(--wiki-primary-color);
+    background-color: #f9fafb;
+    font-style: italic;
+    color: var(--wiki-text-secondary);
+}
+
+/* Code blocks */
+.wiki-article .wiki-code-block {
+    margin: 1rem 0;
+    padding: 1rem 1.25rem;
+    background-color: #f3f4f6;
+    border-radius: 0.375rem;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.9em;
+    overflow-x: auto;
+}
+
+.wiki-article .wiki-code-block code {
+    background: none;
+    padding: 0;
+    font-size: inherit;
+}
+
+/* Inline code */
+.wiki-article code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    background-color: #f3f4f6;
+    padding: 0.1em 0.35em;
+    border-radius: 0.25rem;
+}
+
+/* Horizontal rules */
+.wiki-article .wiki-hr {
+    border: none;
+    border-top: 1px solid var(--wiki-border-color);
+    margin: 1.5rem 0;
+}
+
+/* External links (exclude wikilinks and cite-back) */
+.wiki-article a:not(.wiki-cite-back) {
+    color: var(--wiki-primary-color);
+    text-decoration: none;
+}
+
+.wiki-article a:not(.wiki-cite-back):hover {
+    text-decoration: underline;
+}
+
+/* Inline formatting */
+.wiki-article strong {
+    font-weight: 700;
+}
+
+.wiki-article em {
+    font-style: italic;
+}
+
+.wiki-article del {
+    text-decoration: line-through;
+    color: var(--wiki-text-secondary);
 }
 
 /* Wiki Links */
@@ -594,6 +665,16 @@
     margin-top: 3rem;
     padding-top: 1.5rem;
     border-top: 1px solid var(--wiki-border-color);
+    font-size: 0.9375rem;
+}
+
+.wiki-references ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.wiki-references li {
+    margin-bottom: 0.5rem;
 }
 
 .wiki-footer {

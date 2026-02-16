@@ -94,18 +94,19 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.375rem 0.5rem;
     font-size: 0.875rem;
     color: var(--wiki-text-secondary);
     background: none;
     border: none;
-    border-radius: 0.375rem;
+    border-radius: 2px;
     cursor: pointer;
     text-align: left;
 }
 
 .wiki-nav-btn:hover {
-    background-color: var(--wiki-bg-color);
+    background-color: #f9fafb;
+    color: var(--wiki-text-primary);
 }
 
 .wiki-nav-btn.primary {
@@ -131,9 +132,9 @@
 .wiki-page-link {
     width: 100%;
     text-align: left;
-    padding: 0.375rem 0.75rem;
+    padding: 0.375rem 0.5rem;
     font-size: 0.875rem;
-    border-radius: 0.375rem;
+    border-radius: 2px;
     color: var(--wiki-text-secondary);
     border: none;
     background: none;
@@ -148,7 +149,7 @@
 }
 
 .wiki-page-link.active {
-    background-color: var(--wiki-primary-light);
+    background-color: rgba(37, 99, 235, 0.08);
     color: var(--wiki-primary-color);
     font-weight: 500;
 }
@@ -407,14 +408,15 @@
 }
 
 .btn-icon:hover {
-    background-color: var(--wiki-bg-color);
+    color: var(--wiki-text-primary);
+    opacity: 0.85;
 }
 
 .btn-secondary {
     padding: 0.375rem 1rem;
-    background-color: white;
-    border: 1px solid #d1d5db;
-    color: #374151;
+    background: none;
+    border: none;
+    color: var(--wiki-text-secondary);
     border-radius: 0.375rem;
     font-size: 0.875rem;
     cursor: pointer;
@@ -425,12 +427,22 @@
 
 .btn-secondary:hover {
     background-color: #f9fafb;
+    color: var(--wiki-text-primary);
+}
+
+.btn-secondary.logout {
+    color: #ef4444;
+}
+
+.btn-secondary.logout:hover {
+    color: #b91c1c;
+    background-color: #fef2f2;
 }
 
 .btn-primary {
     padding: 0.375rem 1rem;
-    background-color: var(--wiki-primary-color);
-    color: white;
+    background: none;
+    color: var(--wiki-primary-color);
     border: none;
     border-radius: 0.375rem;
     font-size: 0.875rem;
@@ -441,7 +453,20 @@
 }
 
 .btn-primary:hover {
-    background-color: var(--wiki-primary-hover);
+    background-color: var(--wiki-primary-light);
+    text-decoration: underline;
+}
+
+.btn-primary:disabled,
+.btn-primary.no-changes {
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.btn-primary:disabled:hover,
+.btn-primary.no-changes:hover {
+    background: none;
+    text-decoration: none;
 }
 
 /* Editing */
@@ -465,28 +490,35 @@
     resize: none;
 }
 
-.wiki-textarea:focus {
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.5);
-    border-color: var(--wiki-primary-color);
+.wiki-editor-body {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
 }
 
-.edit-tip-box {
-    background-color: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 0.375rem;
-    padding: 0.75rem;
-    margin-bottom: 1rem;
-    font-size: 0.875rem;
-    color: #1e40af;
+.wiki-toolbar-side {
+    display: flex;
+    flex-direction: column;
+    width: 2.5rem;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 2px;
+    padding: 0.35rem 0;
 }
 
-.edit-tip-box kbd {
-    background-color: #e0e7ff;
-    border: 1px solid #c7d2fe;
-    border-radius: 0.25rem;
-    padding: 0.1em 0.35em;
-    font-size: 0.8em;
-    font-family: inherit;
+.wiki-toolbar-side .wiki-toolbar-sep {
+    width: 100%;
+    height: 1px;
+    margin: 0.25rem 0;
+}
+
+.wiki-editor-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .wiki-toolbar {
@@ -504,22 +536,21 @@
     align-items: center;
     justify-content: center;
     gap: 0.25rem;
-    min-width: 2rem;
-    height: 2rem;
-    padding: 0 0.5rem;
-    background-color: #f9fafb;
-    border: 1px solid var(--wiki-border-color);
-    border-radius: 0.375rem;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.375rem;
+    background: none;
+    border: none;
+    border-radius: 2px;
     color: var(--wiki-text-secondary);
     cursor: pointer;
     font-size: 0.875rem;
-    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+    transition: background-color 0.2s, color 0.2s;
 }
 
 .wiki-toolbar-btn:hover {
     background-color: #f3f4f6;
     color: var(--wiki-primary-color);
-    border-color: #d1d5db;
 }
 
 .wiki-toolbar-btn:active {
@@ -599,7 +630,7 @@
 }
 
 #wikiTitleBtn:hover {
-    background-color: var(--wiki-bg-color);
+    background-color: #f9fafb;
 }
 
 #wikiDropdown {
@@ -854,10 +885,14 @@
 .wiki-content-area.wiki-editing-mode .wiki-content-flex {
     flex: 1;
     min-height: 0;
+    width: 100%;
+    max-width: none;
 }
 
 .wiki-content-area.wiki-editing-mode .wiki-article {
-    max-width: 100%;
+    max-width: none;
+    min-width: 66.666%;
+    width: 100%;
     height: 100%;
     margin: 0;
     display: flex;
@@ -878,8 +913,13 @@
     flex-shrink: 0;
 }
 
-.wiki-content-area.wiki-editing-mode .edit-tip-box {
+.wiki-content-area.wiki-editing-mode .wiki-metadata-controls {
     flex-shrink: 0;
+}
+
+.wiki-content-area.wiki-editing-mode .wiki-editor-body {
+    flex: 1;
+    min-height: 0;
 }
 
 .wiki-content-area.wiki-editing-mode .wiki-textarea {
@@ -976,9 +1016,55 @@
     flex: 1;
     min-height: 0;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     overflow: hidden;
     /* Ensure no double scrollbars */
+}
+
+.wiki-line-numbers {
+    width: 2.5rem;
+    flex-shrink: 0;
+    overflow: hidden;
+    user-select: none;
+    font-family: monospace;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: #9ca3af;
+    text-align: right;
+    box-sizing: border-box;
+    border: 1px solid var(--wiki-border-color);
+    border-right: none;
+    border-radius: 0.375rem 0 0 0.375rem;
+    background-color: #f9fafb;
+}
+
+.wiki-line-numbers-inner {
+    padding: 1rem 0.5rem 1rem 0;
+    min-height: 0;
+    /* JS sets minHeight to match textarea.scrollHeight */
+}
+
+.wiki-line-numbers .wiki-line-num {
+    display: block;
+    white-space: nowrap;
+}
+
+.wiki-editor-inner {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+/* When line numbers present, textarea/backdrop get right-side rounding only */
+.wiki-editor-container .wiki-editor-inner .wiki-textarea {
+    border-left: none;
+    border-radius: 0 0.375rem 0.375rem 0;
+}
+
+.wiki-editor-container .wiki-editor-inner .wiki-backdrop {
+    border-left: none;
+    border-radius: 0 0.375rem 0.375rem 0;
 }
 
 .wiki-backdrop,
@@ -1005,6 +1091,7 @@
     overflow: auto;
     resize: none;
     text-align: left;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
 .wiki-backdrop {
@@ -1024,10 +1111,16 @@
     color: transparent;
     /* Hide text but keep caret */
     background-color: transparent;
-    caret-color: black;
+    caret-color: #0f172a;
     /* Keep caret visible */
     border-color: var(--wiki-border-color);
     /* Visible border */
+    outline: none;
+}
+
+.wiki-textarea:focus {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08);
+    border-color: var(--wiki-border-color);
 }
 
 /* Fix for Safari/Chrome selection color */

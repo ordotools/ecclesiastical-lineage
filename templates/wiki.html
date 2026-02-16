@@ -110,8 +110,7 @@
                     <a href="/wiki/dashboard" class="btn-secondary">
                         <i class="fas fa-list"></i> Manage Articles
                     </a>
-                    <a href="{{ url_for('auth.logout', next=request.path) }}" class="btn-secondary"
-                        style="color: #ef4444; border-color: #fca5a5;">
+                    <a href="{{ url_for('auth.logout', next=request.path) }}" class="btn-secondary logout">
                         <i class="fas fa-sign-out-alt"></i> Logout
                     </a>
                 </div>
@@ -174,21 +173,8 @@
                         </div>
                     </div>
 
-                    <div class="edit-tip-box">
-                        <i class="fas fa-info-circle"></i>
-                        <strong>Tip:</strong> Use markdown for formatting.
-                        <code>[[Page Name]]</code> wikilinks,
-                        <code>[text](url)</code> external links,
-                        <code>![alt](url)</code> images,
-                        <code>**bold**</code>, <code>*italic*</code>, <code>~~strikethrough~~</code>.
-                        Citations: <code>[^1]</code> and <code>[^1]: Source</code>.
-                        Clergy: <code>{% raw %}{{clergy:123}}{% endraw %}</code> or <code>{% raw %}{{clergy:123:ordinations}}{% endraw %}</code>.
-                        Lineage: <code>{% raw %}{{lineage:123}}{% endraw %}</code> or <code>{% raw %}{{lineage:Clergy Name}}{% endraw %}</code>.
-                        Drag and drop images to insert.
-                        <strong>Shortcuts:</strong> <kbd>Ctrl+B</kbd> bold, <kbd>Ctrl+I</kbd> italic, <kbd>Ctrl+K</kbd> wikilink, <kbd>Ctrl+L</kbd> link, <kbd>Ctrl+Shift+K</kbd> image, <kbd>Ctrl+Shift+E</kbd> jump to references, <kbd>Ctrl+Shift+R</kbd> run syntax repairs, <kbd>Ctrl+`</kbd> code, <kbd>Ctrl+Shift+`</kbd> block, <kbd>Ctrl+Shift+B</kbd> blockquote, <kbd>Ctrl+Shift+7</kbd> ordered list, <kbd>Ctrl+Shift+8</kbd> bullet list, <kbd>Ctrl+Shift+-</kbd> rule, <kbd>Ctrl+Shift+X</kbd> strikethrough, <kbd>Ctrl+Shift+1-6</kbd> headings, <kbd>Ctrl+S</kbd> save.
-                    </div>
-
-                    <div class="wiki-toolbar">
+                    <div class="wiki-editor-body">
+                    <div class="wiki-toolbar wiki-toolbar-side">
                         <button type="button" class="wiki-toolbar-btn" data-action="bold" title="Bold (Ctrl+B)">
                             <i class="fas fa-bold"></i>
                         </button>
@@ -205,16 +191,16 @@
                         <button type="button" class="wiki-toolbar-btn" data-action="h2" title="Heading 2 (Ctrl+Shift+2)">
                             <i class="fas fa-heading"></i> 2
                         </button>
-                        <button type="button" class="wiki-toolbar-btn" data-action="h3" title="Heading 3">
+                        <button type="button" class="wiki-toolbar-btn" data-action="h3" title="Heading 3 (Ctrl+Shift+3)">
                             <i class="fas fa-heading"></i> 3
                         </button>
-                        <button type="button" class="wiki-toolbar-btn" data-action="h4" title="Heading 4">
+                        <button type="button" class="wiki-toolbar-btn" data-action="h4" title="Heading 4 (Ctrl+Shift+4)">
                             <i class="fas fa-heading"></i> 4
                         </button>
-                        <button type="button" class="wiki-toolbar-btn" data-action="h5" title="Heading 5">
+                        <button type="button" class="wiki-toolbar-btn" data-action="h5" title="Heading 5 (Ctrl+Shift+5)">
                             <i class="fas fa-heading"></i> 5
                         </button>
-                        <button type="button" class="wiki-toolbar-btn" data-action="h6" title="Heading 6">
+                        <button type="button" class="wiki-toolbar-btn" data-action="h6" title="Heading 6 (Ctrl+Shift+6)">
                             <i class="fas fa-heading"></i> 6
                         </button>
                         <span class="wiki-toolbar-sep"></span>
@@ -237,29 +223,37 @@
                         <button type="button" class="wiki-toolbar-btn" data-action="code" title="Inline code (Ctrl+`)">
                             <i class="fas fa-code"></i>
                         </button>
-                        <button type="button" class="wiki-toolbar-btn" data-action="codeblock" title="Code block">
+                        <button type="button" class="wiki-toolbar-btn" data-action="codeblock" title="Code block (Ctrl+Shift+`)">
                             <i class="fas fa-file-code"></i>
                         </button>
                         <span class="wiki-toolbar-sep"></span>
-                        <button type="button" class="wiki-toolbar-btn" data-action="blockquote" title="Blockquote">
+                        <button type="button" class="wiki-toolbar-btn" data-action="blockquote" title="Blockquote (Ctrl+Shift+B)">
                             <i class="fas fa-quote-left"></i>
                         </button>
-                        <button type="button" class="wiki-toolbar-btn" data-action="bullet" title="Bullet list">
+                        <button type="button" class="wiki-toolbar-btn" data-action="bullet" title="Bullet list (Ctrl+Shift+8)">
                             <i class="fas fa-list-ul"></i>
                         </button>
-                        <button type="button" class="wiki-toolbar-btn" data-action="ordered" title="Ordered list">
+                        <button type="button" class="wiki-toolbar-btn" data-action="ordered" title="Ordered list (Ctrl+Shift+7)">
                             <i class="fas fa-list-ol"></i>
                         </button>
-                        <button type="button" class="wiki-toolbar-btn" data-action="hr" title="Horizontal rule">
+                        <button type="button" class="wiki-toolbar-btn" data-action="hr" title="Horizontal rule (Ctrl+Shift+-)">
                             <i class="fas fa-minus"></i>
                         </button>
                     </div>
 
+                    <div class="wiki-editor-main">
                     <div class="wiki-editor-container">
-                        <div id="wiki-backdrop" class="wiki-backdrop"></div>
-                        <textarea id="wiki-textarea" class="wiki-textarea" placeholder="# Page Title..."></textarea>
-                        <!-- Article Autocomplete Dropdown -->
-                        <div id="wiki-article-dropdown" class="wiki-autocomplete-dropdown" style="display: none;"></div>
+                        <div class="wiki-line-numbers" id="wiki-line-numbers" aria-hidden="true">
+                            <div class="wiki-line-numbers-inner"></div>
+                        </div>
+                        <div class="wiki-editor-inner">
+                            <div id="wiki-backdrop" class="wiki-backdrop"></div>
+                            <textarea id="wiki-textarea" class="wiki-textarea" placeholder="# Page Title..."></textarea>
+                            <!-- Article Autocomplete Dropdown -->
+                            <div id="wiki-article-dropdown" class="wiki-autocomplete-dropdown" style="display: none;"></div>
+                        </div>
+                    </div>
+                    </div>
                     </div>
                 </div>
 

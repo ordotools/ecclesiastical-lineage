@@ -121,6 +121,7 @@ class WikiApp {
         this.selectedClergyId = null; // Track selected clergy ID
         this.allClergy = []; // Store all clergy for client-side search
         this.editorSlug = null; // Track which page is currently loaded in the editor
+        this.lastSavedContent = null; // For save-button dirty state
 
         // Elements
         this.els = {
@@ -142,6 +143,7 @@ class WikiApp {
             randomBtn: document.getElementById('wiki-random-btn'),
             editContainer: document.getElementById('wiki-edit-container'),
             editorContainer: document.querySelector('.wiki-editor-container'),
+            lineNumbers: document.getElementById('wiki-line-numbers'),
             viewContainer: document.getElementById('wiki-view-container'),
             textarea: document.getElementById('wiki-textarea'),
             titleInput: document.getElementById('wiki-edit-title-input'),
@@ -165,8 +167,10 @@ class WikiApp {
         this.bindEvents();
         this.bindToolbar();
         this.bindKeyboardShortcuts();
+        this.bindSaveDirtyState();
         this.bindImageDrop();
         this.bindInputRepairs();
+        this.bindLineNumbers();
         await Promise.all([
             this.fetchPageList(),
             this.fetchAllClergy(),
@@ -310,6 +314,35 @@ class WikiApp {
         }
     }
 
+    bindLineNumbers() {
+        const ta = this.els.textarea;
+        const gutter = this.els.lineNumbers;
+        const gutterInner = gutter?.querySelector('.wiki-line-numbers-inner');
+        if (!ta || !gutter || !gutterInner) return;
+
+        const update = () => {
+            if (!this.isEditing || !gutter.parentElement) return;
+            const lines = (ta.value || '').split('\n');
+            const lineCount = Math.max(1, lines.length);
+            gutterInner.innerHTML = Array.from({ length: lineCount }, (_, i) =>
+                `<span class="wiki-line-num">${i + 1}</span>`
+            ).join('');
+            gutterInner.style.minHeight = ta.scrollHeight + 'px';
+            gutterInner.style.transform = `translateY(-${ta.scrollTop}px)`;
+        };
+
+        const onScroll = () => {
+            if (!this.isEditing || !gutter.parentElement) return;
+            gutterInner.style.transform = `translateY(-${ta.scrollTop}px)`;
+        };
+
+        ta.addEventListener('input', update);
+        ta.addEventListener('scroll', onScroll);
+        window.addEventListener('resize', update);
+
+        this.updateLineNumbers = update;
+    }
+
     bindInputRepairs() {
         const ta = this.els.textarea;
         if (!ta || typeof WikiSyntaxRepairs === 'undefined') return;
@@ -321,6 +354,37 @@ class WikiApp {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => this.applyRepairs(), 400);
         });
+    }
+
+    bindSaveDirtyState() {
+        const ta = this.els.textarea;
+        const saveBtn = this.els.saveBtn;
+        if (!ta || !saveBtn) return;
+
+        let debounceTimer;
+        ta.addEventListener('input', () => {
+            if (!this.isEditing) return;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => this.updateSaveButtonState(), 200);
+        });
+
+        window.addEventListener('beforeunload', (e) => {
+            if (this.isEditing && this.lastSavedContent !== null && ta.value !== this.lastSavedContent) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+    }
+
+    updateSaveButtonState() {
+        const ta = this.els.textarea;
+        const saveBtn = this.els.saveBtn;
+        if (!ta || !saveBtn || !this.isEditing) return;
+
+        const isNewPage = this.currentSlug === null;
+        const hasChanges = isNewPage || ta.value !== this.lastSavedContent;
+        saveBtn.disabled = !hasChanges;
+        saveBtn.classList.toggle('no-changes', !hasChanges);
     }
 
     performArticleSearch(query) {
@@ -975,6 +1039,8 @@ class WikiApp {
     }
 
     async savePage() {
+        if (!this.els.textarea) return;
+        if (this.currentSlug !== null && this.els.textarea.value === this.lastSavedContent) return;
         this.applyRepairs();
         const content = this.els.textarea.value;
         let slug = this.currentSlug;
@@ -1025,8 +1091,8 @@ class WikiApp {
                 }
                 console.error('Save failed', errText);
             } else {
-                // Success - stay in editor
-                // Fetch the fresh data (including new timestamp)
+                this.lastSavedContent = this.els.textarea.value;
+                this.updateSaveButtonState();
                 await this.fetchPage(slug);
                 this.navigate(slug, false);
                 if (window.showNotification) {
@@ -1231,9 +1297,14 @@ class WikiApp {
                     this.els.textarea.value = page.content || `# ${page.title}\n\nStart writing...`;
                     this.editorSlug = effectiveSlug;
                 }
-                // Trigger syntax highlighter sync
+                this.lastSavedContent = this.els.textarea.value;
                 if (this.highlighter) this.highlighter.sync();
             }
+            if (this.updateLineNumbers) {
+                this.updateLineNumbers();
+                requestAnimationFrame(() => this.updateLineNumbers?.());
+            }
+            this.updateSaveButtonState();
 
             // Populate Metadata Controls
             if (this.els.visibleToggle) this.els.visibleToggle.checked = page.is_visible !== false; // Default true
@@ -1242,6 +1313,7 @@ class WikiApp {
 
         } else {
             this.editorSlug = null;
+            this.lastSavedContent = null;
             if (this.els.contentArea) this.els.contentArea.classList.remove('wiki-editing-mode');
             this.els.viewContainer.style.display = 'block';
             this.els.editContainer.style.display = 'none';

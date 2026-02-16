@@ -84,6 +84,18 @@ class Permission(db.Model):
     def __repr__(self):
         return f'<Permission {self.name}>'
 
+class LineageRoot(db.Model):
+    """Clergy marked as lineage roots; ancestors of roots are excluded from visualization."""
+    __tablename__ = 'lineage_roots'
+
+    id = db.Column(db.Integer, primary_key=True)
+    clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<LineageRoot clergy_id={self.clergy_id}>'
+
+
 class Clergy(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
@@ -101,6 +113,7 @@ class Clergy(db.Model):
     # Relationships
     statuses = db.relationship('Status', secondary='clergy_statuses', backref='clergy_members')
     events = db.relationship('ClergyEvent', backref='clergy', cascade='all, delete-orphan')
+    lineage_root = db.relationship('LineageRoot', backref='clergy', uselist=False, cascade='all, delete-orphan')
 
     def was_alive_on(self, date):
         """Return True if this clergy was alive on the given date (or if date unknown, assume alive)."""

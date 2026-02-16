@@ -1,5 +1,5 @@
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response, current_app
-from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordination, Consecration, Status, clergy_statuses
+from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordination, Consecration, Status, clergy_statuses, LineageRoot
 from utils import log_audit_event
 from datetime import datetime
 import json
@@ -201,6 +201,10 @@ def create_clergy_from_form(form):
                         clergy.statuses.append(status)
                 except (ValueError, TypeError):
                     pass  # Skip invalid status IDs
+
+    is_lineage_root = form.get('is_lineage_root') in ('1', 'on', 'true')
+    if is_lineage_root:
+        db.session.add(LineageRoot(clergy_id=clergy.id))
     
     db.session.commit()
 
@@ -552,12 +556,14 @@ def add_clergy_handler():
     
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
+    lineage_roots = list(Clergy.query.filter(Clergy.id.in_(db.session.query(LineageRoot.clergy_id))).all())
     return None, render_template('add_clergy.html', 
                          all_clergy=all_clergy, 
                          all_clergy_data=all_clergy_data,
                          all_bishops_suggested=all_bishops_suggested,
                          ranks=ranks,
-                         organizations=organizations) 
+                         organizations=organizations,
+                         lineage_roots=lineage_roots) 
 
 def view_clergy_handler(clergy_id):
     if 'user_id' not in session:
@@ -744,6 +750,13 @@ def edit_clergy_handler(clergy_id):
                 elif not mark_deleted and clergy.is_deleted:
                     clergy.is_deleted = False
                     clergy.deleted_at = None
+
+                # Handle lineage root
+                is_lineage_root = request.form.get('is_lineage_root') in ('1', 'on', 'true')
+                if is_lineage_root and not clergy.lineage_root:
+                    db.session.add(LineageRoot(clergy_id=clergy.id))
+                elif not is_lineage_root and clergy.lineage_root:
+                    db.session.delete(clergy.lineage_root)
                 
                 db.session.commit()
                 
@@ -812,6 +825,13 @@ def edit_clergy_handler(clergy_id):
         elif not mark_deleted and clergy.is_deleted:
             clergy.is_deleted = False
             clergy.deleted_at = None
+
+        # Handle lineage root
+        is_lineage_root = request.form.get('is_lineage_root') in ('1', 'on', 'true')
+        if is_lineage_root and not clergy.lineage_root:
+            db.session.add(LineageRoot(clergy_id=clergy.id))
+        elif not is_lineage_root and clergy.lineage_root:
+            db.session.delete(clergy.lineage_root)
         
         db.session.commit()
         log_audit_event(
@@ -909,6 +929,7 @@ def edit_clergy_handler(clergy_id):
     
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
+    lineage_roots = list(Clergy.query.filter(Clergy.id.in_(db.session.query(LineageRoot.clergy_id))).all())
     return render_template('edit_clergy_with_comments.html',
                          clergy=clergy,
                          user=user,
@@ -920,7 +941,8 @@ def edit_clergy_handler(clergy_id):
                          organizations=organizations,
                          org_abbreviation_map=org_abbreviation_map,
                          org_color_map=org_color_map,
-                         edit_mode=True)
+                         edit_mode=True,
+                         lineage_roots=lineage_roots)
 
 def clergy_filter_partial_handler():
     if 'user_id' not in session:

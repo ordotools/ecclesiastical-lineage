@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, session, jsonify, current_app, g, abort
-from models import Clergy, User, db, Organization, Rank, Ordination, Consecration
+from models import Clergy, User, db, Organization, Rank, Ordination, Consecration, LineageRoot
 from constants import GREEN_COLOR, BLACK_COLOR
 import json
 import base64
@@ -54,6 +54,26 @@ def chapel_view():
         current_app.logger.error(f"Error in chapel view visualization: {e}")
         return render_template('chapel_view.html', nodes_json='[]', links_json='[]',
                                error_message=f"Error loading chapel view visualization: {str(e)}", user=None)
+
+
+def _get_ancestors_of_roots(root_clergy_ids, all_links):
+    """Given root IDs and link list with source/target, return set of ancestor IDs to exclude."""
+    from collections import defaultdict
+    ancestor_of = defaultdict(set)
+    for link in all_links:
+        ancestor_of[link['target']].add(link['source'])
+    exclude_ids = set()
+    for root_id in root_clergy_ids:
+        queue = [root_id]
+        visited = {root_id}
+        while queue:
+            node = queue.pop(0)
+            for anc in ancestor_of.get(node, set()):
+                if anc not in visited:
+                    visited.add(anc)
+                    exclude_ids.add(anc)
+                    queue.append(anc)
+    return exclude_ids
 
 
 def lineage_visualization():
@@ -155,6 +175,12 @@ def lineage_visualization():
                         'is_invalid': consecration.is_invalid, 'is_doubtfully_valid': consecration.is_doubtfully_valid,
                         'is_doubtful_event': consecration.is_doubtful_event, 'is_sub_conditione': consecration.is_sub_conditione
                     })
+        root_clergy_ids = {lr.clergy_id for lr in LineageRoot.query.all()}
+        if root_clergy_ids:
+            exclude_ids = _get_ancestors_of_roots(root_clergy_ids, links)
+            visible_ids = {c.id for c in all_clergy} - exclude_ids
+            nodes = [n for n in nodes if n['id'] in visible_ids]
+            links = [l for l in links if l['source'] in visible_ids and l['target'] in visible_ids]
         nodes_json = json.dumps(nodes)
         links_json = json.dumps(links)
         user = None

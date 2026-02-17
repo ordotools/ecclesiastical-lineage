@@ -138,3 +138,48 @@
   font-weight: 700;
   letter-spacing: 0.5px;
 }
+
+/* Lineage tree context menu */
+.viz-context-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 160px;
+  padding: 4px 0;
+  background: var(--viz-surface, #1a1a1a);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 13px;
+  display: none;
+}
+
+.viz-context-menu.visible {
+  display: block;
+}
+
+.viz-context-menu-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  color: var(--viz-label-color, #ffffff);
+  white-space: nowrap;
+}
+
+.viz-context-menu-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Summary nodes (grouped leaf children) */
+.viz-node-summary-rect {
+  transition: fill 0.15s ease, stroke 0.15s ease;
+}
+
+.viz-node-summary-rect:hover {
+  fill: rgba(90, 110, 130, 0.55);
+}
+
+.viz-node-summary-label {
+  font-size: 10px;
+  font-weight: 500;
+  fill: rgba(220, 220, 235, 0.95);
+}

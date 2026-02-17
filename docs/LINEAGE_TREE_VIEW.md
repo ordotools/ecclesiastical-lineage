@@ -72,10 +72,45 @@ Each node has:
 - Links use `marker-end: url(#arrowhead-tree)`.
 - **Link status icons**: Non-valid consecration links show icons along the path: invalid (✕), doubtfully_valid (?), doubtful_event (~), sub_conditione (SC). Icons placed via `findPointAtDistanceFromTarget()`; background uses `--viz-surface`.
 
+### Visibility Model and Re-Layout
+
+- **`collapsedNodeIds: Set<string>`** — IDs of nodes whose children are hidden. Used via a custom children accessor so D3 treats collapsed nodes as leaves.
+- **`summaryExpandedIds: Set<string>`** — IDs of summary nodes that have been expanded (replaced with actual leaf nodes).
+- **`rootHierarchy`** — Raw hierarchy from `buildHierarchy`; used to rebuild the display hierarchy on each update.
+- **`createDisplayHierarchy(rootData, collapsedNodeIds, summaryExpandedIds)`** — Clones hierarchy and applies collapse/summary state; returns structure for layout.
+- **`updateTree()`** — Re-runs layout and re-renders nodes/links with D3 enter/update/exit joins and transitions.
+
+### Summary Nodes
+
+- **`applyDefaultSummaries(hierarchy, linkDateByEdge)`** — For each node with >5 children, groups leaf children into a synthetic summary node positioned at the oldest leaf's decade.
+- Leaf children become `[summaryNode, ...parentNodes]` (sorted by decade).
+- Summary node data: `{ isSummary: true, id, leafIds, leafNodes, decade, count }`.
+- **Rendering**: dashed rect, label `N consecrations (YYYYs)`; distinct from clergy nodes (`.viz-node-summary`, `.viz-node-summary-rect`).
+- Clicking a summary node (or its chevron) expands it: `summaryExpandedIds.add(id)` → `updateTree()`.
+
+### Collapse/Expand Controls
+
+- **Chevron button**: Small chevron (`.viz-collapse-btn`) on nodes with children or summary nodes; positioned at top-right. Toggles collapse/expand. Uses `stopPropagation` so it does not trigger `handleNodeClick`.
+- **Right-click context menu**: `contextmenu` on node groups; shows "Collapse subtree" / "Expand subtree" (or "Collapse" / "Expand" for summary nodes). Dismissed on outside click or after action.
+
+### Animations
+
+- **`TREE_TRANSITION_DURATION`** (350ms) for layout changes.
+- **Expand**: New children enter at parent position, then transition to layout position.
+- **Collapse**: Children transition to parent position, then exit.
+- **Links**: Enter with `stroke-opacity` fade-in; update with path interpolation; exit with fade-out.
+
+### Interaction Model
+
+- **Clergy nodes**: Click opens info window; chevron toggles children visibility; right-click shows context menu.
+- **Summary nodes**: Click or chevron expands to show individual consecrations; right-click shows "Collapse"/"Expand". No info window.
+- **Build flow**: `buildHierarchy` → `applyDefaultSummaries` → `createDisplayHierarchy` (applies `collapsedNodeIds`, `summaryExpandedIds`) → layout → `updateTree()`.
+- **Edge cases**: Summary applies at initial state; once expanded, leaves become normal children. Parent can still be collapsed (hides all children). Multi-root: each subtree collapses independently.
+
 ### Interactions
 
 - **Zoom/pan**: `d3.zoom()` with `scaleExtent([0.3, 3])`.
-- **Node click**: `handleNodeClick` → clergy info window. In highlight mode (graph view only), lineage chain is highlighted instead.
+- **Node click**: `handleNodeClick` → clergy info window. Summary node click expands/collapses; does not open info window.
 - **Reset/Center**: event listeners on `#reset-zoom` and `#center-graph`; side menu is commented out in template (controls unavailable).
 
 ---
@@ -88,6 +123,7 @@ Each node has:
 - `statusBadges.js` (renderStatusBadges)
 - Sprite sheet: `/api/sprite-sheet` or `window.getSpriteSheetData()`
 - CSS vars: `--viz-label-dy`, `--viz-link-consecration-color`, `--viz-node-outer-radius`, `--viz-node-stroke-width`, `--viz-surface` (link status icon backgrounds)
+- `visualization-dynamic.css`: `.viz-context-menu`, `.viz-context-menu-item`, `.viz-node-summary-rect`, `.viz-node-summary-label`
 
 ---
 
@@ -96,6 +132,9 @@ Each node has:
 - **Default view**: Tree is the default (set in `viewController.js`, `currentView = 'tree'`).
 - **View toggle**: “Tree” vs “Graph” in the bottom filter menu changes between tree and force graph.
 - **Filters**: Organization filter and “View Priests” apply; tree view uses only consecration links (no ordination).
+- **Collapse/expand**: Chevron on parent nodes and summary nodes; right-click context menu for "Collapse subtree" / "Expand subtree".
+- **Summary nodes**: Parents with >5 children show a summary node by default (`N consecrations (YYYYs)`); click to expand into individual nodes.
+- **Animations**: D3 transitions (350ms) on expand/collapse and link enter/update/exit.
 - **Highlight Lineage**: Graph view only. When enabled there, clicking a node highlights its consecration chain instead of opening the info window. In tree view, shows "Switch to Graph view to highlight lineage."
 - **Reset/Center**: Buttons are wired in `lineageTreeView.js` to `#reset-zoom` and `#center-graph`, but the side menu containing them is commented out in `lineage_visualization.html`, so those controls are effectively unavailable. `window.currentZoom` is exposed for external use.
 - **Performance**: Uses sprite sheet for avatars when present; initialization time is logged with `console.time`.

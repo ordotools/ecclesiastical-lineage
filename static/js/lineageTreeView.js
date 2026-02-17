@@ -64,6 +64,52 @@ function computePre1968Flags(nodes, consecrationLinks) {
   });
 }
 
+function getLinkStatus(d) {
+  if (d.is_invalid) return 'invalid';
+  if (d.is_doubtfully_valid || d.is_doubtful) return 'doubtfully_valid';
+  if (d.is_doubtful_event) return 'doubtful_event';
+  if (d.is_sub_conditione) return 'sub_conditione';
+  return 'valid';
+}
+
+function getStatusIcon(status) {
+  switch (status) {
+    case 'invalid': return '✕';
+    case 'doubtfully_valid': return '?';
+    case 'doubtful_event': return '~';
+    case 'sub_conditione': return 'SC';
+    default: return null;
+  }
+}
+
+function getStatusIconColor(status) {
+  switch (status) {
+    case 'invalid': return '#e74c3c';
+    case 'doubtfully_valid': return '#f39c12';
+    case 'doubtful_event': return '#e67e22';
+    case 'sub_conditione': return '#3498db';
+    default: return '#ffffff';
+  }
+}
+
+const STATUS_PRIORITY = { invalid: 4, doubtfully_valid: 3, doubtful_event: 2, sub_conditione: 1, valid: 0 };
+
+function buildLinkToValidityMap(validConsecLinks) {
+  const map = new Map();
+  validConsecLinks.forEach(link => {
+    const sid = typeof link.source === 'object' ? link.source?.id : link.source;
+    const tid = typeof link.target === 'object' ? link.target?.id : link.target;
+    if (sid == null || tid == null) return;
+    const key = `${sid}-${tid}`;
+    const status = getLinkStatus(link);
+    const prev = map.get(key);
+    if (!prev || STATUS_PRIORITY[status] > STATUS_PRIORITY[getLinkStatus(prev)]) {
+      map.set(key, link);
+    }
+  });
+  return map;
+}
+
 function buildHierarchy(nodes, consecrationLinks, nodeMap) {
   const targetsBySource = new Map();
   const hasIncoming = new Set();
@@ -146,6 +192,8 @@ export async function initializeTreeView() {
     nodeMap.has(l.source.id) && nodeMap.has(l.target.id)
   );
 
+  const linkToValidityMap = buildLinkToValidityMap(validConsecLinks);
+
   computePre1968Flags(nodes, consecrationLinks);
 
   const rootData = buildHierarchy(nodes, validConsecLinks, nodeMap);
@@ -189,6 +237,7 @@ export async function initializeTreeView() {
   const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR;
   const cssNodeOuterRadius = parseFloat(rootStyles.getPropertyValue('--viz-node-outer-radius')) || OUTER_RADIUS;
   const cssNodeStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-node-stroke-width')) || 1;
+  const cssSurfaceColor = rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a';
 
   let spriteSheetData = null;
   try {
@@ -293,6 +342,74 @@ export async function initializeTreeView() {
     .attr('stroke', cssLinkConsecrationColor)
     .attr('stroke-width', 3)
     .attr('marker-end', 'url(#arrowhead-tree)');
+
+  const getNodeId = (d) => (d.data?.data ?? d.data)?.id;
+  const iconOffset = cssNodeOuterRadius + (cssNodeStrokeWidth / 2) + 30;
+
+  function findPointAtDistanceFromTarget(pathEl, targetX, targetY, targetDist, epsilon = 0.5) {
+    const total = pathEl.getTotalLength();
+    if (total < 2 * targetDist) {
+      const mid = pathEl.getPointAtLength(total / 2);
+      return mid;
+    }
+    let lo = 0;
+    let hi = total;
+    for (let i = 0; i < 20; i++) {
+      const mid = (lo + hi) / 2;
+      const p = pathEl.getPointAtLength(mid);
+      const d = Math.hypot(p.x - targetX, p.y - targetY);
+      if (Math.abs(d - targetDist) < epsilon) return p;
+      if (d > targetDist) lo = mid;
+      else hi = mid;
+    }
+    return pathEl.getPointAtLength((lo + hi) / 2);
+  }
+
+  function getIconPositionOnCurve(treeLink, linkGen, targetX, targetY, offset) {
+    const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathEl.setAttribute('d', linkGen(treeLink));
+    const p = findPointAtDistanceFromTarget(pathEl, targetX, targetY, offset);
+    return { x: p.x, y: p.y };
+  }
+
+  const linksWithStatus = links.map(l => {
+    const sid = getNodeId(l.source);
+    const tid = getNodeId(l.target);
+    const consecLink = sid != null && tid != null ? linkToValidityMap.get(`${sid}-${tid}`) : null;
+    return { treeLink: l, consecLink };
+  }).filter(item => item.consecLink && getLinkStatus(item.consecLink) !== 'valid');
+
+  const linkStatusIcons = container.append('g')
+    .attr('class', 'viz-link-status-icons')
+    .selectAll('g')
+    .data(linksWithStatus)
+    .enter().append('g')
+    .attr('class', d => `viz-link-status-icon-group status-${getLinkStatus(d.consecLink)}`)
+    .style('pointer-events', 'none')
+    .attr('transform', d => {
+      const t = d.treeLink.target;
+      const tx = isMultiRoot ? t.y : t.x;
+      const ty = isMultiRoot ? t.x : t.y;
+      const pos = getIconPositionOnCurve(d.treeLink, linkGenerator, tx, ty, iconOffset);
+      return `translate(${pos.x},${pos.y})`;
+    });
+
+  linkStatusIcons.append('circle')
+    .attr('r', 10)
+    .attr('fill', cssSurfaceColor)
+    .attr('opacity', 0.85);
+
+  linkStatusIcons.append('text')
+    .attr('class', d => `viz-link-status-icon status-${getLinkStatus(d.consecLink)}`)
+    .text(d => getStatusIcon(getLinkStatus(d.consecLink)))
+    .attr('text-anchor', 'middle')
+    .attr('dominant-baseline', 'middle')
+    .attr('font-size', '16px')
+    .attr('font-weight', 'bold')
+    .attr('fill', d => getStatusIconColor(getLinkStatus(d.consecLink)))
+    .attr('stroke', cssSurfaceColor)
+    .attr('stroke-width', '1px')
+    .attr('paint-order', 'stroke');
 
   const nodeGroups = container.append('g')
     .attr('class', 'viz-nodes')

@@ -288,19 +288,22 @@ function applyDefaultSummaries(hierarchy, linkDateByEdge) {
   return hierarchy;
 }
 
-function getDisplayChildren(collapsedNodeIds, summaryExpandedIds) {
+function getDisplayChildren(expandedParentIds, summaryExpandedIds, toStableId) {
   return (d) => {
-    const nodeId = (d.data?.data ?? d.data)?.id ?? d.data?.id;
-    if (nodeId && collapsedNodeIds.has(nodeId)) return null;
-    if (d.data?.isSummary && summaryExpandedIds.has(nodeId)) {
-      return d.data.leafNodes ?? null;
+    const datum = d?.data ?? d;
+    const nodeId = (datum?.data ?? datum)?.id ?? datum?.id ?? d?.id;
+    const sid = toStableId(nodeId);
+    const isSummary = !!((datum?.data ?? datum)?.isSummary || datum?.isSummary);
+    if (isSummary) {
+      return summaryExpandedIds.has(sid) ? ((datum?.data ?? datum)?.leafNodes ?? null) : null;
     }
-    return d.children;
+    if (sid && !expandedParentIds.has(sid)) return null;
+    return (d?.children ?? datum?.children ?? null);
   };
 }
 
-function createDisplayHierarchy(rootData, collapsedNodeIds, summaryExpandedIds) {
-  const childrenAccessor = getDisplayChildren(collapsedNodeIds, summaryExpandedIds);
+function createDisplayHierarchy(rootData, expandedParentIds, summaryExpandedIds, toStableId) {
+  const childrenAccessor = getDisplayChildren(expandedParentIds, summaryExpandedIds, toStableId);
   if (rootData.single) {
     return { single: d3.hierarchy(rootData.single, childrenAccessor) };
   }
@@ -384,6 +387,7 @@ export async function initializeTreeView() {
   }
 
   const selectedOrg = window.selectedOrganization;
+  const toStableId = (id) => (id != null ? String(id) : null);
   let nodes = nodesRaw
     .map(n => ({ ...n }))
     .filter(n => selectedOrg == null || n.organization === selectedOrg);
@@ -419,44 +423,61 @@ export async function initializeTreeView() {
     return;
   }
 
-  function collectValidNodeIds(hierarchyWithSummaries) {
+  function collectExpandableNodeIds(hierarchyWithSummaries) {
     const ids = new Set();
-    function visit(node) {
+    function visit(node, isRoot) {
       const nid = (node.data?.data ?? node.data)?.id ?? node.data?.id;
-      if (nid) ids.add(nid);
-      (node.children ?? []).forEach(visit);
+      const hasChildren = (node.children ?? []).length > 0;
+      const isSummary = !!node.data?.isSummary;
+      if ((hasChildren || isSummary) && nid != null) ids.add(toStableId(nid));
+      (node.children ?? []).forEach(c => visit(c, false));
     }
-    if (hierarchyWithSummaries.single) visit(hierarchyWithSummaries.single);
-    if (hierarchyWithSummaries.multi) hierarchyWithSummaries.multi.forEach(visit);
+    if (hierarchyWithSummaries.single) visit(hierarchyWithSummaries.single, true);
+    if (hierarchyWithSummaries.multi) hierarchyWithSummaries.multi.forEach(r => visit(r, true));
     return ids;
   }
 
   const hierarchyWithSummaries = applyDefaultSummaries(rootHierarchy, linkDateByEdge);
-  const validNodeIds = collectValidNodeIds(hierarchyWithSummaries);
+  const allExpandableIds = collectExpandableNodeIds(hierarchyWithSummaries);
 
-  const collapsedNodeIds = new Set();
+  const expandedParentIds = new Set();
   const summaryExpandedIds = new Set();
 
   function loadTreeState() {
     try {
       const key = `lineageTreeState_${selectedOrg ?? 'all'}`;
       const raw = localStorage.getItem(key);
-      if (!raw) return;
+      if (!raw) {
+        allExpandableIds.forEach(id => expandedParentIds.add(id));
+        return;
+      }
       const parsed = JSON.parse(raw);
-      const collapsed = Array.isArray(parsed?.collapsedNodeIds) ? parsed.collapsedNodeIds : [];
-      const expanded = Array.isArray(parsed?.summaryExpandedIds) ? parsed.summaryExpandedIds : [];
-      collapsed.filter(id => validNodeIds.has(id)).forEach(id => collapsedNodeIds.add(id));
-      expanded.filter(id => validNodeIds.has(id)).forEach(id => summaryExpandedIds.add(id));
+      if (Array.isArray(parsed?.expandedParentIds) && parsed.expandedParentIds.length > 0) {
+        parsed.expandedParentIds.forEach(id => {
+          const sid = toStableId(id);
+          if (sid) expandedParentIds.add(sid);
+        });
+      } else if (Array.isArray(parsed?.collapsedNodeIds) && parsed.collapsedNodeIds.length > 0) {
+        allExpandableIds.forEach(id => expandedParentIds.add(id));
+        parsed.collapsedNodeIds.forEach(id => {
+          const sid = toStableId(id);
+          if (sid) expandedParentIds.delete(sid);
+        });
+      } else {
+        allExpandableIds.forEach(id => expandedParentIds.add(id));
+      }
+      (parsed?.summaryExpandedIds ?? []).forEach(id => {
+        const sid = toStableId(id);
+        if (sid) summaryExpandedIds.add(sid);
+      });
     } catch (_) {}
   }
 
   function saveTreeState() {
     try {
       const key = `lineageTreeState_${selectedOrg ?? 'all'}`;
-      localStorage.setItem(key, JSON.stringify({
-        collapsedNodeIds: [...collapsedNodeIds],
-        summaryExpandedIds: [...summaryExpandedIds]
-      }));
+      const payload = { expandedParentIds: [...expandedParentIds], summaryExpandedIds: [...summaryExpandedIds] };
+      localStorage.setItem(key, JSON.stringify(payload));
     } catch (_) {}
   }
 
@@ -473,7 +494,7 @@ export async function initializeTreeView() {
 
   function runLayout() {
     const hierarchyForDisplay = applyDefaultSummaries(rootHierarchy, linkDateByEdge);
-    const displayData = createDisplayHierarchy(hierarchyForDisplay, collapsedNodeIds, summaryExpandedIds);
+    const displayData = createDisplayHierarchy(hierarchyForDisplay, expandedParentIds, summaryExpandedIds, toStableId);
     let allNodes = [];
     let allLinks = [];
 
@@ -663,9 +684,9 @@ export async function initializeTreeView() {
   }
 
   function isCollapsed(d) {
-    const nodeId = getNodeId(d);
-    if (d.data?.isSummary) return !summaryExpandedIds.has(nodeId);
-    return collapsedNodeIds.has(nodeId);
+    const sid = toStableId(getNodeId(d));
+    if (d.data?.isSummary) return !summaryExpandedIds.has(sid);
+    return !expandedParentIds.has(sid);
   }
 
   const CHEVRON_OFFSET = cssNodeOuterRadius + 12;
@@ -719,7 +740,7 @@ export async function initializeTreeView() {
   }
 
   async function performStagedCollapse(d) {
-    const getDisplayChildrenFn = getDisplayChildren(collapsedNodeIds, summaryExpandedIds);
+    const getDisplayChildrenFn = getDisplayChildren(expandedParentIds, summaryExpandedIds, toStableId);
     const toCollapse = getCollapseOrder(d, getDisplayChildrenFn);
     const affectedNodeIds = new Set();
     for (const n of toCollapse) {
@@ -729,13 +750,11 @@ export async function initializeTreeView() {
       affectedNodeIds.clear();
       collectDescendantPositionIds(d, getDisplayChildrenFn).forEach(id => affectedNodeIds.add(id));
     }
-    for (const n of toCollapse) {
-      if (n.data?.isSummary) summaryExpandedIds.delete(getNodeId(n));
-      else collapsedNodeIds.add(getNodeId(n));
-    }
-    if (toCollapse.length === 0) {
-      if (d.data?.isSummary) summaryExpandedIds.delete(getNodeId(d));
-      else collapsedNodeIds.add(getNodeId(d));
+    const clickedId = toStableId(getNodeId(d));
+    if (d.data?.isSummary) {
+      summaryExpandedIds.delete(clickedId);
+    } else {
+      expandedParentIds.delete(clickedId);
     }
     saveTreeState();
     if (affectedNodeIds.size === 0) {
@@ -747,15 +766,15 @@ export async function initializeTreeView() {
   }
 
   async function performStagedExpand(d) {
-    const nodeId = getNodeId(d);
+    const nodeId = toStableId(getNodeId(d));
     if (d.data?.isSummary) {
       summaryExpandedIds.add(nodeId);
     } else {
-      collapsedNodeIds.delete(nodeId);
+      expandedParentIds.add(nodeId);
     }
     saveTreeState();
     const { allNodes } = runLayout();
-    const expandedInNewLayout = allNodes.find(n => getNodeId(n) === nodeId);
+    const expandedInNewLayout = allNodes.find(n => toStableId(getNodeId(n)) === nodeId);
     const affectedNodeIds = new Set();
     if (expandedInNewLayout) {
       expandedInNewLayout.descendants().slice(1).forEach(n => {
@@ -1127,7 +1146,7 @@ export async function initializeTreeView() {
             .on('click', async (event, d) => {
               event.stopPropagation();
                 if (d.data?.isSummary) {
-                const nodeId = getNodeId(d);
+                const nodeId = toStableId(getNodeId(d));
                 if (summaryExpandedIds.has(nodeId)) {
                   await performStagedCollapse(d);
                 } else {
@@ -1150,18 +1169,24 @@ export async function initializeTreeView() {
             .style('pointer-events', 'all')
             .on('click', async (event, d) => {
               event.stopPropagation();
+              event.preventDefault();
               if (isCollapsed(d)) {
                 await performStagedExpand(d);
               } else {
                 await performStagedCollapse(d);
               }
             })
-            .append('path')
-            .attr('d', chevronPath)
-            .attr('fill', 'rgba(255,255,255,0.9)')
-            .attr('stroke', cssSurfaceColor)
-            .attr('stroke-width', 1)
-            .attr('transform', d => isCollapsed(d) ? 'rotate(-90) translate(-2.5,3)' : 'translate(-3,-2.5)');
+            .call(collapseBtn => {
+              collapseBtn.append('rect')
+                .attr('width', 24).attr('height', 24).attr('x', -12).attr('y', -12)
+                .attr('fill', 'transparent');
+              collapseBtn.append('path')
+                .attr('d', chevronPath)
+                .attr('fill', 'rgba(255,255,255,0.9)')
+                .attr('stroke', cssSurfaceColor)
+                .attr('stroke-width', 1)
+                .attr('transform', (d) => isCollapsed(d) ? 'rotate(-90) translate(-2.5,3)' : 'translate(-3,-2.5)');
+            });
           const enterAffected = g.filter(d => expandPhase && affectedNodeIds && affectedNodeIds.has(d._positionId));
           const enterOther = g.filter(d => !expandPhase || !affectedNodeIds || !affectedNodeIds.has(d._positionId));
           enterAffected.transition(tCollapse).attrTween('transform', d => makePathTween(d, getNodePos, getParentPos, TREE_ANIMATION.collapseArcStrength, false));
@@ -1172,6 +1197,7 @@ export async function initializeTreeView() {
           return g;
         },
         (update) => {
+          update.on('contextmenu', (event, d) => showContextMenu(event, d));
           if (collapsePhase || expandPhase) {
             update.select('.viz-collapse-btn path')
               .attr('transform', d => isCollapsed(d) ? 'rotate(-90) translate(-2.5,3)' : 'translate(-3,-2.5)');
@@ -1183,6 +1209,15 @@ export async function initializeTreeView() {
             update.select('.viz-collapse-btn path')
               .attr('transform', d => isCollapsed(d) ? 'rotate(-90) translate(-2.5,3)' : 'translate(-3,-2.5)');
           }
+          update.select('.viz-collapse-btn').on('click', async (event, d) => {
+            event.stopPropagation();
+            event.preventDefault();
+            if (isCollapsed(d)) {
+              await performStagedExpand(d);
+            } else {
+              await performStagedCollapse(d);
+            }
+          });
         },
         (exit) => {
           const exitAffected = affectedNodeIds

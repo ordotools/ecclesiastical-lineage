@@ -31,6 +31,12 @@ function parseYearFromDate(dateValue) {
   return Number.isFinite(year) ? year : null;
 }
 
+function yearToDecade(year) {
+  if (year == null || !Number.isFinite(year)) return null;
+  const mod = year % 10;
+  return mod < 5 ? Math.floor(year / 10) * 10 : Math.ceil(year / 10) * 10;
+}
+
 function useSquareNode(d) {
   return d.is_pre_1968_consecration || !!d.is_lineage_root;
 }
@@ -110,7 +116,11 @@ function buildLinkToValidityMap(validConsecLinks) {
   return map;
 }
 
-function buildHierarchy(nodes, consecrationLinks, nodeMap) {
+function decadeSteps(decadeDiff) {
+  return Math.ceil(decadeDiff / 10);
+}
+
+function buildHierarchy(nodes, consecrationLinks, nodeMap, linkDateByEdge) {
   const targetsBySource = new Map();
   const hasIncoming = new Set();
 
@@ -136,15 +146,23 @@ function buildHierarchy(nodes, consecrationLinks, nodeMap) {
   function buildNode(node) {
     const raw = targetsBySource.get(node.id) || [];
     const seen = new Set();
-    const children = raw.filter(c => {
+    const filtered = raw.filter(c => {
       if (seen.has(c.id)) return false;
       if (lineageRoots.length > 0 && c.is_lineage_root) return false;
       seen.add(c.id);
       return true;
     });
+    const children = filtered
+      .sort((a, b) => {
+        const yA = parseYearFromDate(linkDateByEdge?.get(`${node.id}-${a.id}`));
+        const yB = parseYearFromDate(linkDateByEdge?.get(`${node.id}-${b.id}`));
+        return (yA ?? 9999) - (yB ?? 9999);
+      })
+      .map(child => buildNode(child))
+      .filter(Boolean);
     return {
       data: node,
-      children: children.map(child => buildNode(child)).filter(Boolean)
+      children
     };
   }
 
@@ -152,6 +170,48 @@ function buildHierarchy(nodes, consecrationLinks, nodeMap) {
     return { single: buildNode(roots[0]) };
   }
   return { multi: roots.map(r => buildNode(r)) };
+}
+
+function getNodeIdFromHierarchy(d) {
+  return (d.data?.data ?? d.data)?.id;
+}
+
+function applyTimelinePositions(allNodes, allLinks, linkDateByEdge, isMultiRoot) {
+  const depthKey = isMultiRoot ? 'y' : 'x';
+  const nodeToDepth = new Map();
+  const nodeToDecade = new Map();
+
+  allNodes.forEach(d => {
+    const nid = getNodeIdFromHierarchy(d);
+    if (d.depth === 0) {
+      nodeToDepth.set(d, 0);
+      const rootData = d.data?.data ?? d.data;
+      const rootDecade = yearToDecade(parseYearFromDate(rootData?.consecration_date));
+      nodeToDecade.set(d, rootDecade);
+      return;
+    }
+    const parent = d.parent;
+    const pid = getNodeIdFromHierarchy(parent);
+    const linkDate = pid != null && nid != null ? linkDateByEdge.get(`${pid}-${nid}`) : null;
+    const childDecade = yearToDecade(parseYearFromDate(linkDate));
+    const parentDecade = nodeToDecade.get(parent);
+    const parentDepth = nodeToDepth.get(parent) ?? 0;
+
+    let childDepth;
+    if (childDecade == null || parentDecade == null || childDecade === parentDecade) {
+      childDepth = parentDepth + 1;
+    } else {
+      const steps = Math.max(1, decadeSteps(childDecade - parentDecade));
+      childDepth = parentDepth + steps;
+    }
+    nodeToDepth.set(d, childDepth);
+    nodeToDecade.set(d, childDecade);
+  });
+
+  allNodes.forEach(d => {
+    const depthVal = (nodeToDepth.get(d) ?? 0) * TREE_NODE_DX;
+    d[depthKey] = depthVal;
+  });
 }
 
 export async function initializeTreeView() {
@@ -194,9 +254,14 @@ export async function initializeTreeView() {
 
   const linkToValidityMap = buildLinkToValidityMap(validConsecLinks);
 
+  const linkDateByEdge = new Map();
+  linkToValidityMap.forEach((link, key) => {
+    if (link?.date != null) linkDateByEdge.set(key, link.date);
+  });
+
   computePre1968Flags(nodes, consecrationLinks);
 
-  const rootData = buildHierarchy(nodes, validConsecLinks, nodeMap);
+  const rootData = buildHierarchy(nodes, validConsecLinks, nodeMap, linkDateByEdge);
   if (!rootData || (rootData.multi && rootData.multi.length === 0) || (rootData.single && !rootData.single.data)) {
     document.getElementById('graph-container').innerHTML = '<div class="text-center p-4"><p class="text-muted">No consecration lineage to display.</p></div>';
     return;
@@ -205,7 +270,12 @@ export async function initializeTreeView() {
   const isMultiRoot = !!rootData.multi;
   const treeLayout = d3.tree()
     .nodeSize([TREE_NODE_DY, TREE_NODE_DX])
-    .separation(() => 1);
+    .separation((a, b) => {
+      if (a.parent !== b.parent) return 2;
+      const aSize = a.descendants?.().length ?? 1;
+      const bSize = b.descendants?.().length ?? 1;
+      return 1 + Math.min(aSize, bSize) * 0.15;
+    });
 
   let allNodes = [];
   let allLinks = [];
@@ -213,15 +283,10 @@ export async function initializeTreeView() {
   if (isMultiRoot) {
     const roots = rootData.multi;
     const TREE_GAP = Math.max(80, TREE_NODE_DX * 1.5);
-    let xCursor = 0;
-    roots.forEach((r) => {
+    roots.forEach((r, i) => {
       const h = d3.hierarchy(r, d => d.children);
       treeLayout(h);
-      const yExtent = d3.extent(h.descendants(), d => d.y);
-      const treeWidth = (yExtent[1] - yExtent[0]) || TREE_NODE_DX;
-      const xOffset = xCursor;
-      xCursor += treeWidth + TREE_GAP;
-      h.each(d => { d.y += xOffset; });
+      h.each(d => { d._treeIndex = i; });
       allNodes = allNodes.concat(h.descendants());
       allLinks = allLinks.concat(h.links());
     });
@@ -230,6 +295,27 @@ export async function initializeTreeView() {
     treeLayout(root);
     allNodes = root.descendants();
     allLinks = root.links();
+  }
+
+  applyTimelinePositions(allNodes, allLinks, linkDateByEdge, isMultiRoot);
+
+  if (isMultiRoot) {
+    const roots = rootData.multi;
+    const TREE_GAP = Math.max(80, TREE_NODE_DX * 1.5);
+    const depthKey = 'y';
+    const treeWidths = roots.map((_, i) => {
+      const nodesInTree = allNodes.filter(d => d._treeIndex === i);
+      const maxY = Math.max(0, ...nodesInTree.map(d => d[depthKey]));
+      return maxY || TREE_NODE_DX;
+    });
+    const xOffsets = [0];
+    for (let i = 1; i < roots.length; i++) {
+      xOffsets.push(xOffsets[i - 1] + treeWidths[i - 1] + TREE_GAP);
+    }
+    allNodes.forEach(d => {
+      const idx = d._treeIndex;
+      if (idx != null) d[depthKey] += xOffsets[idx];
+    });
   }
 
   const rootStyles = getComputedStyle(document.documentElement);

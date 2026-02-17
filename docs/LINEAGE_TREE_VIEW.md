@@ -16,7 +16,7 @@ The **lineage tree view** (`lineageTreeView.js`) is a D3-based hierarchical visu
 | `static/js/constants.js` | `TREE_NODE_DX`, `TREE_NODE_DY`, radii, colors, viewport size |
 | `static/js/modals.js` | `handleNodeClick` — opens clergy info windows on node click |
 | `static/js/statusBadges.js` | `renderStatusBadges` — status indicators around nodes |
-| `static/js/highlightLineage.js` | Highlight mode — highlights consecration chain on click |
+| `static/js/highlightLineage.js` | Highlight mode — graph view only; tree view prompts user to switch |
 | `templates/lineage_visualization.html` | Page shell; embeds `graph-container`, passes `links_json`/`nodes_json` |
 
 ---
@@ -34,15 +34,19 @@ The **lineage tree view** (`lineageTreeView.js`) is a D3-based hierarchical visu
 
 ### Hierarchy Building
 
-- `buildHierarchy(nodes, consecrationLinks, nodeMap)`:
+- `buildHierarchy(nodes, consecrationLinks, nodeMap, linkDateByEdge)`:
   - Builds `targetsBySource` and `hasIncoming`.
   - Roots: nodes with `is_lineage_root`, or else nodes with no incoming links.
   - Produces either `{ single: rootNode }` or `{ multi: rootNodes[] }`.
+  - Children sorted by consecration year (via `linkDateByEdge`).
+  - Multiple links between same pair: `buildLinkToValidityMap()` keeps link with highest status priority (invalid > doubtfully_valid > doubtful_event > sub_conditione > valid).
 - Multi-root trees are laid out horizontally, each with its own D3 tree, then concatenated with a gap.
 
 ### Layout
 
 - Uses `d3.tree()` with `nodeSize([TREE_NODE_DY, TREE_NODE_DX])`.
+- Custom `separation()`: siblings spaced by subtree size to reduce overlap.
+- `applyTimelinePositions()`: adjusts node depth by decade when link dates exist (multi-root: depth on y; single: depth on x).
 - Single root: vertical links (`d3.linkVertical`).
 - Multi-root: horizontal links (`d3.linkHorizontal`).
 - Initial transform centers and scales the tree in the viewport.
@@ -63,11 +67,16 @@ Each node has:
 - Label: clergy name.
 - Status badges: via `renderStatusBadges()` when `data.statuses` exists.
 
+### Link Rendering
+
+- Links use `marker-end: url(#arrowhead-tree)`.
+- **Link status icons**: Non-valid consecration links show icons along the path: invalid (✕), doubtfully_valid (?), doubtful_event (~), sub_conditione (SC). Icons placed via `findPointAtDistanceFromTarget()`; background uses `--viz-surface`.
+
 ### Interactions
 
 - **Zoom/pan**: `d3.zoom()` with `scaleExtent([0.3, 3])`.
-- **Node click**: `handleNodeClick` → clergy info window or, in highlight mode, lineage chain.
-- **Reset/Center**: event listeners on `#reset-zoom` and `#center-graph` (elements may be hidden in current template).
+- **Node click**: `handleNodeClick` → clergy info window. In highlight mode (graph view only), lineage chain is highlighted instead.
+- **Reset/Center**: event listeners on `#reset-zoom` and `#center-graph`; side menu is commented out in template (controls unavailable).
 
 ---
 
@@ -78,7 +87,7 @@ Each node has:
 - `modals.js` (handleNodeClick)
 - `statusBadges.js` (renderStatusBadges)
 - Sprite sheet: `/api/sprite-sheet` or `window.getSpriteSheetData()`
-- CSS vars: `--viz-label-dy`, `--viz-link-consecration-color`, `--viz-node-outer-radius`, `--viz-node-stroke-width`
+- CSS vars: `--viz-label-dy`, `--viz-link-consecration-color`, `--viz-node-outer-radius`, `--viz-node-stroke-width`, `--viz-surface` (link status icon backgrounds)
 
 ---
 
@@ -87,8 +96,8 @@ Each node has:
 - **Default view**: Tree is the default (set in `viewController.js`, `currentView = 'tree'`).
 - **View toggle**: “Tree” vs “Graph” in the bottom filter menu changes between tree and force graph.
 - **Filters**: Organization filter and “View Priests” apply; tree view uses only consecration links (no ordination).
-- **Highlight Lineage**: When enabled, clicking a node highlights its consecration chain instead of opening the info window.
-- **Reset/Center**: Buttons are wired in `lineageTreeView.js` but the side menu containing `#reset-zoom` and `#center-graph` is commented out in `lineage_visualization.html`, so those controls are effectively unavailable.
+- **Highlight Lineage**: Graph view only. When enabled there, clicking a node highlights its consecration chain instead of opening the info window. In tree view, shows "Switch to Graph view to highlight lineage."
+- **Reset/Center**: Buttons are wired in `lineageTreeView.js` to `#reset-zoom` and `#center-graph`, but the side menu containing them is commented out in `lineage_visualization.html`, so those controls are effectively unavailable. `window.currentZoom` is exposed for external use.
 - **Performance**: Uses sprite sheet for avatars when present; initialization time is logged with `console.time`.
 
 ---

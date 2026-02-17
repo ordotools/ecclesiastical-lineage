@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **lineage tree view** (`lineageTreeView.js`) is a D3-based hierarchical visualization of ecclesiastical consecration lineage. It shows consecration relationships as a tree (parent = consecrator, child = consecrated bishop), with a single default view mode alongside an alternative force-directed graph.
+The **lineage tree view** (`lineageTree/lineageTreeView.js`) is a D3-based hierarchical visualization of ecclesiastical consecration lineage. It shows consecration relationships as a tree (parent = consecrator, child = consecrated bishop), with a single default view mode alongside an alternative force-directed graph.
 
 ---
 
@@ -10,7 +10,7 @@ The **lineage tree view** (`lineageTreeView.js`) is a D3-based hierarchical visu
 
 | File | Role |
 |------|------|
-| `static/js/lineageTreeView.js` | Core tree implementation (D3 tree layout, SVG rendering) |
+| `static/js/lineageTree/lineageTreeView.js` | Core tree implementation (D3 tree layout, SVG rendering) |
 | `static/js/viewController.js` | Switches between tree and force graph; calls `initializeTreeView()` |
 | `static/js/lineageVisualization.js` | Entry point; loads styles, UI, filters, search; calls `initializeView()` |
 | `static/js/constants.js` | `TREE_NODE_DX`, `TREE_NODE_DY`, radii, colors, viewport size |
@@ -137,7 +137,7 @@ Each node has:
 - **Summary nodes**: Parents with >5 children show a summary node by default (`N consecrations (YYYYs)`); click to expand into individual nodes.
 - **Animations**: D3 transitions (350ms) on expand/collapse; nodes and links share curved Bezier path tweens; collapse to immediate parent, expand from parent's pre-expand position; links move with their nodes.
 - **Highlight Lineage**: Graph view only. When enabled there, clicking a node highlights its consecration chain instead of opening the info window. In tree view, shows "Switch to Graph view to highlight lineage."
-- **Reset/Center**: Buttons are wired in `lineageTreeView.js` to `#reset-zoom` and `#center-graph`, but the side menu containing them is commented out in `lineage_visualization.html`, so those controls are effectively unavailable. `window.currentZoom` is exposed for external use.
+- **Reset/Center**: Buttons are wired in `lineageTree/lineageTreeView.js` to `#reset-zoom` and `#center-graph`, but the side menu containing them is commented out in `lineage_visualization.html`, so those controls are effectively unavailable. `window.currentZoom` is exposed for external use.
 - **Performance**: Uses sprite sheet for avatars when present; initialization time is logged with `console.time`.
 
 ---

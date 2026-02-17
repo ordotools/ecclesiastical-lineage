@@ -7,304 +7,58 @@ import {
   GREEN_COLOR,
   TREE_NODE_DX,
   TREE_NODE_DY,
+  TREE_GAP,
+  SUMMARY_NODE_WIDTH,
+  SUMMARY_NODE_HEIGHT,
   width,
   height
-} from './constants.js';
-import { handleNodeClick } from './modals.js';
-import { renderStatusBadges } from './statusBadges.js';
+} from '../constants.js';
+import { handleNodeClick } from '../modals.js';
+import { renderStatusBadges } from '../statusBadges.js';
+import {
+  toStableId,
+  getNodeId,
+  useSquareNode,
+  getLinkStatus,
+  getStatusIcon,
+  getStatusIconColor,
+  parseYearFromDate,
+  yearToDecade
+} from './lineageTreeUtils.js';
+import {
+  computePre1968Flags,
+  buildHierarchy,
+  applyDefaultSummaries,
+  buildLinkToValidityMap,
+  decadeSteps
+} from './lineageTreeHierarchy.js';
+import {
+  TREE_ANIMATION,
+  getTreeEaseFn,
+  computeStaggerOpts,
+  createStaggerFns,
+  makePathTween,
+  makeExpandLinkTween,
+  makeCollapseLinkTween
+} from './lineageTreeAnimation.js';
 
-const PRE_1968_CONSECRATION_YEAR = 1968;
+const treeEaseFn = getTreeEaseFn();
 
-function isBishopRank(rankValue) {
-  if (!rankValue) return false;
-  const lowerRank = rankValue.toLowerCase();
-  return lowerRank.includes('bishop') ||
-    lowerRank.includes('pope') ||
-    lowerRank.includes('archbishop') ||
-    lowerRank.includes('cardinal') ||
-    lowerRank.includes('patriarch');
-}
-
-function parseYearFromDate(dateValue) {
-  if (!dateValue) return null;
-  const year = parseInt(String(dateValue).slice(0, 4), 10);
-  return Number.isFinite(year) ? year : null;
-}
-
-function yearToDecade(year) {
-  if (year == null || !Number.isFinite(year)) return null;
-  const mod = year % 10;
-  return mod < 5 ? Math.floor(year / 10) * 10 : Math.ceil(year / 10) * 10;
-}
-
-function useSquareNode(d) {
-  return d.is_pre_1968_consecration || !!d.is_lineage_root;
-}
-
-function computePre1968Flags(nodes, consecrationLinks) {
-  const pre1968ConsecrationTargets = new Set();
-  const pre1968SponsorBishops = new Set();
-
-  consecrationLinks.forEach(link => {
-    const year = parseYearFromDate(link.date);
-    if (year === null || year >= PRE_1968_CONSECRATION_YEAR) return;
-
-    const targetId = typeof link.target === 'object' && link.target ? link.target.id : link.target;
-    const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
-    if (targetId != null) pre1968ConsecrationTargets.add(targetId);
-    if (sourceId != null) pre1968SponsorBishops.add(sourceId);
-  });
-
-  const shouldMarkPre1968Consecrator = (node, consecratorIds) => {
-    if (!node || !consecratorIds || !consecratorIds.has(node.id)) return false;
-    if (node.consecration_date) return false;
-    if (node.rank && !isBishopRank(node.rank)) return false;
-    return true;
-  };
-
-  nodes.forEach(node => {
-    const consecrationYear = parseYearFromDate(node.consecration_date);
-    node.is_pre_1968_consecration = consecrationYear !== null
-      ? consecrationYear < PRE_1968_CONSECRATION_YEAR
-      : pre1968ConsecrationTargets.has(node.id) || shouldMarkPre1968Consecrator(node, pre1968SponsorBishops);
-  });
-}
-
-function getLinkStatus(d) {
-  if (d.is_invalid) return 'invalid';
-  if (d.is_doubtfully_valid || d.is_doubtful) return 'doubtfully_valid';
-  if (d.is_doubtful_event) return 'doubtful_event';
-  if (d.is_sub_conditione) return 'sub_conditione';
-  return 'valid';
-}
-
-function getStatusIcon(status) {
-  switch (status) {
-    case 'invalid': return '✕';
-    case 'doubtfully_valid': return '?';
-    case 'doubtful_event': return '~';
-    case 'sub_conditione': return 'SC';
-    default: return null;
-  }
-}
-
-function getStatusIconColor(status) {
-  switch (status) {
-    case 'invalid': return '#e74c3c';
-    case 'doubtfully_valid': return '#f39c12';
-    case 'doubtful_event': return '#e67e22';
-    case 'sub_conditione': return '#3498db';
-    default: return '#ffffff';
-  }
-}
-
-const STATUS_PRIORITY = { invalid: 4, doubtfully_valid: 3, doubtful_event: 2, sub_conditione: 1, valid: 0 };
-
-const TREE_ANIMATION = {
-  growthDuration: 1200,
-  expandDuration: 350,
-  collapseDuration: 350,
-  easeInOutCubicBezier: [0.33, 0, 0.2, 1],
-  collapseArcStrength: 0.25,
-};
-
-function createBezierEase(coords) {
-  const [x1, y1, x2, y2] = coords ?? TREE_ANIMATION.easeInOutCubicBezier;
-  return (t) => {
-    if (t <= 0) return 0;
-    if (t >= 1) return 1;
-    const b = (t, p0, p1, p2, p3) =>
-      (1 - t) ** 3 * p0 + 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t ** 2 * p2 + t ** 3 * p3;
-    let lo = 0, hi = 1;
-    for (let i = 0; i < 12; i++) {
-      const mid = (lo + hi) / 2;
-      const x = b(mid, 0, x1, x2, 1);
-      if (Math.abs(x - t) < 1e-6) return b(mid, 0, y1, y2, 1);
-      if (x < t) lo = mid;
-      else hi = mid;
-    }
-    const u = (lo + hi) / 2;
-    return b(u, 0, y1, y2, 1);
-  };
-}
-
-const treeEaseFn = createBezierEase(TREE_ANIMATION.easeInOutCubicBezier);
-
-function pointOnCubicBezier(t, P0, P1, P2, P3) {
-  const s = 1 - t;
-  const x = s * s * s * P0[0] + 3 * s * s * t * P1[0] + 3 * s * t * t * P2[0] + t * t * t * P3[0];
-  const y = s * s * s * P0[1] + 3 * s * s * t * P1[1] + 3 * s * t * t * P2[1] + t * t * t * P3[1];
-  return [x, y];
-}
-
-function makePathTween(d, getNodePos, getParentPos, arcStrength, collapse, expandOrigin) {
-  const P0 = collapse ? getNodePos(d) : (expandOrigin ?? getParentPos(d));
-  const P3 = collapse ? getParentPos(d) : getNodePos(d);
-  const dx = P3[0] - P0[0];
-  const dy = P3[1] - P0[1];
-  const dist = Math.hypot(dx, dy) || 1;
-  const k = arcStrength * dist;
-  const perpX = -dy / dist;
-  const perpY = dx / dist;
-  const P1 = [P0[0] + k * perpX, P0[1] + k * perpY];
-  const P2 = [P3[0] - k * perpX, P3[1] - k * perpY];
-  return (t) => {
-    const eased = treeEaseFn(t);
-    const [x, y] = pointOnCubicBezier(eased, P0, P1, P2, P3);
-    return `translate(${x},${y})`;
-  };
-}
-
-function buildLinkToValidityMap(validConsecLinks) {
-  const map = new Map();
-  validConsecLinks.forEach(link => {
-    const sid = typeof link.source === 'object' ? link.source?.id : link.source;
-    const tid = typeof link.target === 'object' ? link.target?.id : link.target;
-    if (sid == null || tid == null) return;
-    const key = `${sid}-${tid}`;
-    const status = getLinkStatus(link);
-    const prev = map.get(key);
-    if (!prev || STATUS_PRIORITY[status] > STATUS_PRIORITY[getLinkStatus(prev)]) {
-      map.set(key, link);
-    }
-  });
-  return map;
-}
-
-function decadeSteps(decadeDiff) {
-  return Math.ceil(decadeDiff / 10);
-}
-
-function buildHierarchy(nodes, consecrationLinks, nodeMap, linkDateByEdge) {
-  const targetsBySource = new Map();
-  const hasIncoming = new Set();
-
-  consecrationLinks.forEach(link => {
-    const sid = typeof link.source === 'object' ? link.source?.id : link.source;
-    const tid = typeof link.target === 'object' ? link.target?.id : link.target;
-    const sourceNode = nodeMap.get(sid);
-    const targetNode = nodeMap.get(tid);
-    if (!sourceNode || !targetNode) return;
-
-    hasIncoming.add(tid);
-    if (!targetsBySource.has(sid)) targetsBySource.set(sid, []);
-    targetsBySource.get(sid).push(targetNode);
-  });
-
-  const lineageRoots = nodes.filter(n => n.is_lineage_root);
-  const roots = lineageRoots.length > 0
-    ? lineageRoots
-    : nodes.filter(n => !hasIncoming.has(n.id));
-
-  if (roots.length === 0) return null;
-
-  function buildNode(node) {
-    const raw = targetsBySource.get(node.id) || [];
-    const seen = new Set();
-    const filtered = raw.filter(c => {
-      if (seen.has(c.id)) return false;
-      if (lineageRoots.length > 0 && c.is_lineage_root) return false;
-      seen.add(c.id);
-      return true;
-    });
-    const children = filtered
-      .sort((a, b) => {
-        const yA = parseYearFromDate(linkDateByEdge?.get(`${node.id}-${a.id}`));
-        const yB = parseYearFromDate(linkDateByEdge?.get(`${node.id}-${b.id}`));
-        return (yA ?? 9999) - (yB ?? 9999);
-      })
-      .map(child => buildNode(child))
-      .filter(Boolean);
-    return {
-      data: node,
-      children
-    };
-  }
-
-  if (roots.length === 1) {
-    return { single: buildNode(roots[0]) };
-  }
-  return { multi: roots.map(r => buildNode(r)) };
-}
-
-function applyDefaultSummaries(hierarchy, linkDateByEdge) {
-  function processNode(node, parentId) {
-    if (!node || !node.children?.length) return node;
-    const children = node.children;
-    if (children.length <= 5) {
-      return {
-        data: node.data,
-        children: children.map(c => processNode(c, node.data?.id))
-      };
-    }
-    const leaves = children.filter(c => !c.children?.length);
-    const parents = children.filter(c => c.children?.length > 0);
-    if (leaves.length === 0) {
-      return {
-        data: node.data,
-        children: children.map(c => processNode(c, node.data?.id))
-      };
-    }
-    const oldestLeaf = leaves[0];
-    const pid = node.data?.id ?? parentId;
-    const linkDate = pid != null && oldestLeaf?.data?.id != null
-      ? linkDateByEdge?.get(`${pid}-${oldestLeaf.data.id}`)
-      : null;
-    const leafDate = linkDate || oldestLeaf?.data?.consecration_date;
-    const decade = yearToDecade(parseYearFromDate(leafDate));
-    const summaryId = `summary-${node.data?.id}`;
-    const summaryNode = {
-      data: {
-        isSummary: true,
-        id: summaryId,
-        leafIds: leaves.map(l => l.data?.id).filter(Boolean),
-        leafNodes: leaves,
-        decade: decade ?? 0,
-        count: leaves.length
-      },
-      children: []
-    };
-    const newChildren = [summaryNode, ...parents].sort((a, b) => {
-      const aDecade = a.data?.isSummary ? a.data.decade : yearToDecade(parseYearFromDate(
-        pid != null && a.data?.id ? linkDateByEdge?.get(`${pid}-${a.data.id}`) : a.data?.consecration_date
-      ));
-      const bDecade = b.data?.isSummary ? b.data.decade : yearToDecade(parseYearFromDate(
-        pid != null && b.data?.id ? linkDateByEdge?.get(`${pid}-${b.data.id}`) : b.data?.consecration_date
-      ));
-      return (aDecade ?? 9999) - (bDecade ?? 9999);
-    });
-    return {
-      data: node.data,
-      children: newChildren.map(c => c.data?.isSummary ? c : processNode(c, node.data?.id))
-    };
-  }
-
-  if (!hierarchy) return hierarchy;
-  if (hierarchy.single) {
-    return { single: processNode(hierarchy.single, null) };
-  }
-  if (hierarchy.multi) {
-    return { multi: hierarchy.multi.map(r => processNode(r, null)) };
-  }
-  return hierarchy;
-}
-
-function getDisplayChildren(expandedParentIds, summaryExpandedIds, toStableId) {
+function getDisplayChildren(expandedParentIds, summaryExpandedIds) {
   return (d) => {
-    const datum = d?.data ?? d;
-    const nodeId = (datum?.data ?? datum)?.id ?? datum?.id ?? d?.id;
+    const nodeId = getNodeId(d);
     const sid = toStableId(nodeId);
-    const isSummary = !!((datum?.data ?? datum)?.isSummary || datum?.isSummary);
+    const isSummary = !!((d?.data ?? d)?.isSummary || d?.isSummary);
     if (isSummary) {
-      return summaryExpandedIds.has(sid) ? ((datum?.data ?? datum)?.leafNodes ?? null) : null;
+      return summaryExpandedIds.has(sid) ? ((d?.data ?? d)?.leafNodes ?? null) : null;
     }
     if (sid && !expandedParentIds.has(sid)) return null;
-    return (d?.children ?? datum?.children ?? null);
+    return d?.children ?? null;
   };
 }
 
-function createDisplayHierarchy(rootData, expandedParentIds, summaryExpandedIds, toStableId) {
-  const childrenAccessor = getDisplayChildren(expandedParentIds, summaryExpandedIds, toStableId);
+function createDisplayHierarchy(rootData, expandedParentIds, summaryExpandedIds) {
+  const childrenAccessor = getDisplayChildren(expandedParentIds, summaryExpandedIds);
   if (rootData.single) {
     return { single: d3.hierarchy(rootData.single, childrenAccessor) };
   }
@@ -313,8 +67,22 @@ function createDisplayHierarchy(rootData, expandedParentIds, summaryExpandedIds,
   };
 }
 
-function getNodeIdFromHierarchy(d) {
-  return (d.data?.data ?? d.data)?.id;
+function createCoordAccessor(isMultiRoot) {
+  const depthKey = isMultiRoot ? 'y' : 'x';
+  return {
+    depthKey,
+    getNodePos(d) {
+      return isMultiRoot ? [d.y, d.x] : [d.x, d.y];
+    },
+    getParentPos(d) {
+      const p = d.parent;
+      if (!p) return isMultiRoot ? [d.y, d.x] : [d.x, d.y];
+      return isMultiRoot ? [p.y, p.x] : [p.x, p.y];
+    },
+    getTargetCoords(tgt) {
+      return { tx: isMultiRoot ? tgt.y : tgt.x, ty: isMultiRoot ? tgt.x : tgt.y };
+    }
+  };
 }
 
 function assignPositionIds(allNodes, isMultiRoot) {
@@ -331,13 +99,13 @@ function assignPositionIds(allNodes, isMultiRoot) {
   });
 }
 
-function applyTimelinePositions(allNodes, allLinks, linkDateByEdge, isMultiRoot) {
-  const depthKey = isMultiRoot ? 'y' : 'x';
+function applyTimelinePositions(allNodes, allLinks, linkDateByEdge, coord) {
+  const depthKey = coord.depthKey;
   const nodeToDepth = new Map();
   const nodeToDecade = new Map();
 
   allNodes.forEach(d => {
-    const nid = getNodeIdFromHierarchy(d);
+    const nid = getNodeId(d);
     if (d.depth === 0) {
       nodeToDepth.set(d, 0);
       const rootData = d.data?.data ?? d.data;
@@ -346,7 +114,7 @@ function applyTimelinePositions(allNodes, allLinks, linkDateByEdge, isMultiRoot)
       return;
     }
     const parent = d.parent;
-    const pid = getNodeIdFromHierarchy(parent);
+    const pid = getNodeId(parent);
     const childDecade = d.data?.isSummary
       ? d.data.decade
       : yearToDecade(parseYearFromDate(pid != null && nid != null ? linkDateByEdge.get(`${pid}-${nid}`) : null));
@@ -370,6 +138,7 @@ function applyTimelinePositions(allNodes, allLinks, linkDateByEdge, isMultiRoot)
   });
 }
 
+/** Initializes the lineage tree D3 visualization. */
 export async function initializeTreeView() {
   console.time('Tree view initialization');
 
@@ -388,7 +157,6 @@ export async function initializeTreeView() {
   }
 
   const selectedOrg = window.selectedOrganization;
-  const toStableId = (id) => (id != null ? String(id) : null);
   let nodes = nodesRaw
     .map(n => ({ ...n }))
     .filter(n => selectedOrg == null || n.organization === selectedOrg);
@@ -427,7 +195,7 @@ export async function initializeTreeView() {
   function collectExpandableNodeIds(hierarchyWithSummaries) {
     const ids = new Set();
     function visit(node, isRoot) {
-      const nid = (node.data?.data ?? node.data)?.id ?? node.data?.id;
+      const nid = getNodeId(node);
       const hasChildren = (node.children ?? []).length > 0;
       const isSummary = !!node.data?.isSummary;
       if ((hasChildren || isSummary) && nid != null) ids.add(toStableId(nid));
@@ -471,7 +239,9 @@ export async function initializeTreeView() {
         const sid = toStableId(id);
         if (sid) summaryExpandedIds.add(sid);
       });
-    } catch (_) {}
+    } catch {
+      /* localStorage access may fail (private mode, quota); ignore */
+    }
   }
 
   function saveTreeState() {
@@ -479,11 +249,14 @@ export async function initializeTreeView() {
       const key = `lineageTreeState_${selectedOrg ?? 'all'}`;
       const payload = { expandedParentIds: [...expandedParentIds], summaryExpandedIds: [...summaryExpandedIds] };
       localStorage.setItem(key, JSON.stringify(payload));
-    } catch (_) {}
+    } catch {
+      /* localStorage access may fail (private mode, quota); ignore */
+    }
   }
 
   loadTreeState();
   const isMultiRoot = !!rootHierarchy.multi;
+  const coord = createCoordAccessor(isMultiRoot);
   const treeLayout = d3.tree()
     .nodeSize([TREE_NODE_DY, TREE_NODE_DX])
     .separation((a, b) => {
@@ -495,12 +268,11 @@ export async function initializeTreeView() {
 
   function runLayout() {
     const hierarchyForDisplay = applyDefaultSummaries(rootHierarchy, linkDateByEdge);
-    const displayData = createDisplayHierarchy(hierarchyForDisplay, expandedParentIds, summaryExpandedIds, toStableId);
+    const displayData = createDisplayHierarchy(hierarchyForDisplay, expandedParentIds, summaryExpandedIds);
     let allNodes = [];
     let allLinks = [];
 
     if (isMultiRoot) {
-      const TREE_GAP = Math.max(80, TREE_NODE_DX * 1.5);
       displayData.multi.forEach((h, i) => {
         treeLayout(h);
         h.each(d => { d._treeIndex = i; });
@@ -513,13 +285,12 @@ export async function initializeTreeView() {
       allLinks = displayData.single.links();
     }
 
-    applyTimelinePositions(allNodes, allLinks, linkDateByEdge, isMultiRoot);
+    applyTimelinePositions(allNodes, allLinks, linkDateByEdge, coord);
 
     allNodes.sort((a, b) => (b.depth ?? 0) - (a.depth ?? 0));
 
     if (isMultiRoot) {
-      const TREE_GAP = Math.max(80, TREE_NODE_DX * 1.5);
-      const depthKey = 'y';
+      const depthKey = coord.depthKey;
       const treeWidths = displayData.multi.map((_, i) => {
         const nodesInTree = allNodes.filter(d => d._treeIndex === i);
         const maxY = Math.max(0, ...nodesInTree.map(d => d[depthKey]));
@@ -540,12 +311,17 @@ export async function initializeTreeView() {
 
   let { allNodes, allLinks } = runLayout();
 
-  const rootStyles = getComputedStyle(document.documentElement);
-  const cssLabelDy = parseFloat(rootStyles.getPropertyValue('--viz-label-dy')) || LABEL_DY;
-  const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR;
-  const cssNodeOuterRadius = parseFloat(rootStyles.getPropertyValue('--viz-node-outer-radius')) || OUTER_RADIUS;
-  const cssNodeStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-node-stroke-width')) || 1;
-  const cssSurfaceColor = rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a';
+  function getCssVizVars() {
+    const rootStyles = getComputedStyle(document.documentElement);
+    return {
+      labelDy: parseFloat(rootStyles.getPropertyValue('--viz-label-dy')) || LABEL_DY,
+      linkColor: rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR,
+      nodeOuterRadius: parseFloat(rootStyles.getPropertyValue('--viz-node-outer-radius')) || OUTER_RADIUS,
+      strokeWidth: parseFloat(rootStyles.getPropertyValue('--viz-node-stroke-width')) || 1,
+      surfaceColor: rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a'
+    };
+  }
+  const vizVars = getCssVizVars();
 
   let spriteSheetData = null;
   try {
@@ -582,8 +358,8 @@ export async function initializeTreeView() {
 
   window.currentZoom = zoom;
 
-  const xExt = d3.extent(allNodes, d => isMultiRoot ? d.y : d.x);
-  const yExt = d3.extent(allNodes, d => isMultiRoot ? d.x : d.y);
+  const xExt = d3.extent(allNodes, d => coord.getNodePos(d)[0]);
+  const yExt = d3.extent(allNodes, d => coord.getNodePos(d)[1]);
   const midX = (xExt[0] + xExt[1]) / 2;
   const midY = (yExt[0] + yExt[1]) / 2;
   const scale = 0.8;
@@ -593,24 +369,20 @@ export async function initializeTreeView() {
   svg.call(zoom.transform, initialTransform);
   const defs = container.append('defs');
 
-  const arrowStyles = {
-    triangle: { path: 'M0,-5L10,0L0,5Z', viewBox: '0 -5 10 10', stroke: false }
-  };
-  const ac = arrowStyles.triangle;
-
+  const arrowMarker = { path: 'M0,-5L10,0L0,5Z', viewBox: '0 -5 10 10' };
   defs.selectAll('marker')
     .data(['arrowhead-tree'])
     .enter().append('marker')
     .attr('id', d => d)
-    .attr('viewBox', ac.viewBox)
+    .attr('viewBox', arrowMarker.viewBox)
     .attr('refX', 0)
     .attr('refY', 0)
     .attr('markerWidth', 8)
     .attr('markerHeight', 8)
     .attr('orient', 'auto')
     .append('path')
-    .attr('d', ac.path)
-    .attr('fill', cssLinkConsecrationColor);
+    .attr('d', arrowMarker.path)
+    .attr('fill', vizVars.linkColor);
 
   allNodes.forEach(d => {
     const data = d.data.data;
@@ -636,9 +408,8 @@ export async function initializeTreeView() {
     ? d3.linkHorizontal().x(d => d.y).y(d => d.x)
     : d3.linkVertical().x(d => d.x).y(d => d.y);
 
-  const getNodeId = (d) => (d.data?.data ?? d.data)?.id ?? d.data?.id;
   const linkKey = (l) => `${getNodeId(l.source)}-${getNodeId(l.target)}`;
-  const iconOffset = cssNodeOuterRadius + (cssNodeStrokeWidth / 2) + 30;
+  const iconOffset = vizVars.nodeOuterRadius + (vizVars.strokeWidth / 2) + 30;
 
   function hasCollapsibleContent(d) {
     return (d.data?.children?.length > 0) || !!d.data?.isSummary;
@@ -659,40 +430,25 @@ export async function initializeTreeView() {
     return order;
   }
 
-  function collectDescendantIds(node, getDisplayChildrenFn) {
-    const ids = new Set();
+  function visitDescendants(node, getDisplayChildrenFn, collector) {
     function visit(n) {
-      const nid = getNodeId(n);
-      if (nid) ids.add(nid);
+      collector.add(n);
       const children = getDisplayChildrenFn(n);
       if (children && children.length > 0) children.forEach(c => visit(c));
     }
     const children = getDisplayChildrenFn(node);
     if (children && children.length > 0) children.forEach(c => visit(c));
-    return ids;
   }
 
   function collectDescendantPositionIds(node, getDisplayChildrenFn) {
     const ids = new Set();
-    function visit(n) {
-      if (n._positionId) ids.add(n._positionId);
-      const children = getDisplayChildrenFn(n);
-      if (children && children.length > 0) children.forEach(c => visit(c));
-    }
-    const children = getDisplayChildrenFn(node);
-    if (children && children.length > 0) children.forEach(c => visit(c));
+    visitDescendants(node, getDisplayChildrenFn, { add(n) { if (n._positionId) ids.add(n._positionId); } });
     return ids;
   }
 
   function collectDescendantNodes(node, getDisplayChildrenFn) {
     const result = [];
-    function visit(n) {
-      result.push(n);
-      const children = getDisplayChildrenFn(n);
-      if (children && children.length > 0) children.forEach(c => visit(c));
-    }
-    const children = getDisplayChildrenFn(node);
-    if (children && children.length > 0) children.forEach(c => visit(c));
+    visitDescendants(node, getDisplayChildrenFn, { add(n) { result.push(n); } });
     return result;
   }
 
@@ -702,7 +458,23 @@ export async function initializeTreeView() {
     return !expandedParentIds.has(sid);
   }
 
-  const CHEVRON_OFFSET = cssNodeOuterRadius + 12;
+  function getChevronTransform(d) {
+    return isCollapsed(d) ? 'rotate(-90) translate(-2.5,3)' : 'translate(-3,-2.5)';
+  }
+
+  function createContextMenuItem(label, onClick) {
+    const item = document.createElement('div');
+    item.className = 'viz-context-menu-item';
+    item.textContent = label;
+    item.setAttribute('role', 'menuitem');
+    item.addEventListener('click', async () => {
+      hideContextMenu();
+      await onClick();
+    });
+    return item;
+  }
+
+  const CHEVRON_OFFSET = vizVars.nodeOuterRadius + 12;
   const chevronPath = 'M 0 0 L 6 0 L 3 5 Z'; // triangle pointing down; rotate -90 for right
 
   function findPointAtDistanceFromTarget(pathEl, targetX, targetY, targetDist, epsilon = 0.5) {
@@ -753,7 +525,7 @@ export async function initializeTreeView() {
   }
 
   async function performStagedCollapse(d) {
-    const getDisplayChildrenFn = getDisplayChildren(expandedParentIds, summaryExpandedIds, toStableId);
+    const getDisplayChildrenFn = getDisplayChildren(expandedParentIds, summaryExpandedIds);
     const toCollapse = getCollapseOrder(d, getDisplayChildrenFn);
     const affectedNodeIds = new Set();
     for (const n of toCollapse) {
@@ -765,10 +537,7 @@ export async function initializeTreeView() {
     }
     const rootDepth = d.depth ?? 0;
     const descendantNodes = collectDescendantNodes(d, getDisplayChildrenFn);
-    const maxDepthDelta = descendantNodes.length ? Math.max(...descendantNodes.map(n => (n.depth ?? 0) - rootDepth)) : 0;
-    const numGenerations = Math.max(1, maxDepthDelta);
-    const timePerGeneration = TREE_ANIMATION.growthDuration / numGenerations;
-    const staggerOpts = { rootDepth, numGenerations, timePerGeneration };
+    const staggerOpts = computeStaggerOpts(descendantNodes, rootDepth);
     const clickedId = toStableId(getNodeId(d));
     if (d.data?.isSummary) {
       summaryExpandedIds.delete(clickedId);
@@ -786,7 +555,7 @@ export async function initializeTreeView() {
 
   async function performStagedExpand(d) {
     const nodeId = toStableId(getNodeId(d));
-    const expandOrigin = isMultiRoot ? [d.y, d.x] : [d.x, d.y];
+    const expandOrigin = coord.getNodePos(d);
     if (d.data?.isSummary) {
       summaryExpandedIds.add(nodeId);
     } else {
@@ -803,10 +572,7 @@ export async function initializeTreeView() {
       descendants.forEach(n => {
         if (n._positionId) affectedNodeIds.add(n._positionId);
       });
-      const maxDepthDelta = descendants.length ? Math.max(...descendants.map(n => (n.depth ?? 0) - rootDepth)) : 0;
-      const numGenerations = Math.max(1, maxDepthDelta);
-      const timePerGeneration = TREE_ANIMATION.growthDuration / numGenerations;
-      staggerOpts = { rootDepth, numGenerations, timePerGeneration, expandOrigin };
+      staggerOpts = computeStaggerOpts(descendants, rootDepth, expandOrigin);
     }
     if (affectedNodeIds.size === 0) {
       await updateTree({ expandPhase: false });
@@ -827,25 +593,9 @@ export async function initializeTreeView() {
     const expandLabel = isSummary ? 'Expand' : 'Expand subtree';
     const collapseLabel = isSummary ? 'Collapse' : 'Collapse subtree';
     if (collapsed) {
-      const item = document.createElement('div');
-      item.className = 'viz-context-menu-item';
-      item.textContent = expandLabel;
-      item.setAttribute('role', 'menuitem');
-      item.addEventListener('click', async () => {
-        hideContextMenu();
-        await performStagedExpand(d);
-      });
-      contextMenuEl.appendChild(item);
+      contextMenuEl.appendChild(createContextMenuItem(expandLabel, () => performStagedExpand(d)));
     } else {
-      const item = document.createElement('div');
-      item.className = 'viz-context-menu-item';
-      item.textContent = collapseLabel;
-      item.setAttribute('role', 'menuitem');
-      item.addEventListener('click', async () => {
-        hideContextMenu();
-        await performStagedCollapse(d);
-      });
-      contextMenuEl.appendChild(item);
+      contextMenuEl.appendChild(createContextMenuItem(collapseLabel, () => performStagedCollapse(d)));
     }
     contextMenuEl.style.left = `${event.clientX}px`;
     contextMenuEl.style.top = `${event.clientY}px`;
@@ -853,9 +603,6 @@ export async function initializeTreeView() {
     document.addEventListener('click', hideContextMenuOnOutsideClick);
     document.addEventListener('contextmenu', hideContextMenuOnOutsideClick);
   }
-
-  const SUMMARY_NODE_WIDTH = 80;
-  const SUMMARY_NODE_HEIGHT = 32;
 
   function renderSummaryNodeContent(g, d) {
     const { count, decade } = d.data;
@@ -875,10 +622,42 @@ export async function initializeTreeView() {
       .attr('stroke-dasharray', '6,4');
     g.append('text')
       .attr('class', 'viz-node-label viz-node-summary-label')
-      .attr('dy', cssLabelDy)
+      .attr('dy', vizVars.labelDy)
       .attr('y', 2)
       .text(label);
     g.append('title').text(`Click or use chevron to expand and show ${count} individual consecration${count !== 1 ? 's' : ''}`);
+  }
+
+  function hideImageOnError() {
+    d3.select(this).style('opacity', 0);
+  }
+
+  function renderNodeImage(g, data, squareNode, spriteSheet) {
+    if (spriteSheet?.success && spriteSheet.mapping) {
+      const pos = spriteSheet.mapping[data.id] ?? spriteSheet.mapping[String(data.id)];
+      if (pos && Array.isArray(pos) && pos.length === 2) {
+        g.append('image')
+          .attr('xlink:href', spriteSheet.url)
+          .attr('x', -pos[0] - IMAGE_SIZE / 2)
+          .attr('y', -pos[1] - IMAGE_SIZE / 2)
+          .attr('width', spriteSheet.sprite_width || spriteSheet.sprite_height || 48)
+          .attr('height', spriteSheet.sprite_height || spriteSheet.sprite_width || 48)
+          .attr('clip-path', `url(#clip-avatar-tree-${data.id})`)
+          .attr('preserveAspectRatio', 'none')
+          .style('pointer-events', 'none');
+        return;
+      }
+    }
+    g.append('image')
+      .attr('xlink:href', data.image_url || '')
+      .attr('x', -IMAGE_SIZE / 2)
+      .attr('y', -IMAGE_SIZE / 2)
+      .attr('width', IMAGE_SIZE)
+      .attr('height', IMAGE_SIZE)
+      .attr('clip-path', squareNode ? 'none' : `circle(${IMAGE_SIZE / 2}px at ${IMAGE_SIZE / 2}px ${IMAGE_SIZE / 2}px)`)
+      .style('pointer-events', 'none')
+      .style('opacity', data.image_url ? 1 : 0)
+      .on('error', hideImageOnError);
   }
 
   function renderNodeContent(g, d) {
@@ -888,29 +667,30 @@ export async function initializeTreeView() {
     }
     const data = d.data.data;
     if (!data) return;
+    const squareNode = useSquareNode(data);
     g.selectAll('*').remove();
     g.append('circle')
       .attr('class', 'viz-node-outer viz-node-outer-circle')
-      .attr('r', cssNodeOuterRadius)
+      .attr('r', vizVars.nodeOuterRadius)
       .attr('fill', data.org_color)
       .attr('stroke', data.rank_color)
-      .attr('stroke-width', cssNodeStrokeWidth)
-      .style('display', useSquareNode(data) ? 'none' : null);
+      .attr('stroke-width', vizVars.strokeWidth)
+      .style('display', squareNode ? 'none' : null);
     g.append('rect')
       .attr('class', 'viz-node-outer viz-node-outer-rect')
-      .attr('width', cssNodeOuterRadius * 2)
-      .attr('height', cssNodeOuterRadius * 2)
-      .attr('x', -cssNodeOuterRadius)
-      .attr('y', -cssNodeOuterRadius)
+      .attr('width', vizVars.nodeOuterRadius * 2)
+      .attr('height', vizVars.nodeOuterRadius * 2)
+      .attr('x', -vizVars.nodeOuterRadius)
+      .attr('y', -vizVars.nodeOuterRadius)
       .attr('fill', data.org_color)
       .attr('stroke', data.rank_color)
-      .attr('stroke-width', cssNodeStrokeWidth)
-      .style('display', useSquareNode(data) ? null : 'none');
+      .attr('stroke-width', vizVars.strokeWidth)
+      .style('display', squareNode ? null : 'none');
     g.append('circle')
       .attr('class', 'viz-node-inner viz-node-inner-circle')
       .attr('r', INNER_RADIUS)
       .attr('fill', data.rank_color)
-      .style('display', useSquareNode(data) ? 'none' : null);
+      .style('display', squareNode ? 'none' : null);
     g.append('rect')
       .attr('class', 'viz-node-inner viz-node-inner-rect')
       .attr('width', INNER_RADIUS * 2)
@@ -918,13 +698,13 @@ export async function initializeTreeView() {
       .attr('x', -INNER_RADIUS)
       .attr('y', -INNER_RADIUS)
       .attr('fill', data.rank_color)
-      .style('display', useSquareNode(data) ? null : 'none');
+      .style('display', squareNode ? null : 'none');
     g.append('circle')
       .attr('class', 'viz-node-image-bg viz-node-image-bg-circle')
       .attr('r', IMAGE_SIZE / 2)
       .attr('fill', 'rgba(255,255,255,1)')
       .style('opacity', data.image_url ? 1 : 0)
-      .style('display', useSquareNode(data) ? 'none' : null);
+      .style('display', squareNode ? 'none' : null);
     g.append('rect')
       .attr('class', 'viz-node-image-bg viz-node-image-bg-rect')
       .attr('width', IMAGE_SIZE)
@@ -933,46 +713,11 @@ export async function initializeTreeView() {
       .attr('y', -IMAGE_SIZE / 2)
       .attr('fill', 'rgba(255,255,255,1)')
       .style('opacity', data.image_url ? 1 : 0)
-      .style('display', useSquareNode(data) ? null : 'none');
-    if (spriteSheetData?.success && spriteSheetData.mapping) {
-      const pos = spriteSheetData.mapping[data.id] ?? spriteSheetData.mapping[String(data.id)];
-      if (pos && Array.isArray(pos) && pos.length === 2) {
-        g.append('image')
-          .attr('xlink:href', spriteSheetData.url)
-          .attr('x', -pos[0] - IMAGE_SIZE / 2)
-          .attr('y', -pos[1] - IMAGE_SIZE / 2)
-          .attr('width', spriteSheetData.sprite_width || spriteSheetData.sprite_height || 48)
-          .attr('height', spriteSheetData.sprite_height || spriteSheetData.sprite_width || 48)
-          .attr('clip-path', `url(#clip-avatar-tree-${data.id})`)
-          .attr('preserveAspectRatio', 'none')
-          .style('pointer-events', 'none');
-      } else {
-        g.append('image')
-          .attr('xlink:href', data.image_url || '')
-          .attr('x', -IMAGE_SIZE / 2)
-          .attr('y', -IMAGE_SIZE / 2)
-          .attr('width', IMAGE_SIZE)
-          .attr('height', IMAGE_SIZE)
-          .attr('clip-path', useSquareNode(data) ? 'none' : `circle(${IMAGE_SIZE / 2}px at ${IMAGE_SIZE / 2}px ${IMAGE_SIZE / 2}px)`)
-          .style('pointer-events', 'none')
-          .style('opacity', data.image_url ? 1 : 0)
-          .on('error', function() { d3.select(this).style('opacity', 0); });
-      }
-    } else {
-      g.append('image')
-        .attr('xlink:href', data.image_url || '')
-        .attr('x', -IMAGE_SIZE / 2)
-        .attr('y', -IMAGE_SIZE / 2)
-        .attr('width', IMAGE_SIZE)
-        .attr('height', IMAGE_SIZE)
-        .attr('clip-path', useSquareNode(data) ? 'none' : `circle(${IMAGE_SIZE / 2}px at ${IMAGE_SIZE / 2}px ${IMAGE_SIZE / 2}px)`)
-        .style('pointer-events', 'none')
-        .style('opacity', data.image_url ? 1 : 0)
-        .on('error', function() { d3.select(this).style('opacity', 0); });
-    }
+      .style('display', squareNode ? null : 'none');
+    renderNodeImage(g, data, squareNode, spriteSheetData);
     g.append('text')
       .attr('class', 'viz-node-label')
-      .attr('dy', cssLabelDy)
+      .attr('dy', vizVars.labelDy)
       .text(data.name);
     g.append('title')
       .text(`${data.name}\nRank: ${data.rank}\nOrganization: ${data.organization}`);
@@ -981,122 +726,18 @@ export async function initializeTreeView() {
     }
   }
 
-  function getNodePos(d) {
-    return isMultiRoot ? [d.y, d.x] : [d.x, d.y];
-  }
-
-  function getParentPos(d) {
-    const p = d.parent;
-    if (!p) return getNodePos(d);
-    return isMultiRoot ? [p.y, p.x] : [p.x, p.y];
-  }
-
-  function makeExpandLinkTween(link, getNodePosFn, getParentPosFn, linkGen, arcStrength, affectedPositionIds, multiRoot, expandOrigin) {
-    const target = link.target;
-    if (!affectedPositionIds?.has(target._positionId)) {
-      return () => linkGen(link);
-    }
-    const sourceAffected = link.source?._positionId != null && affectedPositionIds?.has(link.source._positionId);
-    const P0_tgt = expandOrigin ?? getParentPosFn(target);
-    const P3_tgt = getNodePosFn(target);
-    const P0_src = sourceAffected && expandOrigin ? expandOrigin : getNodePosFn(link.source);
-    const P3_src = getNodePosFn(link.source);
-    const dx = P3_tgt[0] - P0_tgt[0];
-    const dy = P3_tgt[1] - P0_tgt[1];
-    const dist = Math.hypot(dx, dy) || 1;
-    const k = arcStrength * dist;
-    const perpX = -dy / dist;
-    const perpY = dx / dist;
-    const P1_tgt = [P0_tgt[0] + k * perpX, P0_tgt[1] + k * perpY];
-    const P2_tgt = [P3_tgt[0] - k * perpX, P3_tgt[1] - k * perpY];
-    const dx_src = P3_src[0] - P0_src[0];
-    const dy_src = P3_src[1] - P0_src[1];
-    const dist_src = Math.hypot(dx_src, dy_src) || 1;
-    const k_src = arcStrength * dist_src;
-    const perpX_src = -dy_src / dist_src;
-    const perpY_src = dx_src / dist_src;
-    const P1_src = [P0_src[0] + k_src * perpX_src, P0_src[1] + k_src * perpY_src];
-    const P2_src = [P3_src[0] - k_src * perpX_src, P3_src[1] - k_src * perpY_src];
-    return (t) => {
-      const eased = treeEaseFn(t);
-      const [c0_tgt, c1_tgt] = pointOnCubicBezier(eased, P0_tgt, P1_tgt, P2_tgt, P3_tgt);
-      const syntheticTarget = multiRoot ? { y: c0_tgt, x: c1_tgt } : { x: c0_tgt, y: c1_tgt };
-      const syntheticSource = sourceAffected
-        ? pointOnCubicBezier(eased, P0_src, P1_src, P2_src, P3_src)
-        : getNodePosFn(link.source);
-      const src = sourceAffected
-        ? (multiRoot ? { y: syntheticSource[0], x: syntheticSource[1] } : { x: syntheticSource[0], y: syntheticSource[1] })
-        : link.source;
-      return linkGen({ source: src, target: syntheticTarget });
-    };
-  }
-
-  function makeCollapseLinkTween(link, getNodePosFn, getParentPosFn, linkGen, arcStrength, affectedPositionIds, multiRoot) {
-    const target = link.target;
-    if (!affectedPositionIds?.has(target._positionId)) {
-      return () => linkGen(link);
-    }
-    const P0_tgt = getNodePosFn(target);
-    const P3_tgt = getParentPosFn(target);
-    const dx_tgt = P3_tgt[0] - P0_tgt[0];
-    const dy_tgt = P3_tgt[1] - P0_tgt[1];
-    const dist_tgt = Math.hypot(dx_tgt, dy_tgt) || 1;
-    const k_tgt = arcStrength * dist_tgt;
-    const perpX_tgt = -dy_tgt / dist_tgt;
-    const perpY_tgt = dx_tgt / dist_tgt;
-    const P1_tgt = [P0_tgt[0] + k_tgt * perpX_tgt, P0_tgt[1] + k_tgt * perpY_tgt];
-    const P2_tgt = [P3_tgt[0] - k_tgt * perpX_tgt, P3_tgt[1] - k_tgt * perpY_tgt];
-
-    const sourceAffected = link.source?._positionId != null && affectedPositionIds?.has(link.source._positionId);
-    let P0_src, P1_src, P2_src, P3_src;
-    if (sourceAffected) {
-      P0_src = getNodePosFn(link.source);
-      P3_src = getParentPosFn(link.source);
-      const dx_src = P3_src[0] - P0_src[0];
-      const dy_src = P3_src[1] - P0_src[1];
-      const dist_src = Math.hypot(dx_src, dy_src) || 1;
-      const k_src = arcStrength * dist_src;
-      const perpX_src = -dy_src / dist_src;
-      const perpY_src = dx_src / dist_src;
-      P1_src = [P0_src[0] + k_src * perpX_src, P0_src[1] + k_src * perpY_src];
-      P2_src = [P3_src[0] - k_src * perpX_src, P3_src[1] - k_src * perpY_src];
-    }
-
-    return (t) => {
-      const eased = treeEaseFn(t);
-      const [c0_tgt, c1_tgt] = pointOnCubicBezier(eased, P0_tgt, P1_tgt, P2_tgt, P3_tgt);
-      const syntheticTarget = multiRoot ? { y: c0_tgt, x: c1_tgt } : { x: c0_tgt, y: c1_tgt };
-      const syntheticSource = sourceAffected
-        ? pointOnCubicBezier(eased, P0_src, P1_src, P2_src, P3_src)
-        : getNodePosFn(link.source);
-      const src = sourceAffected
-        ? (multiRoot ? { y: syntheticSource[0], x: syntheticSource[1] } : { x: syntheticSource[0], y: syntheticSource[1] })
-        : link.source;
-      return linkGen({ source: src, target: syntheticTarget });
-    };
-  }
-
   async function updateTree(opts = {}) {
     const collapsePhase = opts.collapsePhase === true;
     const expandPhase = opts.expandPhase === true;
     const affectedNodeIds = opts.affectedNodeIds;
     const staggerOpts = opts.staggerOpts;
 
-    function getEffectiveParentPos(d) {
-      return getParentPos(d);
-    }
     const { allNodes: nodes, allLinks: links } = runLayout();
     const t = d3.transition().duration(TREE_ANIMATION.expandDuration).ease(treeEaseFn);
     const tCollapse = d3.transition().duration(TREE_ANIMATION.collapseDuration).ease(treeEaseFn);
     const tReflow = d3.transition().duration(TREE_ANIMATION.expandDuration).ease(d3.easeLinear);
     const expandOrigin = staggerOpts?.expandOrigin;
-    const linkDelay = (d) => {
-      if (!staggerOpts || !affectedNodeIds?.has(d.target._positionId)) return 0;
-      const { rootDepth, timePerGeneration, numGenerations } = staggerOpts;
-      const depthDelta = (d.target.depth ?? 0) - rootDepth;
-      return expandPhase ? (depthDelta - 1) * timePerGeneration : (numGenerations - depthDelta) * timePerGeneration;
-    };
-    const linkDuration = (d) => (staggerOpts && affectedNodeIds?.has(d.target._positionId)) ? staggerOpts.timePerGeneration : (expandPhase ? TREE_ANIMATION.expandDuration : TREE_ANIMATION.collapseDuration);
+    const { linkDelay, linkDuration, nodeDelay, nodeDuration } = createStaggerFns(staggerOpts, affectedNodeIds, expandPhase);
     const transitionPromises = [];
 
     linksBase.selectAll('path')
@@ -1105,7 +746,7 @@ export async function initializeTreeView() {
         (enter) => {
           const paths = enter.append('path')
             .attr('fill', 'none')
-            .attr('stroke', cssLinkConsecrationColor)
+            .attr('stroke', vizVars.linkColor)
             .attr('stroke-width', 3)
             .attr('stroke-opacity', 0);
           const expandAffected = expandPhase && affectedNodeIds?.size > 0
@@ -1116,19 +757,19 @@ export async function initializeTreeView() {
             const startPos = (pos) => isMultiRoot ? { y: pos[0], x: pos[1] } : { x: pos[0], y: pos[1] };
             const linkTrans = expandAffected
               .attr('d', d => {
-                const pos = expandOrigin ?? getParentPos(d.target);
+                const pos = expandOrigin ?? coord.getParentPos(d.target);
                 return linkGenerator({ source: d.source, target: startPos(pos) });
               })
               .transition().ease(treeEaseFn).delay(linkDelay).duration(linkDuration)
-              .attrTween('d', d => makeExpandLinkTween(d, getNodePos, getParentPos, linkGenerator, TREE_ANIMATION.collapseArcStrength, affectedNodeIds, isMultiRoot, expandOrigin))
+              .attrTween('d', d => makeExpandLinkTween(d, coord.getNodePos.bind(coord), coord.getParentPos.bind(coord), linkGenerator, TREE_ANIMATION.collapseArcStrength, affectedNodeIds, isMultiRoot, expandOrigin))
               .attr('stroke-opacity', 1);
-            transitionPromises.push(linkTrans.end().catch(() => {}));
+            transitionPromises.push(linkTrans.end().catch(() => { /* interrupted */ }));
           }
           const expandOtherTrans = expandOther
             .attr('d', linkGenerator)
             .transition(t)
             .attr('stroke-opacity', 1);
-          if (expandOther.size()) transitionPromises.push(expandOtherTrans.end().catch(() => {}));
+          if (expandOther.size()) transitionPromises.push(expandOtherTrans.end().catch(() => { /* interrupted */ }));
           return paths;
         },
         (update) => (collapsePhase || expandPhase)
@@ -1140,10 +781,10 @@ export async function initializeTreeView() {
             .delay(staggerOpts && collapsePhase ? linkDelay : 0)
             .duration(staggerOpts && collapsePhase ? linkDuration : TREE_ANIMATION.collapseDuration);
           if (collapsePhase && affectedNodeIds?.size > 0) {
-            exitTrans.attrTween('d', d => makeCollapseLinkTween(d, getNodePos, getParentPos, linkGenerator, TREE_ANIMATION.collapseArcStrength, affectedNodeIds, isMultiRoot));
+            exitTrans.attrTween('d', d => makeCollapseLinkTween(d, coord.getNodePos.bind(coord), coord.getParentPos.bind(coord), linkGenerator, TREE_ANIMATION.collapseArcStrength, affectedNodeIds, isMultiRoot));
           }
           const removed = exitTrans.attr('stroke-opacity', 0).remove();
-          if (exit.size()) transitionPromises.push(removed.end().catch(() => {}));
+          if (exit.size()) transitionPromises.push(removed.end().catch(() => { /* interrupted */ }));
           return removed;
         }
       );
@@ -1167,15 +808,13 @@ export async function initializeTreeView() {
             .style('pointer-events', 'none')
             .style('opacity', 0)
             .attr('transform', d => {
-              const tgt = d.treeLink.target;
-              const tx = isMultiRoot ? tgt.y : tgt.x;
-              const ty = isMultiRoot ? tgt.x : tgt.y;
+              const { tx, ty } = coord.getTargetCoords(d.treeLink.target);
               const pos = getIconPositionOnCurve(d.treeLink, linkGenerator, tx, ty, iconOffset);
               return `translate(${pos.x},${pos.y})`;
             });
           g.append('circle')
             .attr('r', 10)
-            .attr('fill', cssSurfaceColor)
+            .attr('fill', vizVars.surfaceColor)
             .attr('opacity', 0.85);
           g.append('text')
             .attr('class', d => `viz-link-status-icon status-${getLinkStatus(d.consecLink)}`)
@@ -1185,7 +824,7 @@ export async function initializeTreeView() {
             .attr('font-size', '16px')
             .attr('font-weight', 'bold')
             .attr('fill', d => getStatusIconColor(getLinkStatus(d.consecLink)))
-            .attr('stroke', cssSurfaceColor)
+            .attr('stroke', vizVars.surfaceColor)
             .attr('stroke-width', '1px')
             .attr('paint-order', 'stroke');
           g.transition(t).style('opacity', d => ((collapsePhase || expandPhase) && isLinkAffected(d.treeLink)) ? 0 : 1);
@@ -1196,9 +835,7 @@ export async function initializeTreeView() {
             return update.style('opacity', d => isLinkAffected(d.treeLink) ? 0 : 1);
           }
           return update.transition(tReflow).attr('transform', d => {
-            const tgt = d.treeLink.target;
-            const tx = isMultiRoot ? tgt.y : tgt.x;
-            const ty = isMultiRoot ? tgt.x : tgt.y;
+            const { tx, ty } = coord.getTargetCoords(d.treeLink.target);
             const pos = getIconPositionOnCurve(d.treeLink, linkGenerator, tx, ty, iconOffset);
             return `translate(${pos.x},${pos.y})`;
           }).style('opacity', 1);
@@ -1214,7 +851,7 @@ export async function initializeTreeView() {
           const g = enter.append('g')
             .attr('class', d => d.data?.isSummary ? 'viz-node viz-node-summary' : 'viz-node')
             .attr('transform', d => {
-              const [x, y] = (expandPhase && affectedNodeIds?.has(d._positionId) && expandOrigin) ? expandOrigin : getParentPos(d);
+              const [x, y] = (expandPhase && affectedNodeIds?.has(d._positionId) && expandOrigin) ? expandOrigin : coord.getParentPos(d);
               return `translate(${x},${y})`;
             })
             .style('cursor', 'pointer')
@@ -1258,44 +895,37 @@ export async function initializeTreeView() {
               collapseBtn.append('path')
                 .attr('d', chevronPath)
                 .attr('fill', 'rgba(255,255,255,0.9)')
-                .attr('stroke', cssSurfaceColor)
+                .attr('stroke', vizVars.surfaceColor)
                 .attr('stroke-width', 1)
-                .attr('transform', (d) => isCollapsed(d) ? 'rotate(-90) translate(-2.5,3)' : 'translate(-3,-2.5)');
+                .attr('transform', getChevronTransform);
             });
           const enterAffected = g.filter(d => expandPhase && affectedNodeIds && affectedNodeIds.has(d._positionId));
           const enterOther = g.filter(d => !expandPhase || !affectedNodeIds || !affectedNodeIds.has(d._positionId));
-          const nodeDelay = (d) => {
-            if (!staggerOpts || !affectedNodeIds?.has(d._positionId)) return 0;
-            const { rootDepth, timePerGeneration, numGenerations } = staggerOpts;
-            const depthDelta = (d.depth ?? 0) - rootDepth;
-            return expandPhase ? (depthDelta - 1) * timePerGeneration : (numGenerations - depthDelta) * timePerGeneration;
-          };
-          const nodeDuration = (d) => (staggerOpts && affectedNodeIds?.has(d._positionId)) ? staggerOpts.timePerGeneration : (expandPhase ? TREE_ANIMATION.expandDuration : TREE_ANIMATION.collapseDuration);
           const enterAffectedTrans = enterAffected.transition()
             .ease(treeEaseFn)
             .delay(nodeDelay)
             .duration(nodeDuration)
-            .attrTween('transform', d => makePathTween(d, getNodePos, getParentPos, TREE_ANIMATION.collapseArcStrength, false, expandOrigin));
-          if (enterAffected.size()) transitionPromises.push(enterAffectedTrans.end().catch(() => {}));
+            .attrTween('transform', d => makePathTween(d, coord.getNodePos.bind(coord), coord.getParentPos.bind(coord), TREE_ANIMATION.collapseArcStrength, false, expandOrigin));
+          if (enterAffected.size()) transitionPromises.push(enterAffectedTrans.end().catch(() => { /* interrupted */ }));
           const enterOtherTrans = enterOther.transition(t).attr('transform', d => {
-            const [x, y] = getNodePos(d);
+            const [x, y] = coord.getNodePos(d);
             return `translate(${x},${y})`;
           });
-          if (enterOther.size()) transitionPromises.push(enterOtherTrans.end().catch(() => {}));
+          if (enterOther.size()) transitionPromises.push(enterOtherTrans.end().catch(() => { /* interrupted */ }));
           return g;
         },
         (update) => {
           update.on('contextmenu', (event, d) => showContextMenu(event, d));
           if (collapsePhase || expandPhase) {
             update.select('.viz-collapse-btn path')
-              .attr('transform', d => isCollapsed(d) ? 'rotate(-90) translate(-2.5,3)' : 'translate(-3,-2.5)');
+              .attr('transform', getChevronTransform);
           } else {
             update.transition(tReflow).attr('transform', d => {
-              const [x, y] = getNodePos(d);
+              const [x, y] = coord.getNodePos(d);
               return `translate(${x},${y})`;
             });
             update.select('.viz-collapse-btn path')
-              .attr('transform', d => isCollapsed(d) ? 'rotate(-90) translate(-2.5,3)' : 'translate(-3,-2.5)');
+              .attr('transform', getChevronTransform);
           }
           update.select('.viz-collapse-btn').on('click', async (event, d) => {
             event.stopPropagation();
@@ -1314,26 +944,19 @@ export async function initializeTreeView() {
           const exitOther = affectedNodeIds
             ? exit.filter(d => !affectedNodeIds.has(d._positionId))
             : null;
-          const nodeDelay = (d) => {
-            if (!staggerOpts || !affectedNodeIds?.has(d._positionId)) return 0;
-            const { rootDepth, timePerGeneration, numGenerations } = staggerOpts;
-            const depthDelta = (d.depth ?? 0) - rootDepth;
-            return (numGenerations - depthDelta) * timePerGeneration;
-          };
-          const nodeDuration = (d) => (staggerOpts && affectedNodeIds?.has(d._positionId)) ? staggerOpts.timePerGeneration : TREE_ANIMATION.collapseDuration;
           const exitTrans = exitAffected.transition()
             .ease(treeEaseFn)
             .delay(nodeDelay)
             .duration(nodeDuration)
-            .attrTween('transform', d => makePathTween(d, getNodePos, getEffectiveParentPos, TREE_ANIMATION.collapseArcStrength, true))
+            .attrTween('transform', d => makePathTween(d, coord.getNodePos.bind(coord), coord.getParentPos.bind(coord), TREE_ANIMATION.collapseArcStrength, true))
             .remove();
           const exitOtherTrans = exitOther
             ? exitOther.transition(tCollapse).style('opacity', 0).remove()
             : null;
           const allExit = exitAffected.size() + (exitOther ? exitOther.size() : 0);
           if (allExit > 0) {
-            transitionPromises.push(exitTrans.end().catch(() => {}));
-            if (exitOtherTrans) transitionPromises.push(exitOtherTrans.end().catch(() => {}));
+            transitionPromises.push(exitTrans.end().catch(() => { /* interrupted */ }));
+            if (exitOtherTrans) transitionPromises.push(exitOtherTrans.end().catch(() => { /* interrupted */ }));
           }
           return exitTrans;
         }
@@ -1346,18 +969,10 @@ export async function initializeTreeView() {
   const loadingIndicator = document.getElementById('loading-indicator');
   if (loadingIndicator) loadingIndicator.style.display = 'none';
 
-  const resetZoomBtn = document.getElementById('reset-zoom');
-  if (resetZoomBtn) {
-    resetZoomBtn.addEventListener('click', () => {
-      svg.call(zoom.transform, initialTransform);
-    });
-  }
-
-  const centerGraphBtn = document.getElementById('center-graph');
-  if (centerGraphBtn) {
-    centerGraphBtn.addEventListener('click', () => {
-      svg.call(zoom.transform, initialTransform);
-    });
+  const resetZoomHandler = () => svg.call(zoom.transform, initialTransform);
+  for (const id of ['reset-zoom', 'center-graph']) {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', resetZoomHandler);
   }
 
   console.timeEnd('Tree view initialization');

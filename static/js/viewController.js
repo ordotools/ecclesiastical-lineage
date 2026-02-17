@@ -25,7 +25,7 @@ export async function initializeView() {
   }
 
   if (currentView === 'tree') {
-    const { initializeTreeView } = await import('./lineageTreeView.js');
+    const { initializeTreeView } = await import('./lineageTree/lineageTreeView.js');
     await initializeTreeView();
   } else {
     const { initializeVisualization } = await import('./core.js');

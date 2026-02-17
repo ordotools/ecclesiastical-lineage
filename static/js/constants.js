@@ -29,6 +29,9 @@ export const ORANGE_COLOR = '#f39c12';  // Orange for invalid ordination links
 // Tree grid spacing (used with nodeSize for constant distances)
 export const TREE_NODE_DX = 200;  // horizontal step per depth (left-to-right: px between parent/child columns)
 export const TREE_NODE_DY = 180;  // vertical spacing between siblings
+export const TREE_GAP = Math.max(80, TREE_NODE_DX * 1.5);  // gap between multi-root trees
+export const SUMMARY_NODE_WIDTH = 80;
+export const SUMMARY_NODE_HEIGHT = 32;
 
 // Viewport dimensions
 export const width = window.innerWidth;

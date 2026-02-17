@@ -26,6 +26,10 @@ export const BLACK_COLOR = '#0d0d0d';  // Dark gray/black for ordination links
 export const RED_COLOR = '#e74c3c';  // Red for invalid consecration links
 export const ORANGE_COLOR = '#f39c12';  // Orange for invalid ordination links
 
+// Tree grid spacing (used with nodeSize for constant distances)
+export const TREE_NODE_DX = 200;  // horizontal step per depth (left-to-right: px between parent/child columns)
+export const TREE_NODE_DY = 180;  // vertical spacing between siblings
+
 // Viewport dimensions
 export const width = window.innerWidth;
 export const height = window.innerHeight; // - 76;

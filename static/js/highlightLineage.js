@@ -305,9 +305,19 @@ function traverseConsecrationChain(startNodeId) {
 /**
  * Highlight the consecration lineage chain for a clicked node
  */
-export function highlightLineageChain(node) {
+export async function highlightLineageChain(node) {
   if (!node || !node.id) return;
-  
+
+  // Highlight only works in force (graph) view
+  try {
+    const { getView } = await import('./viewController.js');
+    if (getView() === 'tree') {
+      const { showNotification } = await import('./utils.js');
+      showNotification('Switch to Graph view to highlight lineage.', 'info');
+      return;
+    }
+  } catch (_) {}
+
   // Clear previous highlights
   clearHighlight();
   

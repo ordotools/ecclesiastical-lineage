@@ -551,7 +551,15 @@ export function applyPriestFilter() {
 export function applyOrganizationFilter(organizationName) {
   selectedOrganization = organizationName === 'all' || !organizationName ? null : organizationName;
   window.selectedOrganization = selectedOrganization; // Store globally for reference
-  updateCombinedFilters();
+
+  // When tree view is active, re-initialize tree to apply org filter
+  import('./viewController.js').then(({ getView, initializeView }) => {
+    if (getView() === 'tree') {
+      initializeView();
+      return;
+    }
+    updateCombinedFilters();
+  }).catch(() => updateCombinedFilters());
 }
 
 // Trackpad scroll handlers for timeline view

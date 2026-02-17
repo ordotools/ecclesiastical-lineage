@@ -411,6 +411,32 @@ export function initializeFilterMenu() {
 
 function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriestsToggle, highlightLineageToggle) {
 
+  // Initialize view switcher buttons
+  const viewTreeBtn = document.getElementById('view-tree-btn');
+  const viewForceBtn = document.getElementById('view-force-btn');
+  if (viewTreeBtn && viewForceBtn) {
+    import('./viewController.js').then(({ setView, initializeView, getView }) => {
+      const updateViewSwitcherUI = () => {
+        const view = getView();
+        viewTreeBtn.classList.toggle('active', view === 'tree');
+        viewTreeBtn.setAttribute('aria-pressed', view === 'tree');
+        viewForceBtn.classList.toggle('active', view === 'force');
+        viewForceBtn.setAttribute('aria-pressed', view === 'force');
+      };
+      viewTreeBtn.addEventListener('click', async () => {
+        setView('tree');
+        updateViewSwitcherUI();
+        await initializeView();
+      });
+      viewForceBtn.addEventListener('click', async () => {
+        setView('force');
+        updateViewSwitcherUI();
+        await initializeView();
+      });
+      updateViewSwitcherUI();
+    }).catch(err => console.error('Failed to load viewController:', err));
+  }
+
   // Initialize organizations dropdown
   if (organizationsBtn && organizationsMenu) {
     // Toggle dropdown on button click

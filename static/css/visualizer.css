@@ -1331,6 +1331,36 @@ input:focus + .slider {
   transform: translateX(-50%) !important;
 }
 
+/* View switcher segmented control */
+.view-switcher-btns {
+  display: flex;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.view-switcher-btn {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #2c3e50;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-switcher-btn:hover {
+  background: rgba(39, 174, 96, 0.15);
+  color: #2c3e50;
+}
+
+.view-switcher-btn.active {
+  background: var(--lineage-green, #11451e);
+  color: white;
+}
+
 .filter-dropdown-item {
   display: block;
   width: 100%;

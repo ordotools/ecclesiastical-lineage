@@ -101,6 +101,7 @@ function getStatusIconColor(status) {
 const STATUS_PRIORITY = { invalid: 4, doubtfully_valid: 3, doubtful_event: 2, sub_conditione: 1, valid: 0 };
 
 const TREE_ANIMATION = {
+  growthDuration: 1200,
   expandDuration: 350,
   collapseDuration: 350,
   easeInOutCubicBezier: [0.33, 0, 0.2, 1],
@@ -136,8 +137,8 @@ function pointOnCubicBezier(t, P0, P1, P2, P3) {
   return [x, y];
 }
 
-function makePathTween(d, getNodePos, getParentPos, arcStrength, collapse) {
-  const P0 = collapse ? getNodePos(d) : getParentPos(d);
+function makePathTween(d, getNodePos, getParentPos, arcStrength, collapse, expandOrigin) {
+  const P0 = collapse ? getNodePos(d) : (expandOrigin ?? getParentPos(d));
   const P3 = collapse ? getParentPos(d) : getNodePos(d);
   const dx = P3[0] - P0[0];
   const dy = P3[1] - P0[1];
@@ -683,6 +684,18 @@ export async function initializeTreeView() {
     return ids;
   }
 
+  function collectDescendantNodes(node, getDisplayChildrenFn) {
+    const result = [];
+    function visit(n) {
+      result.push(n);
+      const children = getDisplayChildrenFn(n);
+      if (children && children.length > 0) children.forEach(c => visit(c));
+    }
+    const children = getDisplayChildrenFn(node);
+    if (children && children.length > 0) children.forEach(c => visit(c));
+    return result;
+  }
+
   function isCollapsed(d) {
     const sid = toStableId(getNodeId(d));
     if (d.data?.isSummary) return !summaryExpandedIds.has(sid);
@@ -750,6 +763,12 @@ export async function initializeTreeView() {
       affectedNodeIds.clear();
       collectDescendantPositionIds(d, getDisplayChildrenFn).forEach(id => affectedNodeIds.add(id));
     }
+    const rootDepth = d.depth ?? 0;
+    const descendantNodes = collectDescendantNodes(d, getDisplayChildrenFn);
+    const maxDepthDelta = descendantNodes.length ? Math.max(...descendantNodes.map(n => (n.depth ?? 0) - rootDepth)) : 0;
+    const numGenerations = Math.max(1, maxDepthDelta);
+    const timePerGeneration = TREE_ANIMATION.growthDuration / numGenerations;
+    const staggerOpts = { rootDepth, numGenerations, timePerGeneration };
     const clickedId = toStableId(getNodeId(d));
     if (d.data?.isSummary) {
       summaryExpandedIds.delete(clickedId);
@@ -761,12 +780,13 @@ export async function initializeTreeView() {
       await updateTree({ collapsePhase: false });
       return;
     }
-    await updateTree({ collapsePhase: true, affectedNodeIds });
+    await updateTree({ collapsePhase: true, affectedNodeIds, staggerOpts });
     await updateTree({ collapsePhase: false, affectedNodeIds });
   }
 
   async function performStagedExpand(d) {
     const nodeId = toStableId(getNodeId(d));
+    const expandOrigin = isMultiRoot ? [d.y, d.x] : [d.x, d.y];
     if (d.data?.isSummary) {
       summaryExpandedIds.add(nodeId);
     } else {
@@ -776,16 +796,23 @@ export async function initializeTreeView() {
     const { allNodes } = runLayout();
     const expandedInNewLayout = allNodes.find(n => toStableId(getNodeId(n)) === nodeId);
     const affectedNodeIds = new Set();
+    let staggerOpts = null;
     if (expandedInNewLayout) {
-      expandedInNewLayout.descendants().slice(1).forEach(n => {
+      const rootDepth = expandedInNewLayout.depth ?? 0;
+      const descendants = expandedInNewLayout.descendants().slice(1);
+      descendants.forEach(n => {
         if (n._positionId) affectedNodeIds.add(n._positionId);
       });
+      const maxDepthDelta = descendants.length ? Math.max(...descendants.map(n => (n.depth ?? 0) - rootDepth)) : 0;
+      const numGenerations = Math.max(1, maxDepthDelta);
+      const timePerGeneration = TREE_ANIMATION.growthDuration / numGenerations;
+      staggerOpts = { rootDepth, numGenerations, timePerGeneration, expandOrigin };
     }
     if (affectedNodeIds.size === 0) {
       await updateTree({ expandPhase: false });
       return;
     }
-    await updateTree({ expandPhase: true, affectedNodeIds });
+    await updateTree({ expandPhase: true, affectedNodeIds, staggerOpts });
     await updateTree({ expandPhase: false, affectedNodeIds });
   }
 
@@ -964,58 +991,88 @@ export async function initializeTreeView() {
     return isMultiRoot ? [p.y, p.x] : [p.x, p.y];
   }
 
-  function getEffectiveCollapseTarget(d, affectedPositionIds, getNodePosFn) {
-    let ancestor = d.parent;
-    while (ancestor && affectedPositionIds?.has(ancestor._positionId)) {
-      ancestor = ancestor.parent;
-    }
-    if (!ancestor) return getNodePosFn(d);
-    return getNodePosFn(ancestor);
-  }
-
-  function makeExpandLinkTween(link, getNodePosFn, getParentPosFn, linkGen, arcStrength, affectedPositionIds, multiRoot) {
+  function makeExpandLinkTween(link, getNodePosFn, getParentPosFn, linkGen, arcStrength, affectedPositionIds, multiRoot, expandOrigin) {
     const target = link.target;
     if (!affectedPositionIds?.has(target._positionId)) {
       return () => linkGen(link);
     }
-    const P0 = getParentPosFn(target);
-    const P3 = getNodePosFn(target);
-    const dx = P3[0] - P0[0];
-    const dy = P3[1] - P0[1];
+    const sourceAffected = link.source?._positionId != null && affectedPositionIds?.has(link.source._positionId);
+    const P0_tgt = expandOrigin ?? getParentPosFn(target);
+    const P3_tgt = getNodePosFn(target);
+    const P0_src = sourceAffected && expandOrigin ? expandOrigin : getNodePosFn(link.source);
+    const P3_src = getNodePosFn(link.source);
+    const dx = P3_tgt[0] - P0_tgt[0];
+    const dy = P3_tgt[1] - P0_tgt[1];
     const dist = Math.hypot(dx, dy) || 1;
     const k = arcStrength * dist;
     const perpX = -dy / dist;
     const perpY = dx / dist;
-    const P1 = [P0[0] + k * perpX, P0[1] + k * perpY];
-    const P2 = [P3[0] - k * perpX, P3[1] - k * perpY];
+    const P1_tgt = [P0_tgt[0] + k * perpX, P0_tgt[1] + k * perpY];
+    const P2_tgt = [P3_tgt[0] - k * perpX, P3_tgt[1] - k * perpY];
+    const dx_src = P3_src[0] - P0_src[0];
+    const dy_src = P3_src[1] - P0_src[1];
+    const dist_src = Math.hypot(dx_src, dy_src) || 1;
+    const k_src = arcStrength * dist_src;
+    const perpX_src = -dy_src / dist_src;
+    const perpY_src = dx_src / dist_src;
+    const P1_src = [P0_src[0] + k_src * perpX_src, P0_src[1] + k_src * perpY_src];
+    const P2_src = [P3_src[0] - k_src * perpX_src, P3_src[1] - k_src * perpY_src];
     return (t) => {
       const eased = treeEaseFn(t);
-      const [c0, c1] = pointOnCubicBezier(eased, P0, P1, P2, P3);
-      const syntheticTarget = multiRoot ? { y: c0, x: c1 } : { x: c0, y: c1 };
-      return linkGen({ source: link.source, target: syntheticTarget });
+      const [c0_tgt, c1_tgt] = pointOnCubicBezier(eased, P0_tgt, P1_tgt, P2_tgt, P3_tgt);
+      const syntheticTarget = multiRoot ? { y: c0_tgt, x: c1_tgt } : { x: c0_tgt, y: c1_tgt };
+      const syntheticSource = sourceAffected
+        ? pointOnCubicBezier(eased, P0_src, P1_src, P2_src, P3_src)
+        : getNodePosFn(link.source);
+      const src = sourceAffected
+        ? (multiRoot ? { y: syntheticSource[0], x: syntheticSource[1] } : { x: syntheticSource[0], y: syntheticSource[1] })
+        : link.source;
+      return linkGen({ source: src, target: syntheticTarget });
     };
   }
 
-  function makeCollapseLinkTween(link, getNodePosFn, linkGen, arcStrength, affectedPositionIds, multiRoot) {
+  function makeCollapseLinkTween(link, getNodePosFn, getParentPosFn, linkGen, arcStrength, affectedPositionIds, multiRoot) {
     const target = link.target;
     if (!affectedPositionIds?.has(target._positionId)) {
       return () => linkGen(link);
     }
-    const P0 = getNodePosFn(target);
-    const P3 = getEffectiveCollapseTarget(target, affectedPositionIds, getNodePosFn);
-    const dx = P3[0] - P0[0];
-    const dy = P3[1] - P0[1];
-    const dist = Math.hypot(dx, dy) || 1;
-    const k = arcStrength * dist;
-    const perpX = -dy / dist;
-    const perpY = dx / dist;
-    const P1 = [P0[0] + k * perpX, P0[1] + k * perpY];
-    const P2 = [P3[0] - k * perpX, P3[1] - k * perpY];
+    const P0_tgt = getNodePosFn(target);
+    const P3_tgt = getParentPosFn(target);
+    const dx_tgt = P3_tgt[0] - P0_tgt[0];
+    const dy_tgt = P3_tgt[1] - P0_tgt[1];
+    const dist_tgt = Math.hypot(dx_tgt, dy_tgt) || 1;
+    const k_tgt = arcStrength * dist_tgt;
+    const perpX_tgt = -dy_tgt / dist_tgt;
+    const perpY_tgt = dx_tgt / dist_tgt;
+    const P1_tgt = [P0_tgt[0] + k_tgt * perpX_tgt, P0_tgt[1] + k_tgt * perpY_tgt];
+    const P2_tgt = [P3_tgt[0] - k_tgt * perpX_tgt, P3_tgt[1] - k_tgt * perpY_tgt];
+
+    const sourceAffected = link.source?._positionId != null && affectedPositionIds?.has(link.source._positionId);
+    let P0_src, P1_src, P2_src, P3_src;
+    if (sourceAffected) {
+      P0_src = getNodePosFn(link.source);
+      P3_src = getParentPosFn(link.source);
+      const dx_src = P3_src[0] - P0_src[0];
+      const dy_src = P3_src[1] - P0_src[1];
+      const dist_src = Math.hypot(dx_src, dy_src) || 1;
+      const k_src = arcStrength * dist_src;
+      const perpX_src = -dy_src / dist_src;
+      const perpY_src = dx_src / dist_src;
+      P1_src = [P0_src[0] + k_src * perpX_src, P0_src[1] + k_src * perpY_src];
+      P2_src = [P3_src[0] - k_src * perpX_src, P3_src[1] - k_src * perpY_src];
+    }
+
     return (t) => {
       const eased = treeEaseFn(t);
-      const [c0, c1] = pointOnCubicBezier(eased, P0, P1, P2, P3);
-      const syntheticTarget = multiRoot ? { y: c0, x: c1 } : { x: c0, y: c1 };
-      return linkGen({ source: link.source, target: syntheticTarget });
+      const [c0_tgt, c1_tgt] = pointOnCubicBezier(eased, P0_tgt, P1_tgt, P2_tgt, P3_tgt);
+      const syntheticTarget = multiRoot ? { y: c0_tgt, x: c1_tgt } : { x: c0_tgt, y: c1_tgt };
+      const syntheticSource = sourceAffected
+        ? pointOnCubicBezier(eased, P0_src, P1_src, P2_src, P3_src)
+        : getNodePosFn(link.source);
+      const src = sourceAffected
+        ? (multiRoot ? { y: syntheticSource[0], x: syntheticSource[1] } : { x: syntheticSource[0], y: syntheticSource[1] })
+        : link.source;
+      return linkGen({ source: src, target: syntheticTarget });
     };
   }
 
@@ -1023,18 +1080,24 @@ export async function initializeTreeView() {
     const collapsePhase = opts.collapsePhase === true;
     const expandPhase = opts.expandPhase === true;
     const affectedNodeIds = opts.affectedNodeIds;
+    const staggerOpts = opts.staggerOpts;
 
     function getEffectiveParentPos(d) {
-      if (affectedNodeIds && d._positionId && affectedNodeIds.has(d._positionId)) {
-        return getEffectiveCollapseTarget(d, affectedNodeIds, getNodePos);
-      }
       return getParentPos(d);
     }
     const { allNodes: nodes, allLinks: links } = runLayout();
     const t = d3.transition().duration(TREE_ANIMATION.expandDuration).ease(treeEaseFn);
     const tCollapse = d3.transition().duration(TREE_ANIMATION.collapseDuration).ease(treeEaseFn);
     const tReflow = d3.transition().duration(TREE_ANIMATION.expandDuration).ease(d3.easeLinear);
-    let exitPromise = Promise.resolve();
+    const expandOrigin = staggerOpts?.expandOrigin;
+    const linkDelay = (d) => {
+      if (!staggerOpts || !affectedNodeIds?.has(d.target._positionId)) return 0;
+      const { rootDepth, timePerGeneration, numGenerations } = staggerOpts;
+      const depthDelta = (d.target.depth ?? 0) - rootDepth;
+      return expandPhase ? (depthDelta - 1) * timePerGeneration : (numGenerations - depthDelta) * timePerGeneration;
+    };
+    const linkDuration = (d) => (staggerOpts && affectedNodeIds?.has(d.target._positionId)) ? staggerOpts.timePerGeneration : (expandPhase ? TREE_ANIMATION.expandDuration : TREE_ANIMATION.collapseDuration);
+    const transitionPromises = [];
 
     linksBase.selectAll('path')
       .data(links, linkKey)
@@ -1050,33 +1113,42 @@ export async function initializeTreeView() {
             : null;
           const expandOther = expandAffected?.size() ? paths.filter(d => !affectedNodeIds.has(d.target._positionId)) : paths;
           if (expandAffected?.size()) {
-            expandAffected
+            const startPos = (pos) => isMultiRoot ? { y: pos[0], x: pos[1] } : { x: pos[0], y: pos[1] };
+            const linkTrans = expandAffected
               .attr('d', d => {
-                const [c0, c1] = getParentPos(d.target);
-                const synthetic = isMultiRoot ? { source: d.source, target: { y: c0, x: c1 } } : { source: d.source, target: { x: c0, y: c1 } };
-                return linkGenerator(synthetic);
+                const pos = expandOrigin ?? getParentPos(d.target);
+                return linkGenerator({ source: d.source, target: startPos(pos) });
               })
-              .transition(t)
-              .attrTween('d', d => makeExpandLinkTween(d, getNodePos, getParentPos, linkGenerator, TREE_ANIMATION.collapseArcStrength, affectedNodeIds, isMultiRoot))
+              .transition().ease(treeEaseFn).delay(linkDelay).duration(linkDuration)
+              .attrTween('d', d => makeExpandLinkTween(d, getNodePos, getParentPos, linkGenerator, TREE_ANIMATION.collapseArcStrength, affectedNodeIds, isMultiRoot, expandOrigin))
               .attr('stroke-opacity', 1);
+            transitionPromises.push(linkTrans.end().catch(() => {}));
           }
-          expandOther
+          const expandOtherTrans = expandOther
             .attr('d', linkGenerator)
             .transition(t)
             .attr('stroke-opacity', 1);
+          if (expandOther.size()) transitionPromises.push(expandOtherTrans.end().catch(() => {}));
           return paths;
         },
         (update) => (collapsePhase || expandPhase)
           ? update
           : update.attr('stroke-opacity', 1).transition(tReflow).attr('d', linkGenerator),
         (exit) => {
-          const exitSelection = exit.transition(tCollapse);
+          const exitTrans = exit.transition()
+            .ease(treeEaseFn)
+            .delay(staggerOpts && collapsePhase ? linkDelay : 0)
+            .duration(staggerOpts && collapsePhase ? linkDuration : TREE_ANIMATION.collapseDuration);
           if (collapsePhase && affectedNodeIds?.size > 0) {
-            exitSelection.attrTween('d', d => makeCollapseLinkTween(d, getNodePos, linkGenerator, TREE_ANIMATION.collapseArcStrength, affectedNodeIds, isMultiRoot));
+            exitTrans.attrTween('d', d => makeCollapseLinkTween(d, getNodePos, getParentPos, linkGenerator, TREE_ANIMATION.collapseArcStrength, affectedNodeIds, isMultiRoot));
           }
-          return exitSelection.attr('stroke-opacity', 0).remove();
+          const removed = exitTrans.attr('stroke-opacity', 0).remove();
+          if (exit.size()) transitionPromises.push(removed.end().catch(() => {}));
+          return removed;
         }
       );
+
+    const isLinkAffected = (link) => affectedNodeIds && (affectedNodeIds.has(link.source._positionId) || affectedNodeIds.has(link.target._positionId));
 
     const linksWithStatus = links.map(l => {
       const sid = getNodeId(l.source);
@@ -1116,18 +1188,21 @@ export async function initializeTreeView() {
             .attr('stroke', cssSurfaceColor)
             .attr('stroke-width', '1px')
             .attr('paint-order', 'stroke');
-          g.transition(t).style('opacity', 1);
+          g.transition(t).style('opacity', d => ((collapsePhase || expandPhase) && isLinkAffected(d.treeLink)) ? 0 : 1);
           return g;
         },
-        (update) => (collapsePhase || expandPhase)
-          ? update
-          : update.transition(tReflow).attr('transform', d => {
+        (update) => {
+          if (collapsePhase || expandPhase) {
+            return update.style('opacity', d => isLinkAffected(d.treeLink) ? 0 : 1);
+          }
+          return update.transition(tReflow).attr('transform', d => {
             const tgt = d.treeLink.target;
             const tx = isMultiRoot ? tgt.y : tgt.x;
             const ty = isMultiRoot ? tgt.x : tgt.y;
             const pos = getIconPositionOnCurve(d.treeLink, linkGenerator, tx, ty, iconOffset);
             return `translate(${pos.x},${pos.y})`;
-          }),
+          }).style('opacity', 1);
+        },
         (exit) => exit.transition(collapsePhase || expandPhase ? tCollapse : t).style('opacity', 0).remove()
       );
 
@@ -1139,7 +1214,7 @@ export async function initializeTreeView() {
           const g = enter.append('g')
             .attr('class', d => d.data?.isSummary ? 'viz-node viz-node-summary' : 'viz-node')
             .attr('transform', d => {
-              const [x, y] = getParentPos(d);
+              const [x, y] = (expandPhase && affectedNodeIds?.has(d._positionId) && expandOrigin) ? expandOrigin : getParentPos(d);
               return `translate(${x},${y})`;
             })
             .style('cursor', 'pointer')
@@ -1189,11 +1264,24 @@ export async function initializeTreeView() {
             });
           const enterAffected = g.filter(d => expandPhase && affectedNodeIds && affectedNodeIds.has(d._positionId));
           const enterOther = g.filter(d => !expandPhase || !affectedNodeIds || !affectedNodeIds.has(d._positionId));
-          enterAffected.transition(tCollapse).attrTween('transform', d => makePathTween(d, getNodePos, getParentPos, TREE_ANIMATION.collapseArcStrength, false));
-          enterOther.transition(t).attr('transform', d => {
+          const nodeDelay = (d) => {
+            if (!staggerOpts || !affectedNodeIds?.has(d._positionId)) return 0;
+            const { rootDepth, timePerGeneration, numGenerations } = staggerOpts;
+            const depthDelta = (d.depth ?? 0) - rootDepth;
+            return expandPhase ? (depthDelta - 1) * timePerGeneration : (numGenerations - depthDelta) * timePerGeneration;
+          };
+          const nodeDuration = (d) => (staggerOpts && affectedNodeIds?.has(d._positionId)) ? staggerOpts.timePerGeneration : (expandPhase ? TREE_ANIMATION.expandDuration : TREE_ANIMATION.collapseDuration);
+          const enterAffectedTrans = enterAffected.transition()
+            .ease(treeEaseFn)
+            .delay(nodeDelay)
+            .duration(nodeDuration)
+            .attrTween('transform', d => makePathTween(d, getNodePos, getParentPos, TREE_ANIMATION.collapseArcStrength, false, expandOrigin));
+          if (enterAffected.size()) transitionPromises.push(enterAffectedTrans.end().catch(() => {}));
+          const enterOtherTrans = enterOther.transition(t).attr('transform', d => {
             const [x, y] = getNodePos(d);
             return `translate(${x},${y})`;
           });
+          if (enterOther.size()) transitionPromises.push(enterOtherTrans.end().catch(() => {}));
           return g;
         },
         (update) => {
@@ -1226,18 +1314,31 @@ export async function initializeTreeView() {
           const exitOther = affectedNodeIds
             ? exit.filter(d => !affectedNodeIds.has(d._positionId))
             : null;
-          const exitTrans = exitAffected.transition(tCollapse)
+          const nodeDelay = (d) => {
+            if (!staggerOpts || !affectedNodeIds?.has(d._positionId)) return 0;
+            const { rootDepth, timePerGeneration, numGenerations } = staggerOpts;
+            const depthDelta = (d.depth ?? 0) - rootDepth;
+            return (numGenerations - depthDelta) * timePerGeneration;
+          };
+          const nodeDuration = (d) => (staggerOpts && affectedNodeIds?.has(d._positionId)) ? staggerOpts.timePerGeneration : TREE_ANIMATION.collapseDuration;
+          const exitTrans = exitAffected.transition()
+            .ease(treeEaseFn)
+            .delay(nodeDelay)
+            .duration(nodeDuration)
             .attrTween('transform', d => makePathTween(d, getNodePos, getEffectiveParentPos, TREE_ANIMATION.collapseArcStrength, true))
             .remove();
           const exitOtherTrans = exitOther
             ? exitOther.transition(tCollapse).style('opacity', 0).remove()
             : null;
           const allExit = exitAffected.size() + (exitOther ? exitOther.size() : 0);
-          exitPromise = allExit === 0 ? Promise.resolve() : (exitOtherTrans ? Promise.all([exitTrans.end(), exitOtherTrans.end()]).catch(() => {}) : exitTrans.end().catch(() => {}));
+          if (allExit > 0) {
+            transitionPromises.push(exitTrans.end().catch(() => {}));
+            if (exitOtherTrans) transitionPromises.push(exitOtherTrans.end().catch(() => {}));
+          }
           return exitTrans;
         }
       );
-    return exitPromise;
+    await Promise.all(transitionPromises);
   }
 
   updateTree();

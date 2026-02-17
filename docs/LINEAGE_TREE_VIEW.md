@@ -97,9 +97,9 @@ Each node has:
 
 - **`TREE_ANIMATION`** (350ms expand/collapse, cubic bezier ease, `collapseArcStrength: 0.25`) controls transitions.
 - **Unified path tween**: `makePathTween(d, getNodePos, getParentPos, arcStrength, collapse)` — single function for both expand and collapse node motion along a curved Bezier path.
-- **Expand**: New children enter at parent position, transition to layout position. Links to entering nodes lengthen from parent to child using `makeExpandLinkTween`.
-- **Collapse**: Children transition toward their **effective collapse target** (first non-exiting ancestor) via `getEffectiveCollapseTarget` to avoid ghosting when collapsing nested nodes. Links shrink with their target using `makeCollapseLinkTween`.
-- **Links**: Enter with lengthening tween (expand) or fade-in (non-expand); update with path interpolation; exit with shrinking tween (collapse) or fade-out.
+- **Collapse**: Children collapse to their **immediate parent** only (not a higher ancestor). Each node animates toward its parent's current position.
+- **Expand**: Children expand from their parent's **current (pre-expand) position** — the position at click time, before layout recomputes.
+- **Links**: Animate in sync with their endpoints. Enter with lengthening tween (expand) or fade-in (non-expand); update with path interpolation; exit with shrinking tween (collapse) or fade-out.
 
 ### Interaction Model
 
@@ -135,7 +135,7 @@ Each node has:
 - **Filters**: Organization filter and “View Priests” apply; tree view uses only consecration links (no ordination).
 - **Collapse/expand**: Chevron on parent nodes and summary nodes; right-click context menu for "Collapse subtree" / "Expand subtree".
 - **Summary nodes**: Parents with >5 children show a summary node by default (`N consecrations (YYYYs)`); click to expand into individual nodes.
-- **Animations**: D3 transitions (350ms) on expand/collapse; nodes and links share curved Bezier path tweens; effective collapse target prevents ghosting when collapsing nested subtrees.
+- **Animations**: D3 transitions (350ms) on expand/collapse; nodes and links share curved Bezier path tweens; collapse to immediate parent, expand from parent's pre-expand position; links move with their nodes.
 - **Highlight Lineage**: Graph view only. When enabled there, clicking a node highlights its consecration chain instead of opening the info window. In tree view, shows "Switch to Graph view to highlight lineage."
 - **Reset/Center**: Buttons are wired in `lineageTreeView.js` to `#reset-zoom` and `#center-graph`, but the side menu containing them is commented out in `lineage_visualization.html`, so those controls are effectively unavailable. `window.currentZoom` is exposed for external use.
 - **Performance**: Uses sprite sheet for avatars when present; initialization time is logged with `console.time`.

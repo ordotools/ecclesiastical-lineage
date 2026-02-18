@@ -555,7 +555,6 @@ export async function initializeTreeView() {
 
   async function performStagedExpand(d) {
     const nodeId = toStableId(getNodeId(d));
-    const expandOrigin = coord.getNodePos(d);
     if (d.data?.isSummary) {
       summaryExpandedIds.add(nodeId);
     } else {
@@ -572,12 +571,13 @@ export async function initializeTreeView() {
       descendants.forEach(n => {
         if (n._positionId) affectedNodeIds.add(n._positionId);
       });
-      staggerOpts = computeStaggerOpts(descendants, rootDepth, expandOrigin);
+      staggerOpts = computeStaggerOpts(descendants, rootDepth);
     }
     if (affectedNodeIds.size === 0) {
       await updateTree({ expandPhase: false });
       return;
     }
+    await updateTree({ expandPhase: 'reflow', affectedNodeIds, staggerOpts });
     await updateTree({ expandPhase: true, affectedNodeIds, staggerOpts });
     await updateTree({ expandPhase: false, affectedNodeIds });
   }
@@ -728,6 +728,7 @@ export async function initializeTreeView() {
 
   async function updateTree(opts = {}) {
     const collapsePhase = opts.collapsePhase === true;
+    const expandReflow = opts.expandPhase === 'reflow';
     const expandPhase = opts.expandPhase === true;
     const affectedNodeIds = opts.affectedNodeIds;
     const staggerOpts = opts.staggerOpts;
@@ -736,7 +737,6 @@ export async function initializeTreeView() {
     const t = d3.transition().duration(TREE_ANIMATION.expandDuration).ease(treeEaseFn);
     const tCollapse = d3.transition().duration(TREE_ANIMATION.collapseDuration).ease(treeEaseFn);
     const tReflow = d3.transition().duration(TREE_ANIMATION.expandDuration).ease(d3.easeLinear);
-    const expandOrigin = staggerOpts?.expandOrigin;
     const { linkDelay, linkDuration, nodeDelay, nodeDuration } = createStaggerFns(staggerOpts, affectedNodeIds, expandPhase);
     const transitionPromises = [];
 
@@ -749,32 +749,46 @@ export async function initializeTreeView() {
             .attr('stroke', vizVars.linkColor)
             .attr('stroke-width', 3)
             .attr('stroke-opacity', 0);
-          const expandAffected = expandPhase && affectedNodeIds?.size > 0
+          const startPos = (pos) => isMultiRoot ? { y: pos[0], x: pos[1] } : { x: pos[0], y: pos[1] };
+          const expandAffected = (expandPhase || expandReflow) && affectedNodeIds?.size > 0
             ? paths.filter(d => affectedNodeIds.has(d.target._positionId))
             : null;
           const expandOther = expandAffected?.size() ? paths.filter(d => !affectedNodeIds.has(d.target._positionId)) : paths;
-          if (expandAffected?.size()) {
-            const startPos = (pos) => isMultiRoot ? { y: pos[0], x: pos[1] } : { x: pos[0], y: pos[1] };
+          if (expandReflow && expandAffected?.size()) {
+            expandAffected.attr('d', d => linkGenerator({ source: d.source, target: startPos(coord.getParentPos(d.target)) }));
+          } else if (expandPhase && expandAffected?.size()) {
             const linkTrans = expandAffected
-              .attr('d', d => {
-                const pos = expandOrigin ?? coord.getParentPos(d.target);
-                return linkGenerator({ source: d.source, target: startPos(pos) });
-              })
               .transition().ease(treeEaseFn).delay(linkDelay).duration(linkDuration)
-              .attrTween('d', d => makeExpandLinkTween(d, coord.getNodePos.bind(coord), coord.getParentPos.bind(coord), linkGenerator, TREE_ANIMATION.collapseArcStrength, affectedNodeIds, isMultiRoot, expandOrigin))
+              .attrTween('d', d => makeExpandLinkTween(d, coord.getNodePos.bind(coord), coord.getParentPos.bind(coord), linkGenerator, TREE_ANIMATION.collapseArcStrength, affectedNodeIds, isMultiRoot))
               .attr('stroke-opacity', 1);
             transitionPromises.push(linkTrans.end().catch(() => { /* interrupted */ }));
           }
-          const expandOtherTrans = expandOther
-            .attr('d', linkGenerator)
-            .transition(t)
-            .attr('stroke-opacity', 1);
-          if (expandOther.size()) transitionPromises.push(expandOtherTrans.end().catch(() => { /* interrupted */ }));
+          if (expandOther.size()) {
+            expandOther.attr('d', linkGenerator);
+            if (!expandReflow) {
+              const expandOtherTrans = expandOther.transition(t).attr('stroke-opacity', 1);
+              transitionPromises.push(expandOtherTrans.end().catch(() => { /* interrupted */ }));
+            } else {
+              expandOther.attr('stroke-opacity', 1);
+            }
+          }
           return paths;
         },
-        (update) => (collapsePhase || expandPhase)
-          ? update
-          : update.attr('stroke-opacity', 1).transition(tReflow).attr('d', linkGenerator),
+        (update) => {
+          if (collapsePhase) return update;
+          if (expandPhase && affectedNodeIds?.size > 0) {
+            const affectedUpdate = update.filter(d => affectedNodeIds.has(d.target._positionId));
+            const linkTrans = affectedUpdate
+              .transition().ease(treeEaseFn).delay(linkDelay).duration(linkDuration)
+              .attrTween('d', d => makeExpandLinkTween(d, coord.getNodePos.bind(coord), coord.getParentPos.bind(coord), linkGenerator, TREE_ANIMATION.collapseArcStrength, affectedNodeIds, isMultiRoot))
+              .attr('stroke-opacity', 1);
+            transitionPromises.push(linkTrans.end().catch(() => { /* interrupted */ }));
+            return update;
+          }
+          const reflowTrans = update.attr('stroke-opacity', 1).transition(tReflow).attr('d', linkGenerator);
+          if (expandReflow && update.size()) transitionPromises.push(reflowTrans.end().catch(() => { /* interrupted */ }));
+          return update;
+        },
         (exit) => {
           const exitTrans = exit.transition()
             .ease(treeEaseFn)
@@ -827,11 +841,24 @@ export async function initializeTreeView() {
             .attr('stroke', vizVars.surfaceColor)
             .attr('stroke-width', '1px')
             .attr('paint-order', 'stroke');
-          g.transition(t).style('opacity', d => ((collapsePhase || expandPhase) && isLinkAffected(d.treeLink)) ? 0 : 1);
+          g.transition(t).style('opacity', d => ((collapsePhase || expandPhase || expandReflow) && isLinkAffected(d.treeLink)) ? 0 : 1);
           return g;
         },
         (update) => {
-          if (collapsePhase || expandPhase) {
+          if (collapsePhase || expandPhase || expandReflow) {
+            if (expandReflow) {
+              const statusTrans = update
+                .style('opacity', d => isLinkAffected(d.treeLink) ? 0 : 1)
+                .transition(tReflow)
+                .attr('transform', d => {
+                  const { tx, ty } = coord.getTargetCoords(d.treeLink.target);
+                  const pos = getIconPositionOnCurve(d.treeLink, linkGenerator, tx, ty, iconOffset);
+                  return `translate(${pos.x},${pos.y})`;
+                })
+                .style('opacity', d => isLinkAffected(d.treeLink) ? 0 : 1);
+              if (update.size()) transitionPromises.push(statusTrans.end().catch(() => { /* interrupted */ }));
+              return update;
+            }
             return update.style('opacity', d => isLinkAffected(d.treeLink) ? 0 : 1);
           }
           return update.transition(tReflow).attr('transform', d => {
@@ -851,7 +878,7 @@ export async function initializeTreeView() {
           const g = enter.append('g')
             .attr('class', d => d.data?.isSummary ? 'viz-node viz-node-summary' : 'viz-node')
             .attr('transform', d => {
-              const [x, y] = (expandPhase && affectedNodeIds?.has(d._positionId) && expandOrigin) ? expandOrigin : coord.getParentPos(d);
+              const [x, y] = coord.getParentPos(d);
               return `translate(${x},${y})`;
             })
             .style('cursor', 'pointer')
@@ -899,26 +926,55 @@ export async function initializeTreeView() {
                 .attr('stroke-width', 1)
                 .attr('transform', getChevronTransform);
             });
-          const enterAffected = g.filter(d => expandPhase && affectedNodeIds && affectedNodeIds.has(d._positionId));
-          const enterOther = g.filter(d => !expandPhase || !affectedNodeIds || !affectedNodeIds.has(d._positionId));
-          const enterAffectedTrans = enterAffected.transition()
-            .ease(treeEaseFn)
-            .delay(nodeDelay)
-            .duration(nodeDuration)
-            .attrTween('transform', d => makePathTween(d, coord.getNodePos.bind(coord), coord.getParentPos.bind(coord), TREE_ANIMATION.collapseArcStrength, false, expandOrigin));
-          if (enterAffected.size()) transitionPromises.push(enterAffectedTrans.end().catch(() => { /* interrupted */ }));
-          const enterOtherTrans = enterOther.transition(t).attr('transform', d => {
-            const [x, y] = coord.getNodePos(d);
-            return `translate(${x},${y})`;
-          });
-          if (enterOther.size()) transitionPromises.push(enterOtherTrans.end().catch(() => { /* interrupted */ }));
+          const enterAffected = g.filter(d => (expandPhase || expandReflow) && affectedNodeIds?.has(d._positionId));
+          const enterOther = g.filter(d => !((expandPhase || expandReflow) && affectedNodeIds?.has(d._positionId)));
+          if (expandReflow) {
+            enterAffected
+              .attr('transform', d => {
+                const [x, y] = coord.getParentPos(d);
+                return `translate(${x},${y})`;
+              })
+              .style('opacity', 0);
+          } else if (enterAffected.size()) {
+            const enterAffectedTrans = enterAffected.transition()
+              .ease(treeEaseFn)
+              .delay(nodeDelay)
+              .duration(nodeDuration)
+              .attrTween('transform', d => makePathTween(d, coord.getNodePos.bind(coord), coord.getParentPos.bind(coord), TREE_ANIMATION.collapseArcStrength, false));
+            transitionPromises.push(enterAffectedTrans.end().catch(() => { /* interrupted */ }));
+          }
+          if (enterOther.size()) {
+            if (expandReflow) {
+              enterOther.attr('transform', d => `translate(${coord.getNodePos(d)[0]},${coord.getNodePos(d)[1]})`);
+            } else {
+              const enterOtherTrans = enterOther.transition(t).attr('transform', d => {
+                const [x, y] = coord.getNodePos(d);
+                return `translate(${x},${y})`;
+              });
+              transitionPromises.push(enterOtherTrans.end().catch(() => { /* interrupted */ }));
+            }
+          }
           return g;
         },
         (update) => {
           update.on('contextmenu', (event, d) => showContextMenu(event, d));
-          if (collapsePhase || expandPhase) {
+          if (collapsePhase) {
             update.select('.viz-collapse-btn path')
               .attr('transform', getChevronTransform);
+          } else if (expandPhase && affectedNodeIds?.size > 0) {
+            const affectedUpdate = update.filter(d => affectedNodeIds.has(d._positionId));
+            const nodeTrans = affectedUpdate.transition()
+              .ease(treeEaseFn)
+              .delay(nodeDelay)
+              .duration(nodeDuration)
+              .on('start', function() { d3.select(this).style('opacity', 1); })
+              .attrTween('transform', d => makePathTween(d, coord.getNodePos.bind(coord), coord.getParentPos.bind(coord), TREE_ANIMATION.collapseArcStrength, false));
+            transitionPromises.push(nodeTrans.end().catch(() => { /* interrupted */ }));
+            update.select('.viz-collapse-btn path').attr('transform', getChevronTransform);
+          } else if (expandReflow) {
+            const reflowTrans = update.transition(tReflow).attr('transform', d => `translate(${coord.getNodePos(d)[0]},${coord.getNodePos(d)[1]})`);
+            if (update.size()) transitionPromises.push(reflowTrans.end().catch(() => { /* interrupted */ }));
+            update.select('.viz-collapse-btn path').attr('transform', getChevronTransform);
           } else {
             update.transition(tReflow).attr('transform', d => {
               const [x, y] = coord.getNodePos(d);

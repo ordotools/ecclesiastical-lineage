@@ -34,13 +34,11 @@ export function computeBezierControlPoints(P0, P3, arcStrength) {
 const treeEaseFn = d3.easeCubicInOut;
 
 /** Stagger timing options for expand/collapse based on depth delta. */
-export function computeStaggerOpts(descendantNodes, rootDepth, expandOrigin) {
+export function computeStaggerOpts(descendantNodes, rootDepth) {
   const maxDepthDelta = descendantNodes.length ? Math.max(...descendantNodes.map(n => (n.depth ?? 0) - rootDepth)) : 0;
   const numGenerations = Math.max(1, maxDepthDelta);
   const timePerGeneration = TREE_ANIMATION.growthDuration / numGenerations;
-  const opts = { rootDepth, numGenerations, timePerGeneration };
-  if (expandOrigin != null) opts.expandOrigin = expandOrigin;
-  return opts;
+  return { rootDepth, numGenerations, timePerGeneration };
 }
 
 /** linkDelay, linkDuration, nodeDelay, nodeDuration fns from stagger opts. */
@@ -71,8 +69,8 @@ export function createStaggerFns(staggerOpts, affectedNodeIds, expandPhase) {
 }
 
 /** Attr tween for node transform (expand/collapse). */
-export function makePathTween(d, getNodePos, getParentPos, arcStrength, collapse, expandOrigin) {
-  const P0 = collapse ? getNodePos(d) : (expandOrigin ?? getParentPos(d));
+export function makePathTween(d, getNodePos, getParentPos, arcStrength, collapse) {
+  const P0 = collapse ? getNodePos(d) : getParentPos(d);
   const P3 = collapse ? getParentPos(d) : getNodePos(d);
   const { P1, P2 } = computeBezierControlPoints(P0, P3, arcStrength);
   return (t) => {
@@ -82,29 +80,21 @@ export function makePathTween(d, getNodePos, getParentPos, arcStrength, collapse
   };
 }
 
-export function makeExpandLinkTween(link, getNodePosFn, getParentPosFn, linkGen, arcStrength, affectedPositionIds, multiRoot, expandOrigin) {
+export function makeExpandLinkTween(link, getNodePosFn, getParentPosFn, linkGen, arcStrength, affectedPositionIds, multiRoot) {
   const target = link.target;
   if (!affectedPositionIds?.has(target._positionId)) {
     return () => linkGen(link);
   }
-  const sourceAffected = link.source?._positionId != null && affectedPositionIds?.has(link.source._positionId);
-  const P0_tgt = expandOrigin ?? getParentPosFn(target);
+  const P0_tgt = getParentPosFn(target);
   const P3_tgt = getNodePosFn(target);
   const { P1: P1_tgt, P2: P2_tgt } = computeBezierControlPoints(P0_tgt, P3_tgt, arcStrength);
-  const P0_src = sourceAffected && expandOrigin ? expandOrigin : getNodePosFn(link.source);
-  const P3_src = getNodePosFn(link.source);
-  const { P1: P1_src, P2: P2_src } = computeBezierControlPoints(P0_src, P3_src, arcStrength);
+  const srcPos = getNodePosFn(link.source);
+  const srcPt = multiRoot ? { y: srcPos[0], x: srcPos[1] } : { x: srcPos[0], y: srcPos[1] };
   return (t) => {
     const eased = treeEaseFn(t);
     const [c0_tgt, c1_tgt] = pointOnCubicBezier(eased, P0_tgt, P1_tgt, P2_tgt, P3_tgt);
     const syntheticTarget = multiRoot ? { y: c0_tgt, x: c1_tgt } : { x: c0_tgt, y: c1_tgt };
-    const syntheticSource = sourceAffected
-      ? pointOnCubicBezier(eased, P0_src, P1_src, P2_src, P3_src)
-      : getNodePosFn(link.source);
-    const src = sourceAffected
-      ? (multiRoot ? { y: syntheticSource[0], x: syntheticSource[1] } : { x: syntheticSource[0], y: syntheticSource[1] })
-      : link.source;
-    return linkGen({ source: src, target: syntheticTarget });
+    return linkGen({ source: srcPt, target: syntheticTarget });
   };
 }
 

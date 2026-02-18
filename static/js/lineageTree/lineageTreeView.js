@@ -408,7 +408,19 @@ export async function initializeTreeView() {
     ? d3.linkHorizontal().x(d => d.y).y(d => d.x)
     : d3.linkVertical().x(d => d.x).y(d => d.y);
 
-  const linkKey = (l) => `${getNodeId(l.source)}-${getNodeId(l.target)}`;
+  function getPathBasedNodeKey(d) {
+    if (d.data?.isSummary && d.data.id) return d.data.id;
+    const path = [];
+    let n = d;
+    while (n) {
+      const id = getNodeId(n);
+      if (id != null) path.unshift(String(id));
+      n = n.parent;
+    }
+    return path.length ? path.join('.') : (d._positionId ?? (d.id != null ? `h-${d.id}` : null));
+  }
+
+  const linkKey = (l) => `${getPathBasedNodeKey(l.source)}-${getPathBasedNodeKey(l.target)}`;
   const iconOffset = vizVars.nodeOuterRadius + (vizVars.strokeWidth / 2) + 30;
 
   function hasCollapsibleContent(d) {
@@ -870,7 +882,7 @@ export async function initializeTreeView() {
         (exit) => exit.transition(collapsePhase || expandPhase ? tCollapse : t).style('opacity', 0).remove()
       );
 
-    const nodeKey = (d) => d._positionId ?? getNodeId(d) ?? (d.id != null ? `h-${d.id}` : null);
+    const nodeKey = getPathBasedNodeKey;
     nodesGroup.selectAll('g.viz-node')
       .data(nodes, nodeKey)
       .join(

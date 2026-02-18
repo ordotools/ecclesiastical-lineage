@@ -65,7 +65,7 @@ Each node has:
 - Outer shape: circle or rect (org color, rank stroke).
 - Inner shape: small circle/rect (rank color).
 - Avatar: sprite sheet (if available) or `image_url`, clipped to circle or square.
-- Label: clergy name.
+- Label: clergy name, with consecration date below in parentheses (MonthShortName, day, YYYY) e.g. (Jan 15, 1990); year-only as (YYYY); Date unknown omitted.
 - Status badges: via `renderStatusBadges()` when `data.statuses` exists.
 
 ### Link Rendering

@@ -3,7 +3,6 @@ import {
   OUTER_RADIUS,
   INNER_RADIUS,
   IMAGE_SIZE,
-  LABEL_DY,
   GREEN_COLOR,
   TREE_NODE_DX,
   TREE_NODE_DY,
@@ -23,7 +22,8 @@ import {
   getStatusIcon,
   getStatusIconColor,
   parseYearFromDate,
-  yearToDecade
+  yearToDecade,
+  formatConsecrationDate
 } from './lineageTreeUtils.js';
 import {
   computePre1968Flags,
@@ -355,10 +355,13 @@ export async function initializeTreeView() {
 
   let { allNodes, allLinks } = runLayout();
 
+  const LABEL_GAP_BELOW_NODE = 6;
   function getCssVizVars() {
     const rootStyles = getComputedStyle(document.documentElement);
+    const nodeR = parseFloat(rootStyles.getPropertyValue('--viz-node-outer-radius')) || OUTER_RADIUS;
+    const labelY = nodeR + LABEL_GAP_BELOW_NODE;
     return {
-      labelDy: parseFloat(rootStyles.getPropertyValue('--viz-label-dy')) || LABEL_DY,
+      labelY,
       linkColor: rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR,
       nodeOuterRadius: parseFloat(rootStyles.getPropertyValue('--viz-node-outer-radius')) || OUTER_RADIUS,
       strokeWidth: parseFloat(rootStyles.getPropertyValue('--viz-node-stroke-width')) || 1,
@@ -714,8 +717,8 @@ export async function initializeTreeView() {
       .attr('stroke-dasharray', '6,4');
     g.append('text')
       .attr('class', 'viz-node-label viz-node-summary-label')
-      .attr('dy', vizVars.labelDy)
-      .attr('y', 2)
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'middle')
       .text(label);
     g.append('title').text(`Click or use chevron to expand and show ${count} individual consecration${count !== 1 ? 's' : ''}`);
   }
@@ -807,10 +810,29 @@ export async function initializeTreeView() {
       .style('opacity', data.image_url ? 1 : 0)
       .style('display', squareNode ? null : 'none');
     renderNodeImage(g, data, squareNode, spriteSheetData);
-    g.append('text')
+    const parentId = d.parent?.data?.id ?? d.parent?.data?.data?.id;
+    const nodeId = data?.id;
+    const consecrationDate = (parentId != null && nodeId != null ? linkDateByEdge.get(`${parentId}-${nodeId}`) : null) ?? data?.consecration_date;
+    const dateStr = formatConsecrationDate(consecrationDate);
+    const labelText = dateStr ? `${data.name}\n${dateStr}` : data.name;
+    const labelGap = g.append('g')
+      .attr('class', 'viz-node-label-group')
+      .attr('transform', `translate(0,${vizVars.labelY})`);
+    labelGap.append('text')
       .attr('class', 'viz-node-label')
-      .attr('dy', vizVars.labelDy)
-      .text(data.name);
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'hanging')
+      .each(function () {
+        const el = d3.select(this);
+        const lines = labelText.split('\n');
+        lines.forEach((line, i) => {
+          el.append('tspan')
+            .attr('x', 0)
+            .attr('dy', i === 0 ? 0 : 13)
+            .attr('text-anchor', 'middle')
+            .text(line);
+        });
+      });
     g.append('title')
       .text(`${data.name}\nRank: ${data.rank}\nOrganization: ${data.organization}`);
     if (data.statuses && data.statuses.length > 0) {

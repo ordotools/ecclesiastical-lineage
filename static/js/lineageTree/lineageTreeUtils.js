@@ -44,6 +44,23 @@ export function parseYearFromDate(dateValue) {
   return Number.isFinite(year) ? year : null;
 }
 
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Format date as (MonthShortName, day, YYYY) e.g. (Jan 15, 1990). Handles YYYY-MM-DD, YYYY, or Date unknown. */
+export function formatConsecrationDate(dateValue) {
+  if (!dateValue) return null;
+  const s = String(dateValue).trim();
+  if (s === 'Date unknown') return null;
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) {
+    const monthIdx = parseInt(m[2], 10) - 1;
+    return `(${MONTH_SHORT[monthIdx] ?? m[2]} ${parseInt(m[3], 10)}, ${m[1]})`;
+  }
+  const year = s.match(/^\d{4}$/);
+  if (year) return `(${year[0]})`;
+  return null;
+}
+
 export function yearToDecade(year) {
   if (year == null || !Number.isFinite(year)) return null;
   const mod = year % 10;

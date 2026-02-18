@@ -4,9 +4,9 @@
  */
 
 export const TREE_ANIMATION = {
-  growthDuration: 1200,
-  expandDuration: 350,
-  collapseDuration: 350,
+  growthDuration: 80,
+  expandDuration: 80,
+  collapseDuration: 80,
   collapseArcStrength: 0.25,
 };
 

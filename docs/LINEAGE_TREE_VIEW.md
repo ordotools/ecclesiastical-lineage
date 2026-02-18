@@ -101,7 +101,7 @@ Each node has:
 
 ### Animations
 
-- **`TREE_ANIMATION`** (350ms expand/collapse, cubic bezier ease, `collapseArcStrength: 0.25`) controls transitions.
+- **`TREE_ANIMATION`** (80ms expand/collapse, cubic bezier ease, `collapseArcStrength: 0.25`) controls transitions.
 - **Unified path tween**: `makePathTween(d, getNodePos, getParentPos, arcStrength, collapse)` — single function for both expand and collapse node motion along a curved Bezier path.
 - **Collapse**: Children collapse to their **immediate parent** only (not a higher ancestor). Each node animates toward its parent's current position.
 - **Expand**: Children expand from their parent's **current (pre-expand) position** — the position at click time, before layout recomputes.
@@ -141,7 +141,7 @@ Each node has:
 - **Filters**: Organization filter and “View Priests” apply; tree view uses only consecration links (no ordination).
 - **Collapse/expand**: Chevron on parent nodes and summary nodes; right-click context menu for "Collapse subtree" / "Expand subtree".
 - **Summary nodes**: Parents with >5 children show summary nodes; two-tier when >9 leaves (first 7 visible, overflow as `+n (YYYYs)`); click to expand overflow into individual nodes interleaved by decade.
-- **Animations**: D3 transitions (350ms) on expand/collapse; nodes and links share curved Bezier path tweens; collapse to immediate parent, expand from parent's pre-expand position; links move with their nodes.
+- **Animations**: D3 transitions (80ms) on expand/collapse; nodes and links share curved Bezier path tweens; collapse to immediate parent, expand from parent's pre-expand position; links move with their nodes.
 - **Highlight Lineage**: Graph view only. When enabled there, clicking a node highlights its consecration chain instead of opening the info window. In tree view, shows "Switch to Graph view to highlight lineage."
 - **Reset/Center**: Buttons are wired in `lineageTree/lineageTreeView.js` to `#reset-zoom` and `#center-graph`, but the side menu containing them is commented out in `lineage_visualization.html`, so those controls are effectively unavailable. `window.currentZoom` is exposed for external use.
 - **Performance**: Uses sprite sheet for avatars when present; initialization time is logged with `console.time`.

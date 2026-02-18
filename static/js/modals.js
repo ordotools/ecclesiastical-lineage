@@ -9,6 +9,8 @@ import { createClergyWindow, updateWindowContent, bringToFront } from './clergyW
 export async function handleNodeClick(event, d) {
   // Prevent click if node is filtered
   if (d.filtered) return;
+  // Skip summary nodes (e.g. "summary-22") — not real clergy, API expects int id
+  if (d.isSummary || (typeof d.id === 'string' && d.id.startsWith('summary-'))) return;
   
   // Check if highlight mode is enabled
   try {
@@ -202,10 +204,15 @@ function displayStatusIndicators(d) {
 
 // Function to load clergy relationships
 async function loadClergyRelationships(clergyId) {
+  const id = typeof clergyId === 'number' ? clergyId : parseInt(clergyId, 10);
+  if (isNaN(id) || String(clergyId).startsWith('summary-')) return;
   try {
-    const response = await fetch(`/clergy/relationships/${clergyId}`);
+    const response = await fetch(`/clergy/relationships/${id}`);
+    if (!response.ok) {
+      console.warn(`Clergy relationships ${id}: ${response.status}`);
+      return;
+    }
     const data = await response.json();
-    
     if (data.success) {
       // Update window content with relationships
       const { updateWindowContent, getWindow } = await import('./clergyWindows.js');

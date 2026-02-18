@@ -30,7 +30,8 @@ import {
   buildHierarchy,
   applyDefaultSummaries,
   buildLinkToValidityMap,
-  decadeSteps
+  decadeSteps,
+  getDecadeForNode
 } from './lineageTreeHierarchy.js';
 import {
   TREE_ANIMATION,
@@ -44,21 +45,63 @@ import {
 
 const treeEaseFn = getTreeEaseFn();
 
-function getDisplayChildren(expandedParentIds, summaryExpandedIds) {
+function getDisplayChildren(expandedParentIds) {
   return (d) => {
     const nodeId = getNodeId(d);
     const sid = toStableId(nodeId);
     const isSummary = !!((d?.data ?? d)?.isSummary || d?.isSummary);
-    if (isSummary) {
-      return summaryExpandedIds.has(sid) ? ((d?.data ?? d)?.leafNodes ?? null) : null;
-    }
+    if (isSummary) return null; // Expanded summaries are replaced by leaves in parent; collapsed show nothing
     if (sid && !expandedParentIds.has(sid)) return null;
     return d?.children ?? null;
   };
 }
 
+function applySummaryExpansions(rootData, summaryExpandedIds, linkDateByEdge) {
+  function processNode(node, parentId) {
+    if (!node) return node;
+    if (!node.children?.length) return { data: node.data, children: [] };
+
+    const pid = node.data?.id ?? parentId;
+    const newChildren = [];
+
+    for (const c of node.children) {
+      if (c.data?.isSummary && summaryExpandedIds.has(toStableId(c.data.id))) {
+        const summaryId = c.data.id;
+        const count = c.data.count ?? 0;
+        (c.data.leafNodes ?? []).forEach(l => {
+          newChildren.push({
+            data: { ...l.data, _fromOverflowSummaryId: summaryId, _fromOverflowSummaryCount: count },
+            children: l.children ?? []
+          });
+        });
+      } else if (!c.data?.isSummary) {
+        newChildren.push(processNode(c, pid));
+      } else {
+        newChildren.push(c);
+      }
+    }
+
+    newChildren.sort((a, b) => {
+      const aDecade = a.data?.isSummary ? a.data.decade : getDecadeForNode(a, pid, linkDateByEdge);
+      const bDecade = b.data?.isSummary ? b.data.decade : getDecadeForNode(b, pid, linkDateByEdge);
+      return (aDecade ?? 9999) - (bDecade ?? 9999);
+    });
+
+    return { data: node.data, children: newChildren };
+  }
+
+  if (!rootData) return rootData;
+  if (rootData.single) {
+    return { single: processNode(rootData.single, null) };
+  }
+  if (rootData.multi) {
+    return { multi: rootData.multi.map(r => processNode(r, null)) };
+  }
+  return rootData;
+}
+
 function createDisplayHierarchy(rootData, expandedParentIds, summaryExpandedIds) {
-  const childrenAccessor = getDisplayChildren(expandedParentIds, summaryExpandedIds);
+  const childrenAccessor = getDisplayChildren(expandedParentIds);
   if (rootData.single) {
     return { single: d3.hierarchy(rootData.single, childrenAccessor) };
   }
@@ -268,7 +311,8 @@ export async function initializeTreeView() {
 
   function runLayout() {
     const hierarchyForDisplay = applyDefaultSummaries(rootHierarchy, linkDateByEdge);
-    const displayData = createDisplayHierarchy(hierarchyForDisplay, expandedParentIds, summaryExpandedIds);
+    const hierarchyWithExpansions = applySummaryExpansions(hierarchyForDisplay, summaryExpandedIds, linkDateByEdge);
+    const displayData = createDisplayHierarchy(hierarchyWithExpansions, expandedParentIds, summaryExpandedIds);
     let allNodes = [];
     let allLinks = [];
 
@@ -384,9 +428,8 @@ export async function initializeTreeView() {
     .attr('d', arrowMarker.path)
     .attr('fill', vizVars.linkColor);
 
-  allNodes.forEach(d => {
-    const data = d.data.data;
-    if (data) {
+  nodeMap.forEach(data => {
+    if (data?.id) {
       const clipId = `clip-avatar-tree-${data.id}`;
       const clipPath = defs.append('clipPath').attr('id', clipId);
       if (useSquareNode(data)) {
@@ -409,7 +452,8 @@ export async function initializeTreeView() {
     : d3.linkVertical().x(d => d.x).y(d => d.y);
 
   function getPathBasedNodeKey(d) {
-    if (d.data?.isSummary && d.data.id) return d.data.id;
+    const id = getNodeId(d);
+    if (isSummaryNode(d) && id) return toStableId(id);
     const path = [];
     let n = d;
     while (n) {
@@ -423,8 +467,13 @@ export async function initializeTreeView() {
   const linkKey = (l) => `${getPathBasedNodeKey(l.source)}-${getPathBasedNodeKey(l.target)}`;
   const iconOffset = vizVars.nodeOuterRadius + (vizVars.strokeWidth / 2) + 30;
 
+  function isSummaryNode(d) {
+    const resolved = d.data?.data ?? d.data;
+    return !!(d.data?.isSummary || (typeof resolved?.id === 'string' && resolved.id.startsWith('summary-')));
+  }
+
   function hasCollapsibleContent(d) {
-    return (d.data?.children?.length > 0) || !!d.data?.isSummary;
+    return (d.data?.children?.length > 0) || isSummaryNode(d) || !!d.data?._fromOverflowSummaryId;
   }
 
   function getCollapseOrder(node, getDisplayChildrenFn) {
@@ -466,7 +515,9 @@ export async function initializeTreeView() {
 
   function isCollapsed(d) {
     const sid = toStableId(getNodeId(d));
-    if (d.data?.isSummary) return !summaryExpandedIds.has(sid);
+    const overflowSid = toStableId(d.data?._fromOverflowSummaryId);
+    if (overflowSid) return summaryExpandedIds.has(overflowSid); // merged leaf: "collapsed" = overflow is expanded (leaves visible)
+    if (isSummaryNode(d)) return !summaryExpandedIds.has(sid);
     return !expandedParentIds.has(sid);
   }
 
@@ -537,7 +588,26 @@ export async function initializeTreeView() {
   }
 
   async function performStagedCollapse(d) {
-    const getDisplayChildrenFn = getDisplayChildren(expandedParentIds, summaryExpandedIds);
+    const overflowSid = toStableId(d.data?._fromOverflowSummaryId);
+    if (overflowSid) {
+      // Collapsing overflow from a merged leaf: collect affected leaves from current layout before state change
+      const { allNodes: nodesBefore } = runLayout();
+      const mergedLeaves = nodesBefore.filter(n => toStableId(n.data?._fromOverflowSummaryId) === overflowSid);
+      const affectedNodeIds = new Set(mergedLeaves.map(n => n._positionId).filter(Boolean));
+      const rootDepth = mergedLeaves[0]?.depth ?? 0;
+      const staggerOpts = computeStaggerOpts(mergedLeaves, rootDepth);
+      summaryExpandedIds.delete(overflowSid);
+      saveTreeState();
+      if (affectedNodeIds.size === 0) {
+        await updateTree({ collapsePhase: false });
+        return;
+      }
+      await updateTree({ collapsePhase: true, affectedNodeIds, staggerOpts });
+      await updateTree({ collapsePhase: false, affectedNodeIds });
+      return;
+    }
+
+    const getDisplayChildrenFn = getDisplayChildren(expandedParentIds);
     const toCollapse = getCollapseOrder(d, getDisplayChildrenFn);
     const affectedNodeIds = new Set();
     for (const n of toCollapse) {
@@ -551,7 +621,7 @@ export async function initializeTreeView() {
     const descendantNodes = collectDescendantNodes(d, getDisplayChildrenFn);
     const staggerOpts = computeStaggerOpts(descendantNodes, rootDepth);
     const clickedId = toStableId(getNodeId(d));
-    if (d.data?.isSummary) {
+    if (isSummaryNode(d)) {
       summaryExpandedIds.delete(clickedId);
     } else {
       expandedParentIds.delete(clickedId);
@@ -567,19 +637,25 @@ export async function initializeTreeView() {
 
   async function performStagedExpand(d) {
     const nodeId = toStableId(getNodeId(d));
-    if (d.data?.isSummary) {
+    const isSummary = isSummaryNode(d);
+    const summaryData = d.data?.isSummary ? d.data : (d.data?.data ?? d.data);
+    const leafIds = isSummary ? new Set((summaryData?.leafIds ?? []).map(id => toStableId(id))) : null;
+    if (isSummary) {
       summaryExpandedIds.add(nodeId);
     } else {
       expandedParentIds.add(nodeId);
     }
     saveTreeState();
     const { allNodes } = runLayout();
-    const expandedInNewLayout = allNodes.find(n => toStableId(getNodeId(n)) === nodeId);
+    let expandedInNewLayout = allNodes.find(n => toStableId(getNodeId(n)) === nodeId);
+    if (isSummary && leafIds?.size && !expandedInNewLayout) {
+      expandedInNewLayout = { descendants: () => allNodes.filter(n => leafIds.has(toStableId(getNodeId(n)))) };
+    }
     const affectedNodeIds = new Set();
     let staggerOpts = null;
     if (expandedInNewLayout) {
-      const rootDepth = expandedInNewLayout.depth ?? 0;
-      const descendants = expandedInNewLayout.descendants().slice(1);
+      const descendants = expandedInNewLayout.descendants?.()?.slice(expandedInNewLayout.depth != null ? 1 : 0) ?? [];
+      const rootDepth = descendants[0]?.depth ?? expandedInNewLayout.depth ?? 0;
       descendants.forEach(n => {
         if (n._positionId) affectedNodeIds.add(n._positionId);
       });
@@ -600,10 +676,12 @@ export async function initializeTreeView() {
     event.stopPropagation();
     const nodeId = getNodeId(d);
     const collapsed = isCollapsed(d);
-    const isSummary = !!d.data?.isSummary;
+    const isSummary = isSummaryNode(d);
+    const fromOverflow = d.data?._fromOverflowSummaryId;
+    const overflowCount = d.data?._fromOverflowSummaryCount ?? 0;
     contextMenuEl.innerHTML = '';
-    const expandLabel = isSummary ? 'Expand' : 'Expand subtree';
-    const collapseLabel = isSummary ? 'Collapse' : 'Collapse subtree';
+    const expandLabel = isSummary ? 'Expand' : fromOverflow ? 'Expand' : 'Expand subtree';
+    const collapseLabel = isSummary ? 'Collapse' : fromOverflow ? `Collapse to +${overflowCount}` : 'Collapse subtree';
     if (collapsed) {
       contextMenuEl.appendChild(createContextMenuItem(expandLabel, () => performStagedExpand(d)));
     } else {
@@ -617,8 +695,10 @@ export async function initializeTreeView() {
   }
 
   function renderSummaryNodeContent(g, d) {
-    const { count, decade } = d.data;
-    const label = `${count} consecration${count !== 1 ? 's' : ''} (${decade}s)`;
+    const summaryData = d.data?.isSummary ? d.data : (d.data?.data ?? d.data);
+    const count = summaryData?.count ?? summaryData?.leafNodes?.length ?? summaryData?.leafIds?.length ?? 0;
+    const decade = summaryData?.decade ?? 0;
+    const label = `+${count} (${decade}s)`;
     g.selectAll('*').remove();
     g.append('rect')
       .attr('class', 'viz-node-summary viz-node-summary-rect')
@@ -673,12 +753,12 @@ export async function initializeTreeView() {
   }
 
   function renderNodeContent(g, d) {
-    if (d.data?.isSummary) {
+    if (isSummaryNode(d)) {
       renderSummaryNodeContent(g, d);
       return;
     }
-    const data = d.data.data;
-    if (!data) return;
+    const data = d.data?.data ?? d.data;
+    if (!data?.id) return;
     const squareNode = useSquareNode(data);
     g.selectAll('*').remove();
     g.append('circle')
@@ -888,7 +968,7 @@ export async function initializeTreeView() {
       .join(
         (enter) => {
           const g = enter.append('g')
-            .attr('class', d => d.data?.isSummary ? 'viz-node viz-node-summary' : 'viz-node')
+            .attr('class', d => isSummaryNode(d) ? 'viz-node viz-node-summary' : 'viz-node')
             .attr('transform', d => {
               const [x, y] = coord.getParentPos(d);
               return `translate(${x},${y})`;
@@ -896,7 +976,7 @@ export async function initializeTreeView() {
             .style('cursor', 'pointer')
             .on('click', async (event, d) => {
               event.stopPropagation();
-                if (d.data?.isSummary) {
+              if (isSummaryNode(d)) {
                 const nodeId = toStableId(getNodeId(d));
                 if (summaryExpandedIds.has(nodeId)) {
                   await performStagedCollapse(d);
@@ -905,8 +985,8 @@ export async function initializeTreeView() {
                 }
                 return;
               }
-              const data = d.data.data;
-              if (data) {
+              const data = d.data?.data ?? d.data;
+              if (data?.id) {
                 data.filtered = false;
                 handleNodeClick(event, data);
               }

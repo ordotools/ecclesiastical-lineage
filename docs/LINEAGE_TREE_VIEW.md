@@ -11,9 +11,10 @@ The **lineage tree view** (`lineageTree/lineageTreeView.js`) is a D3-based hiera
 | File | Role |
 |------|------|
 | `static/js/lineageTree/lineageTreeView.js` | Core tree implementation (D3 tree layout, SVG rendering) |
+| `static/js/lineageTree/lineageTreeHierarchy.js` | Hierarchy building, summaries; `SUMMARY_MAX_VISIBLE`, `SUMMARY_OVERFLOW_THRESHOLD` |
 | `static/js/viewController.js` | Switches between tree and force graph; calls `initializeTreeView()` |
 | `static/js/lineageVisualization.js` | Entry point; loads styles, UI, filters, search; calls `initializeView()` |
-| `static/js/constants.js` | `TREE_NODE_DX`, `TREE_NODE_DY`, radii, colors, viewport size |
+| `static/js/constants.js` | `TREE_NODE_DX`, `TREE_NODE_DY`, radii, colors, viewport size, `SUMMARY_NODE_WIDTH` |
 | `static/js/modals.js` | `handleNodeClick` — opens clergy info windows on node click |
 | `static/js/statusBadges.js` | `renderStatusBadges` — status indicators around nodes |
 | `static/js/highlightLineage.js` | Highlight mode — graph view only; tree view prompts user to switch |
@@ -82,11 +83,16 @@ Each node has:
 
 ### Summary Nodes
 
-- **`applyDefaultSummaries(hierarchy, linkDateByEdge)`** — For each node with >5 children, groups leaf children into a synthetic summary node positioned at the oldest leaf's decade.
-- Leaf children become `[summaryNode, ...parentNodes]` (sorted by decade).
-- Summary node data: `{ isSummary: true, id, leafIds, leafNodes, decade, count }`.
-- **Rendering**: dashed rect, label `N consecrations (YYYYs)`; distinct from clergy nodes (`.viz-node-summary`, `.viz-node-summary-rect`).
-- Clicking a summary node (or its chevron) expands it: `summaryExpandedIds.add(id)` → `updateTree()`.
+- **Two-tier progressive disclosure** — Parents with many consecrated children use progressive disclosure to avoid overwhelming the tree.
+  - **`SUMMARY_MAX_VISIBLE`** (7): first K leaf children shown directly; rest go into an overflow summary.
+  - **`SUMMARY_OVERFLOW_THRESHOLD`** (9): only create two-tier overflow when `leaves > 9`; else `leaves > 5` use a single summary (all-or-nothing).
+- **`applyDefaultSummaries(hierarchy, linkDateByEdge)`** — For each node with >5 children, either:
+  - If `leaves > SUMMARY_OVERFLOW_THRESHOLD`: split into `visibleLeaves` (first 7) and `overflowLeaves`; show an overflow summary `+n (YYYYs)` at the oldest overflow leaf's decade. Parent children = `[...visibleLeaves, overflowSummary, ...parents]` sorted by decade.
+  - If `5 < leaves <= 9`: keep single-summary behavior (summary replaces all leaves).
+- Summary node data: `{ isSummary: true, id, leafIds, leafNodes, decade, count }` (overflow summary uses `overflowLeaves` subset).
+- **Rendering**: dashed rect, label `+n (YYYYs)` (e.g. `+53 (1990s)`); distinct from clergy nodes (`.viz-node-summary`, `.viz-node-summary-rect`). Tooltip: "Click or use chevron to expand and show N individual consecrations."
+- Clicking a summary node (or its chevron) expands it: `summaryExpandedIds.add(id)` → `updateTree()`. On expand, `applySummaryExpansions` merges `leafNodes` into the parent as siblings (replacing the summary), sorted by decade among all siblings.
+- Supports parents with 60+ children via progressive disclosure.
 
 ### Collapse/Expand Controls
 
@@ -105,7 +111,7 @@ Each node has:
 
 - **Clergy nodes**: Click opens info window; chevron toggles children visibility; right-click shows context menu.
 - **Summary nodes**: Click or chevron expands to show individual consecrations; right-click shows "Collapse"/"Expand". No info window.
-- **Build flow**: `buildHierarchy` → `applyDefaultSummaries` → `createDisplayHierarchy` (applies `collapsedNodeIds`, `summaryExpandedIds`) → layout → `updateTree()`.
+- **Build flow**: `buildHierarchy` → `applyDefaultSummaries` → `applySummaryExpansions` (replaces expanded summaries with `leafNodes` merged into parent, decade-sorted) → `createDisplayHierarchy` (applies `collapsedNodeIds`, `summaryExpandedIds`) → layout → `updateTree()`.
 - **Edge cases**: Summary applies at initial state; once expanded, leaves become normal children. Parent can still be collapsed (hides all children). Multi-root: each subtree collapses independently.
 
 ### Interactions
@@ -134,11 +140,22 @@ Each node has:
 - **View toggle**: “Tree” vs “Graph” in the bottom filter menu changes between tree and force graph.
 - **Filters**: Organization filter and “View Priests” apply; tree view uses only consecration links (no ordination).
 - **Collapse/expand**: Chevron on parent nodes and summary nodes; right-click context menu for "Collapse subtree" / "Expand subtree".
-- **Summary nodes**: Parents with >5 children show a summary node by default (`N consecrations (YYYYs)`); click to expand into individual nodes.
+- **Summary nodes**: Parents with >5 children show summary nodes; two-tier when >9 leaves (first 7 visible, overflow as `+n (YYYYs)`); click to expand overflow into individual nodes interleaved by decade.
 - **Animations**: D3 transitions (350ms) on expand/collapse; nodes and links share curved Bezier path tweens; collapse to immediate parent, expand from parent's pre-expand position; links move with their nodes.
 - **Highlight Lineage**: Graph view only. When enabled there, clicking a node highlights its consecration chain instead of opening the info window. In tree view, shows "Switch to Graph view to highlight lineage."
 - **Reset/Center**: Buttons are wired in `lineageTree/lineageTreeView.js` to `#reset-zoom` and `#center-graph`, but the side menu containing them is commented out in `lineage_visualization.html`, so those controls are effectively unavailable. `window.currentZoom` is exposed for external use.
 - **Performance**: Uses sprite sheet for avatars when present; initialization time is logged with `console.time`.
+
+---
+
+## Sanity Test (Two-Tier Overflow)
+
+To verify the two-tier summary behavior with 60+ children:
+
+1. **Setup**: Ensure the app runs (`flask run`) and navigate to lineage visualization with a parent that has 60+ consecrated children (or temporarily lower `SUMMARY_OVERFLOW_THRESHOLD` and `SUMMARY_MAX_VISIBLE` in `lineageTreeHierarchy.js` to simulate).
+2. **Initial state**: Confirm first 7 leaves visible, overflow summary shows `+n (YYYYs)` (e.g. `+53 (1990s)`).
+3. **Expand**: Click the overflow summary or its chevron; verify its leaf nodes appear as siblings, interleaved by decade with the 7 visible leaves.
+4. **Collapse**: Right-click or use chevron to collapse; verify the overflow summary reappears and nodes animate back.
 
 ---
 

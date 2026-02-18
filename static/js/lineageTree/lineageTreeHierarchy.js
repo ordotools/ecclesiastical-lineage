@@ -13,6 +13,10 @@ import {
 } from './lineageTreeUtils.js';
 
 export const PRE_1968_CONSECRATION_YEAR = 1968;
+/** Show first N leaves before overflow summary; rest go into "+n (YYYYs)". */
+export const SUMMARY_MAX_VISIBLE = 7;
+/** Only create two-tier overflow when leaves exceed this (else single summary if > 5). */
+export const SUMMARY_OVERFLOW_THRESHOLD = 9;
 
 export function decadeSteps(decadeDiff) {
   return Math.ceil(decadeDiff / 10);
@@ -118,7 +122,15 @@ export function buildHierarchy(nodes, consecrationLinks, nodeMap, linkDateByEdge
   return { multi: roots.map(r => buildNode(r)) };
 }
 
-/** Wraps large leaf groups in summary nodes (decade-based). */
+export function getDecadeForNode(node, parentId, linkDateByEdge) {
+  const linkDate = parentId != null && node?.data?.id != null
+    ? linkDateByEdge?.get(`${parentId}-${node.data.id}`)
+    : null;
+  const date = linkDate || node?.data?.consecration_date;
+  return yearToDecade(parseYearFromDate(date));
+}
+
+/** Wraps large leaf groups in summary nodes (decade-based). Two-tier when leaves > SUMMARY_OVERFLOW_THRESHOLD. */
 export function applyDefaultSummaries(hierarchy, linkDateByEdge) {
   function processNode(node, parentId) {
     if (!node || !node.children?.length) return node;
@@ -137,8 +149,38 @@ export function applyDefaultSummaries(hierarchy, linkDateByEdge) {
         children: children.map(c => processNode(c, node.data?.id))
       };
     }
-    const oldestLeaf = leaves[0];
     const pid = node.data?.id ?? parentId;
+
+    if (leaves.length > SUMMARY_OVERFLOW_THRESHOLD) {
+      const visibleLeaves = leaves.slice(0, SUMMARY_MAX_VISIBLE);
+      const overflowLeaves = leaves.slice(SUMMARY_MAX_VISIBLE);
+      const oldestOverflowLeaf = overflowLeaves[0];
+      const overflowDecade = getDecadeForNode(oldestOverflowLeaf, pid, linkDateByEdge) ?? 0;
+      const overflowSummaryId = `summary-${node.data?.id}`;
+      const overflowSummaryNode = {
+        data: {
+          isSummary: true,
+          id: overflowSummaryId,
+          leafIds: overflowLeaves.map(l => l.data?.id).filter(Boolean),
+          leafNodes: overflowLeaves,
+          decade: overflowDecade,
+          count: overflowLeaves.length
+        },
+        children: []
+      };
+      const combined = [...visibleLeaves, overflowSummaryNode, ...parents];
+      const newChildren = combined.sort((a, b) => {
+        const aDecade = a.data?.isSummary ? a.data.decade : getDecadeForNode(a, pid, linkDateByEdge);
+        const bDecade = b.data?.isSummary ? b.data.decade : getDecadeForNode(b, pid, linkDateByEdge);
+        return (aDecade ?? 9999) - (bDecade ?? 9999);
+      });
+      return {
+        data: node.data,
+        children: newChildren.map(c => c.data?.isSummary ? c : processNode(c, node.data?.id))
+      };
+    }
+
+    const oldestLeaf = leaves[0];
     const linkDate = pid != null && oldestLeaf?.data?.id != null
       ? linkDateByEdge?.get(`${pid}-${oldestLeaf.data.id}`)
       : null;
@@ -157,12 +199,8 @@ export function applyDefaultSummaries(hierarchy, linkDateByEdge) {
       children: []
     };
     const newChildren = [summaryNode, ...parents].sort((a, b) => {
-      const aDecade = a.data?.isSummary ? a.data.decade : yearToDecade(parseYearFromDate(
-        pid != null && a.data?.id ? linkDateByEdge?.get(`${pid}-${a.data.id}`) : a.data?.consecration_date
-      ));
-      const bDecade = b.data?.isSummary ? b.data.decade : yearToDecade(parseYearFromDate(
-        pid != null && b.data?.id ? linkDateByEdge?.get(`${pid}-${b.data.id}`) : b.data?.consecration_date
-      ));
+      const aDecade = a.data?.isSummary ? a.data.decade : getDecadeForNode(a, pid, linkDateByEdge);
+      const bDecade = b.data?.isSummary ? b.data.decade : getDecadeForNode(b, pid, linkDateByEdge);
       return (aDecade ?? 9999) - (bDecade ?? 9999);
     });
     return {

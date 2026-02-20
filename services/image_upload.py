@@ -800,10 +800,10 @@ class ImageUploadService:
             sprite.save(
                 output,
                 'JPEG',
-                quality=65,
+                quality=90,  # Higher quality to avoid pixelation
                 optimize=True,
-                progressive=True,  # Progressive JPEG
-                subsampling='4:2:0'  # Aggressive chroma subsampling
+                progressive=True,
+                subsampling='4:4:4'  # No chroma subsampling for best quality
             )
             sprite_data = output.getvalue()
             object_key = f"sprites/clergy_sprite_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"

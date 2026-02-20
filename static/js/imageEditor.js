@@ -652,9 +652,6 @@ class ImageEditor {
             // Show success message
             this.showNotification('Square cropped image processed successfully!', 'success');
             
-            // Refresh visualization to show the updated image
-            this.refreshVisualization();
-            
         } catch (error) {
             console.error('Error processing cropped image:', error);
             this.hideProcessingStatus();
@@ -897,10 +894,10 @@ class ImageEditor {
             form.appendChild(hiddenInput);
         }
         
-        // Update preview in main form
-        const lineageImage = processedImages.lineage || processedImages.detail || processedImages.cropped;
-        if (lineageImage) {
-            this.updateFormPreview(lineageImage);
+        // Update preview in main form (use detail 320×320, not lineage 48px)
+        const formPreviewImage = processedImages.detail || processedImages.lineage || processedImages.cropped;
+        if (formPreviewImage) {
+            this.updateFormPreview(formPreviewImage);
         }
     }
     

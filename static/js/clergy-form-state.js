@@ -191,9 +191,8 @@ window.clearFormState = function() {
         input.removeAttribute('data-autocomplete-initialized');
     });
     
-    // Clear any global file references
-    delete window.droppedFile;
-    delete window.processedImageData;
+    // Clear any global file references (droppedFile, processedImageData, spritesheet polling, imageEditor)
+    window.clergyFormGlobals?.clear();
 };
 
 // Clear form completely - reset all fields and containers (used after submission)

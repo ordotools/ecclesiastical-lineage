@@ -127,16 +127,13 @@ function resolveComment(commentId) {
     console.log('Resolve comment:', commentId);
     if (confirm('Mark this comment as resolved?')) {
         // This would make an HTMX request to resolve the comment
-        showNotification('Comment resolution functionality coming soon', 'info');
+        window.showNotification('Comment resolution functionality coming soon', 'info');
     }
 }
 
 function replyToComment(commentId) {
     console.log('Reply to comment:', commentId);
-    showNotification('Comment reply functionality coming soon', 'info');
+    window.showNotification('Comment reply functionality coming soon', 'info');
 }
 
-function showNotification(message, type = 'info') {
-    console.log(`${type.toUpperCase()}: ${message}`);
-}
 </script>

@@ -1704,32 +1704,4 @@ function updatePreviewImage(imageData) {
         }
     }
 }
-
-// Simple instant notification system
-function showNotification(message, type = 'info') {
-    // Optionally show a very brief, instant alert that auto-closes
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: ${type === 'success' ? 'rgba(46, 160, 67, 0.9)' : type === 'error' ? 'rgba(231, 76, 60, 0.9)' : 'rgba(52, 152, 219, 0.9)'};
-        color: white;
-        padding: 0.5em 1em;
-        border-radius: 4px;
-        z-index: 9999;
-        font-size: 0.8em;
-        opacity: 1;
-    `;
-    notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    // Auto remove quickly
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-        }
-    }, 1500);
-}
 </script>

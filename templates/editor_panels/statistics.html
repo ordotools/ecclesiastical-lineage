@@ -114,12 +114,12 @@
 // Statistics panel functions
 function exportData() {
     console.log('Export data requested');
-    showNotification('Data export functionality coming soon', 'info');
+    window.showNotification('Data export functionality coming soon', 'info');
 }
 
 function generateReport() {
     console.log('Generate report requested');
-    showNotification('Report generation functionality coming soon', 'info');
+    window.showNotification('Report generation functionality coming soon', 'info');
 }
 
 function refreshStats() {
@@ -129,10 +129,7 @@ function refreshStats() {
         target: '#statistics-content',
         swap: 'innerHTML'
     });
-    showNotification('Statistics refreshed', 'success');
+    window.showNotification('Statistics refreshed', 'success');
 }
 
-function showNotification(message, type = 'info') {
-    console.log(`${type.toUpperCase()}: ${message}`);
-}
 </script>

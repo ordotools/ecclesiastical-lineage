@@ -17,6 +17,7 @@
     <link href="{{ url_for('static', filename='css/visualization-dynamic.css') }}" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.6" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
+    <script src="{{ url_for('static', filename='js/notification.js') }}"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js" defer></script>
     <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}" defer></script>
     <script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js" defer></script>
@@ -24,11 +25,12 @@
     <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/imageEditor.js') }}" defer></script>
     <!-- Clergy form JavaScript files - loaded before other form scripts -->
-    <script src="{{ url_for('static', filename='js/clergy-form-overlay.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/clergy-form-state.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/clergy-form-overlay.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/clergy-form-globals.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/clergy-form-state.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/status-inheritance.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/clergy-form-submission.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/clergy-form-init.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/clergy-form-init.js') }}" defer></script>
     <!-- Centralized styling system -->
     <script src="{{ url_for('static', filename='js/locationMarkerStyles.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/locationForm.js') }}" defer></script>
@@ -42,48 +44,6 @@
         import { GREEN_COLOR, BLACK_COLOR } from '/static/js/constants.js';
         document.documentElement.style.setProperty('--lineage-green', GREEN_COLOR);
         document.documentElement.style.setProperty('--lineage-black', BLACK_COLOR);
-    </script>
-    <script>
-        // Make notification function globally available
-        window.showNotification = function (message, type = 'info') {
-            // Create notification container if it doesn't exist
-            let notificationContainer = document.getElementById('notification-container');
-            if (!notificationContainer) {
-                notificationContainer = document.createElement('div');
-                notificationContainer.id = 'notification-container';
-                notificationContainer.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    z-index: 1200;
-                    max-width: 400px;
-                `;
-                document.body.appendChild(notificationContainer);
-            }
-
-            // Create notification element
-            const notification = document.createElement('div');
-            const alertClass = type === 'error' ? 'alert-danger' : type === 'success' ? 'alert-success' : type === 'warning' ? 'alert-warning' : 'alert-info';
-            notification.className = `alert ${alertClass} alert-dismissible fade show`;
-            notification.style.cssText = `
-                margin-bottom: 0.5em;
-                padding: 0.5em 1em;
-                border-radius: 3px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            `;
-            notification.innerHTML = `
-                <strong>${type.charAt(0).toUpperCase() + type.slice(1)}:</strong> ${message}
-                <button type="button" class="btn-close" onclick="this.parentElement.remove()" style="float: right; background: none; border: none; font-size: 0.8em; cursor: pointer;">&times;</button>
-            `;
-            notificationContainer.appendChild(notification);
-
-            // Auto-remove after 5 seconds
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.remove();
-                }
-            }, 5000);
-        };
     </script>
     <style>
         * {
@@ -1068,44 +1028,41 @@
             });
         });
 
-        // Global event listeners for panel updates
+        // Returns 'clergy-api' | 'clergy-selection' | 'other' from htmx request URL
+        function getRequestType(evt) {
+            const url = evt.detail?.xhr?.responseURL;
+            if (!url) return 'other';
+            const isClergyAPI = url.includes('/clergy/add') || url.includes('/clergy/edit') || url.includes('/clergy/delete');
+            if (isClergyAPI) return 'clergy-api';
+            const isClergySelection = (url.includes('/editor/clergy-form/') || url.includes('/editor/clergy-form-content/') ||
+                url === window.location.origin + '/editor/clergy-form' || url === window.location.origin + '/editor/clergy-form-content');
+            return isClergySelection ? 'clergy-selection' : 'other';
+        }
+        window.getRequestType = getRequestType;
+
+        // Global event listeners for panel updates (single handler: clergy-api → refresh viz + clergy-count; clergy-selection → re-highlight only)
         document.body.addEventListener('htmx:afterRequest', function (evt) {
+            const requestType = getRequestType(evt);
 
-            // Check if this was a clergy-related operation that should refresh visualization
-            const target = evt.target;
-            const isClergyListUpdate = target.closest('.left-panel') && target.querySelector('.clergy-item');
-            const isClergyFormUpdate = target.closest('.right-panel') && target.querySelector('#clergyForm');
-            const isClergyAPI = evt.detail.xhr && evt.detail.xhr.responseURL && (
-                evt.detail.xhr.responseURL.includes('/clergy/add') ||
-                evt.detail.xhr.responseURL.includes('/clergy/edit') ||
-                evt.detail.xhr.responseURL.includes('/clergy/delete') ||
-                evt.detail.xhr.responseURL.includes('/clergy/27/edit')
-            );
-
-            // Also check for clergy form content updates
-            const isClergyFormContentUpdate = target.closest('.right-panel') && target.querySelector('form[id="clergyForm"]');
-
-            // Check if this is just a clergy selection (not an actual update)
-            const isClergySelection = evt.detail.xhr && evt.detail.xhr.responseURL &&
-                (evt.detail.xhr.responseURL.includes('/editor/clergy-form/') ||
-                    evt.detail.xhr.responseURL.includes('/editor/clergy-form-content/') ||
-                    evt.detail.xhr.responseURL === window.location.origin + '/editor/clergy-form' ||
-                    evt.detail.xhr.responseURL === window.location.origin + '/editor/clergy-form-content') &&
-                !evt.detail.xhr.responseURL.includes('/clergy/add') &&
-                !evt.detail.xhr.responseURL.includes('/clergy/edit') &&
-                !evt.detail.xhr.responseURL.includes('/clergy/delete');
-
-            
-
-            // Only refresh visualization for actual updates, not selections
-            // Be more restrictive - only refresh for actual API calls that modify data
-            if (!isClergySelection && isClergyAPI) {
-                // HTMX panel reload (same pattern as clergy list) — viz template re-highlights from window.currentSelectedClergyId
+            if (requestType === 'clergy-api') {
+                // Refresh visualization — viz template re-highlights from window.currentSelectedClergyId
                 const vizTarget = document.getElementById('visualization-panel-content');
                 if (vizTarget && typeof htmx !== 'undefined') {
                     htmx.ajax('GET', '/editor/visualization', { target: vizTarget, swap: 'innerHTML' });
                 }
-            } else if (isClergySelection) {
+                // Update clergy count in status bar
+                setTimeout(() => {
+                    fetch('/api/stats/clergy-count')
+                        .then(response => response.json())
+                        .then(data => {
+                            const el = document.getElementById('clergy-count');
+                            if (el) el.textContent = data.count || 0;
+                        })
+                        .catch(error => {
+                            console.error('Failed to update clergy count:', error);
+                        });
+                }, 500);
+            } else if (requestType === 'clergy-selection') {
                 // Re-highlight after selection
                 if (window.currentSelectedClergyId) {
                     setTimeout(() => {
@@ -1153,28 +1110,20 @@
         
         // Function to clear all global form state to prevent leftover data
         function clearGlobalFormState() {
-            // Clear dropped file
-            if (window.droppedFile) {
-                delete window.droppedFile;
-                console.log('Cleared window.droppedFile');
-            }
-            
-            // Clear processed image data
-            if (window.processedImageData) {
-                delete window.processedImageData;
-                console.log('Cleared window.processedImageData');
-            }
-            
-            // Clear image editor state
-            if (window.imageEditor && typeof window.imageEditor.clearProcessedData === 'function') {
-                window.imageEditor.clearProcessedData();
-            }
-            
+            window.clergyFormGlobals?.clear();
+
             // Clear any file input values
             const fileInput = document.getElementById('clergyImage');
             if (fileInput) {
                 fileInput.value = '';
             }
+        }
+
+        /** Returns the element to use for HTMX swap when loading clergy form content: #clergyFormContainer .form-content-loader when present, else .right-panel .panel-content */
+        function getClergyFormSwapTarget() {
+            const loader = document.querySelector('#clergyFormContainer .form-content-loader');
+            if (loader) return loader;
+            return document.querySelector('.right-panel .panel-content');
         }
         
         function selectClergy(clergyId) {
@@ -1217,23 +1166,19 @@
                     // Highlight node in visualization
                     highlightClergyInVisualization(clergyId);
                     
-                    // Find the right panel content element
-                    const rightPanelContent = document.querySelector('.right-panel .panel-content');
-                    if (!rightPanelContent) {
-                        console.error('Right panel content not found!');
-                        reject(new Error('Right panel content not found'));
+                    const swapTarget = getClergyFormSwapTarget();
+                    if (!swapTarget) {
+                        console.error('Clergy form swap target not found!');
+                        reject(new Error('Clergy form swap target not found'));
                         return;
                     }
-                    
-                    // Preserve overlay: target form-content-loader when it exists (keeps #clergyFormContainer and #formSubmissionOverlay)
-                    const formContentLoader = document.querySelector('#clergyFormContainer .form-content-loader');
-                    
-                    if (formContentLoader) {
+                    const isLoader = swapTarget.classList.contains('form-content-loader');
+                    if (isLoader) {
                         // Container + overlay exist: only swap form content into the loader
-                        const existingForm = formContentLoader.querySelector('#clergyForm');
+                        const existingForm = swapTarget.querySelector('#clergyForm');
                         if (existingForm) {
-                            const ordinationsContainer = formContentLoader.querySelector('#ordinationsContainer');
-                            const consecrationsContainer = formContentLoader.querySelector('#consecrationsContainer');
+                            const ordinationsContainer = swapTarget.querySelector('#ordinationsContainer');
+                            const consecrationsContainer = swapTarget.querySelector('#consecrationsContainer');
                             if (ordinationsContainer) ordinationsContainer.innerHTML = '';
                             if (consecrationsContainer) consecrationsContainer.innerHTML = '';
                             const ordinationInputs = existingForm.querySelectorAll('input[name*="ordinations[0]"], textarea[name*="ordinations[0]"]');
@@ -1247,11 +1192,10 @@
                                 else input.value = '';
                             });
                         }
-                        formContentLoader.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading form...</div>';
-                        
+                        swapTarget.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading form...</div>';
                         const contentUrl = clergyId ? `/editor/clergy-form-content/${clergyId}` : '/editor/clergy-form-content';
                         htmx.ajax('GET', contentUrl, {
-                            target: formContentLoader,
+                            target: swapTarget,
                             swap: 'innerHTML'
                         }).then(() => {
                             console.log(clergyId ? 'Form loaded for clergy: ' + clergyId : 'Empty form loaded');
@@ -1265,11 +1209,11 @@
                             reject(error);
                         });
                     } else {
-                        // Fallback: clergyFormContainer missing (e.g. direct nav) — load full clergy-form first (includes overlay), then loader's hx-trigger="load" fetches form content
-                        rightPanelContent.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading form...</div>';
+                        // Fallback: loader missing (e.g. direct nav) — load full clergy-form first, then loader's hx-trigger="load" fetches form content
+                        swapTarget.innerHTML = '<div class="loading-placeholder"><div class="loading-spinner"></div>Loading form...</div>';
                         const formPanelUrl = clergyId ? `/editor/clergy-form/${clergyId}` : '/editor/clergy-form';
                         htmx.ajax('GET', formPanelUrl, {
-                            target: rightPanelContent,
+                            target: swapTarget,
                             swap: 'innerHTML'
                         }).then(() => {
                             console.log('Clergy form panel loaded; form content will load via hx-trigger');
@@ -1412,6 +1356,7 @@
         // Make selectClergy and clearGlobalFormState globally available
         window.selectClergy = selectClergy;
         window.clearGlobalFormState = clearGlobalFormState;
+        window.getClergyFormSwapTarget = getClergyFormSwapTarget;
         window.softRefreshVisualization = softRefreshVisualization;
 
         // Status bar functionality
@@ -1498,29 +1443,6 @@
             });
         });
 
-        // Update status bar when clergy data changes
-        document.body.addEventListener('htmx:afterRequest', function (evt) {
-            // Check if this was a clergy-related operation
-            const isClergyAPI = evt.detail.xhr && evt.detail.xhr.responseURL && (
-                evt.detail.xhr.responseURL.includes('/clergy/add') ||
-                evt.detail.xhr.responseURL.includes('/clergy/edit') ||
-                evt.detail.xhr.responseURL.includes('/clergy/delete')
-            );
-
-            if (isClergyAPI) {
-                // Update clergy count after clergy changes
-                setTimeout(() => {
-                    fetch('/api/stats/clergy-count')
-                        .then(response => response.json())
-                        .then(data => {
-                            document.getElementById('clergy-count').textContent = data.count || 0;
-                        })
-                        .catch(error => {
-                            console.error('Failed to update clergy count:', error);
-                        });
-                }, 500);
-            }
-        });
     </script>
 
     {% block extra_scripts %}{% endblock %}
@@ -1829,56 +1751,37 @@
                     console.error('Error switching to chapel list:', error);
                 });
 
-                // Add timeout to detect if request hangs
-                const timeoutId = setTimeout(() => {
-                    console.error('Chapel form request timed out after 5 seconds');
-                }, 5000);
+                htmx.ajax('GET', '/editor/chapel-form', {
+                    target: rightPanel,
+                    swap: 'innerHTML'
+                }).then(() => {
+                    rightPanel.removeAttribute('hx-trigger');
+                    rightPanel.removeAttribute('hx-get');
 
-                // Try using fetch instead of htmx.ajax
-                fetch('/editor/chapel-form')
-                    .then(response => {
-
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        return response.text();
-                    })
-                    .then(html => {
-                        clearTimeout(timeoutId);
-                        rightPanel.innerHTML = html;
-                        // Remove the hx-trigger attribute to prevent auto-loading
-                        rightPanel.removeAttribute('hx-trigger');
-                        rightPanel.removeAttribute('hx-get');
-
-                        // Trigger location form initialization after a short delay
-                        setTimeout(function () {
-                            if (typeof initializeLocationForm === 'function') {
-                                if (initializeLocationForm() || (typeof checkForLocationForms === 'function' && checkForLocationForms())) {
-                                } else {
-                                }
+                    setTimeout(function () {
+                        if (typeof initializeLocationForm === 'function') {
+                            if (initializeLocationForm() || (typeof checkForLocationForms === 'function' && checkForLocationForms())) {
                             } else {
-                                // Retry a few times
-                                let retries = 0;
-                                const maxRetries = 10;
-                                const retryInterval = setInterval(function () {
-                                    retries++;
-                                    if (typeof initializeLocationForm === 'function') {
-                                        if (initializeLocationForm() || (typeof checkForLocationForms === 'function' && checkForLocationForms())) {
-                                            clearInterval(retryInterval);
-                                        }
-                                    } else if (retries >= maxRetries) {
-                                        console.error('initializeLocationForm function not found after', maxRetries, 'retries');
+                            }
+                        } else {
+                            let retries = 0;
+                            const maxRetries = 10;
+                            const retryInterval = setInterval(function () {
+                                retries++;
+                                if (typeof initializeLocationForm === 'function') {
+                                    if (initializeLocationForm() || (typeof checkForLocationForms === 'function' && checkForLocationForms())) {
                                         clearInterval(retryInterval);
                                     }
-                                }, 100);
-                            }
-                        }, 500);
-                    })
-                    .catch(error => {
-                        clearTimeout(timeoutId);
-                        console.error('Error switching to chapel form:', error);
-                        console.error('Error details:', error.message, error.stack);
-                    });
+                                } else if (retries >= maxRetries) {
+                                    console.error('initializeLocationForm function not found after', maxRetries, 'retries');
+                                    clearInterval(retryInterval);
+                                }
+                            }, 100);
+                        }
+                    }, 500);
+                }).catch(error => {
+                    console.error('Error switching to chapel form:', error);
+                });
 
                 // Load globe view content
                 htmx.ajax('GET', '/editor/globe-view', {

@@ -502,7 +502,7 @@ window.handleLocationFormSubmit = function(event) {
             .catch(error => {
                 console.error('Error creating pastor:', error);
                 showErrorMessage(`Error creating pastor record: ${error.message}`);
-                resetSubmitButton(submitButton, originalText);
+                resetLocationFormSubmitButton(submitButton, originalText);
             });
     } else {
         // No pastor to check, submit directly
@@ -560,8 +560,8 @@ function checkAndCreatePastor(pastorName) {
     });
 }
 
-// Function to reset submit button
-function resetSubmitButton(button, originalText) {
+// Function to reset location form submit button (avoids shadowing window.resetSubmitButton from clergy form)
+function resetLocationFormSubmitButton(button, originalText) {
     button.textContent = originalText;
     button.disabled = false;
 }

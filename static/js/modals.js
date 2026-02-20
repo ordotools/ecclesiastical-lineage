@@ -351,6 +351,9 @@ function cleanupModalBackdrop() {
 
 // Global event listener to clean up modal backdrop when modals are closed
 document.addEventListener('hidden.bs.modal', function(event) {
+  if (event.target.id === 'clergyFormModal') {
+    window.clergyFormGlobals?.clear();
+  }
   // Clean up any lingering backdrop after modal is fully hidden
   setTimeout(() => {
     cleanupModalBackdrop();

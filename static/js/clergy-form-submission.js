@@ -206,7 +206,7 @@ window.submitForm = function(form) {
                 }
             };
             
-            if (isEditorContext && typeof window.submitFormWithData === 'function') {
+            if (isEditorContext) {
                 if (data.clergy_id && typeof window.softUpdateClergyListItem === 'function') {
                     window.softUpdateClergyListItem(data.clergy_id);
                 }

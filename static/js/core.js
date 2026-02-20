@@ -17,7 +17,6 @@ import {
   ZOOM_LEVEL_MEDIUM,
   ZOOM_LEVEL_SMALL
 } from './constants.js';
-import { handleNodeClick } from './modals.js';
 import { applyPriestFilter, updateTimelinePositions, applyBackboneOnlyFilter } from './filters.js';
 import { renderStatusBadges } from './statusBadges.js';
 
@@ -590,7 +589,14 @@ export async function initializeVisualization() {
     .call(d3.drag()
       .on('start', dragstarted)
       .on('drag', dragged)
-      .on('end', dragended));
+      .on('end', dragended))
+    .on('mouseover', function(event, d) {
+      if (d.filtered) return;
+      import('./highlightLineage.js').then(({ highlightLineageChain }) => highlightLineageChain(d));
+    })
+    .on('mouseout', function() {
+      import('./highlightLineage.js').then(({ clearHighlight }) => clearHighlight());
+    });
 
   // Add node shapes (circle or square based on consecration year or lineage root)
   node.append('circle')
@@ -983,13 +989,7 @@ export async function initializeVisualization() {
     if (!event.active) {
       if (wasQuickClick) {
         // For quick clicks, stop the simulation immediately
-        // (it was started in dragstarted but we need to stop it now)
         simulation.alphaTarget(0);
-        
-        // Handle the click without affecting simulation further
-        setTimeout(() => {
-          handleNodeClick(event, d);
-        }, 50);
       } else {
         // For actual drags, ease off the simulation gradually
         // Gradually reduce alphaTarget to 0 over configured duration

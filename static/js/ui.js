@@ -394,7 +394,6 @@ export function initializeFilterMenu() {
     const organizationsBtn = document.getElementById('organizations-dropdown-btn');
     const organizationsMenu = document.getElementById('organizations-dropdown-menu');
     const viewPriestsToggle = document.getElementById('view-priests-toggle');
-    const highlightLineageToggle = document.getElementById('highlight-lineage-toggle');
 
     // If elements don't exist yet, try again after a short delay
     if (!organizationsBtn || !organizationsMenu || !viewPriestsToggle) {
@@ -403,13 +402,13 @@ export function initializeFilterMenu() {
     }
 
     // Continue with initialization
-    initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriestsToggle, highlightLineageToggle);
+    initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriestsToggle);
   };
 
   tryInit();
 }
 
-function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriestsToggle, highlightLineageToggle) {
+function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriestsToggle) {
 
   // Initialize organizations dropdown
   if (organizationsBtn && organizationsMenu) {
@@ -545,24 +544,6 @@ function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriests
   } else {
     console.warn('View priests toggle not found');
   }
-
-  // Initialize highlight lineage toggle
-  if (highlightLineageToggle) {
-    import('./highlightLineage.js').then(({ setHighlightMode, clearHighlight }) => {
-      highlightLineageToggle.addEventListener('change', (e) => {
-        const enabled = e.target.checked;
-        setHighlightMode(enabled);
-        if (!enabled) {
-          clearHighlight();
-        }
-      });
-    }).catch(error => {
-      console.error('Error importing highlightLineage module:', error);
-    });
-  } else {
-    console.warn('Highlight lineage toggle not found');
-  }
-  
 }
 
 // Initialize all UI components

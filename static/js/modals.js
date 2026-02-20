@@ -3,50 +3,16 @@ import { showNotification, showLoadingSpinner, hideLoadingSpinner, getCurrentCle
 // DISABLED: setClergyInfoViewDistance - not used, was causing graph to shift
 // import { setClergyInfoViewDistance } from './core.js';
 import { setModalState, getModalState } from './ui.js';
-import { createClergyWindow, updateWindowContent, bringToFront } from './clergyWindows.js';
 
-// Node click handler function
+// Node click handler - used by search and clergy links. Highlights lineage (and optionally centers).
 export async function handleNodeClick(event, d) {
-  // Prevent click if node is filtered
-  if (d.filtered) return;
-  
-  // Check if highlight mode is enabled
+  if (!d || d.filtered) return;
   try {
-    const { isHighlightMode, highlightLineageChain } = await import('./highlightLineage.js');
-    if (isHighlightMode()) {
-      // Highlight the lineage chain
-      highlightLineageChain(d);
-      return; // Don't show panel in highlight mode
-    }
+    const { highlightLineageChain } = await import('./highlightLineage.js');
+    highlightLineageChain(d);
   } catch (error) {
     console.error('Error importing highlightLineage module:', error);
   }
-  
-  // Store current clergy ID for relationship loading
-  window.currentClergyId = d.id;
-  
-  // Create or bring to front draggable window
-  const { getWindow } = await import('./clergyWindows.js');
-  let windowElement = getWindow(d.id);
-  
-  if (windowElement) {
-    // Window already exists, bring to front
-    bringToFront(d.id);
-  } else {
-    // Create new window
-    windowElement = createClergyWindow(d);
-  }
-  
-  // Store node data on window for later use
-  if (windowElement) {
-    windowElement.currentNodeData = d;
-  }
-  
-  // Update window content with node data
-  updateWindowContent(d.id, d, null);
-  
-  // Load clergy relationships
-  loadClergyRelationships(d.id);
 }
 
 // Function to center a node in the viewport when the aside panel is displayed

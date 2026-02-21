@@ -16,6 +16,15 @@ const HIGHLIGHT_STROKE_WIDTH = 4;
 // Store original marker-end values for links
 const originalMarkerEnds = new Map();
 
+/** Normalize link data for both force-directed (d.source.id) and tree (d.source.data.id) formats. */
+function getLinkIdsAndType(d) {
+  if (!d || !d.source || !d.target) return null;
+  const sourceId = d.source?.data?.id ?? d.source?.id;
+  const targetId = d.target?.data?.id ?? d.target?.id;
+  const linkType = d.target?.data?.parentLinkType ?? d.type ?? 'consecration';
+  return { sourceId, targetId, linkType };
+}
+
 /**
  * Enable or disable highlight mode
  */
@@ -61,35 +70,47 @@ export function clearHighlight() {
     }
   }
 
-  // Remove highlight from all links
+  // Remove highlight from all links (both line and path, e.g. tree)
   const svg2 = d3.select('#graph-container svg');
   if (!svg2.empty()) {
     const container2 = svg2.select('g');
     if (!container2.empty()) {
-      container2.selectAll('line.viz-link').each(function(d) {
+      container2.selectAll('.viz-link').each(function(d) {
         if (d) {
-          const lineElement = d3.select(this);
-          
-          // Restore original marker-end if it was stored
-          const originalMarker = originalMarkerEnds.get(this);
-          if (originalMarker) {
-            lineElement.attr('marker-end', originalMarker);
-            originalMarkerEnds.delete(this);
+          const linkElement = d3.select(this);
+          const norm = getLinkIdsAndType(d);
+          const linkType = norm ? norm.linkType : (d.type ?? 'consecration');
+          const isPath = this.tagName && this.tagName.toLowerCase() === 'path';
+
+          if (isPath) {
+            // Tree links: no arrowheads; remove marker-end if we added it
+            const originalMarker = originalMarkerEnds.get(this);
+            if (originalMarker) {
+              linkElement.attr('marker-end', originalMarker);
+              originalMarkerEnds.delete(this);
+            } else {
+              linkElement.attr('marker-end', null);
+            }
           } else {
-            // Restore marker-end based on link type (not color, for consistency with CSS variables)
-            const markerId = (d.type === 'ordination')
-              ? 'url(#arrowhead-black)' 
-              : 'url(#arrowhead-green)';
-            lineElement.attr('marker-end', markerId);
+            // Force-directed (line): restore marker-end
+            const originalMarker = originalMarkerEnds.get(this);
+            if (originalMarker) {
+              linkElement.attr('marker-end', originalMarker);
+              originalMarkerEnds.delete(this);
+            } else {
+              const markerId = (linkType === 'ordination')
+                ? 'url(#arrowhead-black)'
+                : 'url(#arrowhead-green)';
+              linkElement.attr('marker-end', markerId);
+            }
           }
-          
-          // Restore stroke color from CSS variables based on link type
+
           const rootStyles = getComputedStyle(document.documentElement);
           const cssLinkOrdinationColor = rootStyles.getPropertyValue('--viz-link-ordination-color').trim() || BLACK_COLOR;
           const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR;
-          const restoreColor = (d.type === 'ordination') ? cssLinkOrdinationColor : cssLinkConsecrationColor;
-          
-          lineElement
+          const restoreColor = (linkType === 'ordination') ? cssLinkOrdinationColor : cssLinkConsecrationColor;
+
+          linkElement
             .attr('stroke-width', parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width')) || 3)
             .attr('stroke', restoreColor)
             .style('filter', null);
@@ -195,44 +216,37 @@ function ensureYellowArrowheadMarker() {
  */
 function highlightLink(sourceId, targetId, linkType) {
   if (!sourceId || !targetId) return;
-  
-  // Ensure yellow arrowhead marker exists
-  ensureYellowArrowheadMarker();
-  
+
   const linkKey = `${sourceId}-${targetId}-${linkType}`;
   highlightedLinks.add(linkKey);
-  
-  // Find and highlight the link
+
   const svg = d3.select('#graph-container svg');
   if (svg.empty()) return;
-  
+
   const container = svg.select('g'); // The zoom container
   if (container.empty()) return;
-  
-  const links = container.selectAll('line.viz-link');
+
+  const links = container.selectAll('.viz-link');
   links.each(function(d) {
-    if (d && d.source && d.target) {
-      const linkSourceId = typeof d.source === 'object' ? d.source.id : d.source;
-      const linkTargetId = typeof d.target === 'object' ? d.target.id : d.target;
-      
-      if (linkSourceId === sourceId && linkTargetId === targetId && d.type === linkType) {
-        const lineElement = d3.select(this);
-        
-        // Store original marker-end if not already stored
-        const lineNode = this;
-        if (!originalMarkerEnds.has(lineNode)) {
-          const originalMarker = lineElement.attr('marker-end');
-          originalMarkerEnds.set(lineNode, originalMarker);
-        }
-        
-        // Highlight the link and change arrowhead to yellow
-        lineElement
-          .attr('stroke-width', HIGHLIGHT_STROKE_WIDTH)
-          .attr('stroke', HIGHLIGHT_COLOR)
-          .attr('marker-end', 'url(#arrowhead-yellow)')
-          .style('filter', `drop-shadow(0 0 ${HIGHLIGHT_GLOW_RADIUS}px ${HIGHLIGHT_COLOR})`);
+    const norm = getLinkIdsAndType(d);
+    if (!norm || norm.sourceId !== sourceId || norm.targetId !== targetId || norm.linkType !== linkType) return;
+
+    const linkElement = d3.select(this);
+    const isPath = this.tagName && this.tagName.toLowerCase() === 'path';
+
+    if (!isPath) {
+      ensureYellowArrowheadMarker();
+      const linkNode = this;
+      if (!originalMarkerEnds.has(linkNode)) {
+        originalMarkerEnds.set(linkNode, linkElement.attr('marker-end'));
       }
+      linkElement.attr('marker-end', 'url(#arrowhead-yellow)');
     }
+
+    linkElement
+      .attr('stroke-width', HIGHLIGHT_STROKE_WIDTH)
+      .attr('stroke', HIGHLIGHT_COLOR)
+      .style('filter', `drop-shadow(0 0 ${HIGHLIGHT_GLOW_RADIUS}px ${HIGHLIGHT_COLOR})`);
   });
 }
 

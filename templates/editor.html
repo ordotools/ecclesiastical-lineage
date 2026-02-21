@@ -1598,6 +1598,18 @@
             color: rgba(255, 255, 255, 0.9);
         }
 
+        /* Metadata management: modal body does not scroll; lists scroll inside */
+        #metadata-management-content {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #metadata-management-content .metadata-management-content {
+            flex: 1;
+            min-height: 0;
+        }
+
         /* Modal scrollbar styling - unified with panel-content */
         .modal-body::-webkit-scrollbar {
             width: 4px;

@@ -253,6 +253,9 @@
 
             <!-- Form Actions -->
             <div class="form-actions">
+                <button type="button" class="btn-metadata-management" onclick="window.openMetadataManagementModal?.()" title="Manage Metadata">
+                    <i class="fas fa-cog"></i> Manage Metadata
+                </button>
                 <a href="{{ url_for('clergy.clergy_list') }}" id="cancel-btn" class="btn-cancel">
                     <i class="fas fa-times"></i> Cancel
                 </a>
@@ -1457,7 +1460,9 @@ if (!window.clergyFormEventListenersAttached) {
 
 // Placeholder for organization modal
 function showOrganizationModal() {
-    alert('Organization management coming soon...');
+    if (typeof window.openMetadataManagementModal === 'function') {
+        window.openMetadataManagementModal();
+    }
 }
 
 // Initialize clergy autocomplete functionality

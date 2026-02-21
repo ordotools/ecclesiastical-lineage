@@ -543,6 +543,28 @@
     z-index: 10 !important;
 }
 
+.right-panel .panel-content .form-actions .btn-metadata-management {
+    margin-right: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 0.5em 1em !important;
+    border: 1px solid var(--editor-border-color-medium) !important;
+    background: var(--editor-bg-hover) !important;
+    border-radius: var(--editor-radius-m) !important;
+    color: var(--editor-text-primary) !important;
+    font-size: var(--editor-font-m) !important;
+    cursor: pointer !important;
+}
+
+.right-panel .panel-content .form-actions .btn-metadata-management:hover {
+    background: var(--editor-bg-active) !important;
+    border-color: var(--editor-border-color-strong) !important;
+}
+
+.right-panel .panel-content .form-actions .btn-metadata-management i {
+    margin-right: 0.5em !important;
+}
+
 .right-panel .panel-content .form-actions a#cancel-btn,
 .right-panel .panel-content .form-actions .btn-cancel {
     display: inline-flex !important;

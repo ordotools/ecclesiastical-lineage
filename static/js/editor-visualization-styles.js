@@ -228,12 +228,6 @@ class VisualizationStyleController {
         if (resetBtn) {
             resetBtn.addEventListener('click', () => this.resetStyles());
         }
-        
-        // Metadata management modal
-        const metadataToggle = document.getElementById('viz-metadata-toggle');
-        if (metadataToggle) {
-            metadataToggle.addEventListener('click', () => window.openMetadataManagementModal?.());
-        }
     }
     
     togglePanel() {

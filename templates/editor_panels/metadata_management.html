@@ -5,108 +5,77 @@
     <p>Manage ranks, organizations, and other metadata</p>
   </div>
 
+  <div class="metadata-management-layout">
+    <!-- Left panel (2/3): Ranks + Organizations -->
+    <div class="metadata-left-panel">
   <!-- Ranks Management -->
-  <div class="metadata-section">
+  <div class="metadata-section metadata-section-scrollable">
     <div class="section-header">
       <h5>Ranks</h5>
       <button class="btn btn-primary btn-sm" onclick="showAddRankForm()">
         <i class="fas fa-plus"></i> Add Rank
       </button>
     </div>
-    
-    <div class="metadata-table-container">
-      <table class="metadata-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Color</th>
-            <th>Is Bishop</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for rank in ranks %}
-          <tr>
-            <td>{{ rank.name }}</td>
-            <td>{{ rank.description or '-' }}</td>
-            <td>
-              <div class="color-preview" style="background-color: {{ rank.color }}"></div>
-              {{ rank.color }}
-            </td>
-            <td>
-              <span class="status-badge {{ 'active' if rank.is_bishop else 'inactive' }}">
-                {{ 'Yes' if rank.is_bishop else 'No' }}
-              </span>
-            </td>
-            <td>
-              <div class="action-buttons">
-                <button class="btn btn-sm btn-outline-primary" onclick="editRank({{ rank.id }})">
-                  <i class="fas fa-edit"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteRank({{ rank.id }})">
-                  <i class="fas fa-trash"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="metadata-list-container">
+      {% for rank in ranks %}
+      <div class="metadata-list-item">
+        <div class="metadata-item-color" style="background: {{ rank.color or '#3498db' }}"></div>
+        <span class="metadata-item-label">{{ rank.name }}</span>
+        {% if rank.is_bishop %}<span class="metadata-item-badge">B</span>{% endif %}
+        <div class="metadata-item-actions">
+          <button class="btn btn-sm btn-outline-primary" onclick="editRank({{ rank.id }})" title="Edit">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteRank({{ rank.id }})" title="Delete">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      {% endfor %}
     </div>
   </div>
 
   <!-- Organizations Management -->
-  <div class="metadata-section">
+  <div class="metadata-section metadata-section-scrollable">
     <div class="section-header">
       <h5>Organizations</h5>
       <button class="btn btn-primary btn-sm" onclick="showAddOrganizationForm()">
         <i class="fas fa-plus"></i> Add Organization
       </button>
     </div>
-    
-    <div class="metadata-table-container">
-      <table class="metadata-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Color</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for org in organizations %}
-          <tr>
-            <td>{{ org.name }}</td>
-            <td>{{ org.description or '-' }}</td>
-            <td>
-              <div class="color-preview" style="background-color: {{ org.color }}"></div>
-              {{ org.color }}
-            </td>
-            <td>
-              <div class="action-buttons">
-                <button class="btn btn-sm btn-outline-primary" onclick="editOrganization({{ org.id }})">
-                  <i class="fas fa-edit"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteOrganization({{ org.id }})">
-                  <i class="fas fa-trash"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="metadata-list-container">
+      {% for org in organizations %}
+      <div class="metadata-list-item">
+        <div class="metadata-item-color" style="background: {{ org.color or '#2ecc71' }}"></div>
+        <div class="metadata-item-label-wrap" style="min-width: 0; flex: 1;">
+          <span class="metadata-item-label">{{ org.name }}</span>
+          {% if org.abbreviation %}<span class="metadata-item-abbr">{{ org.abbreviation }}</span>{% endif %}
+        </div>
+        <div class="metadata-item-actions">
+          <button class="btn btn-sm btn-outline-primary" onclick="editOrganization({{ org.id }})" title="Edit">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteOrganization({{ org.id }})" title="Delete">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      {% endfor %}
     </div>
   </div>
+    </div><!-- /.metadata-left-panel -->
 
+    <!-- Right panel (1/3): Add/Edit Form -->
+    <div class="metadata-right-panel">
+  <div id="metadata-form-placeholder" class="metadata-form-placeholder">
+    Click <strong>Add Rank</strong> or <strong>Add Organization</strong> to continue.
+  </div>
   <!-- Add/Edit Forms (Hidden by default) -->
   <div id="rank-form-section" class="form-section" style="display: none;">
     <div class="section-header">
       <h5 id="rank-form-title">Add New Rank</h5>
-      <button class="btn btn-outline-secondary btn-sm" onclick="hideRankForm()">
-        <i class="fas fa-times"></i> Cancel
+      <!-- <button class="btn btn-outline-secondary btn-sm" onclick="hideRankForm()"> -->
+        <!-- <i class="fas fa-times"></i> Cancel -->
       </button>
     </div>
     
@@ -136,11 +105,11 @@
       </div>
       
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">
-          <i class="fas fa-save"></i> Save Rank
-        </button>
         <button type="button" class="btn btn-outline-secondary" onclick="hideRankForm()">
           Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save"></i> Save Rank
         </button>
       </div>
     </form>
@@ -149,8 +118,8 @@
   <div id="organization-form-section" class="form-section" style="display: none;">
     <div class="section-header">
       <h5 id="organization-form-title">Add New Organization</h5>
-      <button class="btn btn-outline-secondary btn-sm" onclick="hideOrganizationForm()">
-        <i class="fas fa-times"></i> Cancel
+      <!-- <button class="btn btn-outline-secondary btn-sm" onclick="hideOrganizationForm()"> -->
+        <!-- <i class="fas fa-times"></i> Cancel -->
       </button>
     </div>
     
@@ -176,20 +145,49 @@
       </div>
       
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">
-          <i class="fas fa-save"></i> Save Organization
-        </button>
         <button type="button" class="btn btn-outline-secondary" onclick="hideOrganizationForm()">
           Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save"></i> Save Organization
         </button>
       </div>
     </form>
   </div>
+    </div><!-- /.metadata-right-panel -->
+  </div><!-- /.metadata-management-layout -->
 </div>
 
 <style>
   .metadata-management-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
     color: rgba(255, 255, 255, 0.9);
+  }
+
+  .metadata-management-layout {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    overflow: hidden;
+  }
+
+  .metadata-left-panel {
+    flex: 2;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .metadata-right-panel {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    padding-left: 1rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .management-header {
@@ -211,14 +209,26 @@
   }
 
   .metadata-section {
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .metadata-section-scrollable {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .metadata-section-scrollable .section-header {
+    flex-shrink: 0;
   }
 
   .section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
   }
 
   .section-header h5 {
@@ -227,41 +237,78 @@
     color: rgba(255, 255, 255, 0.8);
   }
 
-  .metadata-table-container {
+  .metadata-list-container {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 6px;
-    overflow: hidden;
   }
 
-  .metadata-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .metadata-table th,
-  .metadata-table td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .metadata-table th {
-    background: rgba(255, 255, 255, 0.1);
-    font-weight: 600;
-    font-size: 0.85em;
-    color: rgba(255, 255, 255, 0.8);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .metadata-table td {
+  .metadata-list-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     font-size: 0.9em;
+  }
+
+  .metadata-list-item:last-child {
+    border-bottom: none;
+  }
+
+  .metadata-list-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .metadata-management-content .metadata-item-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .metadata-management-content .metadata-item-label {
+    color: rgba(255, 255, 255, 0.9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .metadata-item-label-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .metadata-item-label-wrap .metadata-item-label {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .metadata-item-abbr {
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .metadata-item-badge {
+    padding: 0.1em 0.35em;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    font-size: 0.75em;
+    font-weight: 600;
     color: rgba(255, 255, 255, 0.9);
   }
 
-  .metadata-table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.05);
+  .metadata-item-actions {
+    display: flex;
+    gap: 0.25rem;
+    margin-left: auto;
+    flex-shrink: 0;
   }
 
   .color-preview {
@@ -272,31 +319,6 @@
     border: 1px solid rgba(255, 255, 255, 0.2);
     margin-right: 0.5rem;
     vertical-align: middle;
-  }
-
-  .status-badge {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75em;
-    font-weight: 500;
-  }
-
-  .status-badge.active {
-    background: rgba(34, 197, 94, 0.2);
-    color: rgba(34, 197, 94, 1);
-    border: 1px solid rgba(34, 197, 94, 0.3);
-  }
-
-  .status-badge.inactive {
-    background: rgba(239, 68, 68, 0.2);
-    color: rgba(239, 68, 68, 1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-  }
-
-  .action-buttons {
-    display: flex;
-    gap: 0.5rem;
   }
 
   .btn {
@@ -358,138 +380,238 @@
     background: rgba(239, 68, 68, 0.1);
   }
 
-  .form-section {
-    margin-top: 2rem;
-    padding-top: 2rem;
+  /* Metadata form: clergy-form equivalent styles (scoped) */
+  .metadata-right-panel .form-section {
+    margin-top: 0.75em;
+    padding-top: 0.75em;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .metadata-right-panel .form-section h5 {
+    font-size: 0.9em;
+    margin-bottom: 0.4em;
   }
 
   .metadata-form {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 6px;
-    padding: 1.5rem;
+    padding: 0.75em;
   }
 
-  .form-row {
+  .metadata-form .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .form-group {
-    margin-bottom: 1rem;
-  }
-
-  .form-group label {
-    display: block;
+    gap: 0.5rem;
     margin-bottom: 0.5rem;
-    font-size: 0.85em;
-    color: rgba(255, 255, 255, 0.8);
-    font-weight: 500;
   }
 
-  .form-group input,
-  .form-group textarea,
-  .form-group select {
+  .metadata-form .form-group {
+    margin-bottom: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .metadata-form .form-group label,
+  .metadata-form .form-label {
+    font-size: 0.8em;
+    margin-bottom: 0.25em;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+    display: block;
+  }
+
+  .metadata-form .form-group input,
+  .metadata-form .form-group textarea,
+  .metadata-form .form-group select {
     width: 100%;
-    padding: 0.5rem;
+    font-size: 0.85em;
+    padding: 0.4em;
+    border-radius: 3px;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
     color: rgba(255, 255, 255, 0.9);
-    font-size: 0.9em;
+    box-sizing: border-box;
   }
 
-  .form-group input:focus,
-  .form-group textarea:focus,
-  .form-group select:focus {
+  .metadata-form .form-group textarea {
+    min-height: 60px;
+    resize: vertical;
+  }
+
+  .metadata-form .form-group input:focus,
+  .metadata-form .form-group textarea:focus,
+  .metadata-form .form-group select:focus {
     outline: none;
     border-color: rgba(59, 130, 246, 0.5);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
   }
 
-  .color-picker {
-    width: 2.5rem; /* Square button */
-    height: 2.5rem; /* Same height as text inputs */
+  .metadata-form .color-picker {
+    width: 2.5rem;
+    height: 2.5rem;
     padding: 0;
     margin: 0;
     border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 6px; /* Slightly rounded for button appearance */
+    border-radius: 3px;
     background: transparent;
     cursor: pointer;
     overflow: hidden;
   }
 
-  .color-picker::-webkit-color-swatch-wrapper {
+  .metadata-form .color-picker::-webkit-color-swatch-wrapper {
     padding: 0;
     margin: 0;
     border: none;
-    border-radius: 4px;
+    border-radius: 2px;
     overflow: hidden;
   }
 
-  .color-picker::-webkit-color-swatch {
+  .metadata-form .color-picker::-webkit-color-swatch {
     border: none;
-    border-radius: 4px;
+    border-radius: 2px;
     width: 100%;
     height: 100%;
     padding: 0;
     margin: 0;
   }
 
-  /* Firefox color picker styling */
-  .color-picker::-moz-color-swatch {
+  .metadata-form .color-picker::-moz-color-swatch {
     border: none;
-    border-radius: 4px;
+    border-radius: 2px;
     width: 100%;
     height: 100%;
   }
 
-  .checkbox-label {
+  .metadata-form .checkbox-label {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
-    font-size: 0.9em;
+    font-size: 0.8em;
     color: rgba(255, 255, 255, 0.8);
   }
 
-  .checkbox-label input[type="checkbox"] {
+  .metadata-form .checkbox-label input[type="checkbox"] {
     width: auto;
     margin: 0;
   }
 
-  .form-actions {
+  /* Match clergy_form form-actions: border, compact padding, no extra background */
+  .metadata-form .form-actions {
     display: flex;
-    gap: 1rem;
-    margin-top: 1.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1em;
+    padding-top: 0.75em;
+    border-top: 1px solid var(--editor-border-color-medium, rgba(255, 255, 255, 0.2));
+    overflow: visible;
+    background: transparent !important;
+  }
+
+  .metadata-form .form-actions button,
+  .metadata-form .form-actions a {
+    font-size: 0.85em;
+    padding: 0.5em 1em;
+  }
+
+  .metadata-form .form-actions button[type="submit"] {
+    overflow: visible;
+    white-space: nowrap;
+    min-width: 0;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .metadata-right-panel button {
+    font-size: 0.8em;
+  }
+
+  .metadata-right-panel button:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .metadata-form-placeholder {
+    padding: 1rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.9em;
+    text-align: center;
   }
 
   @media (max-width: 768px) {
-    .form-row {
+    .metadata-form .form-row {
       grid-template-columns: 1fr;
-    }
-    
-    .metadata-table-container {
-      overflow-x: auto;
-    }
-    
-    .action-buttons {
-      flex-direction: column;
     }
   }
 </style>
 
 <script>
+  (function() {
+    var existingOrgColors = {{ organizations | map(attribute='color') | list | tojson }};
+    window.METADATA_EXISTING_ORG_COLORS = Array.isArray(existingOrgColors) ? existingOrgColors : [];
+  })();
+
+  function hexToHue(hex) {
+    if (!hex || typeof hex !== 'string') return null;
+    hex = hex.replace(/^#/, '');
+    if (!/^[0-9A-Fa-f]{6}$/.test(hex) && !/^[0-9A-Fa-f]{3}$/.test(hex)) return null;
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var r = parseInt(hex.slice(0,2), 16) / 255, g = parseInt(hex.slice(2,4), 16) / 255, b = parseInt(hex.slice(4,6), 16) / 255;
+    var max = Math.max(r,g,b), min = Math.min(r,g,b), d = max - min, l = (max + min) / 2;
+    if (d === 0) return 0;
+    var h;
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+    return Math.round(h * 360) % 360;
+  }
+
+  function hslToHex(h, s, l) {
+    h = h / 360; s = s / 100; l = l / 100;
+    var r, g, b;
+    if (s === 0) r = g = b = l;
+    else {
+      var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      var p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1/3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1/3);
+    }
+    function hue2rgb(p, q, t) {
+      if (t < 0) t += 1; if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    }
+    return '#' + [r,g,b].map(function(x) { var n = Math.round(x * 255).toString(16); return n.length === 1 ? '0' + n : n; }).join('');
+  }
+
+  function suggestOrganizationColor(existingColors) {
+    var HUES = [0, 30, 60, 120, 180, 210, 270, 300];
+    var S = 70, L = 50;
+    var existingHues = (existingColors || []).map(hexToHue).filter(function(h) { return h != null; });
+    if (existingHues.length === 0) return hslToHex(HUES[0], S, L);
+    function angularDist(a, b) {
+      var d = Math.abs(a - b) % 360;
+      return Math.min(d, 360 - d);
+    }
+    var bestHue = HUES[0], bestMinDist = -1;
+    for (var i = 0; i < HUES.length; i++) {
+      var minDist = Math.min.apply(null, existingHues.map(function(eh) { return angularDist(HUES[i], eh); }));
+      if (minDist > bestMinDist) { bestMinDist = minDist; bestHue = HUES[i]; }
+    }
+    return hslToHex(bestHue, S, L);
+  }
+
   function showAddRankForm() {
     const formSection = document.getElementById('rank-form-section');
     const formTitle = document.getElementById('rank-form-title');
     const form = document.getElementById('rank-form');
-    
+    const placeholder = document.getElementById('metadata-form-placeholder');
+    if (placeholder) placeholder.style.display = 'none';
     formTitle.textContent = 'Add New Rank';
     form.reset();
     delete form.dataset.editId; // Clear edit mode
@@ -499,22 +621,34 @@
 
   function hideRankForm() {
     document.getElementById('rank-form-section').style.display = 'none';
+    if (document.getElementById('organization-form-section').style.display === 'none') {
+      const placeholder = document.getElementById('metadata-form-placeholder');
+      if (placeholder) placeholder.style.display = 'block';
+    }
   }
 
   function showAddOrganizationForm() {
     const formSection = document.getElementById('organization-form-section');
     const formTitle = document.getElementById('organization-form-title');
     const form = document.getElementById('organization-form');
-    
+    const placeholder = document.getElementById('metadata-form-placeholder');
+    if (placeholder) placeholder.style.display = 'none';
     formTitle.textContent = 'Add New Organization';
     form.reset();
     delete form.dataset.editId; // Clear edit mode
+    var suggested = suggestOrganizationColor(window.METADATA_EXISTING_ORG_COLORS || []);
+    var colorInput = document.getElementById('org_color');
+    if (colorInput) colorInput.value = suggested;
     formSection.style.display = 'block';
     document.getElementById('rank-form-section').style.display = 'none';
   }
 
   function hideOrganizationForm() {
     document.getElementById('organization-form-section').style.display = 'none';
+    if (document.getElementById('rank-form-section').style.display === 'none') {
+      const placeholder = document.getElementById('metadata-form-placeholder');
+      if (placeholder) placeholder.style.display = 'block';
+    }
   }
 
   function editRank(rankId) {
@@ -593,9 +727,12 @@
       .then(data => {
         if (data.success) {
           showNotification(data.message, 'success');
-          // Reload both the modal content and the main metadata panel
+          // Reload modal content; refresh main metadata panel only if it exists
+          var metaTarget = document.getElementById('metadata-content');
+          if (metaTarget) {
+            htmx.ajax('GET', '/editor/metadata', {target: metaTarget});
+          }
           htmx.ajax('GET', '/editor/metadata-management', {target: '#metadata-management-content'});
-          htmx.ajax('GET', '/editor/metadata', {target: '#metadata-content'});
         } else {
           showNotification(data.message, 'error');
         }
@@ -683,9 +820,12 @@
       .then(data => {
         if (data.success) {
           showNotification(data.message, 'success');
-          // Reload both the modal content and the main metadata panel
+          // Reload modal content; refresh main metadata panel only if it exists
+          var metaTarget = document.getElementById('metadata-content');
+          if (metaTarget) {
+            htmx.ajax('GET', '/editor/metadata', {target: metaTarget});
+          }
           htmx.ajax('GET', '/editor/metadata-management', {target: '#metadata-management-content'});
-          htmx.ajax('GET', '/editor/metadata', {target: '#metadata-content'});
         } else {
           showNotification(data.message, 'error');
         }
@@ -720,9 +860,12 @@
       if (data.success) {
         showNotification(data.message, 'success');
         hideRankForm();
-        // Reload both the modal content and the main metadata panel
+        // Reload modal content; refresh main metadata panel only if it exists
+        var metaTarget = document.getElementById('metadata-content');
+        if (metaTarget) {
+          htmx.ajax('GET', '/editor/metadata', {target: metaTarget});
+        }
         htmx.ajax('GET', '/editor/metadata-management', {target: '#metadata-management-content'});
-        htmx.ajax('GET', '/editor/metadata', {target: '#metadata-content'});
       } else {
         showNotification(data.message, 'error');
       }
@@ -755,9 +898,12 @@
       if (data.success) {
         showNotification(data.message, 'success');
         hideOrganizationForm();
-        // Reload both the modal content and the main metadata panel
+        // Reload modal content; refresh main metadata panel only if it exists
+        var metaTarget = document.getElementById('metadata-content');
+        if (metaTarget) {
+          htmx.ajax('GET', '/editor/metadata', {target: metaTarget});
+        }
         htmx.ajax('GET', '/editor/metadata-management', {target: '#metadata-management-content'});
-        htmx.ajax('GET', '/editor/metadata', {target: '#metadata-content'});
       } else {
         showNotification(data.message, 'error');
       }

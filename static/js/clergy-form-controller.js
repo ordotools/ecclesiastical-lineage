@@ -997,24 +997,21 @@ document.addEventListener('htmx:afterSwap', function(event) {
     }
 });
 
-// Listen for Bootstrap modal events to re-initialize controller when modal is shown
+// Re-initialize controller when clergy form modal is shown (custom or Bootstrap)
+function onClergyModalShown() {
+    setTimeout(() => {
+        const form = document.getElementById('clergyForm');
+        if (form) {
+            clergyFormController = null;
+            window.clergyFormController = null;
+            initializeClergyFormController();
+        }
+    }, 100);
+}
 document.addEventListener('shown.bs.modal', function(event) {
-    
-    // Check if this is the clergy form modal
-    if (event.target.id === 'clergyFormModal') {
-        // Small delay to ensure content is loaded
-        setTimeout(() => {
-            const form = document.getElementById('clergyForm');
-            if (form) {
-                // Reset the controller and re-initialize
-                clergyFormController = null;
-                window.clergyFormController = null;
-                initializeClergyFormController();
-            } else {
-            }
-        }, 100);
-    }
+    if (event.target.id === 'clergyFormModal') onClergyModalShown();
 });
+document.addEventListener('clergyformmodal:shown', onClergyModalShown);
 
 // Public API functions for backward compatibility
 window.prefillClergyForm = function(clergyData) {

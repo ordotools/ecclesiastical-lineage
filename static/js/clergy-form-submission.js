@@ -245,15 +245,18 @@ window.submitForm = function(form) {
                 hideOverlayAndReset();
             }
             
-            const modal = bootstrap?.Modal?.getInstance(document.getElementById('clergyFormModal'));
-            if (modal) {
-                setTimeout(() => {
-                    modal.hide();
-                    if (typeof window.setModalState === 'function') {
-                        window.setModalState(false);
-                    }
-                }, 1000);
-            } else if (data.redirect) {
+            if (typeof window.hideClergyFormModal === 'function') {
+                setTimeout(window.hideClergyFormModal, 1000);
+            } else {
+                const modal = bootstrap?.Modal?.getInstance(document.getElementById('clergyFormModal'));
+                if (modal) {
+                    setTimeout(() => {
+                        modal.hide();
+                        if (typeof window.setModalState === 'function') window.setModalState(false);
+                    }, 1000);
+                }
+            }
+            if (data.redirect) {
                 setTimeout(() => {
                     window.location.href = data.redirect;
                 }, 1000);

@@ -5,7 +5,7 @@
  */
 (function (global) {
     const BLACK = '#0d0d0d';
-    const GREEN = '#056c1f';
+    const GREEN = '#0b9f2f';
     const NODE_R = 18;
     const LABEL_DY = 28;
     const PADDING = 28;

@@ -188,10 +188,10 @@ def lineage_visualization():
         user = None
         if 'user_id' in session:
             user = User.query.get(session['user_id'])
-        return render_template('lineage_visualization.html', nodes_json=nodes_json, links_json=links_json, user=user)
+        return render_template('main_viz.html', nodes_json=nodes_json, links_json=links_json, user=user)
     except Exception as e:
         current_app.logger.error(f"Error in lineage_visualization: {e}")
-        return render_template('lineage_visualization.html', nodes_json=json.dumps([]), links_json=json.dumps([]),
+        return render_template('main_viz.html', nodes_json=json.dumps([]), links_json=json.dumps([]),
                                error_message=f"Unable to load lineage data. Error: {str(e)}")
 
 

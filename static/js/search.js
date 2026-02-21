@@ -229,7 +229,7 @@ function handleOverlaySearchKeydown(event, resultsContainer) {
 
 // Display overlay search results
 function displayOverlaySearchResults(results, resultsContainer) {
-  const searchInputGroup = document.querySelector('.search-bar-input-group');
+  const searchInputGroup = document.querySelector('.main-ui-search-input-group');
   
   if (results.length === 0) {
     resultsContainer.innerHTML = '<div class="search-no-results">No clergy found</div>';
@@ -283,7 +283,7 @@ function displayOverlaySearchResults(results, resultsContainer) {
 
 // Hide overlay search results
 function hideOverlaySearchResults(resultsContainer) {
-  const searchInputGroup = document.querySelector('.search-bar-input-group');
+  const searchInputGroup = document.querySelector('.main-ui-search-input-group');
   
   // Remove has-dropdown class first to start reverse morphing
   if (searchInputGroup) {

@@ -3,10 +3,6 @@ import {
   LINK_DISTANCE, 
   CHARGE_STRENGTH, 
   COLLISION_RADIUS, 
-  OUTER_RADIUS, 
-  INNER_RADIUS, 
-  IMAGE_SIZE, 
-  LABEL_DY, 
   GREEN_COLOR, 
   BLACK_COLOR,
   RED_COLOR,
@@ -17,6 +13,7 @@ import {
   ZOOM_LEVEL_MEDIUM,
   ZOOM_LEVEL_SMALL
 } from './constants.js';
+import { createNodeGroup, getNodeDimensions } from '../visualizations/shared/nodes/nodes.js';
 import { applyPriestFilter, updateTimelinePositions, applyBackboneOnlyFilter } from './filters.js';
 import { renderStatusBadges } from './statusBadges.js';
 
@@ -57,12 +54,9 @@ const SIMULATION_CONFIG = {
 };
 
 // --- Drag and Click Detection Parameters ---
+// dragThreshold is set at runtime from getNodeDimensions().outerRadius
 const DRAG_CONFIG = {
-  // Click detection: movement threshold based on node size
-  dragThreshold: OUTER_RADIUS,        // Half node diameter - movement less than this = click
   maxClickDuration: 300,               // Maximum time (ms) for a click vs drag
-  
-  // Ease-off animation: how simulation slows down after drag ends
   easeOffDuration: 250                 // Time (ms) to gradually stop simulation after drag
 };
 
@@ -73,8 +67,7 @@ const LINK_CONFIG = {
 };
 
 // --- Node Visual Parameters ---
-// (Most node visual parameters are imported from constants.js:
-//  OUTER_RADIUS, INNER_RADIUS, IMAGE_SIZE, LABEL_DY)
+// Node dimensions come from shared nodes.js (getNodeDimensions / CSS variables).
 
 // ============================================================================
 
@@ -235,7 +228,6 @@ export async function initializeVisualization() {
   // Read CSS-driven style values so both templates render identically
   const rootStyles = getComputedStyle(document.documentElement);
   const cssLinkStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-link-stroke-width')) || LINK_CONFIG.strokeWidth;
-  const cssLabelDy = parseFloat(rootStyles.getPropertyValue('--viz-label-dy')) || LABEL_DY;
   const cssLinkOrdinationColor = rootStyles.getPropertyValue('--viz-link-ordination-color').trim() || BLACK_COLOR;
   const cssLinkConsecrationColor = rootStyles.getPropertyValue('--viz-link-consecration-color').trim() || GREEN_COLOR;
   const cssLinkInvalidOrdinationColor = rootStyles.getPropertyValue('--viz-link-invalid-ordination-color').trim() || ORANGE_COLOR;
@@ -278,7 +270,7 @@ export async function initializeVisualization() {
   const cssSurfaceColor = rootStyles.getPropertyValue('--viz-surface').trim() || '#1a1a1a';
   
   // Store node dimensions for link coordinate calculation
-  const cssNodeOuterRadius = parseFloat(rootStyles.getPropertyValue('--viz-node-outer-radius')) || OUTER_RADIUS;
+  const cssNodeOuterRadius = parseFloat(rootStyles.getPropertyValue('--viz-node-outer-radius')) || 28;
   const cssNodeStrokeWidth = parseFloat(rootStyles.getPropertyValue('--viz-node-stroke-width')) || 1;
   const nodeEdgeRadius = cssNodeOuterRadius + (cssNodeStrokeWidth / 2);
 
@@ -341,6 +333,9 @@ export async function initializeVisualization() {
     })
     .attr('stroke-width', arrowConfig.stroke ? 2 : 0);
 
+  // Node dimensions from shared CSS (used for clipPaths, drag threshold, status badges)
+  const nodeDims = getNodeDimensions();
+
   // Load sprite sheet and create patterns (before creating nodes) - using cache
   let spriteSheetData = null;
   try {
@@ -379,13 +374,13 @@ export async function initializeVisualization() {
             .attr('id', clipId);
           if (useSquareNode(d)) {
             clipPath.append('rect')
-              .attr('width', IMAGE_SIZE)
-              .attr('height', IMAGE_SIZE)
-              .attr('x', -IMAGE_SIZE / 2)
-              .attr('y', -IMAGE_SIZE / 2);
+              .attr('width', nodeDims.imageSize)
+              .attr('height', nodeDims.imageSize)
+              .attr('x', -nodeDims.imageSize / 2)
+              .attr('y', -nodeDims.imageSize / 2);
           } else {
             clipPath.append('circle')
-              .attr('r', IMAGE_SIZE / 2)
+              .attr('r', nodeDims.imageSize / 2)
               .attr('cx', 0)
               .attr('cy', 0);
           }
@@ -598,195 +593,18 @@ export async function initializeVisualization() {
       import('./highlightLineage.js').then(({ clearHighlight }) => clearHighlight());
     });
 
-  // Add node shapes (circle or square based on consecration year or lineage root)
-  node.append('circle')
-    .attr('class', 'viz-node-outer viz-node-outer-circle')
-    .attr('r', cssNodeOuterRadius)
-    .attr('fill', d => d.org_color)
-    .attr('stroke', d => d.rank_color)
-    .attr('stroke-width', cssNodeStrokeWidth)
-    .style('display', d => useSquareNode(d) ? 'none' : null);
-
-  node.append('rect')
-    .attr('class', 'viz-node-outer viz-node-outer-rect')
-    .attr('width', cssNodeOuterRadius * 2)
-    .attr('height', cssNodeOuterRadius * 2)
-    .attr('x', -cssNodeOuterRadius)
-    .attr('y', -cssNodeOuterRadius)
-    .attr('fill', d => d.org_color)
-    .attr('stroke', d => d.rank_color)
-    .attr('stroke-width', cssNodeStrokeWidth)
-    .style('display', d => useSquareNode(d) ? null : 'none');
-
-  // Add rank indicator
-  node.append('circle')
-    .attr('class', 'viz-node-inner viz-node-inner-circle')
-    .attr('r', INNER_RADIUS)
-    .attr('fill', d => d.rank_color)
-    .attr('cx', 0)
-    .attr('cy', 0)
-    .style('display', d => useSquareNode(d) ? 'none' : null);
-
-  node.append('rect')
-    .attr('class', 'viz-node-inner viz-node-inner-rect')
-    .attr('width', INNER_RADIUS * 2)
-    .attr('height', INNER_RADIUS * 2)
-    .attr('x', -INNER_RADIUS)
-    .attr('y', -INNER_RADIUS)
-    .attr('fill', d => d.rank_color)
-    .style('display', d => useSquareNode(d) ? null : 'none');
-
-  // Add white background shape for images (will be updated after sprite sheet loads)
-  node.append('circle')
-    .attr('class', 'viz-node-image-bg viz-node-image-bg-circle')
-    .attr('r', IMAGE_SIZE / 2)
-    .attr('fill', 'rgba(255, 255, 255, 1)')
-    .attr('cx', 0)
-    .attr('cy', 0)
-    .style('opacity', d => d.image_url ? 1 : 0)
-    .style('display', d => useSquareNode(d) ? 'none' : null);
-
-  node.append('rect')
-    .attr('class', 'viz-node-image-bg viz-node-image-bg-rect')
-    .attr('width', IMAGE_SIZE)
-    .attr('height', IMAGE_SIZE)
-    .attr('x', -IMAGE_SIZE / 2)
-    .attr('y', -IMAGE_SIZE / 2)
-    .attr('fill', 'rgba(255, 255, 255, 1)')
-    .style('opacity', d => d.image_url ? 1 : 0)
-    .style('display', d => useSquareNode(d) ? null : 'none');
-
-  // Add border shape for images (will be updated after sprite sheet loads)
-  node.append('circle')
-    .attr('class', 'viz-node-image-border viz-node-image-border-circle')
-    .attr('r', IMAGE_SIZE / 2)
-    .attr('fill', 'none')
-    .attr('stroke', 'rgba(0, 0, 0, 1)')
-    .attr('stroke-width', '0.5px') // Reduced from 1px to 0.5px for smaller nodes
-    .attr('cx', 0)
-    .attr('cy', 0)
-    .style('opacity', d => d.image_url ? 1 : 0)
-    .style('display', d => useSquareNode(d) ? 'none' : null);
-
-  node.append('rect')
-    .attr('class', 'viz-node-image-border viz-node-image-border-rect')
-    .attr('width', IMAGE_SIZE)
-    .attr('height', IMAGE_SIZE)
-    .attr('x', -IMAGE_SIZE / 2)
-    .attr('y', -IMAGE_SIZE / 2)
-    .attr('fill', 'none')
-    .attr('stroke', 'rgba(0, 0, 0, 1)')
-    .attr('stroke-width', '0.5px')
-    .style('opacity', d => d.image_url ? 1 : 0)
-    .style('display', d => useSquareNode(d) ? null : 'none');
-
-  // Add clergy images with sprite sheet or fallback to individual images
-  if (spriteSheetData && spriteSheetData.success) {
-    // Use sprite sheet with direct image elements and clipPaths
-    // Show sprite for ALL clergy that have a position in the mapping (including placeholders)
-    node.append('image')
-      .attr('xlink:href', d => {
-        if (spriteSheetData.mapping) {
-          const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
-          if (position && Array.isArray(position) && position.length === 2) {
-            return spriteSheetData.url;
-          }
-        }
-        return '';
-      })
-      .attr('x', d => {
-        if (spriteSheetData.mapping) {
-          const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
-          if (position && Array.isArray(position) && position.length === 2) {
-            const [x] = position;
-            // Position image so the sprite thumbnail is centered at node (0,0)
-            return -x - IMAGE_SIZE/2;
-          }
-        }
-        return 0;
-      })
-      .attr('y', d => {
-        if (spriteSheetData.mapping) {
-          const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
-          if (position && Array.isArray(position) && position.length === 2) {
-            const [, y] = position;
-            // Position image so the sprite thumbnail is centered at node (0,0)
-            return -y - IMAGE_SIZE/2;
-          }
-        }
-        return 0;
-      })
-      .attr('width', spriteSheetData.sprite_width)
-      .attr('height', spriteSheetData.sprite_height)
-      .attr('clip-path', d => {
-        if (spriteSheetData.mapping) {
-          const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
-          if (position && Array.isArray(position) && position.length === 2) {
-            return `url(#clip-avatar-${d.id})`;
-          }
-        }
-        return 'none';
-      })
-      .attr('preserveAspectRatio', 'none')
-      .style('pointer-events', 'none') // Make sprite images unclickable so they don't interfere with node interactions
-      .style('opacity', d => {
-        if (spriteSheetData.mapping) {
-          const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
-          if (position && Array.isArray(position) && position.length === 2) {
-            // Update background and border circles to show for nodes with sprite positions (including placeholders)
-            node.filter(node => node.id === d.id)
-              .selectAll('.viz-node-image-bg')
-              .style('opacity', 1);
-            node.filter(node => node.id === d.id)
-              .selectAll('.viz-node-image-border')
-              .style('opacity', 1);
-            return 1;
-          }
-        }
-        return 0;
-      });
-  } else {
-    // Fallback to individual images
-    node.append('image')
-      .attr('xlink:href', d => d.image_url || '')
-      .attr('x', -IMAGE_SIZE/2)
-      .attr('y', -IMAGE_SIZE/2)
-      .attr('width', IMAGE_SIZE)
-      .attr('height', IMAGE_SIZE)
-      .attr('clip-path', d => useSquareNode(d)
-        ? 'none'
-        : `circle(${IMAGE_SIZE / 2}px at ${IMAGE_SIZE / 2}px ${IMAGE_SIZE / 2}px)`)
-      .style('pointer-events', 'none') // Make images unclickable so they don't interfere with node interactions
-      .style('opacity', d => d.image_url ? 1 : 0)
-      .on('error', function() {
-        d3.select(this).style('opacity', 0);
-      });
-  }
-
-  // Add fallback placeholder icon when no image is available
-  // node.append('text')
-  //   .attr('text-anchor', 'middle')
-  //   .attr('dominant-baseline', 'middle')
-  //   .style('font-size', '12px')
-  //   .style('fill', '#666')
-  //   .style('pointer-events', 'none')
-  //   .style('opacity', d => d.image_url ? 0 : 1)
-  //   .text('👤');
-
-  // Add labels
-  node.append('text')
-    .attr('class', 'viz-node-label')
-    .attr('dy', cssLabelDy)
-    .text(d => d.name);
-
-  // Add tooltips
-  node.append('title')
-    .text(d => `${d.name}\nRank: ${d.rank}\nOrganization: ${d.organization}`);
+  createNodeGroup(node, {
+    useSquareNode,
+    spriteSheetData,
+    getLabelText: (d) => d.name,
+    getTitleText: (d) => `${d.name}\nRank: ${d.rank}\nOrganization: ${d.organization}`,
+    showPlaceholderIcon: false
+  });
 
   // Render status badges around nodes
   node.each(function(d) {
     if (d.statuses && d.statuses.length > 0) {
-      renderStatusBadges(d3.select(this), d.statuses, OUTER_RADIUS);
+      renderStatusBadges(d3.select(this), d.statuses, nodeDims.outerRadius);
     }
   });
 
@@ -961,7 +779,7 @@ export async function initializeVisualization() {
     const distance = Math.sqrt(dx * dx + dy * dy);
     
     // Track if actual dragging occurred (movement exceeds threshold)
-    if (distance > DRAG_CONFIG.dragThreshold) {
+    if (distance > nodeDims.outerRadius) {
       isDragging = true;
     }
     
@@ -979,7 +797,7 @@ export async function initializeVisualization() {
     
     const dragDuration = Date.now() - dragStartTime;
     // A click is: short duration AND movement less than the drag threshold
-    const wasQuickClick = dragDuration < DRAG_CONFIG.maxClickDuration && finalDistance <= DRAG_CONFIG.dragThreshold;
+    const wasQuickClick = dragDuration < DRAG_CONFIG.maxClickDuration && finalDistance <= nodeDims.outerRadius;
     
     // Release the node position lock
     d.fx = null;

@@ -54,7 +54,7 @@
                 </div>
                 <div class="viz-style-control">
                     <label>Consecration Color</label>
-                    <input type="color" id="link-consecration-color" class="viz-color-picker" value="#11451e">
+                    <input type="color" id="link-consecration-color" class="viz-color-picker" value="#0b9f2f">
                 </div>
                 <div class="viz-style-control">
                     <label>Invalid Ordination Color</label>
@@ -148,6 +148,7 @@
                 if (window.DEBUG_VIZ) console.error('Failed to load editor-visualization.js after', maxRetries, 'retries');
                 // Try to load the script manually
                 const script = document.createElement('script');
+                script.type = 'module';
                 script.src = '/static/js/editor-visualization.js';
                 script.onload = () => {
                     if (window.DEBUG_VIZ) console.log('Script loaded manually, initializing...');

@@ -49,7 +49,7 @@ export function setCSSVariables(styles) {
     // Update link CSS variables
     if (styles.link) {
         const ordinationColor = styles.link.ordination_color || '#1c1c1c';
-        const consecrationColor = styles.link.consecration_color || '#11451e';
+        const consecrationColor = styles.link.consecration_color || '#0b9f2f';
         const invalidOrdinationColor = styles.link.invalid_ordination_color || '#f39c12';
         const invalidConsecrationColor = styles.link.invalid_consecration_color || '#e74c3c';
         
@@ -66,6 +66,9 @@ export function setCSSVariables(styles) {
         root.style.setProperty('--viz-arrow-invalid-consecration-color', invalidConsecrationColor);
     }
     
+    // Update surface/background
+    root.style.setProperty('--viz-surface', styles.surface || '#1a1a1a');
+
     // Update label CSS variables
     if (styles.label) {
         root.style.setProperty('--viz-label-font-size', `${styles.label.font_size || 12}px`);
@@ -88,7 +91,7 @@ function getDefaultStyles() {
         },
         link: {
             ordination_color: '#1c1c1c',
-            consecration_color: '#11451e',
+            consecration_color: '#0b9f2f',
             invalid_ordination_color: '#f39c12',
             invalid_consecration_color: '#e74c3c',
             stroke_width: 2
@@ -97,7 +100,8 @@ function getDefaultStyles() {
             font_size: 12,
             color: '#ffffff',
             dy: 35
-        }
+        },
+        surface: '#1a1a1a'
     };
 }
 

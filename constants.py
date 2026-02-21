@@ -16,7 +16,7 @@ See docs/COLOR_CONSTANTS.md for detailed documentation
 """
 
 # Lineage visualization colors
-GREEN_COLOR = '#056c1f'  # Dark green for consecration links
+GREEN_COLOR = '#0b9f2f'  # Consecration/bishop green (locked)
 BLACK_COLOR = '#0d0d0d'  # Dark gray/black for ordination links
 RED_COLOR = '#e74c3c'  # Red for invalid consecration links
 ORANGE_COLOR = '#f39c12'  # Orange for invalid ordination links

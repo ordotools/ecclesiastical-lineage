@@ -2,7 +2,7 @@
 import { showNotification, showLoadingSpinner, hideLoadingSpinner, getCurrentClergyId } from './utils.js';
 // DISABLED: setClergyInfoViewDistance - not used, was causing graph to shift
 // import { setClergyInfoViewDistance } from './core.js';
-import { setModalState, getModalState } from './ui.js';
+import { setModalState, getModalState, showClergyFormModal, hideClergyFormModal } from './ui.js';
 
 // Node click handler - used by search and clergy links. Highlights lineage (and optionally centers).
 export async function handleNodeClick(event, d) {
@@ -349,15 +349,15 @@ function cleanupModalBackdrop() {
   document.body.style.overflow = '';
 }
 
-// Global event listener to clean up modal backdrop when modals are closed
+// Global event listener to clean up when modals are closed
 document.addEventListener('hidden.bs.modal', function(event) {
   if (event.target.id === 'clergyFormModal') {
     window.clergyFormGlobals?.clear();
   }
-  // Clean up any lingering backdrop after modal is fully hidden
-  setTimeout(() => {
-    cleanupModalBackdrop();
-  }, 100);
+  setTimeout(() => cleanupModalBackdrop(), 100);
+});
+document.addEventListener('clergyformmodal:hidden', function() {
+  window.clergyFormGlobals?.clear();
 });
 
 // Function to open the edit clergy modal
@@ -371,17 +371,7 @@ export function openEditClergyModal(clergyId) {
     .then(html => {
       modalBody.innerHTML = html;
       
-      // Show the modal
-      const bootstrapModal = new bootstrap.Modal(modal);
-      bootstrapModal.show();
-      
-      // Set modal state to open
-      setModalState(true);
-      
-      // Add event listener for modal close events (X button, Escape key, etc.)
-      modal.addEventListener('hidden.bs.modal', function() {
-        setModalState(false);
-      });
+      showClergyFormModal();
       
       // Load necessary JavaScript for the form
       loadEditFormScripts();
@@ -498,16 +488,7 @@ export function openEditClergyModal(clergyId) {
               // Show success notification
               showNotification('Clergy member updated successfully!', 'success');
               
-              // Close the modal
-              bootstrapModal.hide();
-              
-              // Set modal state to closed
-              setModalState(false);
-              
-              // Clean up modal backdrop after a short delay
-              setTimeout(() => {
-                cleanupModalBackdrop();
-              }, 300);
+              hideClergyFormModal();
               
               // Refresh the visualization data without reloading the page
               refreshVisualizationData();
@@ -530,12 +511,8 @@ export function openEditClergyModal(clergyId) {
         if (cancelBtn) {
           cancelBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            e.stopPropagation(); // Prevent event bubbling
-            // Set modal state to closed BEFORE hiding the modal
-            setModalState(false);
-            setTimeout(() => {
-              bootstrapModal.hide();
-            }, 10);
+            e.stopPropagation();
+            hideClergyFormModal();
           });
         }
       }
@@ -548,30 +525,15 @@ export function openEditClergyModal(clergyId) {
 
 // Function to open the add clergy modal
 function openAddClergyModal(contextType, contextClergyId) {
-  // Check if user is logged in and has permission
-  // We'll check this on the server side instead of client side
-  // The server will return an error if user doesn't have permission
-  
   const modal = document.getElementById('clergyFormModal');
   const modalBody = document.getElementById('clergyFormModalBody');
   
-  // Load the clergy form
   fetch(`/clergy/add_from_lineage?context_type=${contextType}&context_clergy_id=${contextClergyId}`)
     .then(response => response.text())
     .then(html => {
       modalBody.innerHTML = html;
       
-      // Show the modal
-      const bootstrapModal = new bootstrap.Modal(modal);
-      bootstrapModal.show();
-      
-      // Set modal state to open
-      setModalState(true);
-      
-      // Add event listener for modal close events (X button, Escape key, etc.)
-      modal.addEventListener('hidden.bs.modal', function() {
-        setModalState(false);
-      });
+      showClergyFormModal();
       
       // Wait a moment for the modal to be fully rendered
       setTimeout(() => {
@@ -699,46 +661,27 @@ function openAddClergyModal(contextType, contextClergyId) {
           })
           .then(data => {
             if (data.success) {
-              // Show success notification
               showNotification('Clergy member added successfully!', 'success');
-              
-              // Close the modal
-              bootstrapModal.hide();
-              
-              // Set modal state to closed
-              setModalState(false);
-              
-              // Clean up modal backdrop after a short delay
-              setTimeout(() => {
-                cleanupModalBackdrop();
-              }, 300);
-              
-              // Refresh the visualization data without reloading the page
+              hideClergyFormModal();
               refreshVisualizationData();
             } else {
-              // Hide loading spinner on error
               hideLoadingSpinner(form);
               showNotification('Error: ' + (data.message || 'Failed to add clergy member'), 'error');
             }
           })
           .catch(error => {
             console.error('Error:', error);
-            // Hide loading spinner on error
             hideLoadingSpinner(form);
             showNotification('Error submitting form. Please try again.', 'error');
           });
         });
         
-        // Handle cancel button to close modal
         const cancelBtn = form.querySelector('a[href="#"]');
         if (cancelBtn) {
           cancelBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            setModalState(false);
-            setTimeout(() => {
-              bootstrapModal.hide();
-            }, 10);
+            hideClergyFormModal();
           });
         }
       }

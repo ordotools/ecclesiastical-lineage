@@ -136,7 +136,7 @@ def get_visualization_styles():
                 },
                 'link': {
                     'ordination_color': '#1c1c1c',
-                    'consecration_color': '#11451e',
+                    'consecration_color': GREEN_COLOR,
                     'invalid_ordination_color': '#f39c12',
                     'invalid_consecration_color': '#e74c3c',
                     'stroke_width': 2
@@ -145,7 +145,8 @@ def get_visualization_styles():
                     'font_size': 12,
                     'color': '#ffffff',
                     'dy': 35
-                }
+                },
+                'surface': '#1a1a1a'
             }
             return jsonify({
                 'success': True,

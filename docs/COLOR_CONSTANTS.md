@@ -4,9 +4,13 @@
 
 This application uses a centralized color constant system to ensure consistency across all visualizations (lineage graph, editor visualization, etc.). All lineage-related colors are defined in a single location and automatically propagate throughout the application.
 
+**Locked colors (plan):**
+- **Consecration/bishop green:** `#0b9f2f`
+- **Background/surface:** `#1a1a1a`
+
 ## How to Change Colors
 
-To change the lineage visualization colors across the entire application, you only need to update **TWO files**:
+To change the lineage visualization colors across the entire application, you only need to update **TWO files** (and keep CSS/API defaults in sync):
 
 ### 1. JavaScript Constants (Frontend)
 
@@ -14,8 +18,8 @@ To change the lineage visualization colors across the entire application, you on
 
 ```javascript
 // Color constants - these must match the backend colors
-export const GREEN_COLOR = '#11451e';  // Dark green for consecration links
-export const BLACK_COLOR = '#1c1c1c';  // Dark gray/black for ordination links
+export const GREEN_COLOR = '#0b9f2f';  // Consecration/bishop green (locked)
+export const BLACK_COLOR = '#0d0d0d';  // Dark gray/black for ordination links
 ```
 
 ### 2. Python Constants (Backend)
@@ -25,49 +29,62 @@ export const BLACK_COLOR = '#1c1c1c';  // Dark gray/black for ordination links
 ```python
 # Lineage visualization colors
 # These must match the values in static/js/constants.js
-GREEN_COLOR = '#11451e'  # Dark green for consecration links
-BLACK_COLOR = '#1c1c1c'  # Dark gray/black for ordination links
+GREEN_COLOR = '#0b9f2f'  # Consecration/bishop green (locked)
+BLACK_COLOR = '#0d0d0d'  # Dark gray/black for ordination links
 ```
+
+### 3. Shared visualization CSS
+
+**File:** `static/css/visualization-dynamic.css`
+
+- `--viz-link-consecration-color`: `#0b9f2f`
+- `--viz-arrow-consecration-color`: same as link consecration
+- `--viz-surface`: `#1a1a1a` (graph background)
 
 ### Important Notes
 
 - **Keep both files in sync!** The values in both files must match exactly.
 - After changing colors, restart the Flask server for backend changes to take effect.
 - Frontend changes (JS file) may require a hard refresh (Ctrl+Shift+R / Cmd+Shift+R).
+- Defaults in `static/js/visualization-styles-loader.js`, `routes/editor_visualization_api.py`, and editor style panel should use the same consecration green and surface values.
 
 ## Color Usage Throughout Application
 
 ### Backend (Python)
 - `routes/main.py` - Lineage visualization endpoint
 - `routes/editor.py` - Editor visualization endpoint
-- Both import from `constants.py`
+- `routes/editor_visualization_api.py` - Styles API (default_styles use GREEN_COLOR)
+- All import from `constants.py`
 
 ### Frontend (JavaScript)
 - `static/js/constants.js` - Source of truth for JS
 - `static/js/core.js` - Main lineage visualization (imports from constants.js)
-- `static/js/editor-visualization.js` - Editor panel visualization (reads CSS variables)
+- `static/js/editor-visualization.js` - Editor panel visualization (reads CSS variables, fallback green)
+- `static/js/visualization-styles-loader.js` - Sets --viz-* and --viz-surface from API/defaults
+- `static/js/wiki-lineage-chart.js` - Uses GREEN constant
 
 ### Templates (HTML)
-- `templates/lineage_visualization.html` - Sets CSS variables from JS constants
+- `templates/main_viz.html` - Sets CSS variables from JS constants
 - `templates/editor.html` - Sets CSS variables from JS constants
 
 ### CSS
-- `static/css/visualizer.css` - Uses CSS variables with fallbacks
-- All CSS uses `var(--lineage-green)` and `var(--lineage-black)`
+- `static/css/visualization-dynamic.css` - `--viz-surface`, `--viz-link-consecration-color`, etc.
+- `static/css/visualizer.css` - Editor and chapel_view only; uses `var(--lineage-green, #0b9f2f)` and related fallbacks (main page uses main-ui.css + force-directed)
 
 ## Technical Implementation
 
 1. **JavaScript constants** are defined in `constants.js` and exported as ES6 modules
 2. **Python constants** are defined in `constants.py` and imported by route handlers
-3. **CSS variables** (`--lineage-green`, `--lineage-black`) are dynamically set from JS constants on page load
+3. **CSS variables** (`--lineage-green`, `--lineage-black`, `--viz-surface`, `--viz-link-consecration-color`) are set from JS constants on page load or from the styles API
 4. **Link data** includes color values from Python constants
 5. **Arrowhead markers** are created based on color constants in JavaScript
-6. **Comparison logic** matches link colors to constants to select correct arrowhead style
+6. **Surface/background** is fixed at `#1a1a1a` in visualization-dynamic.css and in the styles loader/API defaults
 
 ## Color Meaning
 
-- **GREEN_COLOR** (`#11451e` - dark green): Used for consecration relationships
-- **BLACK_COLOR** (`#1c1c1c` - dark gray): Used for ordination relationships
+- **GREEN_COLOR** (`#0b9f2f`): Used for consecration relationships (locked)
+- **BLACK_COLOR** (`#0d0d0d`): Used for ordination relationships
+- **Surface** (`#1a1a1a`): Graph/viz background (locked)
 
 Co-consecrations use GREEN_COLOR with dashed lines to indicate secondary consecrators.
 
@@ -92,4 +109,3 @@ After updating colors, verify they appear correctly in:
 - Clear browser cache
 - Check that CSS variables are being set (inspect element → :root)
 - Verify JS module imports are working (no 404 errors in console)
-

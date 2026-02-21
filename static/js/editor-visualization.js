@@ -5,6 +5,8 @@
  * Matches lineage visualization exactly for D3.js nodes, links and physics
  */
 
+import { createNodeGroup } from '../visualizations/shared/nodes/nodes.js';
+
 // Visualization constants - matching lineage visualization exactly
 // Prevent duplicate declarations when HTMX loads content
 if (typeof window.LINK_DISTANCE === 'undefined') {
@@ -35,7 +37,7 @@ var ORANGE_COLOR = getComputedStyle(document.documentElement).getPropertyValue('
 
 // If CSS variables aren't set yet (race condition), use hardcoded fallback
 // These should match constants.js
-if (!GREEN_COLOR) GREEN_COLOR = '#11451e';
+if (!GREEN_COLOR) GREEN_COLOR = '#0b9f2f';
 if (!BLACK_COLOR) BLACK_COLOR = '#1c1c1c';
 if (!RED_COLOR) RED_COLOR = '#e74c3c';
 if (!ORANGE_COLOR) ORANGE_COLOR = '#f39c12';
@@ -566,192 +568,16 @@ class EditorVisualization {
                 this.handleNodeClick(event, d);
             });
 
-        // Add node shapes (circle or square based on consecration year)
-        this.node.append('circle')
-            .attr('class', 'viz-node-outer viz-node-outer-circle')
-            .attr('r', OUTER_RADIUS)
-            .attr('fill', d => d.org_color)
-            .attr('stroke', d => d.rank_color)
-            .attr('stroke-width', 3)
-            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
+        // Add node shapes, images, labels via shared nodes.js
+        createNodeGroup(this.node, {
+            useSquareNode: (d) => !!d.is_pre_1968_consecration,
+            spriteSheetData,
+            getLabelText: (d) => d.name,
+            getTitleText: (d) => `${d.name}\nRank: ${d.rank}\nOrganization: ${d.organization}`,
+            showPlaceholderIcon: true,
+            imageFilter: 'url(#image-inset-shadow)'
+        });
 
-        this.node.append('rect')
-            .attr('class', 'viz-node-outer viz-node-outer-rect')
-            .attr('width', OUTER_RADIUS * 2)
-            .attr('height', OUTER_RADIUS * 2)
-            .attr('x', -OUTER_RADIUS)
-            .attr('y', -OUTER_RADIUS)
-            .attr('fill', d => d.org_color)
-            .attr('stroke', d => d.rank_color)
-            .attr('stroke-width', 3)
-            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
-
-        // Add rank indicator
-        this.node.append('circle')
-            .attr('class', 'viz-node-inner viz-node-inner-circle')
-            .attr('r', INNER_RADIUS)
-            .attr('fill', d => d.rank_color)
-            .attr('cx', 0)
-            .attr('cy', 0)
-            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
-
-        this.node.append('rect')
-            .attr('class', 'viz-node-inner viz-node-inner-rect')
-            .attr('width', INNER_RADIUS * 2)
-            .attr('height', INNER_RADIUS * 2)
-            .attr('x', -INNER_RADIUS)
-            .attr('y', -INNER_RADIUS)
-            .attr('fill', d => d.rank_color)
-            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
-
-        // Add white background shape for images (will be updated after sprite sheet loads)
-        this.node.append('circle')
-            .attr('class', 'viz-node-image-bg viz-node-image-bg-circle')
-            .attr('r', IMAGE_SIZE / 2)
-            .attr('fill', 'rgba(255, 255, 255, 1)')
-            .attr('cx', 0)
-            .attr('cy', 0)
-            .style('opacity', d => d.image_url ? 1 : 0)
-            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
-
-        this.node.append('rect')
-            .attr('class', 'viz-node-image-bg viz-node-image-bg-rect')
-            .attr('width', IMAGE_SIZE)
-            .attr('height', IMAGE_SIZE)
-            .attr('x', -IMAGE_SIZE / 2)
-            .attr('y', -IMAGE_SIZE / 2)
-            .attr('fill', 'rgba(255, 255, 255, 1)')
-            .style('opacity', d => d.image_url ? 1 : 0)
-            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
-
-        // Add border shape for images (will be updated after sprite sheet loads)
-        this.node.append('circle')
-            .attr('class', 'viz-node-image-border viz-node-image-border-circle')
-            .attr('r', IMAGE_SIZE / 2)
-            .attr('fill', 'none')
-            .attr('stroke', 'rgba(0, 0, 0, 1)')
-            .attr('stroke-width', '1px')
-            .attr('cx', 0)
-            .attr('cy', 0)
-            .style('opacity', d => d.image_url ? 1 : 0)
-            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
-
-        this.node.append('rect')
-            .attr('class', 'viz-node-image-border viz-node-image-border-rect')
-            .attr('width', IMAGE_SIZE)
-            .attr('height', IMAGE_SIZE)
-            .attr('x', -IMAGE_SIZE / 2)
-            .attr('y', -IMAGE_SIZE / 2)
-            .attr('fill', 'none')
-            .attr('stroke', 'rgba(0, 0, 0, 1)')
-            .attr('stroke-width', '1px')
-            .style('opacity', d => d.image_url ? 1 : 0)
-            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
-
-        // Add clergy images with sprite sheet or fallback to individual images
-        if (spriteSheetData && spriteSheetData.success) {
-            // Use sprite sheet with direct image elements and clipPaths
-            // Show sprite for ALL clergy that have a position in the mapping (including placeholders)
-            this.node.append('image')
-                .attr('xlink:href', d => {
-                    if (spriteSheetData.mapping) {
-                        const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
-                        if (position && Array.isArray(position) && position.length === 2) {
-                            return spriteSheetData.url;
-                        }
-                    }
-                    return '';
-                })
-                .attr('x', d => {
-                    if (spriteSheetData.mapping) {
-                        const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
-                        if (position && Array.isArray(position) && position.length === 2) {
-                            const [x] = position;
-                            // Position image so the sprite thumbnail is centered at node (0,0)
-                            return -x - IMAGE_SIZE/2;
-                        }
-                    }
-                    return 0;
-                })
-                .attr('y', d => {
-                    if (spriteSheetData.mapping) {
-                        const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
-                        if (position && Array.isArray(position) && position.length === 2) {
-                            const [, y] = position;
-                            // Position image so the sprite thumbnail is centered at node (0,0)
-                            return -y - IMAGE_SIZE/2;
-                        }
-                    }
-                    return 0;
-                })
-                .attr('width', spriteSheetData.sprite_width)
-                .attr('height', spriteSheetData.sprite_height)
-                .attr('clip-path', d => {
-                    if (spriteSheetData.mapping) {
-                        const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
-                        if (position && Array.isArray(position) && position.length === 2) {
-                            return `url(#clip-avatar-${d.id})`;
-                        }
-                    }
-                    return 'none';
-                })
-                .attr('preserveAspectRatio', 'none')
-                .style('pointer-events', 'none') // Make sprite images unclickable so they don't interfere with node interactions
-                .style('opacity', d => {
-                    if (spriteSheetData.mapping) {
-                        const position = spriteSheetData.mapping[d.id] || spriteSheetData.mapping[String(d.id)] || spriteSheetData.mapping[Number(d.id)];
-                        if (position && Array.isArray(position) && position.length === 2) {
-                            // Update background and border circles to show for nodes with sprite positions (including placeholders)
-                            this.node.filter(node => node.id === d.id)
-                                .selectAll('.viz-node-image-bg')
-                                .style('opacity', 1);
-                            this.node.filter(node => node.id === d.id)
-                                .selectAll('.viz-node-image-border')
-                                .style('opacity', 1);
-                            return 1;
-                        }
-                    }
-                    return 0;
-                });
-        } else {
-            // Fallback to individual images
-            this.node.append('image')
-                .attr('xlink:href', d => d.image_url || '')
-                .attr('x', -IMAGE_SIZE/2)
-                .attr('y', -IMAGE_SIZE/2)
-                .attr('width', IMAGE_SIZE)
-                .attr('height', IMAGE_SIZE)
-                .attr('clip-path', d => d.is_pre_1968_consecration
-                    ? 'none'
-                    : `circle(${IMAGE_SIZE / 2}px at ${IMAGE_SIZE / 2}px ${IMAGE_SIZE / 2}px)`)
-                .attr('filter', 'url(#image-inset-shadow)')
-                .style('pointer-events', 'none') // Make images unclickable so they don't interfere with node interactions
-                .style('opacity', d => d.image_url ? 1 : 0)
-                .on('error', function() {
-                    d3.select(this).style('opacity', 0);
-                });
-        }
-
-        // Add fallback placeholder icon when no image is available - matching lineage visualization
-        this.node.append('text')
-            .attr('text-anchor', 'middle')
-            .attr('dominant-baseline', 'middle')
-            .style('font-size', '12px')
-            .style('fill', '#666')
-            .style('pointer-events', 'none')
-            .style('opacity', d => d.image_url ? 0 : 1)
-            .text('👤');
-        
-        // Add labels - matching lineage visualization exactly
-        this.node.append('text')
-            .attr('class', 'viz-node-label')
-            .attr('dy', this.labelDy)
-            .text(d => d.name);
-
-        // Add tooltips - matching lineage visualization
-        this.node.append('title')
-            .text(d => `${d.name}\nRank: ${d.rank}\nOrganization: ${d.organization}`);
-        
         // Update positions on simulation tick - matching lineage visualization
         this.simulation.on('tick', () => {
             // Update base links (center to center, for force layout reference)
@@ -1295,184 +1121,25 @@ class EditorVisualization {
         
         // Add new nodes
         const newNodeGroups = this.node.enter().append('g')
+            .attr('class', 'viz-node')
             .style('cursor', 'pointer')
             .call(d3.drag()
                 .on('start', (event, d) => this.dragstarted(event, d))
                 .on('drag', (event, d) => this.dragged(event, d))
                 .on('end', (event, d) => this.dragended(event, d)))
             .on('click', (event, d) => {
-                // Prevent drag from interfering with click
                 event.stopPropagation();
                 this.handleNodeClick(event, d);
             });
-        
-        // Add shapes to new nodes (circle or square based on consecration year)
-        newNodeGroups.append('circle')
-            .attr('class', 'viz-node-outer viz-node-outer-circle')
-            .attr('r', OUTER_RADIUS)
-            .attr('fill', d => d.org_color)
-            .attr('stroke', d => d.rank_color)
-            .attr('stroke-width', 3)
-            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
-        
-        newNodeGroups.append('rect')
-            .attr('class', 'viz-node-outer viz-node-outer-rect')
-            .attr('width', OUTER_RADIUS * 2)
-            .attr('height', OUTER_RADIUS * 2)
-            .attr('x', -OUTER_RADIUS)
-            .attr('y', -OUTER_RADIUS)
-            .attr('fill', d => d.org_color)
-            .attr('stroke', d => d.rank_color)
-            .attr('stroke-width', 3)
-            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
-        
-        newNodeGroups.append('circle')
-            .attr('class', 'viz-node-inner viz-node-inner-circle')
-            .attr('r', INNER_RADIUS)
-            .attr('fill', d => d.rank_color)
-            .attr('cx', 0)
-            .attr('cy', 0)
-            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
-        
-        newNodeGroups.append('rect')
-            .attr('class', 'viz-node-inner viz-node-inner-rect')
-            .attr('width', INNER_RADIUS * 2)
-            .attr('height', INNER_RADIUS * 2)
-            .attr('x', -INNER_RADIUS)
-            .attr('y', -INNER_RADIUS)
-            .attr('fill', d => d.rank_color)
-            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
-        
-        newNodeGroups.append('circle')
-            .attr('class', 'viz-node-image-bg viz-node-image-bg-circle')
-            .attr('r', IMAGE_SIZE / 2)
-            .attr('fill', 'rgba(255, 255, 255, 1)')
-            .attr('cx', 0)
-            .attr('cy', 0)
-            .style('opacity', d => d.image_url ? 1 : 0)
-            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
-        
-        newNodeGroups.append('rect')
-            .attr('class', 'viz-node-image-bg viz-node-image-bg-rect')
-            .attr('width', IMAGE_SIZE)
-            .attr('height', IMAGE_SIZE)
-            .attr('x', -IMAGE_SIZE / 2)
-            .attr('y', -IMAGE_SIZE / 2)
-            .attr('fill', 'rgba(255, 255, 255, 1)')
-            .style('opacity', d => d.image_url ? 1 : 0)
-            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
-        
-        newNodeGroups.append('circle')
-            .attr('class', 'viz-node-image-border viz-node-image-border-circle')
-            .attr('r', IMAGE_SIZE / 2)
-            .attr('fill', 'none')
-            .attr('stroke', 'rgba(0, 0, 0, 1)')
-            .attr('stroke-width', '1px')
-            .attr('cx', 0)
-            .attr('cy', 0)
-            .style('opacity', d => d.image_url ? 1 : 0)
-            .style('display', d => d.is_pre_1968_consecration ? 'none' : null);
-        
-        newNodeGroups.append('rect')
-            .attr('class', 'viz-node-image-border viz-node-image-border-rect')
-            .attr('width', IMAGE_SIZE)
-            .attr('height', IMAGE_SIZE)
-            .attr('x', -IMAGE_SIZE / 2)
-            .attr('y', -IMAGE_SIZE / 2)
-            .attr('fill', 'none')
-            .attr('stroke', 'rgba(0, 0, 0, 1)')
-            .attr('stroke-width', '1px')
-            .style('opacity', d => d.image_url ? 1 : 0)
-            .style('display', d => d.is_pre_1968_consecration ? null : 'none');
-        
-        // Add images (simplified - assumes sprite sheet is already loaded)
-        if (this.spriteSheetData && this.spriteSheetData.success) {
-            newNodeGroups.append('image')
-                .attr('xlink:href', d => {
-                    if (this.spriteSheetData.mapping) {
-                        const position = this.spriteSheetData.mapping[d.id] || 
-                                       this.spriteSheetData.mapping[String(d.id)] || 
-                                       this.spriteSheetData.mapping[Number(d.id)];
-                        if (position && Array.isArray(position) && position.length === 2) {
-                            return this.spriteSheetData.url;
-                        }
-                    }
-                    return '';
-                })
-                .attr('x', d => {
-                    if (this.spriteSheetData.mapping) {
-                        const position = this.spriteSheetData.mapping[d.id] || 
-                                       this.spriteSheetData.mapping[String(d.id)] || 
-                                       this.spriteSheetData.mapping[Number(d.id)];
-                        if (position && Array.isArray(position) && position.length === 2) {
-                            const [x] = position;
-                            return -x - IMAGE_SIZE/2;
-                        }
-                    }
-                    return 0;
-                })
-                .attr('y', d => {
-                    if (this.spriteSheetData.mapping) {
-                        const position = this.spriteSheetData.mapping[d.id] || 
-                                       this.spriteSheetData.mapping[String(d.id)] || 
-                                       this.spriteSheetData.mapping[Number(d.id)];
-                        if (position && Array.isArray(position) && position.length === 2) {
-                            const [, y] = position;
-                            return -y - IMAGE_SIZE/2;
-                        }
-                    }
-                    return 0;
-                })
-                .attr('width', this.spriteSheetData.sprite_width)
-                .attr('height', this.spriteSheetData.sprite_height)
-                .attr('clip-path', d => {
-                    if (this.spriteSheetData.mapping) {
-                        const position = this.spriteSheetData.mapping[d.id] || 
-                                       this.spriteSheetData.mapping[String(d.id)] || 
-                                       this.spriteSheetData.mapping[Number(d.id)];
-                        if (position && Array.isArray(position) && position.length === 2) {
-                            return `url(#clip-avatar-${d.id})`;
-                        }
-                    }
-                    return 'none';
-                })
-                .attr('preserveAspectRatio', 'none')
-                .style('pointer-events', 'none')
-                .style('opacity', d => {
-                    if (this.spriteSheetData.mapping) {
-                        const position = this.spriteSheetData.mapping[d.id] || 
-                                       this.spriteSheetData.mapping[String(d.id)] || 
-                                       this.spriteSheetData.mapping[Number(d.id)];
-                        if (position && Array.isArray(position) && position.length === 2) {
-                            newNodeGroups.filter(node => node.id === d.id)
-                                .selectAll('.viz-node-image-bg')
-                                .style('opacity', 1);
-                            newNodeGroups.filter(node => node.id === d.id)
-                                .selectAll('.viz-node-image-border')
-                                .style('opacity', 1);
-                            return 1;
-                        }
-                    }
-                    return 0;
-                });
-        }
-        
-        newNodeGroups.append('text')
-            .attr('text-anchor', 'middle')
-            .attr('dominant-baseline', 'middle')
-            .style('font-size', '12px')
-            .style('fill', '#666')
-            .style('pointer-events', 'none')
-            .style('opacity', d => d.image_url ? 0 : 1)
-            .text('👤');
-        
-        newNodeGroups.append('text')
-            .attr('class', 'viz-node-label')
-            .attr('dy', this.labelDy || LABEL_DY)
-            .text(d => d.name);
-        
-        newNodeGroups.append('title')
-            .text(d => `${d.name}\nRank: ${d.rank}\nOrganization: ${d.organization}`);
+
+        createNodeGroup(newNodeGroups, {
+            useSquareNode: (d) => !!d.is_pre_1968_consecration,
+            spriteSheetData: this.spriteSheetData || null,
+            getLabelText: (d) => d.name,
+            getTitleText: (d) => `${d.name}\nRank: ${d.rank}\nOrganization: ${d.organization}`,
+            showPlaceholderIcon: true,
+            imageFilter: 'url(#image-inset-shadow)'
+        });
         
         // Merge new nodes with existing
         this.node = this.node.merge(newNodeGroups);
@@ -1813,3 +1480,7 @@ function cleanupEditorVisualization() {
         window.editorVisualization = null;
     }
 }
+
+// Expose for non-module consumers (e.g. inline script in visualization panel)
+window.initializeEditorVisualization = initializeEditorVisualization;
+window.cleanupEditorVisualization = cleanupEditorVisualization;

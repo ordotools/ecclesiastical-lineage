@@ -95,7 +95,7 @@ class VisualizationStyleController {
             },
             link: {
                 ordination_color: '#1c1c1c',
-                consecration_color: '#11451e',
+                consecration_color: '#0b9f2f',
                 invalid_ordination_color: '#f39c12',
                 invalid_consecration_color: '#e74c3c',
                 stroke_width: 2
@@ -169,7 +169,7 @@ class VisualizationStyleController {
         // Link styles
         const linkStyles = this.styles.link || {};
         setValue('link-ordination-color', linkStyles.ordination_color || '#1c1c1c');
-        setValue('link-consecration-color', linkStyles.consecration_color || '#11451e');
+        setValue('link-consecration-color', linkStyles.consecration_color || '#0b9f2f');
         setValue('link-invalid-ordination-color', linkStyles.invalid_ordination_color || '#f39c12');
         setValue('link-invalid-consecration-color', linkStyles.invalid_consecration_color || '#e74c3c');
         setValue('link-stroke-width', linkStyles.stroke_width || 2);

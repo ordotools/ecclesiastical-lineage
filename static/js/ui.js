@@ -7,29 +7,30 @@ let isModalOpen = false;
 
 // Function to check if any modal is currently open
 function isAnyModalOpen() {
+  // Custom clergy form modal (main shell)
+  const clergyModal = document.getElementById('clergyFormModal');
+  if (clergyModal && clergyModal.classList.contains('main-ui-modal-overlay') && clergyModal.classList.contains('show')) {
+    return true;
+  }
   // Check for Bootstrap modals (more comprehensive check)
   const bootstrapModals = document.querySelectorAll('.modal.show, .modal[style*="block"]');
   if (bootstrapModals.length > 0) {
     return true;
   }
-  
   // Check for modals with Bootstrap's backdrop
   const modalBackdrops = document.querySelectorAll('.modal-backdrop');
   if (modalBackdrops.length > 0) {
     return true;
   }
-  
   // Check for custom modals
   const customModals = document.querySelectorAll('.mobile-menu-modal[style*="block"]');
   if (customModals.length > 0) {
     return true;
   }
-  
   // Check if body has modal-open class (Bootstrap sets this)
   if (document.body.classList.contains('modal-open')) {
     return true;
   }
-  
   return false;
 }
 
@@ -50,6 +51,29 @@ window.setModalState = setModalState;
 export function getModalState() {
   return isModalOpen;
 }
+
+/** Custom clergy form modal (no Bootstrap). Show/hide by toggling .show on overlay. */
+export function showClergyFormModal() {
+  const el = document.getElementById('clergyFormModal');
+  if (!el) return;
+  el.classList.add('show');
+  el.setAttribute('aria-hidden', 'false');
+  setModalState(true);
+  el.dispatchEvent(new CustomEvent('clergyformmodal:shown', { bubbles: true }));
+}
+
+export function hideClergyFormModal() {
+  const el = document.getElementById('clergyFormModal');
+  if (!el) return;
+  el.classList.remove('show');
+  el.setAttribute('aria-hidden', 'true');
+  setModalState(false);
+  el.dispatchEvent(new CustomEvent('clergyformmodal:hidden', { bubbles: true }));
+}
+
+window.showClergyFormModal = showClergyFormModal;
+window.hideClergyFormModal = hideClergyFormModal;
+window.getModalState = getModalState;
 
 // Listen for modal events to track state
 document.addEventListener('DOMContentLoaded', function() {
@@ -487,7 +511,7 @@ function initFilterMenuElements(organizationsBtn, organizationsMenu, viewPriests
           // Add organizations to dropdown - insert after divider
           data.organizations.forEach((org, index) => {
             const orgItem = document.createElement('div');
-            orgItem.className = 'filter-dropdown-item';
+            orgItem.className = 'main-ui-dropdown-item filter-dropdown-item';
             orgItem.dataset.org = org.name;
             orgItem.innerHTML = `<span>${org.name}${org.abbreviation ? ` (${org.abbreviation})` : ''}</span>`;
             fragment.appendChild(orgItem);

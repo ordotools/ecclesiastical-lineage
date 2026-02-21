@@ -1,0 +1,76 @@
+/**
+ * Force-directed visualization: styles specific to the force graph.
+ * Shared link/node variables and .viz-link are in shared/visualization.css and shared/nodes/nodes.css.
+ */
+
+.lineage-container {
+  background: transparent;
+}
+
+/* Link styles - stroke/color set via JS; shared uses .viz-link, these are legacy/alias */
+.link {
+  fill: none;
+}
+.link.dashed {
+  stroke-dasharray: 5, 5;
+}
+
+.link-label {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  text-anchor: middle;
+  pointer-events: none;
+  dominant-baseline: middle;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+/* Graph tooltip (D3-rendered) */
+.tooltip {
+  position: absolute;
+  background: rgba(252, 250, 245, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 12px;
+  pointer-events: none;
+  box-shadow: 0 8px 32px rgba(44, 62, 80, 0.15);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  z-index: 1000;
+}
+.tooltip h6 {
+  margin: 0 0 4px 0;
+  font-weight: 600;
+  color: #2c3e50;
+}
+.tooltip p {
+  margin: 2px 0;
+  color: #5d6d7e;
+}
+
+/* Timeline (force layout Y-axis constraint overlay) */
+.timeline {
+  pointer-events: none;
+}
+.timeline line {
+  pointer-events: none;
+}
+.timeline text {
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  user-select: none;
+  font-weight: 500;
+}
+
+.timeline-fixed {
+  pointer-events: none;
+  transform-origin: 0 0;
+}
+.timeline-fixed line {
+  pointer-events: none;
+}
+.timeline-fixed text {
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  user-select: none;
+  font-weight: 500;
+}

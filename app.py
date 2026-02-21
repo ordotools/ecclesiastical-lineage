@@ -1,22 +1,19 @@
 from flask import Flask
 from flask_compress import Compress
 from models import db, User, Role
-# Legacy init_routes blueprint lives in scripts/database/init_routes.py (not registered).
 from routes.auth import auth_bp
 from routes.clergy import clergy_bp
 from routes.main import main_bp
 from routes.locations import locations_bp
 from routes.lineage_api import lineage_api_bp
 from routes.main_api import main_api_bp
-from routes.admin import admin_bp
 from routes.editor import editor_bp
 from migrations import run_database_migration, initialize_roles_and_permissions
 import os
 from dotenv import load_dotenv
 from utils import getContrastColor, getBorderStyle, from_json
-from routes.settings import settings_bp
-from routes.metadata import metadata_bp
 from routes.wiki import wiki_bp
+from routes.comments import comments_bp
 from flask_migrate import Migrate
 from sqlalchemy import inspect
 from urllib.parse import urlparse, urlunparse
@@ -161,11 +158,9 @@ app.register_blueprint(main_bp)
 app.register_blueprint(locations_bp)
 app.register_blueprint(lineage_api_bp)
 app.register_blueprint(main_api_bp)
-app.register_blueprint(admin_bp)
 app.register_blueprint(editor_bp)
-app.register_blueprint(settings_bp)
-app.register_blueprint(metadata_bp)
 app.register_blueprint(wiki_bp)
+app.register_blueprint(comments_bp)
 
 app.jinja_env.globals['getContrastColor'] = getContrastColor
 app.jinja_env.globals['getBorderStyle'] = getBorderStyle

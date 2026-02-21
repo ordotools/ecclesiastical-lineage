@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, session, jsonify, current_app, g, abort
+from flask import Blueprint, render_template, request, session, jsonify, current_app, g
 from models import Clergy, User, db, Organization, Rank, Ordination, Consecration, LineageRoot
 from constants import GREEN_COLOR, BLACK_COLOR
 import json
@@ -203,10 +203,3 @@ def lineage_visualization_alias():
 @main_bp.route('/favicon.ico')
 def favicon():
     return '', 204
-
-
-@main_bp.route('/geocoding-test')
-def geocoding_test():
-    if not current_app.debug:
-        abort(404)
-    return render_template('geocoding_test.html')

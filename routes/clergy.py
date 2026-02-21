@@ -92,10 +92,6 @@ def edit_clergy(clergy_id):
         # GET request - redirect to editor clergy form panel with specific clergy
         return redirect(url_for('editor.editor') + f'#clergy-form/{clergy_id}')
 
-@clergy_bp.route('/clergy/filter_partial')
-def clergy_filter_partial():
-    return clergy_service.clergy_filter_partial_handler()
-
 @clergy_bp.route('/clergy/<int:clergy_id>/json')
 def clergy_json(clergy_id):
     clergy = Clergy.query.get_or_404(clergy_id)
@@ -129,8 +125,6 @@ def search_bishops():
              data-display-name="{display_name}"
              style="cursor: pointer;">
             <strong>{display_name}</strong>
-            <br>
-            <small class="text-muted">{bishop.rank}</small>
         </div>
         '''
     
@@ -212,10 +206,4 @@ def delete_clergy(clergy_id):
             entity_name=clergy.name if clergy else None,
             details={'message': result['message']}
         )
-    return jsonify(result) 
-
-
-
-@clergy_bp.route('/clergy/filtered-bishops')
-def get_filtered_bishops():
-    return clergy_service.get_filtered_bishops_handler() 
+    return jsonify(result)

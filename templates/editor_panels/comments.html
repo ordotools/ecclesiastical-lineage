@@ -124,10 +124,34 @@ function viewClergy(clergyId) {
 }
 
 function resolveComment(commentId) {
-    console.log('Resolve comment:', commentId);
     if (confirm('Mark this comment as resolved?')) {
-        // This would make an HTMX request to resolve the comment
-        window.showNotification('Comment resolution functionality coming soon', 'info');
+        fetch(`/comments/${commentId}/resolve`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (typeof window.showNotification === 'function') {
+                        window.showNotification('Comment marked as resolved', 'success');
+                    }
+                    if (typeof window.loadCommentsPanel === 'function') {
+                        window.loadCommentsPanel();
+                    } else {
+                        location.reload();
+                    }
+                } else {
+                    if (typeof window.showNotification === 'function') {
+                        window.showNotification('Error: ' + (data.message || data.error), 'error');
+                    } else {
+                        alert('Error: ' + (data.message || data.error));
+                    }
+                }
+            })
+            .catch(err => {
+                if (typeof window.showNotification === 'function') {
+                    window.showNotification('Failed to resolve comment', 'error');
+                } else {
+                    alert('Failed to resolve comment');
+                }
+            });
     }
 }
 

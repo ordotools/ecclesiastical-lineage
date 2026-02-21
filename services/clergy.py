@@ -944,39 +944,6 @@ def edit_clergy_handler(clergy_id):
                          edit_mode=True,
                          lineage_roots=lineage_roots)
 
-def clergy_filter_partial_handler():
-    if 'user_id' not in session:
-        return '', 401
-    user = User.query.get(session['user_id'])
-    exclude_priests = request.args.get('exclude_priests') == '1'
-    exclude_coconsecrators = request.args.get('exclude_coconsecrators') == '1'
-    exclude_organizations = request.args.getlist('exclude_organizations')
-    search = request.args.get('search', '').strip()
-    query = Clergy.query.filter(Clergy.is_deleted != True)  # Exclude deleted records by default
-    if exclude_priests:
-        query = query.filter(Clergy.rank != 'Priest')
-    if exclude_coconsecrators:
-        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
-        # Get co-consecrator IDs from the new consecration table
-        coconsecrator_ids = set()
-        for c in all_clergy:
-            for consecration in c.consecrations:
-                for co_consecrator in consecration.co_consecrators:
-                    coconsecrator_ids.add(co_consecrator.id)
-        if coconsecrator_ids:
-            query = query.filter(~Clergy.id.in_(coconsecrator_ids))
-    if exclude_organizations:
-        query = query.filter(~Clergy.organization.in_(exclude_organizations))
-    if search:
-        query = query.filter(Clergy.name.ilike(f'%{search}%'))
-    clergy_list = query.all()
-    for clergy in clergy_list:
-        set_clergy_display_name(clergy)
-    organizations = Organization.query.order_by(Organization.name).all()
-    org_abbreviation_map = {org.name: org.abbreviation for org in organizations}
-    org_color_map = {org.name: org.color for org in organizations}
-    return render_template('clergy_table_body.html', clergy_list=clergy_list, org_abbreviation_map=org_abbreviation_map, org_color_map=org_color_map, user=user)
-
 def clergy_json_handler(clergy_id):
     if 'user_id' not in session:
         return jsonify({'error': 'Authentication required'}), 401
@@ -1101,75 +1068,6 @@ def permanently_delete_clergy_handler(clergy_ids, user=None):
     except Exception as e:
         db.session.rollback()
         return {'success': False, 'message': f'Error permanently deleting clergy: {str(e)}'}
-
-def get_filtered_bishops_handler():
-    """Get bishops filtered by temporal logic for AJAX requests."""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Authentication required'}), 401
-    
-    # Get dates from request parameters
-    ordination_date_str = request.args.get('ordination_date')
-    consecration_date_str = request.args.get('consecration_date')
-    
-    # Convert string dates to date objects
-    ordination_date = None
-    consecration_date = None
-    
-    if ordination_date_str:
-        try:
-            ordination_date = datetime.strptime(ordination_date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return jsonify({'error': 'Invalid ordination date format'}), 400
-    
-    if consecration_date_str:
-        try:
-            consecration_date = datetime.strptime(consecration_date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return jsonify({'error': 'Invalid consecration date format'}), 400
-    
-    # Get all active (non-deleted) bishops
-    all_bishops = db.session.query(Clergy).join(Rank, Clergy.rank == Rank.name).filter(
-        Rank.is_bishop == True,
-        Clergy.is_deleted != True
-    ).order_by(Clergy.name).all()
-    
-    # Filter bishops based on temporal logic
-    def is_valid_bishop_for_dates(bishop, ord_date, cons_date):
-        """Check if a bishop was valid for the given ordination and consecration dates."""
-        
-        # For ordaining bishop: must be alive and be a bishop on ordination date
-        if ord_date:
-            if not bishop.was_bishop_on(ord_date):
-                return False
-        
-        # For consecrator: must be alive and be a bishop on consecration date
-        if cons_date:
-            if not bishop.was_bishop_on(cons_date):
-                return False
-        
-        # If no dates specified, include all bishops
-        return True
-    
-    # Filter bishops
-    filtered_bishops = [
-        bishop for bishop in all_bishops
-        if is_valid_bishop_for_dates(bishop, ordination_date, consecration_date)
-    ]
-    
-    # Convert to list of dictionaries for JSON serialization
-    bishops_data = [
-        {
-            'id': bishop.id,
-            'name': bishop.name,
-            'rank': bishop.rank,
-            'date_of_birth': bishop.date_of_birth.isoformat() if bishop.date_of_birth else None,
-            'date_of_death': bishop.date_of_death.isoformat() if bishop.date_of_death else None,
-            'consecrations_count': len(bishop.consecrations)
-        }
-        for bishop in filtered_bishops
-    ]
-    
-    return jsonify({'bishops': bishops_data})
 
 def get_all_statuses():
     """Retrieve all status definitions"""

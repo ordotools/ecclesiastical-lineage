@@ -258,9 +258,9 @@
     {% if session.user_id %}
     <div class="admin-nav-container">
         {% if user and user.has_permission('add_clergy') %}
-        <button type="button" class="main-ui-btn main-ui-btn-primary" id="addClergyFromLineageBtn" title="Add New Clergy">
+        <a href="{{ url_for('editor.editor') }}#clergy-form" class="main-ui-btn main-ui-btn-primary" title="Add New Clergy">
             <i class="fas fa-plus" aria-hidden="true"></i> Add Clergy
-        </button>
+        </a>
         {% endif %}
         <a href="{{ url_for('auth.dashboard') }}" class="main-ui-btn main-ui-btn-secondary">
             <i class="fas fa-tachometer-alt" aria-hidden="true"></i> Dashboard
@@ -288,16 +288,6 @@
         <span>{{ error_message }}</span>
     </div>
     {% endif %}
-
-    <!-- Clergy Form Modal (custom overlay + frosted panel; no Bootstrap) -->
-    <div id="clergyFormModal" class="main-ui-modal-overlay" aria-labelledby="clergyFormModalLabel" aria-hidden="true">
-        <div class="main-ui-modal-panel">
-            <button type="button" class="main-ui-modal-close" id="clergyFormModalClose" aria-label="Close">&times;</button>
-            <div id="clergyFormModalBody" class="main-ui-modal-body">
-                <!-- Form content loaded via fetch -->
-            </div>
-        </div>
-    </div>
 
     <!-- Bottom Filter Menu -->
     <div id="lineage-filter-menu" class="lineage-filter-menu">
@@ -338,15 +328,6 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='visualizations/force-directed/force-directed.css') }}?v=1.0">
 {% endblock %}
 
-{% block editor_scripts %}
-{% if user and user.has_permission('add_clergy') %}
-<!-- Editor scripts only loaded for authenticated users who can add clergy -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js" defer></script>
-<script src="{{ url_for('static', filename='js/imageEditor.js') }}" defer></script>
-<script src="{{ url_for('static', filename='js/clergyForm.js') }}" defer></script>
-{% endif %}
-{% endblock %}
-
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}" defer></script>
 <!-- Lazy load fuzzySearch after page load -->
@@ -368,96 +349,4 @@
         document.body.appendChild(script);
     });
 </script>
-<!-- Include the clean clergy form controller -->
-<script src="{{ url_for('static', filename='js/clergy-form-controller.js') }}" defer></script>
-
-<!-- Custom clergy modal: close on button, overlay click, Escape -->
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var overlay = document.getElementById('clergyFormModal');
-        var closeBtn = document.getElementById('clergyFormModalClose');
-        if (overlay && overlay.classList.contains('main-ui-modal-overlay')) {
-            if (closeBtn) closeBtn.addEventListener('click', function() { window.hideClergyFormModal && window.hideClergyFormModal(); });
-            overlay.addEventListener('click', function(e) { if (e.target === overlay) window.hideClergyFormModal && window.hideClergyFormModal(); });
-            document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && window.getModalState && window.getModalState()) window.hideClergyFormModal && window.hideClergyFormModal(); });
-        }
-    });
-</script>
-
-<!-- Add Clergy Button Handler -->
-{% if user and user.has_permission('add_clergy') %}
-<script>
-    // Form JavaScript is now embedded in the form template itself
-
-    document.addEventListener('DOMContentLoaded', function () {
-        const addClergyBtn = document.getElementById('addClergyFromLineageBtn');
-        if (addClergyBtn) {
-            addClergyBtn.addEventListener('click', function () {
-                // Load the add clergy form in the modal
-                fetch('{{ url_for("lineage_api.add_clergy_from_lineage") }}', {
-                    method: 'GET',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                    .then(response => response.text())
-                    .then(html => {
-                        // Load the form into the modal
-                        document.getElementById('clergyFormModalBody').innerHTML = html;
-
-                        // Manually execute any script tags in the loaded HTML
-                        const scripts = document.getElementById('clergyFormModalBody').querySelectorAll('script');
-                        scripts.forEach(script => {
-                            const newScript = document.createElement('script');
-                            newScript.textContent = script.textContent;
-                            document.head.appendChild(newScript);
-                            document.head.removeChild(newScript);
-                        });
-
-                        // Initialize the form after HTML is loaded
-                        setTimeout(() => {
-                            console.log('Initializing form after HTML load');
-
-                            // Reset the form initialization flags
-                            window.clergyFormInitialized = false;
-                            window.dynamicFormInitialized = false;
-
-                            // Initialize dynamic form system first (provides toggleConsecrationFields function)
-                            if (typeof window.initializeDynamicFormSystem === 'function') {
-                                console.log('Initializing dynamic form system');
-                                window.initializeDynamicFormSystem();
-                            }
-
-                            // Then initialize the clergy form
-                            if (typeof window.initializeClergyForm === 'function') {
-                                console.log('Initializing clergy form');
-                                window.initializeClergyForm();
-                            } else {
-                                // Fallback: trigger DOMContentLoaded event for clergyForm.js
-                                console.log('Triggering form initialization via DOMContentLoaded');
-                                const event = new Event('DOMContentLoaded');
-                                document.dispatchEvent(event);
-                            }
-
-                            // Initialize embedded form script (handles grid layout, form interactions)
-                            if (typeof window.initializeEmbeddedFormScript === 'function') {
-                                console.log('Initializing embedded form script');
-                                window.initializeEmbeddedFormScript();
-                            }
-                        }, 50);
-
-                        // Show the custom modal
-                        if (typeof window.showClergyFormModal === 'function') {
-                            window.showClergyFormModal();
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error loading add clergy form:', error);
-                        alert('Error loading add clergy form. Please try again.');
-                    });
-            });
-        }
-    });
-</script>
-{% endif %}
 {% endblock %}

@@ -501,6 +501,9 @@ function updateCombinedFilters() {
   // Update visualization immediately to reflect filtered state
   // The tick function will continue to update, but we want immediate feedback
   updateVisualizationFilters();
+
+  // Notify tree view to re-render when filters change (tree uses same currentNodes/currentLinks)
+  window.dispatchEvent(new CustomEvent('lineage-filters-applied'));
 }
 
 // Function to update visualization elements based on filter state

@@ -69,6 +69,11 @@ const LINK_CONFIG = {
 // --- Node Visual Parameters ---
 // Node dimensions come from shared nodes.js (getNodeDimensions / CSS variables).
 
+// Teardown: stored refs for event listeners so destroyVisualization() can remove them
+let _vizResizeHandler = null;
+let _vizResetZoomHandler = null;
+let _vizCenterGraphHandler = null;
+
 // ============================================================================
 
 // Function to check if a rank is a bishop rank
@@ -840,27 +845,29 @@ export async function initializeVisualization() {
     }
   }
 
-  // Control button handlers (only if buttons exist)
+  // Control button handlers (only if buttons exist) - store refs for teardown
   const resetZoomBtn = document.getElementById('reset-zoom');
   if (resetZoomBtn) {
-    resetZoomBtn.addEventListener('click', () => {
+    _vizResetZoomHandler = () => {
       svg.call(zoom.transform, d3.zoomIdentity);
       updateTimelinePositions(d3.zoomIdentity);
-    });
+    };
+    resetZoomBtn.addEventListener('click', _vizResetZoomHandler);
   }
 
   const centerGraphBtn = document.getElementById('center-graph');
   if (centerGraphBtn) {
-    centerGraphBtn.addEventListener('click', () => {
+    _vizCenterGraphHandler = () => {
       simulation.force('center', d3.forceCenter(width / 2, height / 2));
       simulation.alpha(SIMULATION_CONFIG.alphaTargetOnRestart).restart();
-    });
+    };
+    centerGraphBtn.addEventListener('click', _vizCenterGraphHandler);
   }
 
-  // Handle window resize - only restart simulation on actual window size changes
+  // Handle window resize - only restart simulation on actual window size changes (store ref for teardown)
   let lastWindowWidth = window.innerWidth;
   let lastWindowHeight = window.innerHeight;
-  window.addEventListener('resize', function() {
+  _vizResizeHandler = function() {
     const newWidth = window.innerWidth;
     const newHeight = window.innerHeight - 76;
     
@@ -875,11 +882,42 @@ export async function initializeVisualization() {
       simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2));
       simulation.alpha(1).restart();
     }
-  });
+  };
+  window.addEventListener('resize', _vizResizeHandler);
 
   // Apply initial filters
   applyBackboneOnlyFilter();
   applyPriestFilter();
+}
+
+/**
+ * Stops the force simulation, removes event listeners, and clears #graph-container.
+ * Call before switching to another visualization (e.g. tree view).
+ */
+export function destroyVisualization() {
+  if (window.currentSimulation) {
+    window.currentSimulation.stop();
+    window.currentSimulation = null;
+  }
+  window.currentZoom = null;
+  if (_vizResizeHandler) {
+    window.removeEventListener('resize', _vizResizeHandler);
+    _vizResizeHandler = null;
+  }
+  const resetZoomBtn = document.getElementById('reset-zoom');
+  if (resetZoomBtn && _vizResetZoomHandler) {
+    resetZoomBtn.removeEventListener('click', _vizResetZoomHandler);
+    _vizResetZoomHandler = null;
+  }
+  const centerGraphBtn = document.getElementById('center-graph');
+  if (centerGraphBtn && _vizCenterGraphHandler) {
+    centerGraphBtn.removeEventListener('click', _vizCenterGraphHandler);
+    _vizCenterGraphHandler = null;
+  }
+  const container = document.getElementById('graph-container');
+  if (container) {
+    container.innerHTML = '';
+  }
 }
 
 // View zoom management functions

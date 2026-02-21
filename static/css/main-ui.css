@@ -578,6 +578,27 @@
 .filter-menu-item.dropdown {
   position: relative;
 }
+
+/* View toggle: Force | Tree (segmented control) */
+.view-toggle-group {
+  display: flex;
+  gap: 0;
+}
+.view-toggle-group .view-toggle-btn {
+  border-radius: 0;
+  margin-left: -1px;
+}
+.view-toggle-group .view-toggle-btn:first-child {
+  border-radius: 8px 0 0 8px;
+  margin-left: 0;
+}
+.view-toggle-group .view-toggle-btn:last-child {
+  border-radius: 0 8px 8px 0;
+}
+.view-toggle-group .view-toggle-btn.active {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
+}
 @media (max-width: 768px) {
   .lineage-filter-menu .main-ui-bar {
     flex-wrap: wrap;

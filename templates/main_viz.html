@@ -292,6 +292,11 @@
     <!-- Bottom Filter Menu -->
     <div id="lineage-filter-menu" class="lineage-filter-menu">
         <div class="filter-menu-content main-ui-bar">
+            <!-- View Toggle: Force | Tree -->
+            <div class="filter-menu-item view-toggle-group" role="group">
+                <button type="button" class="main-ui-btn main-ui-btn-secondary view-toggle-btn active" id="view-force-btn" data-view="force" aria-pressed="true">Force</button>
+                <button type="button" class="main-ui-btn main-ui-btn-secondary view-toggle-btn" id="view-tree-btn" data-view="tree" aria-pressed="false">Tree</button>
+            </div>
             <!-- View Priests Toggle -->
             <div class="filter-menu-item">
                 <label class="main-ui-toggle-wrap" for="view-priests-toggle">
@@ -334,6 +339,39 @@
 <script>
     window.linksData = {{ links_json | safe }};
     window.nodesData = {{ nodes_json | safe }};
+</script>
+<script>
+    (function() {
+        const STORAGE_KEY = 'lineageView';
+        const getView = () => sessionStorage.getItem(STORAGE_KEY) || 'force';
+        const setView = (v) => { sessionStorage.setItem(STORAGE_KEY, v); };
+
+        function setViewToggleUI(view) {
+            document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+                const active = btn.dataset.view === view;
+                btn.classList.toggle('active', active);
+                btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+        }
+
+        function updateViewToggle(view) {
+            setViewToggleUI(view);
+            window.dispatchEvent(new CustomEvent('lineage-view-changed', { detail: { view } }));
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const view = getView();
+            setViewToggleUI(view);
+            document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const v = btn.dataset.view;
+                    setView(v);
+                    updateViewToggle(v);
+                });
+            });
+        });
+        window.getLineageView = getView;
+    })();
 </script>
 <script type="module"
     src="{{ url_for('static', filename='visualizations/force-directed/force-directed.js') }}?v={{ range(1000, 9999) | random }}"></script>

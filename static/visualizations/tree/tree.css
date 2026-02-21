@@ -1,0 +1,30 @@
+/**
+ * Tree visualization: styles for tree layout.
+ * Shared link/node variables in shared/visualization.css and shared/nodes/nodes.css.
+ */
+
+/* Tree container / SVG inherit from .viz-svg */
+.viz-svg-tree {
+  /* Same base as force-directed; no extra rules needed */
+}
+
+.viz-tree-zoom-layer {
+  /* Zoom/pan layer; inherits from .viz-zoom-layer */
+}
+
+/* Tree links: vertical tree edges */
+.viz-links-tree {
+  pointer-events: none;
+}
+
+.viz-link-tree {
+  stroke-width: var(--viz-link-stroke-width, 2px);
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Tree nodes: inherit from shared .viz-node */
+.viz-node-tree {
+  /* Uses shared node styles from nodes.css */
+}

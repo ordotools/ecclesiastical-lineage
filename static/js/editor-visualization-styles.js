@@ -3,6 +3,8 @@
  * Handles UI for style customization panel and persistence to database
  */
 
+import { setCSSVariables } from './visualization-styles-loader.js';
+
 // Prevent duplicate execution when script is reloaded via HTMX
 // Wrap everything in an IIFE that checks first - this prevents class hoisting issues
 (function() {
@@ -226,6 +228,12 @@ class VisualizationStyleController {
         if (resetBtn) {
             resetBtn.addEventListener('click', () => this.resetStyles());
         }
+        
+        // Metadata management modal
+        const metadataToggle = document.getElementById('viz-metadata-toggle');
+        if (metadataToggle) {
+            metadataToggle.addEventListener('click', () => window.openMetadataManagementModal?.());
+        }
     }
     
     togglePanel() {
@@ -367,43 +375,7 @@ class VisualizationStyleController {
     updateCSSVariables() {
         /** Update CSS custom properties to match current styles */
         if (!this.styles) return;
-        
-        const root = document.documentElement;
-        
-        // Update node CSS variables
-        if (this.styles.node) {
-            root.style.setProperty('--viz-node-outer-radius', `${this.styles.node.outer_radius || 30}px`);
-            root.style.setProperty('--viz-node-inner-radius', `${this.styles.node.inner_radius || 24}px`);
-            root.style.setProperty('--viz-node-image-size', `${this.styles.node.image_size || 48}px`);
-            root.style.setProperty('--viz-node-stroke-width', `${this.styles.node.stroke_width || 3}px`);
-        }
-        
-        // Update link CSS variables
-        if (this.styles.link) {
-            const ordinationColor = this.styles.link.ordination_color || '#1c1c1c';
-            const consecrationColor = this.styles.link.consecration_color || '#11451e';
-            const invalidOrdinationColor = this.styles.link.invalid_ordination_color || '#f39c12';
-            const invalidConsecrationColor = this.styles.link.invalid_consecration_color || '#e74c3c';
-            
-            root.style.setProperty('--viz-link-ordination-color', ordinationColor);
-            root.style.setProperty('--viz-link-consecration-color', consecrationColor);
-            root.style.setProperty('--viz-link-invalid-ordination-color', invalidOrdinationColor);
-            root.style.setProperty('--viz-link-invalid-consecration-color', invalidConsecrationColor);
-            root.style.setProperty('--viz-link-stroke-width', `${this.styles.link.stroke_width || 2}px`);
-            
-            // Arrow markers use the same colors as links
-            root.style.setProperty('--viz-arrow-ordination-color', ordinationColor);
-            root.style.setProperty('--viz-arrow-consecration-color', consecrationColor);
-            root.style.setProperty('--viz-arrow-invalid-ordination-color', invalidOrdinationColor);
-            root.style.setProperty('--viz-arrow-invalid-consecration-color', invalidConsecrationColor);
-        }
-        
-        // Update label CSS variables
-        if (this.styles.label) {
-            root.style.setProperty('--viz-label-font-size', `${this.styles.label.font_size || 12}px`);
-            root.style.setProperty('--viz-label-color', this.styles.label.color || '#ffffff');
-            root.style.setProperty('--viz-label-dy', `${this.styles.label.dy || 35}px`);
-        }
+        setCSSVariables(this.styles);
     }
     
     applyStylesToVisualization() {

@@ -18,126 +18,103 @@
 
     <!-- Style Customization Panel -->
     <div id="viz-style-panel" class="viz-style-panel hidden">
-    <div class="viz-style-panel-header">
-        <h6>Visualization Styles</h6>
-        <button id="viz-style-close" class="viz-style-close-btn" title="Close">
-            <i class="fas fa-times"></i>
-        </button>
-    </div>
-    <div class="viz-style-panel-content">
-        <!-- Node Styles -->
-        <div class="viz-style-section">
-            <h6 class="viz-style-section-title">Node Styles</h6>
-            
-            <div class="viz-style-control">
-                <label>Outer Radius: <span id="outer-radius-value">30</span>px</label>
-                <input type="range" id="outer-radius" class="viz-slider" min="20" max="50" value="30">
-            </div>
-            
-            <div class="viz-style-control">
-                <label>Inner Radius: <span id="inner-radius-value">24</span>px</label>
-                <input type="range" id="inner-radius" class="viz-slider" min="15" max="40" value="24">
-            </div>
-            
-            <div class="viz-style-control">
-                <label>Image Size: <span id="image-size-value">48</span>px</label>
-                <input type="range" id="image-size" class="viz-slider" min="32" max="64" value="48">
-            </div>
-            
-            <div class="viz-style-control">
-                <label>Stroke Width: <span id="node-stroke-width-value">3</span>px</label>
-                <input type="range" id="node-stroke-width" class="viz-slider" min="1" max="8" value="3">
-            </div>
-        </div>
-        
-        <!-- Metadata Quick Edit -->
-        <div class="viz-style-section">
-            <h6 class="viz-style-section-title">Metadata</h6>
-            <p class="viz-style-note">Node colors come from ranks & organizations</p>
-            <button id="viz-metadata-toggle" class="viz-metadata-toggle-btn" onclick="openMetadataManagementModal()">
-                <i class="fas fa-cog"></i> Manage Metadata
+        <div class="viz-style-panel-header">
+            <h6>Visualization Styles</h6>
+            <button id="viz-style-close" class="viz-style-close-btn" title="Close">
+                <i class="fas fa-times"></i>
             </button>
         </div>
-        
-        <!-- Link Styles -->
-        <div class="viz-style-section">
-            <h6 class="viz-style-section-title">Link Styles</h6>
-            
-            <div class="viz-style-control">
-                <label>Ordination Color</label>
-                <input type="color" id="link-ordination-color" class="viz-color-picker" value="#1c1c1c">
+        <div class="viz-style-panel-content">
+            <!-- Node Styles -->
+            <div class="viz-style-section">
+                <h6 class="viz-style-section-title">Node Styles</h6>
+                <div class="viz-style-control">
+                    <label>Outer Radius: <span id="outer-radius-value">30</span>px</label>
+                    <input type="range" id="outer-radius" class="viz-slider" min="20" max="50" value="30">
+                </div>
+                <div class="viz-style-control">
+                    <label>Inner Radius: <span id="inner-radius-value">24</span>px</label>
+                    <input type="range" id="inner-radius" class="viz-slider" min="15" max="40" value="24">
+                </div>
+                <div class="viz-style-control">
+                    <label>Image Size: <span id="image-size-value">48</span>px</label>
+                    <input type="range" id="image-size" class="viz-slider" min="32" max="64" value="48">
+                </div>
+                <div class="viz-style-control">
+                    <label>Stroke Width: <span id="node-stroke-width-value">3</span>px</label>
+                    <input type="range" id="node-stroke-width" class="viz-slider" min="1" max="8" value="3">
+                </div>
             </div>
-            
-            <div class="viz-style-control">
-                <label>Consecration Color</label>
-                <input type="color" id="link-consecration-color" class="viz-color-picker" value="#11451e">
+            <!-- Metadata Quick Edit -->
+            <div class="viz-style-section">
+                <h6 class="viz-style-section-title">Metadata</h6>
+                <p class="viz-style-note">Node colors come from ranks & organizations</p>
+                <button id="viz-metadata-toggle" class="viz-metadata-toggle-btn">
+                    <i class="fas fa-cog"></i> Manage Metadata
+                </button>
             </div>
-            
-            <div class="viz-style-control">
-                <label>Invalid Ordination Color</label>
-                <input type="color" id="link-invalid-ordination-color" class="viz-color-picker" value="#f39c12">
+            <!-- Link Styles -->
+            <div class="viz-style-section">
+                <h6 class="viz-style-section-title">Link Styles</h6>
+                <div class="viz-style-control">
+                    <label>Ordination Color</label>
+                    <input type="color" id="link-ordination-color" class="viz-color-picker" value="#1c1c1c">
+                </div>
+                <div class="viz-style-control">
+                    <label>Consecration Color</label>
+                    <input type="color" id="link-consecration-color" class="viz-color-picker" value="#11451e">
+                </div>
+                <div class="viz-style-control">
+                    <label>Invalid Ordination Color</label>
+                    <input type="color" id="link-invalid-ordination-color" class="viz-color-picker" value="#f39c12">
+                </div>
+                <div class="viz-style-control">
+                    <label>Invalid Consecration Color</label>
+                    <input type="color" id="link-invalid-consecration-color" class="viz-color-picker" value="#e74c3c">
+                </div>
+                <div class="viz-style-control">
+                    <label>Stroke Width: <span id="link-stroke-width-value">2</span>px</label>
+                    <input type="range" id="link-stroke-width" class="viz-slider" min="1" max="6" value="2">
+                </div>
             </div>
-            
-            <div class="viz-style-control">
-                <label>Invalid Consecration Color</label>
-                <input type="color" id="link-invalid-consecration-color" class="viz-color-picker" value="#e74c3c">
+            <!-- Label Styles -->
+            <div class="viz-style-section">
+                <h6 class="viz-style-section-title">Label Styles</h6>
+                <div class="viz-style-control">
+                    <label>Font Size: <span id="label-font-size-value">12</span>px</label>
+                    <input type="range" id="label-font-size" class="viz-slider" min="8" max="18" value="12">
+                </div>
+                <div class="viz-style-control">
+                    <label>Text Color</label>
+                    <input type="color" id="label-color" class="viz-color-picker" value="#ffffff">
+                </div>
+                <div class="viz-style-control">
+                    <label>Vertical Offset: <span id="label-dy-value">35</span>px</label>
+                    <input type="range" id="label-dy" class="viz-slider" min="25" max="50" value="35">
+                </div>
             </div>
-            
-            <div class="viz-style-control">
-                <label>Stroke Width: <span id="link-stroke-width-value">2</span>px</label>
-                <input type="range" id="link-stroke-width" class="viz-slider" min="1" max="6" value="2">
+            <!-- Action Buttons -->
+            <div class="viz-style-section">
+                <button id="viz-style-save" class="viz-style-save-btn">Save Styles</button>
+                <button id="viz-style-reset" class="viz-style-reset-btn">Reset to Defaults</button>
             </div>
-        </div>
-        
-        <!-- Label Styles -->
-        <div class="viz-style-section">
-            <h6 class="viz-style-section-title">Label Styles</h6>
-            
-            <div class="viz-style-control">
-                <label>Font Size: <span id="label-font-size-value">12</span>px</label>
-                <input type="range" id="label-font-size" class="viz-slider" min="8" max="18" value="12">
-            </div>
-            
-            <div class="viz-style-control">
-                <label>Text Color</label>
-                <input type="color" id="label-color" class="viz-color-picker" value="#ffffff">
-            </div>
-            
-            <div class="viz-style-control">
-                <label>Vertical Offset: <span id="label-dy-value">35</span>px</label>
-                <input type="range" id="label-dy" class="viz-slider" min="25" max="50" value="35">
-            </div>
-        </div>
-        
-        <!-- Action Buttons -->
-        <div class="viz-style-section">
-            <button id="viz-style-save" class="viz-style-save-btn">Save Styles</button>
-            <button id="viz-style-reset" class="viz-style-reset-btn">Reset to Defaults</button>
         </div>
     </div>
 </div>
 
 <script type="module">
-// Load styles from database before initializing visualization
-import { loadVisualizationStyles } from '/static/js/visualization-styles-loader.js';
-
 (async function() {
     // Guard against double initialization
     if (window._editorVizInitializing) {
-        console.log('Visualization initialization already in progress, skipping...');
         return;
     }
     
-    console.log('Visualization template script starting...');
-    
-    // Load visualization styles from database first (sets CSS variables)
-    await loadVisualizationStyles();
-    
+    // VisualizationStyleController (editor-visualization-styles.js) loads styles and sets CSS vars
     // Data from the server
     const nodesData = {{ nodes_json | safe }};
     const linksData = {{ links_json | safe }};
     
-    console.log('Nodes data:', nodesData.length, 'Links data:', linksData.length);
+    if (window.DEBUG_VIZ) console.log('Nodes data:', nodesData.length, 'Links data:', linksData.length);
     
     // Wait for the script to load and then initialize
     let retryCount = 0;
@@ -148,11 +125,11 @@ import { loadVisualizationStyles } from '/static/js/visualization-styles-loader.
             // Set flag to prevent double initialization
             window._editorVizInitializing = true;
             
-            console.log('Script loaded, initializing visualization...');
+            if (window.DEBUG_VIZ) console.log('Script loaded, initializing visualization...');
             
             // Cleanup existing visualization on panel reload
             if (typeof cleanupEditorVisualization === 'function') {
-                console.log('Cleaning up existing visualization...');
+                if (window.DEBUG_VIZ) console.log('Cleaning up existing visualization...');
                 cleanupEditorVisualization();
             }
             
@@ -173,15 +150,15 @@ import { loadVisualizationStyles } from '/static/js/visualization-styles-loader.
         } else {
             retryCount++;
             if (retryCount < maxRetries) {
-                console.log(`Script not yet loaded, retrying... (${retryCount}/${maxRetries})`);
+                if (window.DEBUG_VIZ) console.log(`Script not yet loaded, retrying... (${retryCount}/${maxRetries})`);
                 setTimeout(waitForScriptAndInitialize, 100);
             } else {
-                console.error('Failed to load editor-visualization.js after', maxRetries, 'retries');
+                if (window.DEBUG_VIZ) console.error('Failed to load editor-visualization.js after', maxRetries, 'retries');
                 // Try to load the script manually
                 const script = document.createElement('script');
                 script.src = '/static/js/editor-visualization.js';
                 script.onload = () => {
-                    console.log('Script loaded manually, initializing...');
+                    if (window.DEBUG_VIZ) console.log('Script loaded manually, initializing...');
                     if (typeof initializeEditorVisualization === 'function') {
                         initializeEditorVisualization(nodesData, linksData);
                     }
@@ -195,5 +172,5 @@ import { loadVisualizationStyles } from '/static/js/visualization-styles-loader.
     waitForScriptAndInitialize();
 })();
 </script>
-<script src="{{ url_for('static', filename='js/editor-visualization-styles.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/editor-visualization-styles.js') }}"></script>
 {% endif %}

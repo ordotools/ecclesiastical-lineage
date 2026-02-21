@@ -66,12 +66,6 @@ export function setCSSVariables(styles) {
         root.style.setProperty('--viz-arrow-invalid-consecration-color', invalidConsecrationColor);
     }
     
-    // Update arrow CSS variables
-    if (styles.arrow) {
-        root.style.setProperty('--viz-arrow-size', styles.arrow.size || 8);
-        root.style.setProperty('--viz-arrow-style', styles.arrow.style || 'triangle');
-    }
-    
     // Update label CSS variables
     if (styles.label) {
         root.style.setProperty('--viz-label-font-size', `${styles.label.font_size || 12}px`);

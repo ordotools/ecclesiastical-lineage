@@ -137,6 +137,8 @@ def get_visualization_styles():
                 'link': {
                     'ordination_color': '#1c1c1c',
                     'consecration_color': '#11451e',
+                    'invalid_ordination_color': '#f39c12',
+                    'invalid_consecration_color': '#e74c3c',
                     'stroke_width': 2
                 },
                 'label': {

@@ -116,7 +116,6 @@
                         <select id="rank" name="rank" required>
                             <option value="">Select Rank</option>
                             {% for rank in fields.ranks %}
-                            <!-- DEBUG: rank.name={{ rank.name }}, rank.is_bishop={{ rank.is_bishop }} -->
                             <option value="{{ rank.name }}" data-is-bishop="{{ 'true' if rank.is_bishop else 'false' }}" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>
                                 {{ rank.name }} ({{ 'Bishop' if rank.is_bishop else 'Not Bishop' }})
                             </option>
@@ -634,8 +633,6 @@ function populateExistingConsecrations() {
         }{% if not loop.last %},{% endif %}
         {% endfor %}
     ];
-    console.log('🔍 CONSECRATION DEBUG: Built consecrations array:', consecrations);
-    console.log('🔍 CONSECRATION DEBUG: Populating', consecrations.length, 'existing consecrations...');
     
     // Mark as populated before adding entries
     container.setAttribute('data-consecrations-populated', 'true');
@@ -810,20 +807,11 @@ function attachRankChangeListener() {
     if (rankSelect && !rankSelect.hasAttribute('data-change-listener-attached')) {
         rankSelect.setAttribute('data-change-listener-attached', 'true');
         rankSelect.addEventListener('change', function() {
-            console.log('🔄 RANK CHANGE: Event triggered');
             const papalField = document.getElementById('papalNameField');
             const consecrationsField = document.getElementById('consecrationsField');
             const selectedOption = this.options[this.selectedIndex];
             const rankValue = this.value.toLowerCase();
             const isBishop = selectedOption.getAttribute('data-is-bishop') === 'true';
-            
-            console.log('🔄 RANK CHANGE: Details:', {
-                rankValue: rankValue,
-                isBishop: isBishop,
-                dataAttribute: selectedOption.getAttribute('data-is-bishop'),
-                papalField: !!papalField,
-                consecrationsField: !!consecrationsField
-            });
             
             // Handle papal name field (only for pope)
             if (rankValue === 'pope') {
@@ -900,7 +888,6 @@ attachRankChangeListener();
         // Also check on page load
         setTimeout(updateDeceasedStatus, 100);
         
-        console.log('✅ Auto-deceased status listener attached');
     }
 })();
 
@@ -1467,14 +1454,10 @@ function showOrganizationModal() {
 
 // Initialize clergy autocomplete functionality
 function initializeClergyAutocomplete() {
-    console.log('🎯 CONTENT: Initializing clergy autocomplete...');
-    
     // Find all clergy search input fields
     const clergyInputs = document.querySelectorAll('input[name*="ordaining_bishop_input"], input[name*="consecrator_input"], input[name*="co_consecrators"][name*="input"]');
-    console.log('🎯 CONTENT: Found clergy inputs:', clergyInputs.length);
     
     clergyInputs.forEach((input, index) => {
-        console.log(`🎯 CONTENT: Initializing input ${index + 1}:`, input.name, input.placeholder);
         initializeSingleClergyAutocomplete(input);
     });
 }
@@ -1492,12 +1475,10 @@ function initializeSingleClergyAutocomplete(input) {
         return;
     }
     
-    console.log('🎯 CONTENT: Initializing autocomplete for:', input.name, 'with dropdown:', !!dropdown);
     input.setAttribute('data-autocomplete-initialized', 'true');
     
     input.addEventListener('input', function() {
         const query = this.value.trim();
-        console.log('🎯 CONTENT: Input event for', this.name, 'query:', query);
         
         if (query.length < 2) {
             dropdown.style.display = 'none';

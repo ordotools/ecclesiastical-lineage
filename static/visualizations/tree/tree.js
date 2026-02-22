@@ -66,7 +66,6 @@ export function buildForest(nodesData, linksData) {
 const NODE_SIZE_X = 100;
 const NODE_SIZE_Y = 120;
 const PRE_1968_YEAR = 1968;
-const YEAR_SCALE = 8;
 const PADDING_Y = 40;
 
 const tree = d3.tree()
@@ -243,10 +242,21 @@ export async function initializeTreeVisualization(nodesData, linksData) {
   realNodes.forEach((node) => {
     const layoutYear = getLayoutYear(node);
     if (useTimeline && layoutYear != null) {
-      node.y = (layoutYear - minYear) * YEAR_SCALE + PADDING_Y;
+      node.y = (layoutYear - minYear) * NODE_SIZE_Y + PADDING_Y;
     } else {
       // Nodes without dates: fallback to depth * NODE_SIZE_Y
       node.y = node.depth * NODE_SIZE_Y;
+    }
+  });
+
+  // Same-year parent-child: place children in-line (same Y as parent)
+  realNodes.forEach((node) => {
+    const parent = node.parent;
+    if (!parent || parent.data.id === '__root__') return;
+    const nodeYear = getLayoutYear(node);
+    const parentYear = getLayoutYear(parent);
+    if (nodeYear != null && parentYear != null && nodeYear === parentYear) {
+      node.y = parent.y;
     }
   });
 

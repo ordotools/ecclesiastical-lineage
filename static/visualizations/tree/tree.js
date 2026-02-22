@@ -65,12 +65,13 @@ export function buildForest(nodesData, linksData) {
 
 const NODE_SIZE_X = 100;
 const NODE_SIZE_Y = 120;
+const MIN_SEPARATION = 1.25; // 1 node + 25% gap
 const PRE_1968_YEAR = 1968;
 const PADDING_Y = 40;
 
 const tree = d3.tree()
   .nodeSize([NODE_SIZE_X, NODE_SIZE_Y])
-  .separation((a, b) => (a.parent === b.parent ? 1 : 2));
+  .separation((a, b) => Math.max(MIN_SEPARATION, a.parent === b.parent ? 1 : 2));
 
 /**
  * Orientation of point C relative to segment A→B: positive = left, negative = right, 0 = collinear.

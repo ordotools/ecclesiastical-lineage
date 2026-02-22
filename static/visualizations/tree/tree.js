@@ -40,16 +40,21 @@ export function buildForest(nodesData, linksData) {
     roots = nodes.filter((n) => !parentMap.has(n.id));
   }
 
-  // Attach children to each node; store parentLinkType for link styling
+  // Leftmost-descendant key for same-layer ordering (min id in subtree); compare as string for consistency.
+  const leftmostKey = (n) => (n._leftmostDescendantId != null ? String(n._leftmostDescendantId) : String(n.id ?? ''));
+
+  // Attach children to each node; store parentLinkType for link styling.
+  // Order children by leftmost descendant (same-layer) to minimize link crossings before layout.
   const attachChildren = (node) => {
     if (!node) return node;
-    node.children = nodes
+    const childList = nodes
       .filter((n) => parentMap.get(n.id) === node.id)
       .map((n) => {
         const child = { ...n, children: [], parentLinkType: linkTypeMap.get(n.id) || 'consecration' };
         return attachChildren(child);
-      })
-      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      });
+    node.children = childList.sort((a, b) => leftmostKey(a).localeCompare(leftmostKey(b)));
+    node._leftmostDescendantId = node.children.length === 0 ? node.id : node.children[0]._leftmostDescendantId;
     return node;
   };
 
@@ -61,6 +66,55 @@ export function buildForest(nodesData, linksData) {
 const NODE_SIZE_X = 100;
 const NODE_SIZE_Y = 120;
 const PRE_1968_YEAR = 1968;
+const YEAR_SCALE = 8;
+const PADDING_Y = 40;
+
+const tree = d3.tree()
+  .nodeSize([NODE_SIZE_X, NODE_SIZE_Y])
+  .separation((a, b) => (a.parent === b.parent ? 1 : 2));
+
+/**
+ * Orientation of point C relative to segment A→B: positive = left, negative = right, 0 = collinear.
+ * @param {{ x: number, y: number }} a
+ * @param {{ x: number, y: number }} b
+ * @param {{ x: number, y: number }} c
+ */
+function orient(a, b, c) {
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+/**
+ * True if segment (a,b) properly intersects segment (c,d) (interior point, not at endpoints).
+ */
+function segmentsIntersect(a, b, c, d) {
+  const o1 = orient(a, b, c);
+  const o2 = orient(a, b, d);
+  const o3 = orient(c, d, a);
+  const o4 = orient(c, d, b);
+  if (o1 === 0 || o2 === 0 || o3 === 0 || o4 === 0) return false;
+  return (o1 > 0) !== (o2 > 0) && (o3 > 0) !== (o4 > 0);
+}
+
+/**
+ * Optional post-pass: detect link crossings (segment intersection).
+ * @param {Array<{ source: { x: number, y: number }, target: { x: number, y: number } }>} links
+ * @returns {Array<[number, number]>} Pairs of link indices [i, j] with i < j that cross
+ */
+export function detectLinkCrossings(links) {
+  const crossings = [];
+  for (let i = 0; i < links.length; i++) {
+    const la = links[i];
+    const a = { x: la.source.x, y: la.source.y };
+    const b = { x: la.target.x, y: la.target.y };
+    for (let j = i + 1; j < links.length; j++) {
+      const lb = links[j];
+      const c = { x: lb.source.x, y: lb.source.y };
+      const d = { x: lb.target.x, y: lb.target.y };
+      if (segmentsIntersect(a, b, c, d)) crossings.push([i, j]);
+    }
+  }
+  return crossings;
+}
 
 function parseYear(dateValue) {
   if (!dateValue) return null;
@@ -164,14 +218,49 @@ export async function initializeTreeVisualization(nodesData, linksData) {
 
   const virtualRoot = { id: '__root__', children: roots };
   const root = d3.hierarchy(virtualRoot, (d) => d.children || []);
-  const treeLayout = d3.tree().nodeSize([NODE_SIZE_X, NODE_SIZE_Y]);
-  treeLayout(root);
+  root.sort((a, b) => {
+    const keyA = a.data._leftmostDescendantId ?? a.data.id;
+    const keyB = b.data._leftmostDescendantId ?? b.data.id;
+    return String(keyA).localeCompare(String(keyB));
+  });
+  tree(root);
+
+  // Timeline-based y override: overwrite node.y with year-based positions
+  const realNodes = root.descendants().filter((n) => n.data.id !== '__root__');
+  const getLayoutYear = (node) => {
+    const d = node.data;
+    const cy = parseYear(d?.consecration_date);
+    if (cy != null) return cy;
+    const oy = parseYear(d?.ordination_date);
+    if (oy != null) return oy;
+    return null;
+  };
+  const years = realNodes.map(getLayoutYear).filter((y) => y != null);
+  const minYear = years.length > 0 ? Math.min(...years) : null;
+  const maxYear = years.length > 0 ? Math.max(...years) : null;
+  const useTimeline = minYear != null && maxYear != null;
+
+  realNodes.forEach((node) => {
+    const layoutYear = getLayoutYear(node);
+    if (useTimeline && layoutYear != null) {
+      node.y = (layoutYear - minYear) * YEAR_SCALE + PADDING_Y;
+    } else {
+      // Nodes without dates: fallback to depth * NODE_SIZE_Y
+      node.y = node.depth * NODE_SIZE_Y;
+    }
+  });
 
   const linkGen = d3.linkVertical()
     .x((d) => d.x)
     .y((d) => d.y);
 
   const treeLinks = root.links().filter((l) => l.source.data.id !== '__root__');
+  const linkCrossings = detectLinkCrossings(treeLinks);
+  if (linkCrossings.length > 0) {
+    window.__treeLinkCrossings = linkCrossings;
+  } else {
+    delete window.__treeLinkCrossings;
+  }
   const linksGroup = container.append('g').attr('class', 'viz-links-tree');
   linksGroup.selectAll('path')
     .data(treeLinks)

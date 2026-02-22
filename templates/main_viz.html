@@ -328,9 +328,10 @@
 
 {% block extra_styles %}
 {% include '_custom_styles.html' %}
-<link rel="stylesheet" href="{{ url_for('static', filename='visualizations/shared/visualization.css') }}?v=1.0">
-<link rel="stylesheet" href="{{ url_for('static', filename='visualizations/shared/nodes/nodes.css') }}?v=1.0">
-<link rel="stylesheet" href="{{ url_for('static', filename='visualizations/force-directed/force-directed.css') }}?v=1.0">
+<link rel="stylesheet" href="{{ url_for('static', filename='visualizations/shared/visualization.css') }}?v={{ range(1000, 9999) | random }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='visualizations/shared/nodes/nodes.css') }}?v={{ range(1000, 9999) | random }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='visualizations/force-directed/force-directed.css') }}?v={{ range(1000, 9999) | random }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='visualizations/tree/tree.css') }}?v={{ range(1000, 9999) | random }}">
 {% endblock %}
 
 {% block extra_scripts %}

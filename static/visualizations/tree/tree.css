@@ -12,6 +12,22 @@
   /* Zoom/pan layer; inherits from .viz-zoom-layer */
 }
 
+.viz-year-line {
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 1;
+  fill: none;
+}
+
+.viz-year-line-decade {
+  stroke: rgba(255, 255, 255, 0.4);
+  stroke-width: 2.5;
+}
+
+.viz-year-line-1958 {
+  stroke: #ff3333;
+  stroke-width: 2.5;
+}
+
 /* Tree links: vertical tree edges */
 .viz-links-tree {
   pointer-events: none;

@@ -207,7 +207,7 @@ export async function initializeTreeVisualization(nodesData, linksData) {
     .style('overflow', 'visible');
 
   const zoom = d3.zoom()
-    .scaleExtent([0.2, 4])
+    .scaleExtent([0.05, 4])
     .on('zoom', (event) => container.attr('transform', event.transform));
 
   svg.call(zoom);
@@ -271,6 +271,36 @@ export async function initializeTreeVisualization(nodesData, linksData) {
   } else {
     delete window.__treeLinkCrossings;
   }
+
+  const descendants = root.descendants().filter((d) => d.data.id !== '__root__');
+  const pad = 60;
+  const xs = descendants.map((d) => d.x);
+  const ys = descendants.map((d) => d.y);
+  const minX = Math.min(...xs) - pad;
+  const maxX = Math.max(...xs) + pad;
+
+  const yearLinesGroup = container.append('g').attr('class', 'viz-year-lines');
+  if (useTimeline && minYear != null && maxYear != null) {
+    const yearLineData = [];
+    for (let year = minYear; year <= maxYear; year++) {
+      const y = (year - minYear) * NODE_SIZE_Y + PADDING_Y;
+      yearLineData.push({ year, y });
+    }
+    yearLinesGroup.selectAll('line')
+      .data(yearLineData)
+      .join('line')
+      .attr('class', (d) => {
+        let c = 'viz-year-line';
+        if (d.year % 10 === 0) c += ' viz-year-line-decade';
+        if (d.year === 1958) c += ' viz-year-line-1958';
+        return c;
+      })
+      .attr('x1', minX)
+      .attr('x2', maxX)
+      .attr('y1', (d) => d.y)
+      .attr('y2', (d) => d.y);
+  }
+
   const linksGroup = container.append('g').attr('class', 'viz-links-tree');
   linksGroup.selectAll('path')
     .data(treeLinks)
@@ -281,7 +311,6 @@ export async function initializeTreeVisualization(nodesData, linksData) {
     .attr('fill', 'none')
     .attr('stroke-width', 2);
 
-  const descendants = root.descendants().filter((d) => d.data.id !== '__root__');
   const nodeData = descendants.map((d) => ({ ...d.data, _treeX: d.x, _treeY: d.y }));
   const nodesGroup = container.append('g').attr('class', 'viz-nodes viz-nodes-tree');
   const nodeEnter = nodesGroup.selectAll('g.viz-node')
@@ -314,11 +343,6 @@ export async function initializeTreeVisualization(nodesData, linksData) {
   const loadingIndicator = document.getElementById('loading-indicator');
   if (loadingIndicator) loadingIndicator.style.display = 'none';
 
-  const xs = descendants.map((d) => d.x);
-  const ys = descendants.map((d) => d.y);
-  const pad = 60;
-  const minX = Math.min(...xs) - pad;
-  const maxX = Math.max(...xs) + pad;
   const minY = Math.min(...ys) - pad;
   const maxY = Math.max(...ys) + pad;
   const w = maxX - minX;

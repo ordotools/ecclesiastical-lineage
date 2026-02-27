@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lineage Table - Episcopal Lineage</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-table.css') }}">
+</head>
+
+<body>
+    {% if error_message %}
+    <div class="lineage-error" role="alert">{{ error_message }}</div>
+    {% endif %}
+
+    <div class="lineage-table-wrap">
+        <table class="lineage-table">
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td class="name-cell" style="--depth: {{ row.depth }};">
+                        <span class="name-cell-inner">
+                            <span class="tree-glyph-strip" aria-hidden="true">
+                                {# continuation lines at ancestor depths #}
+                                {% for level in range(row.depth) %}
+                                    {% if row.guides[level] %}
+                                        <span class="tree-glyph tree-glyph-vert"></span>
+                                    {% else %}
+                                        <span class="tree-glyph tree-glyph-spacer"></span>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {# connector at current depth #}
+                                {% if row.flow == 'root' %}
+                                    <span class="tree-glyph tree-glyph-root"></span>
+                                {% elif row.flow == 'sibling' %}
+                                    <span class="tree-glyph tree-glyph-branch"></span>
+                                {% else %}
+                                    <span class="tree-glyph tree-glyph-branch-last"></span>
+                                {% endif %}
+                            </span>
+                            <a href="#">{{ row.name or '—' }}</a>
+                        </span>
+                    </td>
+                    <td>{{ row.rank or '—' }}</td>
+                    <td>{{ row.organization or '—' }}</td>
+                    <td>{{ row.ordination_date or '—' }}</td>
+                    <td>{{ row.consecration_date or '—' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="lineage-table-empty">No clergy in lineage.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+
+</html>

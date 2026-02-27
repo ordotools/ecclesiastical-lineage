@@ -1,0 +1,168 @@
+/**
+ * Lineage table – standalone, table-only. No dependency on main-ui.css.
+ */
+
+:root {
+  --lineage-text: #1a1a1a;
+  --lineage-text-muted: #666;
+  --lineage-link: #0066cc;
+  --lineage-link-hover: #004499;
+  --lineage-error-bg: #fff3cd;
+  --lineage-error-text: #856404;
+  --lineage-tree-line: var(--lineage-text-muted);
+  --lineage-tree-overlap: 0.4em;
+  --lineage-tree-strip-gap: 0.25rem;
+  --lineage-tree-overhang: 0.25rem;
+}
+
+.lineage-error {
+  padding: 8px 12px;
+  background: var(--lineage-error-bg);
+  color: var(--lineage-error-text);
+  font-size: 0.9rem;
+}
+
+.lineage-table-wrap {
+  width: 100%;
+  padding: 12px 16px;
+  box-sizing: border-box;
+}
+
+.lineage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: var(--lineage-text);
+}
+
+.lineage-table th,
+.lineage-table td {
+  /* padding: 4px 12px; */
+  text-align: left;
+}
+
+.lineage-table td.name-cell {
+  padding-left: 8px;
+}
+
+.lineage-table td.name-cell .name-cell-inner {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.lineage-table td.name-cell .tree-glyph-strip {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  margin-right: var(--lineage-tree-strip-gap);
+}
+
+.lineage-table td.name-cell .tree-glyph {
+  position: relative;
+  display: inline-flex;
+  width: 1.25rem;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* Ancestor vertical guides */
+.lineage-table td.name-cell .tree-glyph-vert::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(-1 * var(--lineage-tree-overlap));
+  bottom: calc(-1 * var(--lineage-tree-overlap));
+  transform: translateX(-50%);
+  border-left: 1px solid var(--lineage-tree-line);
+}
+
+.lineage-table td.name-cell .tree-glyph-spacer {
+  /* structural spacer, no visible lines */
+}
+
+/* Root node: small dot */
+.lineage-table td.name-cell .tree-glyph-root::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background-color: var(--lineage-text);
+}
+
+/* Branch connectors (non-last children) */
+.lineage-table td.name-cell .tree-glyph-branch::before,
+.lineage-table td.name-cell .tree-glyph-branch-last::before {
+  /* horizontal from guide to label */
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  right: calc(-1 * var(--lineage-tree-overhang));
+  border-top: 1px solid var(--lineage-tree-line);
+}
+
+.lineage-table td.name-cell .tree-glyph-branch::after,
+.lineage-table td.name-cell .tree-glyph-branch-last::after {
+  /* downward vertical from center of node box */
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 1px solid var(--lineage-tree-line);
+}
+
+.lineage-table td.name-cell .tree-glyph-branch::after {
+  top: calc(-1 * var(--lineage-tree-overlap));
+  bottom: calc(-1 * var(--lineage-tree-overlap));
+}
+
+.lineage-table td.name-cell .tree-glyph-branch-last::after {
+  /* short stub to visually terminate the branch */
+  top: calc(-1 * var(--lineage-tree-overlap));
+  bottom: 50%;
+}
+
+.lineage-table a {
+  color: var(--lineage-link);
+  text-decoration: none;
+}
+
+.lineage-table a:hover {
+  color: var(--lineage-link-hover);
+  text-decoration: underline;
+}
+
+.lineage-table-empty {
+  color: var(--lineage-text-muted);
+}
+
+/* Compact, responsive adjustments */
+@media (max-width: 640px) {
+  .lineage-table-wrap {
+    padding: 8px 8px;
+  }
+
+  .lineage-table {
+    font-size: 0.875rem;
+  }
+
+  .lineage-table th,
+  .lineage-table td {
+    padding: 3px 8px;
+  }
+
+  .lineage-table td.name-cell .tree-glyph {
+    width: 1.1rem;
+  }
+
+  .lineage-table td.name-cell .tree-glyph-strip {
+    --lineage-tree-strip-gap: 0.2rem;
+    --lineage-tree-overhang: 0.2rem;
+  }
+}

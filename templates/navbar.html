@@ -7,7 +7,10 @@
         Episcopal Lineage
       </a>
       <div class="main-ui-dropdown main-ui-dropdown-below" id="episcopalLineageDropdown">
-        <a class="main-ui-dropdown-item" href="/">
+        <a class="main-ui-dropdown-item" href="{{ url_for('main.index') }}">
+          <i class="fas fa-table" style="margin-right: 8px;"></i>Table View
+        </a>
+        <a class="main-ui-dropdown-item" href="{{ url_for('main.lineage_visualization_alias') }}">
           <i class="fas fa-project-diagram" style="margin-right: 8px;"></i>Lineage View
         </a>
         <!-- NOTE: Chapel View / WikiLite commented out until ready to deploy -->

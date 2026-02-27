@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Episcopal Lineage{% endblock %}</title>
+    <!-- Preconnect to external domains for faster parallel connections -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Defer Font Awesome - not needed for initial render -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" media="print" onload="this.media='all'" crossorigin>
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"></noscript>
+    <script src="https://unpkg.com/htmx.org@1.9.6" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main-ui.css') }}">
+    {% block extra_styles %}{% endblock %}
+</head>
+
+<body>
+    {% block navbar %}
+    {% include 'navbar.html' %}
+    {% endblock %}
+    {% block full_content %}
+    <div class="main-ui-page-wrap">
+        {% block content %}{% endblock %}
+    </div>
+    {% endblock %}
+
+    <!-- Include flash messages as sliding notifications -->
+    {% include 'flash_messages.html' %}
+
+    {% block editor_scripts %}{% endblock %}
+    <script>
+        // Notification system for sliding alerts
+        document.addEventListener('DOMContentLoaded', function () {
+            // Show notifications with animation
+            const notifications = document.querySelectorAll('.notification');
+            notifications.forEach(function (notification, index) {
+                setTimeout(function () {
+                    notification.classList.add('show');
+                }, index * 100);
+
+                // Auto-dismiss after 3 seconds
+                setTimeout(function () {
+                    dismissNotification(notification.querySelector('.notification-close'));
+                }, 3000 + (index * 100));
+            });
+        });
+
+        // Function to dismiss notifications
+        function dismissNotification(closeButton) {
+            const notification = closeButton.closest('.notification');
+            if (notification) {
+                notification.classList.add('hide');
+                setTimeout(function () {
+                    notification.remove();
+                }, 300);
+            }
+        }
+
+        // HTMX event handlers
+        document.body.addEventListener('htmx:afterRequest', function (evt) {
+            // Handle any new notifications that might be added via HTMX
+            const newNotifications = document.querySelectorAll('.notification:not(.show)');
+            newNotifications.forEach(function (notification, index) {
+                setTimeout(function () {
+                    notification.classList.add('show');
+                }, index * 100);
+
+                // Auto-dismiss after 3 seconds
+                setTimeout(function () {
+                    dismissNotification(notification.querySelector('.notification-close'));
+                }, 3000 + (index * 100));
+            });
+        });
+
+        // Handle form validation errors
+        document.body.addEventListener('htmx:responseError', function (evt) {
+            console.log('HTMX Error:', evt.detail);
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+    {% block extra_scripts %}{% endblock %}
+</body>
+
+</html>

@@ -209,27 +209,72 @@ def lineage_visualization():
 
 
 def _flat_hierarchy_rows(nodes, links):
-    """Build parent map from ordination/consecration links, then depth-first flat list with depth."""
-    parent_map = {}
-    for link in links:
-        if link.get('type') in ('ordination', 'consecration'):
-            parent_map[link['target']] = link['source']
+    """Emit one row per ordination/consecration event (repeat clergy as needed). Excludes co-consecration.
+    When the same parent both ordained and consecrated a child, one row with marker OC."""
+    event_links = [l for l in links if l.get('type') in ('ordination', 'consecration')]
     node_by_id = {n['id']: n for n in nodes}
-    roots = [n for n in nodes if n.get('is_lineage_root') or n['id'] not in parent_map]
+    # Group by (source, target): at most one ordination and one consecration per pair
+    # children_grouped[source_id] = list of (target_id, ord_link_or_None, cons_link_or_None)
+    by_source_target = {}
+    for link in event_links:
+        sid, tid = link['source'], link['target']
+        if sid not in by_source_target:
+            by_source_target[sid] = {}
+        if tid not in by_source_target[sid]:
+            by_source_target[sid][tid] = {'ordination': None, 'consecration': None}
+        by_source_target[sid][tid][link['type']] = link
+    children_grouped = {}
+    for sid in by_source_target:
+        children_grouped[sid] = [
+            (tid, by_source_target[sid][tid]['ordination'], by_source_target[sid][tid]['consecration'])
+            for tid in by_source_target[sid]
+        ]
+        children_grouped[sid].sort(
+            key=lambda x: ((node_by_id.get(x[0]) or {}).get('name') or '', x[0])
+        )
+    # roots: lineage roots or nodes with no incoming ordination/consecration
+    targets = {tid for sid in by_source_target for tid in by_source_target[sid]}
+    roots = [n for n in nodes if n.get('is_lineage_root') or n['id'] not in targets]
     roots.sort(key=lambda n: (n.get('name') or '', n['id']))
 
-    def dfs(node, depth):
-        row = {**node, 'depth': depth}
+    def dfs(node, depth, incoming_ord, incoming_cons, path_set):
+        row = {
+            'id': node['id'],
+            'name': node.get('name'),
+            'rank': node.get('rank'),
+            'organization': node.get('organization'),
+            'depth': depth,
+        }
+        if incoming_ord is None and incoming_cons is None:
+            row['event_type'] = None
+            row['ordination_date'] = node.get('ordination_date')
+            row['consecration_date'] = node.get('consecration_date')
+        else:
+            if incoming_ord and incoming_cons:
+                row['event_type'] = 'ordination_and_consecration'
+                row['ordination_date'] = incoming_ord.get('date')
+                row['consecration_date'] = incoming_cons.get('date')
+            elif incoming_ord:
+                row['event_type'] = 'ordination'
+                row['ordination_date'] = incoming_ord.get('date')
+                row['consecration_date'] = None
+            else:
+                row['event_type'] = 'consecration'
+                row['ordination_date'] = None
+                row['consecration_date'] = incoming_cons.get('date')
         out = [row]
-        children = [node_by_id[k] for k, v in parent_map.items() if v == node['id'] and k in node_by_id]
-        children.sort(key=lambda n: (n.get('name') or '', n['id']))
-        for c in children:
-            out.extend(dfs(c, depth + 1))
+        path_set.add(node['id'])
+        for target_id, ord_link, cons_link in children_grouped.get(node['id'], []):
+            if target_id not in node_by_id or target_id in path_set:
+                continue
+            target_node = node_by_id[target_id]
+            out.extend(dfs(target_node, depth + 1, ord_link, cons_link, path_set))
+        path_set.discard(node['id'])
         return out
 
     flat = []
     for root in roots:
-        flat.extend(dfs(root, 0))
+        flat.extend(dfs(root, 0, None, None, set()))
 
     if not flat:
         return flat

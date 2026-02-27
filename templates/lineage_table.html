@@ -39,7 +39,7 @@
                                     <span class="tree-glyph tree-glyph-branch-last"></span>
                                 {% endif %}
                             </span>
-                            <a href="#">{{ row.name or '—' }}</a>
+                            {% if row.event_type == 'ordination' %}<span class="event-marker"><strong>O</strong></span>{% endif %}{% if row.event_type == 'consecration' %}<span class="event-marker"><strong>C</strong></span>{% endif %}{% if row.event_type == 'ordination_and_consecration' %}<span class="event-marker"><strong>OC</strong></span>{% endif %}<a href="#">{{ row.name or '—' }}</a>
                         </span>
                     </td>
                     <td>{{ row.rank or '—' }}</td>

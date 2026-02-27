@@ -46,6 +46,10 @@
   padding-left: 8px;
 }
 
+.lineage-table .event-marker {
+  margin-right: 0.25em;
+}
+
 .lineage-table td.name-cell .name-cell-inner {
   position: relative;
   display: inline-flex;

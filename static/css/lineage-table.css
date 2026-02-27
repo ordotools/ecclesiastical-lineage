@@ -78,20 +78,15 @@
   border-left: 1px solid var(--lineage-tree-line);
 }
 
-.lineage-table td.name-cell .tree-glyph-spacer {
-  /* structural spacer, no visible lines */
-}
-
-/* Root node: small dot */
+/* Root node: small diamond */
 .lineage-table td.name-cell .tree-glyph-root::before {
   content: "";
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 6px;
-  height: 6px;
-  transform: translate(-50%, -50%);
-  border-radius: 999px;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%) rotate(45deg);
   background-color: var(--lineage-text);
 }
 

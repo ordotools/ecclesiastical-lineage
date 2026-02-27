@@ -31,33 +31,21 @@
 }
 
 .lineage-menu-panel {
-  flex: 0 0 33.3333%;
-  max-width: 33.3333%;
+  flex: 0 0 auto;
   border-right: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  overflow-x: auto;
   background-color: #ffffff;
 }
 
 .lineage-wiki-panel {
   flex: 1;
   display: flex;
-  padding: 16px;
-  box-sizing: border-box;
+  flex-direction: column;
+  min-height: 100vh;
   background-color: #f9fafb;
-}
-
-.lineage-wiki-main-wrapper {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-}
-
-.lineage-wiki-main {
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 16px;
 }
 
 .lineage-wiki-empty {
@@ -66,14 +54,6 @@
   background-color: #f3f4f6;
   color: #6b7280;
   font-size: 0.95rem;
-}
-
-.lineage-wiki-aside {
-  flex: 0 0 260px;
-  max-width: 260px;
-  border-left: 1px solid #e5e7eb;
-  padding-left: 16px;
-  box-sizing: border-box;
 }
 
 .lineage-wiki-aside-placeholder {
@@ -94,6 +74,11 @@
   font-size: 0.9375rem;
   line-height: 1.45;
   color: var(--lineage-text);
+}
+
+.lineage-menu-panel .lineage-table {
+  width: auto;
+  max-width: 100%;
 }
 
 .lineage-table th,
@@ -197,6 +182,31 @@
   text-decoration: underline;
 }
 
+.lineage-menu-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.lineage-menu-link:hover {
+  text-decoration: underline;
+}
+
+.lineage-row-active > .name-cell {
+  background-color: #eff6ff;
+}
+
+#lineage-wiki-body.loading {
+  opacity: 0.65;
+  transition: opacity 0.15s ease-in-out;
+}
+
+.lineage-wiki-loading {
+  padding: 16px 20px;
+  font-size: 0.9rem;
+  color: var(--lineage-text-muted);
+}
+
 .lineage-table-empty {
   color: var(--lineage-text-muted);
 }
@@ -219,25 +229,6 @@
   .lineage-wiki-panel {
     flex: 1 1 auto;
     max-width: 100%;
-    padding: 12px;
-  }
-
-  .lineage-wiki-main-wrapper {
-    flex-direction: column;
-  }
-
-  .lineage-wiki-main {
-    padding-right: 0;
-  }
-
-  .lineage-wiki-aside {
-    flex: 0 0 auto;
-    max-width: 100%;
-    border-left: none;
-    border-top: 1px solid #e5e7eb;
-    margin-top: 16px;
-    padding-left: 0;
-    padding-top: 16px;
   }
 }
 

@@ -55,29 +55,36 @@
     </section>
 
     <section class="lineage-wiki-panel" aria-label="Clergy wiki content">
-        <div class="lineage-wiki-main-wrapper">
-            <div class="lineage-wiki-main">
-                {% if wiki_html %}
+        <div class="wiki-content-area">
+            <div class="wiki-content-flex">
                 <div class="wiki-article fade-in">
-                    {{ wiki_html|safe }}
+                    <div id="lineage-wiki-body">
+                        {% if wiki_html %}
+                        {{ wiki_html|safe }}
+                        {% else %}
+                        <div class="lineage-wiki-empty">
+                            No wiki article is available for this clergy yet.
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                {% else %}
-                <div class="lineage-wiki-empty">
-                    No wiki article is available for this clergy yet.
-                </div>
-                {% endif %}
-            </div>
 
-            <aside id="lineage-wiki-aside" class="lineage-wiki-aside">
-                {% if wiki_aside_html %}
-                {{ wiki_aside_html|safe }}
-                {% else %}
-                <div class="lineage-wiki-aside-placeholder">
-                    Wiki aside content will appear here.
-                </div>
-                {% endif %}
-            </aside>
+                <aside id="lineage-wiki-aside" class="wiki-clergy-aside">
+                    {% if wiki_aside_html %}
+                    {{ wiki_aside_html|safe }}
+                    {% else %}
+                    <div class="lineage-wiki-aside-placeholder">
+                        Wiki aside content will appear here.
+                    </div>
+                    {% endif %}
+                </aside>
+            </div>
         </div>
     </section>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/wiki-renderer.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/lineage-wiki-bridge.js') }}" defer></script>
 {% endblock %}

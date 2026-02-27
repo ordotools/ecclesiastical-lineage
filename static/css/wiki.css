@@ -299,6 +299,8 @@
 }
 
 .wiki-clergy-aside .wiki-profile-list li {
+    font-size: 0.8rem;
+    line-height: 1.4;
     padding: 0.25rem 0;
     border-bottom: 1px solid #f3f4f6;
 }

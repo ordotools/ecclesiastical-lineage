@@ -1,5 +1,5 @@
 /**
- * Lineage table – standalone, table-only. No dependency on main-ui.css.
+ * Lineage table – now used inside main UI layout.
  */
 
 :root {
@@ -20,6 +20,66 @@
   background: var(--lineage-error-bg);
   color: var(--lineage-error-text);
   font-size: 0.9rem;
+}
+
+/* --- Split layout with wiki panel --- */
+
+.lineage-wiki-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.lineage-menu-panel {
+  flex: 0 0 33.3333%;
+  max-width: 33.3333%;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background-color: #ffffff;
+}
+
+.lineage-wiki-panel {
+  flex: 1;
+  display: flex;
+  padding: 16px;
+  box-sizing: border-box;
+  background-color: #f9fafb;
+}
+
+.lineage-wiki-main-wrapper {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.lineage-wiki-main {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 16px;
+}
+
+.lineage-wiki-empty {
+  padding: 24px;
+  border-radius: 8px;
+  background-color: #f3f4f6;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.lineage-wiki-aside {
+  flex: 0 0 260px;
+  max-width: 260px;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 16px;
+  box-sizing: border-box;
+}
+
+.lineage-wiki-aside-placeholder {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  padding-top: 8px;
 }
 
 .lineage-table-wrap {
@@ -142,6 +202,45 @@
 }
 
 /* Compact, responsive adjustments */
+@media (max-width: 768px) {
+  .lineage-wiki-layout {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .lineage-menu-panel {
+    flex: 0 0 auto;
+    max-width: 100%;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .lineage-wiki-panel {
+    flex: 1 1 auto;
+    max-width: 100%;
+    padding: 12px;
+  }
+
+  .lineage-wiki-main-wrapper {
+    flex-direction: column;
+  }
+
+  .lineage-wiki-main {
+    padding-right: 0;
+  }
+
+  .lineage-wiki-aside {
+    flex: 0 0 auto;
+    max-width: 100%;
+    border-left: none;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 16px;
+    padding-left: 0;
+    padding-top: 16px;
+  }
+}
+
 @media (max-width: 640px) {
   .lineage-table-wrap {
     padding: 8px 8px;

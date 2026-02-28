@@ -55,6 +55,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  padding: 1rem 1.25rem;
 }
 
 .lineage-wiki-panel .wiki-content-flex {
@@ -64,12 +65,15 @@
   display: flex;
   gap: 2rem;
   align-items: flex-start;
+  max-width: none;
+  margin: 0;
 }
 
 .lineage-wiki-panel .wiki-content-flex .wiki-article {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
+  max-width: 85ch;
 }
 
 .lineage-wiki-panel .wiki-content-flex .wiki-clergy-aside,

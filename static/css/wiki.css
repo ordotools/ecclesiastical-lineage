@@ -176,6 +176,96 @@
     font-style: italic;
 }
 
+/* Requested Articles (sidebar, edit mode) – matches Backlinks / All Pages */
+.wiki-request-sidebar {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--wiki-border-color);
+    min-width: 0;
+}
+
+.wiki-request-sidebar .wiki-page-list-header {
+    margin-bottom: 0.5rem;
+}
+
+.wiki-request-status {
+    font-size: 0.875rem;
+    color: var(--wiki-text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.wiki-request-table {
+    margin-top: 0.25rem;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.wiki-request-empty {
+    font-size: 0.875rem;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+.wiki-request-table-inner {
+    width: 100%;
+    table-layout: fixed;
+    font-size: 0.8125rem;
+    border-collapse: collapse;
+}
+
+.wiki-request-table-inner td {
+    padding: 0.25rem 0.375rem;
+    vertical-align: middle;
+}
+
+.wiki-request-row-name td {
+    padding-bottom: 0.125rem;
+}
+
+.wiki-request-row-actions td {
+    padding-top: 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--wiki-border-color);
+}
+
+.wiki-request-row-actions:last-child td {
+    border-bottom: none;
+}
+
+.wiki-request-cell-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wiki-request-cell-demand {
+    width: 2rem;
+    text-align: right;
+    color: #6b7280;
+    vertical-align: top;
+}
+
+.wiki-request-cell-actions {
+    padding-top: 0.25rem !important;
+}
+
+.wiki-request-cell-actions .wiki-request-btn {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    margin-right: 0.375rem;
+    border: 1px solid var(--wiki-border-color);
+    border-radius: 0.25rem;
+    background: var(--wiki-bg-color);
+    cursor: pointer;
+    color: var(--wiki-text-secondary);
+}
+
+.wiki-request-cell-actions .wiki-request-btn:hover {
+    background: #e5e7eb;
+    color: var(--wiki-text-primary);
+}
+
 /* Main Content */
 .wiki-main {
     flex: 1;

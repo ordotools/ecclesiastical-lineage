@@ -479,6 +479,23 @@ class WikiPage(db.Model):
     def __repr__(self):
         return f'<WikiPage {self.title or self.id}>'
 
+
+class WikiArticleRequest(db.Model):
+    __tablename__ = 'wiki_article_requests'
+
+    id = db.Column(db.Integer, primary_key=True)
+    clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id'), nullable=False)
+    request_count = db.Column(db.Integer, nullable=False, default=1)
+    requested_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_requested_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    is_handled = db.Column(db.Boolean, default=False, nullable=False)
+    handled_at = db.Column(db.DateTime, nullable=True)
+
+    clergy = db.relationship('Clergy', backref='wiki_article_requests')
+
+    def __repr__(self):
+        return f'<WikiArticleRequest clergy_id={self.clergy_id} count={self.request_count} handled={self.is_handled}>'
+
 class VisualizationSettings(db.Model):
     """Store visualization style preferences that persist across all users"""
     id = db.Column(db.Integer, primary_key=True)

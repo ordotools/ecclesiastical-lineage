@@ -5,6 +5,8 @@
 {% block extra_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-table.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/wiki.css') }}">
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap"
+    rel="stylesheet">
 {% endblock %}
 
 {% block full_content %}
@@ -63,7 +65,11 @@
                         {{ wiki_html|safe }}
                         {% else %}
                         <div class="lineage-wiki-empty">
-                            No wiki article is available for this clergy yet.
+                            <p>No wiki article is available for this clergy yet.</p>
+                            <button type="button" class="lineage-wiki-request-btn" disabled>
+                                Request article
+                            </button>
+                            <div class="lineage-wiki-request-message" aria-live="polite"></div>
                         </div>
                         {% endif %}
                     </div>
@@ -74,7 +80,7 @@
                     {{ wiki_aside_html|safe }}
                     {% else %}
                     <div class="lineage-wiki-aside-placeholder">
-                        Wiki aside content will appear here.
+                        Choose a name from the menu...
                     </div>
                     {% endif %}
                 </aside>
@@ -85,6 +91,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/wiki-requests.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/wiki-renderer.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/lineage-wiki-bridge.js') }}" defer></script>
 {% endblock %}

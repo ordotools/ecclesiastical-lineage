@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, session, current_app
 from sqlalchemy.orm import joinedload
 from services.image_upload import get_image_upload_service
-from models import db, WikiPage, User, Clergy, Ordination, Consecration, Organization, Rank
+from models import db, WikiPage, WikiArticleRequest, User, Clergy, Ordination, Consecration, Organization, Rank
 from constants import GREEN_COLOR, BLACK_COLOR
 from datetime import datetime
 from sqlalchemy import or_
@@ -50,6 +50,11 @@ def get_pages():
         'is_deleted': p.is_deleted
     } for p in pages])
 
+def _no_page_payload():
+    """Payload for missing or invisible wiki page (200, not 404)."""
+    return {'content': None, 'title': None, 'clergy_id': None}
+
+
 @wiki_bp.route('/api/wiki/page/<path:slug>', methods=['GET'])
 def get_page(slug):
     """Get the content of a specific wiki page."""
@@ -61,8 +66,7 @@ def get_page(slug):
         
         if not is_editor:
             if not page.is_visible or page.is_deleted:
-                # Treat as 404 for unauthorized users
-                return jsonify(None), 404
+                return jsonify(_no_page_payload())
 
         return jsonify({
             'id': page.id,
@@ -75,8 +79,7 @@ def get_page(slug):
             'is_deleted': page.is_deleted,
             'author_id': page.author_id
         })
-    else:
-        return jsonify(None), 404
+    return jsonify(_no_page_payload())
 
 @wiki_bp.route('/api/wiki/all-clergy', methods=['GET'])
 def get_all_clergy():
@@ -537,3 +540,155 @@ def toggle_visibility(page_id):
     page.is_visible = not page.is_visible
     db.session.commit()
     return jsonify({'success': True, 'is_visible': page.is_visible})
+
+
+@wiki_bp.route('/api/wiki/requests', methods=['POST'])
+def create_wiki_article_request():
+    """Record a request for a clergy wiki article and return updated demand."""
+    data = request.get_json(silent=True) or {}
+    clergy_id = data.get('clergy_id')
+
+    try:
+        clergy_id = int(clergy_id)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid or missing clergy_id'}), 400
+
+    clergy = Clergy.query.filter_by(id=clergy_id, is_deleted=False).first()
+    if not clergy:
+        return jsonify({'error': 'Clergy not found'}), 404
+
+    now = datetime.utcnow()
+    req = WikiArticleRequest.query.filter_by(clergy_id=clergy_id, is_handled=False).first()
+    if req:
+        req.request_count += 1
+        req.last_requested_at = now
+    else:
+        req = WikiArticleRequest(
+            clergy_id=clergy_id,
+            request_count=1,
+            requested_at=now,
+            last_requested_at=now,
+        )
+        db.session.add(req)
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'clergy_id': clergy_id,
+        'demand': req.request_count,
+        'last_requested_at': req.last_requested_at.isoformat() if req.last_requested_at else None,
+    })
+
+
+@wiki_bp.route('/api/wiki/requests', methods=['GET'])
+def list_wiki_article_requests():
+    """List pending wiki article requests for editors, ordered by demand then recency."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    rows = (
+        WikiArticleRequest.query
+        .join(Clergy, WikiArticleRequest.clergy_id == Clergy.id)
+        .filter(
+            WikiArticleRequest.is_handled == False,  # noqa: E712
+            Clergy.is_deleted == False,  # noqa: E712
+        )
+        .order_by(
+            WikiArticleRequest.request_count.desc(),
+            WikiArticleRequest.last_requested_at.desc(),
+        )
+        .all()
+    )
+
+    return jsonify([
+        {
+            'clergy_id': r.clergy_id,
+            'clergy_name': r.clergy.name if r.clergy else None,
+            'demand': r.request_count,
+            'last_requested_at': r.last_requested_at.isoformat() if r.last_requested_at else None,
+        }
+        for r in rows
+    ])
+
+
+@wiki_bp.route('/api/wiki/requests/status', methods=['GET'])
+def get_wiki_article_request_status():
+    """
+    Return demand and queue_position for a given clergy_id.
+
+    This is a read-only endpoint intended for public use (no auth required).
+    """
+    clergy_id_param = request.args.get('clergy_id')
+    try:
+        clergy_id = int(clergy_id_param)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid or missing clergy_id'}), 400
+
+    clergy = Clergy.query.filter_by(id=clergy_id, is_deleted=False).first()
+    if not clergy:
+        return jsonify({'error': 'Clergy not found'}), 404
+
+    # Look up any pending request row for this clergy
+    req = WikiArticleRequest.query.filter_by(clergy_id=clergy_id, is_handled=False).first()
+    if not req:
+        # No open request row; demand is zero and no queue position
+        return jsonify({
+            'clergy_id': clergy_id,
+            'demand': 0,
+            'queue_position': None,
+            'last_requested_at': None,
+        })
+
+    # Compute queue position using the same ordering as list_wiki_article_requests
+    rows = (
+        WikiArticleRequest.query
+        .join(Clergy, WikiArticleRequest.clergy_id == Clergy.id)
+        .filter(
+            WikiArticleRequest.is_handled == False,  # noqa: E712
+            Clergy.is_deleted == False,  # noqa: E712
+        )
+        .order_by(
+            WikiArticleRequest.request_count.desc(),
+            WikiArticleRequest.last_requested_at.desc(),
+        )
+        .all()
+    )
+
+    queue_position = None
+    for idx, row in enumerate(rows, start=1):
+        if row.clergy_id == clergy_id:
+            queue_position = idx
+            break
+
+    return jsonify({
+        'clergy_id': clergy_id,
+        'demand': req.request_count,
+        'queue_position': queue_position,
+        'last_requested_at': req.last_requested_at.isoformat() if req.last_requested_at else None,
+    })
+
+
+@wiki_bp.route('/api/wiki/requests/mark-handled', methods=['POST'])
+def mark_wiki_article_request_handled():
+    """Mark a clergy article request as handled so it no longer appears in the pending list."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    data = request.get_json(silent=True) or {}
+    clergy_id = data.get('clergy_id')
+
+    try:
+        clergy_id = int(clergy_id)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid or missing clergy_id'}), 400
+
+    req = WikiArticleRequest.query.filter_by(clergy_id=clergy_id, is_handled=False).first()
+    if not req:
+        return jsonify({'error': 'Request not found'}), 404
+
+    req.is_handled = True
+    req.handled_at = datetime.utcnow()
+    db.session.commit()
+
+    return jsonify({'success': True})

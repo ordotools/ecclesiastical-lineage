@@ -152,7 +152,10 @@ class WikiApp {
             authorSelect: document.getElementById('wiki-author-select'),
             visibleToggle: document.getElementById('wiki-visible-toggle'),
             deletedToggle: document.getElementById('wiki-deleted-toggle'),
-            backdrop: document.getElementById('wiki-backdrop') // Backdrop for syntax highlighting
+            backdrop: document.getElementById('wiki-backdrop'), // Backdrop for syntax highlighting
+            requestPanel: document.getElementById('wiki-request-sidebar'),
+            requestTable: document.getElementById('wiki-request-table'),
+            requestStatus: document.getElementById('wiki-request-status')
         };
 
         this.init();
@@ -287,6 +290,21 @@ class WikiApp {
         });
 
         this.els.homeBtn.addEventListener('click', () => this.navigate('Main Page'));
+
+        if (this.els.requestTable) {
+            this.els.requestTable.addEventListener('click', (e) => {
+                const target = e.target.closest('.wiki-request-btn[data-action]');
+                if (!target) return;
+                const clergyId = target.getAttribute('data-clergy-id');
+                const clergyName = target.getAttribute('data-clergy-name');
+                const action = target.getAttribute('data-action');
+                if (action === 'open' && clergyName) {
+                    this.openRequestedClergy(clergyId, clergyName);
+                } else if (action === 'mark-handled' && clergyId) {
+                    this.markRequestHandled(clergyId);
+                }
+            });
+        }
 
         // Article Autocomplete Logic
         this.els.articleDropdown = document.getElementById('wiki-article-dropdown');
@@ -1122,6 +1140,110 @@ class WikiApp {
         }
     }
 
+    async fetchArticleRequests() {
+        if (!this.els.requestPanel || !this.els.requestTable) return;
+        try {
+            if (this.els.requestStatus) {
+                this.els.requestStatus.textContent = 'Loading...';
+            }
+            const res = await fetch('/api/wiki/requests');
+            if (res.status === 401) {
+                this.els.requestPanel.style.display = 'none';
+                return;
+            }
+            if (!res.ok) {
+                throw new Error('Failed to load requests');
+            }
+            const rows = await res.json();
+            this.renderRequestTable(rows);
+            if (this.els.requestStatus) {
+                this.els.requestStatus.textContent = rows.length ? '' : 'No pending requests.';
+            }
+        } catch (err) {
+            console.error('Failed to fetch wiki article requests', err);
+            if (this.els.requestStatus) {
+                this.els.requestStatus.textContent = 'Could not load requests.';
+            }
+            this.renderRequestTable([]);
+        }
+    }
+
+    renderRequestTable(rows) {
+        if (!this.els.requestTable) return;
+        if (!rows || rows.length === 0) {
+            this.els.requestTable.innerHTML = `
+                <div class="wiki-request-empty">
+                    No pending article requests.
+                </div>
+            `;
+            return;
+        }
+        const esc = (s) => String(s ?? '').replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        this.els.requestTable.innerHTML = `
+            <table class="wiki-request-table-inner">
+                <tbody>
+                    ${rows.map(r => `
+                        <tr class="wiki-request-row-name">
+                            <td class="wiki-request-cell-name" colspan="2" title="${esc(r.clergy_name || '(Unknown)')}">${esc(r.clergy_name || '(Unknown)')}</td>
+                            <td class="wiki-request-cell-demand">${r.demand}</td>
+                        </tr>
+                        <tr class="wiki-request-row-actions">
+                            <td colspan="3" class="wiki-request-cell-actions">
+                                <button type="button"
+                                        class="wiki-request-btn"
+                                        data-action="open"
+                                        data-clergy-id="${esc(r.clergy_id)}"
+                                        data-clergy-name="${esc(r.clergy_name || '')}">
+                                    Open
+                                </button>
+                                <button type="button"
+                                        class="wiki-request-btn"
+                                        data-action="mark-handled"
+                                        data-clergy-id="${esc(r.clergy_id)}">
+                                    Done
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    openRequestedClergy(clergyId, clergyName) {
+        if (!clergyName) return;
+        this.currentSlug = null; // New page mode
+        this.isEditing = true;
+        this.selectedClergyId = clergyId || null;
+        this.els.titleInput.value = clergyName;
+        this.render();
+        this.els.titleInput.focus();
+    }
+
+    async markRequestHandled(clergyId) {
+        try {
+            const res = await fetch('/api/wiki/requests/mark-handled', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ clergy_id: clergyId })
+            });
+            if (!res.ok) {
+                throw new Error('Request failed with status ' + res.status);
+            }
+            await this.fetchArticleRequests();
+        } catch (err) {
+            console.error('Failed to mark request handled', err);
+            if (window.showNotification) {
+                window.showNotification('Failed to mark request handled.', 'error');
+            }
+        }
+    }
+
     performClergySearch(query) {
         if (!query || query.length < 2) {
             this.els.clergyDropdown.style.display = 'none';
@@ -1306,6 +1428,12 @@ class WikiApp {
             }
             this.updateSaveButtonState();
 
+            // Requested Articles: fetch and show only in edit mode (logged-in editor)
+            if (this.els.requestPanel) {
+                this.els.requestPanel.style.display = 'block';
+                this.fetchArticleRequests();
+            }
+
             // Populate Metadata Controls
             if (this.els.visibleToggle) this.els.visibleToggle.checked = page.is_visible !== false; // Default true
             if (this.els.deletedToggle) this.els.deletedToggle.checked = page.is_deleted === true;
@@ -1314,6 +1442,9 @@ class WikiApp {
         } else {
             this.editorSlug = null;
             this.lastSavedContent = null;
+            if (this.els.requestPanel) {
+                this.els.requestPanel.style.display = 'none';
+            }
             if (this.els.contentArea) this.els.contentArea.classList.remove('wiki-editing-mode');
             this.els.viewContainer.style.display = 'block';
             this.els.editContainer.style.display = 'none';

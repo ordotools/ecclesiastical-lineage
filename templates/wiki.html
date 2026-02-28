@@ -71,6 +71,17 @@
                     <!-- JS Populated -->
                 </div>
             </div>
+
+            {% if session.get('user_id') %}
+            <!-- Requested Articles (edit mode only; JS controls visibility) -->
+            <section id="wiki-request-sidebar" class="wiki-request-sidebar">
+                <div class="wiki-page-list-header">Requested Articles</div>
+                <div id="wiki-request-status" class="wiki-request-status" aria-live="polite"></div>
+                <div id="wiki-request-table" class="wiki-request-table">
+                    <!-- JS-populated -->
+                </div>
+            </section>
+            {% endif %}
         </div>
 
         <div
@@ -172,7 +183,6 @@
                             <span class="wiki-control-label">Deleted</span>
                         </div>
                     </div>
-
                     <div class="wiki-editor-body">
                     <div class="wiki-toolbar wiki-toolbar-side">
                         <button type="button" class="wiki-toolbar-btn" data-action="bold" title="Bold (Ctrl+B)">
@@ -275,6 +285,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/wiki-requests.js') }}"></script>
 <script type="module" src="{{ url_for('static', filename='js/utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}"></script>
 <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}"></script>

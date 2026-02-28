@@ -11,6 +11,8 @@
         if (!tableWrap || !bodyEl || !asideEl) return;
 
         let activeRow = null;
+        let activeClergyId = null;
+        let activeClergyName = null;
 
         tableWrap.addEventListener('click', (event) => {
             const link = event.target.closest('.lineage-menu-link');
@@ -21,6 +23,9 @@
             const clergyName = link.dataset.clergyName || link.textContent.trim();
 
             if (!clergyId && !clergyName) return;
+
+            activeClergyId = clergyId || null;
+            activeClergyName = clergyName || null;
 
             const row = link.closest('tr');
             if (activeRow && activeRow !== row) {
@@ -57,8 +62,149 @@
             }
         }
 
+        function formatOrdinal(n) {
+            const num = Number(n);
+            if (!Number.isFinite(num)) return String(n);
+            const s = ['th', 'st', 'nd', 'rd'];
+            const v = num % 100;
+            const suffix = s[(v - 20) % 10] || s[v] || s[0];
+            return `${num}${suffix}`;
+        }
+
+        function formatRequestStatusMessage(demand, queuePosition) {
+            const hasDemand = typeof demand === 'number' && !Number.isNaN(demand);
+            const hasPosition = typeof queuePosition === 'number' && !Number.isNaN(queuePosition);
+
+            if (hasDemand && hasPosition) {
+                const timesLabel = demand === 1 ? 'time' : 'times';
+                return `This wiki page has been requested ${demand} ${timesLabel} and is ${formatOrdinal(queuePosition)} in the queue.`;
+            }
+
+            if (hasDemand) {
+                const timesLabel = demand === 1 ? 'time' : 'times';
+                return `This wiki page has been requested ${demand} ${timesLabel}.`;
+            }
+
+            if (hasPosition) {
+                return `This wiki page is currently ${formatOrdinal(queuePosition)} in the request queue.`;
+            }
+
+            return 'You have requested this wiki page; status is temporarily unavailable.';
+        }
+
+        async function populateRequestStatus(helper, clergyId, msgEl, options) {
+            const opts = options || {};
+            if (!helper || !msgEl || !clergyId) {
+                return;
+            }
+
+            let demandFromResult;
+            if (opts && typeof opts.demand === 'number') {
+                demandFromResult = opts.demand;
+            } else if (opts && opts.result && typeof opts.result.demand === 'number') {
+                demandFromResult = opts.result.demand;
+            }
+
+            const hasGetStatus = typeof helper.getStatus === 'function';
+            if (hasGetStatus) {
+                try {
+                    const status = await helper.getStatus(clergyId);
+                    if (status && status.ok) {
+                        const demand = typeof status.demand === 'number' ? status.demand : demandFromResult;
+                        const queuePosition = typeof status.queuePosition === 'number' ? status.queuePosition : undefined;
+                        msgEl.textContent = formatRequestStatusMessage(demand, queuePosition);
+                        return;
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch wiki article request status', err);
+                    // Fall through to local fallback below.
+                }
+            }
+
+            const fallbackDemand = typeof demandFromResult === 'number' ? demandFromResult : undefined;
+            msgEl.textContent = formatRequestStatusMessage(fallbackDemand, undefined);
+        }
+
         function renderEmptyWiki() {
-            bodyEl.innerHTML = '<div class="lineage-wiki-empty">No wiki article is available for this clergy yet.</div>';
+            bodyEl.innerHTML = '' +
+                '<div class="lineage-wiki-empty">' +
+                '  <p>No wiki article is available for this clergy yet.</p>' +
+                '  <button type="button" class="lineage-wiki-request-btn" disabled>Request article</button>' +
+                '  <div class="lineage-wiki-request-message" aria-live="polite"></div>' +
+                '</div>';
+            wireRequestButton();
+        }
+
+        function wireRequestButton() {
+            const btn = bodyEl.querySelector('.lineage-wiki-request-btn');
+            const msgEl = bodyEl.querySelector('.lineage-wiki-request-message');
+
+            if (!msgEl) return;
+
+            const helper = window.WikiArticleRequests;
+            const clergyId = activeClergyId;
+
+            if (!helper || typeof helper.requestArticle !== 'function' || !clergyId) {
+                if (btn) {
+                    btn.disabled = true;
+                }
+                return;
+            }
+
+            const alreadyRequested = typeof helper.hasRequested === 'function' && helper.hasRequested(clergyId);
+
+            if (alreadyRequested) {
+                if (btn) {
+                    btn.remove();
+                }
+                populateRequestStatus(helper, clergyId, msgEl, {});
+                return;
+            }
+
+            if (!btn) {
+                // No button in the DOM, but we haven't requested from this browser.
+                // Leave the status area empty for now.
+                msgEl.textContent = '';
+                return;
+            }
+
+            btn.disabled = false;
+            msgEl.textContent = '';
+
+            btn.addEventListener('click', async () => {
+                if (!helper || typeof helper.requestArticle !== 'function') {
+                    return;
+                }
+
+                btn.disabled = true;
+                msgEl.textContent = 'Requesting article…';
+
+                try {
+                    const result = await helper.requestArticle(clergyId);
+
+                    if (result && result.duplicate) {
+                        if (btn) {
+                            btn.remove();
+                        }
+                        await populateRequestStatus(helper, clergyId, msgEl, { result });
+                        return;
+                    }
+
+                    if (result && result.ok) {
+                        if (btn) {
+                            btn.remove();
+                        }
+                        await populateRequestStatus(helper, clergyId, msgEl, { result });
+                    } else {
+                        msgEl.textContent = 'Sorry, we could not record your request. Please try again later.';
+                        btn.disabled = false;
+                    }
+                } catch (err) {
+                    console.error('Error while requesting wiki article', err);
+                    msgEl.textContent = 'Sorry, we could not record your request. Please try again later.';
+                    btn.disabled = false;
+                }
+            });
         }
 
         function renderWikiBodyFromContent(markdown) {
@@ -229,6 +375,8 @@
                             console.warn('wiki-profile-link clicked without clergy id or name; ignoring.');
                             return;
                         }
+                        activeClergyId = clergyId || null;
+                        activeClergyName = clergyName || null;
                         loadClergyContext(clergyId, clergyName);
                     });
                 });

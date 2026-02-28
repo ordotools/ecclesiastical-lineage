@@ -42,10 +42,40 @@
 
 .lineage-wiki-panel {
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  background-color: #f9fafb;
+}
+
+/* Independent scroll: center panel content area and flex row */
+.lineage-wiki-panel .wiki-content-area {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.lineage-wiki-panel .wiki-content-flex {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.lineage-wiki-panel .wiki-content-flex .wiki-article {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.lineage-wiki-panel .wiki-content-flex .wiki-clergy-aside,
+.lineage-wiki-panel #lineage-wiki-aside {
+  overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .lineage-wiki-empty {

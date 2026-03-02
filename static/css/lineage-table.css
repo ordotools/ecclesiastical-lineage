@@ -271,24 +271,105 @@
   color: var(--lineage-text-muted);
 }
 
-/* Compact, responsive adjustments */
+/* --- Option A: Full-screen swap (mobile) --- */
+.lineage-back-to-menu-btn {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .lineage-wiki-layout {
     flex-direction: column;
-    height: auto;
+    height: 100vh;
+    overflow: hidden;
   }
 
-  .lineage-menu-panel {
-    flex: 0 0 auto;
-    max-width: 100%;
-    max-height: 40vh;
+  /* Menu first: full-screen overlay when in menu view */
+  .lineage-wiki-layout:not(.mobile-view-content) .lineage-menu-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    max-height: none;
+    max-width: none;
     border-right: none;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: none;
   }
 
-  .lineage-wiki-panel {
-    flex: 1 1 auto;
-    max-width: 100%;
+  /* Content hidden until user selects */
+  .lineage-wiki-layout:not(.mobile-view-content) .lineage-wiki-panel {
+    visibility: hidden;
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+  }
+
+  /* Content view: hide menu, show content */
+  .lineage-wiki-layout.mobile-view-content .lineage-menu-panel {
+    display: none;
+  }
+
+  .lineage-wiki-layout.mobile-view-content .lineage-wiki-panel {
+    visibility: visible;
+    pointer-events: all;
+    position: static;
+    flex: 1;
+    overflow: auto;
+  }
+
+  /* Stack aside above article on mobile */
+  .lineage-wiki-panel .wiki-content-flex {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .lineage-wiki-panel .wiki-content-flex .wiki-article {
+    order: 1;
+    max-width: none;
+  }
+
+  .lineage-wiki-panel .wiki-content-flex .wiki-clergy-aside,
+  .lineage-wiki-panel .wiki-content-flex #lineage-wiki-aside {
+    order: 0;
+    width: 100%;
+    border-left: none;
+    padding-left: 0;
+    padding-top: 0;
+    position: static;
+  }
+
+  .lineage-wiki-panel .wiki-clergy-aside .wiki-profile-image {
+    max-width: 200px;
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+  }
+
+  /* FAB: visible only in content view on mobile */
+  .lineage-wiki-layout.mobile-view-content .lineage-back-to-menu-btn {
+    display: flex;
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1100;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    color: var(--lineage-text);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .lineage-wiki-layout.mobile-view-content .lineage-back-to-menu-btn:hover {
+    background-color: #f9fafb;
+    color: var(--lineage-link);
+  }
+
+  .lineage-wiki-panel .wiki-content-area {
+    overflow-y: auto;
   }
 }
 

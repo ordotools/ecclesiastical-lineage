@@ -4,12 +4,25 @@
     if (typeof window === 'undefined') return;
 
     document.addEventListener('DOMContentLoaded', () => {
+        const layout = document.querySelector('.lineage-wiki-layout');
         const tableWrap = document.querySelector('.lineage-table-wrap');
         const bodyEl = document.getElementById('lineage-wiki-body');
         const asideEl = document.getElementById('lineage-wiki-aside');
         const searchInput = document.getElementById('lineage-search-input');
+        const backBtn = document.getElementById('lineage-back-to-menu-btn');
 
         if (!tableWrap || !bodyEl || !asideEl) return;
+
+        const mobileQuery = window.matchMedia('(max-width: 768px)');
+        function showContentView() {
+            if (layout) layout.classList.add('mobile-view-content');
+        }
+        function showMenuView() {
+            if (layout) layout.classList.remove('mobile-view-content');
+        }
+        if (backBtn) {
+            backBtn.addEventListener('click', () => showMenuView());
+        }
 
         const tbody = tableWrap.querySelector('.lineage-table tbody');
         const lineageRowList = [];
@@ -85,6 +98,7 @@
                 activeRow = row;
             }
 
+            if (mobileQuery.matches) showContentView();
             loadClergyContext(clergyId, clergyName);
         });
 

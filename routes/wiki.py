@@ -478,6 +478,10 @@ def get_lineage_subset_table_rows(clergy_id):
         return jsonify({'error': 'Not found'}), 404
 
     node_ids, links = _get_lineage_subset(clergy_id)
+    from services.lineage import get_exclude_ids_for_lineage_roots
+    exclude_ids = get_exclude_ids_for_lineage_roots()
+    node_ids = node_ids - exclude_ids
+    links = [l for l in links if l['source'] in node_ids and l['target'] in node_ids]
     clergy_list = Clergy.query.options(
         joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
         joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),

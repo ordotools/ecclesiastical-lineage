@@ -237,13 +237,14 @@ def _flat_hierarchy_rows(nodes, links):
     roots = [n for n in nodes if n.get('is_lineage_root') or n['id'] not in targets]
     roots.sort(key=lambda n: (n.get('name') or '', n['id']))
 
-    def dfs(node, depth, incoming_ord, incoming_cons, path_set):
+    def dfs(node, depth, incoming_ord, incoming_cons, path_set, parent_id=None):
         row = {
             'id': node['id'],
             'name': node.get('name'),
             'rank': node.get('rank'),
             'organization': node.get('organization'),
             'depth': depth,
+            'parent_id': parent_id,
         }
         if incoming_ord is None and incoming_cons is None:
             row['event_type'] = None
@@ -268,24 +269,26 @@ def _flat_hierarchy_rows(nodes, links):
             if target_id not in node_by_id or target_id in path_set:
                 continue
             target_node = node_by_id[target_id]
-            out.extend(dfs(target_node, depth + 1, ord_link, cons_link, path_set))
+            out.extend(dfs(target_node, depth + 1, ord_link, cons_link, path_set, node['id']))
         path_set.discard(node['id'])
         return out
 
     flat = []
     for root in roots:
-        flat.extend(dfs(root, 0, None, None, set()))
+        flat.extend(dfs(root, 0, None, None, set(), None))
 
     if not flat:
         return flat
 
     def _has_next_sibling(flat_list, index):
-        depth = flat_list[index]['depth']
+        row = flat_list[index]
+        depth = row['depth']
+        parent_id = row.get('parent_id')
         for j in range(index + 1, len(flat_list)):
-            next_depth = flat_list[j]['depth']
-            if next_depth < depth:
+            next_row = flat_list[j]
+            if next_row['depth'] < depth:
                 return False
-            if next_depth == depth:
+            if next_row['depth'] == depth and parent_id is not None and next_row.get('parent_id') == parent_id:
                 return True
         return False
 

@@ -1,9 +1,14 @@
 // Fuzzy search utility for clergy and lineage visualization
-// Usage: window.fuzzySearch(list, query) => [{item, score}, ...]
+// Usage: window.fuzzySearch(list, query, keyFn) => [{item, score}, ...]
+//
+// Special characters: Apostrophes and hyphens are preserved so "O'Brien" and "Saint-Martin"
+// match when typed with punctuation. They are also matched when omitted (e.g. "obrien", "saintmartin")
+// via a no-punctuation normalized form. Diacritics are normalized (NFD + strip combining marks)
+// so "jose" matches "José" and "José" matches "José".
 
 function normalizeString(str) {
     if (!str) return '';
-    // De-accented version
+    // De-accented version (keeps apostrophe, hyphen, period for "O'Brien", "Saint-Martin")
     const deAccented = str
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
@@ -16,7 +21,19 @@ function normalizeString(str) {
         .replace(/[^\w\s\-'.\u00C0-\u017F]/g, '')
         .toLowerCase()
         .trim();
-    return { deAccented, accented };
+    // Punctuation stripped so "obrien" matches "O'Brien", "saintmartin" matches "Saint-Martin"
+    const noPunct = deAccented.replace(/['\-.]/g, '');
+    return { deAccented, accented, noPunct };
+}
+
+// Split into words (e.g. "Saint-Martin" → ["saint", "martin"], "John Sanborn" → ["john", "sanborn"])
+// for word-level typo tolerance ("sanbron" → "Sanborn").
+function tokenize(str) {
+    if (!str) return [];
+    return str
+        .split(/[\s\-']+/)
+        .filter(Boolean)
+        .map(part => normalizeString(part).noPunct);
 }
 
 function levenshtein(a, b) {
@@ -55,14 +72,16 @@ function fuzzySearch(list, query, keyFn) {
             item,
             deAccented: norm.deAccented,
             accented: norm.accented,
+            noPunct: norm.noPunct,
             original: original.toLowerCase()
         };
     });
-    // Try all combinations for exact and substring matches
+    // Try all combinations for exact and substring matches (noPunct: "obrien" matches "O'Brien")
     let exactMatches = normalizedList.filter(obj =>
         obj.original.includes(query.toLowerCase()) ||
         obj.deAccented.includes(qNorm.deAccented) ||
-        obj.accented.includes(qNorm.accented)
+        obj.accented.includes(qNorm.accented) ||
+        (qNorm.noPunct && obj.noPunct.includes(qNorm.noPunct))
     );
     if (exactMatches.length > 0) {
         return exactMatches.map(obj => ({ item: obj.item, score: 0 }));
@@ -70,20 +89,33 @@ function fuzzySearch(list, query, keyFn) {
     // Try normalized substring matches
     let normalizedMatches = normalizedList.filter(obj =>
         obj.deAccented.includes(qNorm.deAccented) ||
-        obj.accented.includes(qNorm.accented)
+        obj.accented.includes(qNorm.accented) ||
+        (qNorm.noPunct && obj.noPunct.includes(qNorm.noPunct))
     );
     if (normalizedMatches.length > 0) {
         return normalizedMatches.map(obj => ({ item: obj.item, score: 1 }));
     }
-    // Fuzzy Levenshtein on all forms
-    const scored = normalizedList.map(obj => ({
-        item: obj.item,
-        score: Math.min(
+    // Fuzzy Levenshtein: use best of full-string and word-level score for typo tolerance
+    // (e.g. "sanbron" matches "Sanborn" via word score lev("sanborn","sanbron") = 2).
+    const qLen = (qNorm.noPunct || query).length;
+    const scored = normalizedList.map(obj => {
+        const fullStringScore = Math.min(
             levenshtein(obj.deAccented, qNorm.deAccented),
             levenshtein(obj.accented, qNorm.accented),
+            levenshtein(obj.noPunct, qNorm.noPunct),
             levenshtein(obj.original, query.toLowerCase())
-        )
-    }));
+        );
+        const tokens = tokenize(obj.deAccented);
+        let wordScore = Infinity;
+        for (const token of tokens) {
+            if (Math.abs(token.length - qLen) <= 3) {
+                const d = levenshtein(token, qNorm.noPunct);
+                if (d < wordScore) wordScore = d;
+            }
+        }
+        const score = Math.min(fullStringScore, wordScore);
+        return { item: obj.item, score };
+    });
     const goodMatches = scored.filter(result => result.score <= 5);
     if (goodMatches.length > 0) {
         goodMatches.sort((a, b) => a.score - b.score);

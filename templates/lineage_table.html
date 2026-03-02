@@ -16,6 +16,10 @@
         <div class="lineage-error" role="alert">{{ error_message }}</div>
         {% endif %}
 
+        <div class="lineage-search-wrap">
+            <input type="search" id="lineage-search-input" class="lineage-search-input" placeholder="Search lineage…" aria-label="Search lineage table">
+        </div>
+
         <div class="lineage-table-wrap">
             <table class="lineage-table">
                 <tbody>
@@ -91,6 +95,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/fuzzySearch.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/wiki-requests.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/wiki-renderer.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/lineage-wiki-bridge.js') }}" defer></script>

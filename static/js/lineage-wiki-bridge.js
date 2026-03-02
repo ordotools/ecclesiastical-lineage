@@ -7,8 +7,73 @@
         const tableWrap = document.querySelector('.lineage-table-wrap');
         const bodyEl = document.getElementById('lineage-wiki-body');
         const asideEl = document.getElementById('lineage-wiki-aside');
+        const searchInput = document.getElementById('lineage-search-input');
 
         if (!tableWrap || !bodyEl || !asideEl) return;
+
+        const tbody = tableWrap.querySelector('.lineage-table tbody');
+        const lineageRowList = [];
+        let fullTableHtml = '';
+        let isSubsetView = false;
+        if (tbody) {
+            tbody.querySelectorAll('tr').forEach((tr) => {
+                const link = tr.querySelector('.lineage-menu-link');
+                if (!link) return;
+                lineageRowList.push({
+                    id: link.dataset.clergyId,
+                    name: (link.dataset.clergyName || link.textContent.trim()) || '—',
+                    element: tr
+                });
+            });
+            fullTableHtml = tbody.innerHTML;
+            isSubsetView = false;
+        }
+
+        function applySearchFilter() {
+            const query = searchInput.value.trim();
+            if (!query) {
+                lineageRowList.forEach((r) => { r.element.style.display = ''; });
+                return;
+            }
+            if (typeof window.fuzzySearch !== 'function') {
+                lineageRowList.forEach((r) => { r.element.style.display = ''; });
+                return;
+            }
+            const results = window.fuzzySearch(lineageRowList, query, (r) => r.name);
+            const matchSet = new Set(results.map((x) => x.item));
+            lineageRowList.forEach((r) => {
+                r.element.style.display = matchSet.has(r) ? '' : 'none';
+            });
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                if (isSubsetView) {
+                    tbody.innerHTML = fullTableHtml;
+                    rebuildLineageRowList();
+                    isSubsetView = false;
+                }
+                applySearchFilter();
+            });
+            searchInput.addEventListener('focus', () => {
+                if (searchInput.value.trim() && isSubsetView) {
+                    tbody.innerHTML = fullTableHtml;
+                    rebuildLineageRowList();
+                    isSubsetView = false;
+                    applySearchFilter();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+                e.preventDefault();
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
+            }
+        });
 
         let activeRow = null;
         let activeClergyId = null;
@@ -37,6 +102,26 @@
             }
 
             loadClergyContext(clergyId, clergyName);
+
+            // Fetch subset rows and replace tbody so list shows selected person + ancestors
+            fetch(`/api/wiki/lineage/${clergyId}/table-rows`)
+                .then((res) => res.ok ? res.json() : Promise.reject(new Error('Subset failed')))
+                .then((rows) => {
+                    if (!Array.isArray(rows) || !tbody) return;
+                    tbody.innerHTML = rows.map(buildTrFromRow).join('');
+                    rebuildLineageRowList();
+                    isSubsetView = true;
+                    activeRow = null;
+                    const activeTr = tbody.querySelector(`.lineage-menu-link[data-clergy-id="${clergyId}"]`);
+                    if (activeTr) {
+                        const tr = activeTr.closest('tr');
+                        if (tr) {
+                            tr.classList.add('lineage-row-active');
+                            activeRow = tr;
+                        }
+                    }
+                })
+                .catch(() => { /* keep current table on error */ });
         });
 
         // Intercept wiki internal links within the embedded wiki body so navigation
@@ -292,6 +377,47 @@
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
+        }
+
+        /** Build one <tr> from a flat hierarchy row (id, name, depth, event_type, guides, flow). */
+        function buildTrFromRow(row) {
+            const depth = Number(row.depth) || 0;
+            const guides = Array.isArray(row.guides) ? row.guides : [];
+            const flow = row.flow || 'last';
+            let glyphStrip = '';
+            for (let level = 0; level < depth; level++) {
+                glyphStrip += guides[level]
+                    ? '<span class="tree-glyph tree-glyph-vert"></span>'
+                    : '<span class="tree-glyph tree-glyph-spacer"></span>';
+            }
+            if (flow === 'root') {
+                glyphStrip += '<span class="tree-glyph tree-glyph-root"></span>';
+            } else if (flow === 'sibling') {
+                glyphStrip += '<span class="tree-glyph tree-glyph-branch"></span>';
+            } else {
+                glyphStrip += '<span class="tree-glyph tree-glyph-branch-last"></span>';
+            }
+            let eventMarkers = '';
+            if (row.event_type === 'ordination') eventMarkers = '<span class="event-marker"><strong>O</strong></span>';
+            else if (row.event_type === 'consecration') eventMarkers = '<span class="event-marker"><strong>C</strong></span>';
+            else if (row.event_type === 'ordination_and_consecration') eventMarkers = '<span class="event-marker"><strong>OC</strong></span>';
+            const name = row.name != null ? esc(row.name) : '—';
+            const id = row.id != null ? esc(String(row.id)) : '';
+            return '<tr><td class="name-cell" style="--depth: ' + depth + ';"><span class="name-cell-inner"><span class="tree-glyph-strip" aria-hidden="true">' + glyphStrip + '</span>' + eventMarkers + '<a href="#" class="lineage-menu-link" data-clergy-id="' + id + '" data-clergy-name="' + esc(row.name ?? '') + '">' + name + '</a></span></td></tr>';
+        }
+
+        function rebuildLineageRowList() {
+            lineageRowList.length = 0;
+            if (!tbody) return;
+            tbody.querySelectorAll('tr').forEach((tr) => {
+                const link = tr.querySelector('.lineage-menu-link');
+                if (!link) return;
+                lineageRowList.push({
+                    id: link.dataset.clergyId,
+                    name: (link.dataset.clergyName || link.textContent.trim()) || '—',
+                    element: tr
+                });
+            });
         }
 
         function renderPersonLink(person) {

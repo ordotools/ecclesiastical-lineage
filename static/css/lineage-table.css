@@ -32,11 +32,11 @@
 
 .lineage-menu-panel {
   flex: 0 0 auto;
+  min-height: 0;
   border-right: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  overflow-x: auto;
+  overflow: hidden;
   background-color: #ffffff;
 }
 
@@ -96,7 +96,33 @@
   padding-top: 8px;
 }
 
+/* Search strip: does not shrink; list scrolls in .lineage-table-wrap below */
+.lineage-search-wrap {
+  flex-shrink: 0;
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #ffffff;
+}
+
+.lineage-search-wrap .lineage-search-input {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.lineage-search-wrap .lineage-search-input:focus {
+  outline: none;
+  border-color: var(--lineage-link);
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+}
+
 .lineage-table-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
   width: 100%;
   padding: 12px 16px;
   box-sizing: border-box;

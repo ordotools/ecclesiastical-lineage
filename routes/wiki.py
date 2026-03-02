@@ -465,6 +465,36 @@ def get_clergy_profile(clergy_id):
     return jsonify(_clergy_to_profile(clergy, clergy_id_to_wiki_slug))
 
 
+@wiki_bp.route('/api/wiki/lineage/<int:clergy_id>/table-rows', methods=['GET'])
+def get_lineage_subset_table_rows(clergy_id):
+    """
+    Get flat hierarchy rows for the lineage subset of a clergy (that person and all ancestors).
+    Returns JSON array of row objects: id, name, depth, event_type, guides, flow, etc.
+    """
+    from routes.main import _flat_hierarchy_rows
+
+    clergy = Clergy.query.filter_by(id=clergy_id, is_deleted=False).first()
+    if not clergy:
+        return jsonify({'error': 'Not found'}), 404
+
+    node_ids, links = _get_lineage_subset(clergy_id)
+    clergy_list = Clergy.query.options(
+        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+    ).filter(Clergy.id.in_(node_ids), Clergy.is_deleted == False).all()
+
+    organizations = {o.name: o.color for o in Organization.query.all()}
+    ranks = {r.name: r.color for r in Rank.query.all()}
+    nodes = [_clergy_to_lineage_node(c, organizations, ranks) for c in clergy_list]
+    # In the subset, roots are nodes with no incoming ordination/consecration link
+    targets = {link['target'] for link in links if link.get('type') in ('ordination', 'consecration')}
+    for n in nodes:
+        n['is_lineage_root'] = n['id'] not in targets
+
+    rows = _flat_hierarchy_rows(nodes, links)
+    return jsonify(rows)
+
+
 @wiki_bp.route('/api/wiki/lineage/<path:identifier>', methods=['GET'])
 def get_lineage_subset(identifier):
     """

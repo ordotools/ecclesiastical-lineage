@@ -923,9 +923,11 @@
 .center-panel {
     min-height: 0;
 }
-/* In editor context, let the lineage menu behave like a simple block that fills the panel; inner table-wrap scrolls */
+/* Flex column so .lineage-table-wrap gets a bounded height and can show its own scrollbar */
 .center-panel .editor-lineage-menu-panel {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     height: 100%;
 }
 

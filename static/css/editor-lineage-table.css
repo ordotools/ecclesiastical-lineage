@@ -113,7 +113,7 @@
 .lineage-table td.name-cell .name-cell-inner {
   position: relative;
   display: inline-flex;
-  align-items: stretch;
+  align-items: center;
 }
 
 .lineage-table td.name-cell .tree-glyph-strip {
@@ -233,6 +233,37 @@
 
 .lineage-row-active > .name-cell {
   background-color: #eff6ff;
+}
+
+/* Editor-specific tweaks for avatar/text alignment and spacing */
+.lineage-table--editor {
+  border-collapse: separate;
+  border-spacing: 0 6px; /* extra space between rows */
+}
+
+.lineage-table--editor td.name-cell {
+  vertical-align: middle;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.lineage-table--editor .lineage-sprite-thumb {
+  display: inline-block;
+  margin-right: 0.4rem; /* space between image and name */
+}
+
+.lineage-table--editor .lineage-row-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem; /* space between counts and dates */
+  margin-left: 0.6rem; /* space between name and meta block */
+  font-size: 0.9em;
+  color: var(--lineage-text-muted);
+}
+
+.lineage-table--editor .lineage-row-counts,
+.lineage-table--editor .lineage-row-dates {
+  white-space: nowrap;
 }
 
 .lineage-table-empty {

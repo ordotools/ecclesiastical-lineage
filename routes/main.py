@@ -378,6 +378,7 @@ def _flat_hierarchy_rows(nodes, links):
             'ordinations_count': node.get('ordinations_count'),
             'consecrations_performed_count': node.get('consecrations_performed_count'),
             'ordinations_performed_count': node.get('ordinations_performed_count'),
+            'sprite_key': node.get('id'),
         }
         row['is_lineage_root'] = row['id'] == row['root_id']
         if root_id is None:

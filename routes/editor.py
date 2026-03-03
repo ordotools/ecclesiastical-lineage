@@ -9,6 +9,7 @@ from models import (
 from constants import GREEN_COLOR, BLACK_COLOR
 import json
 import base64
+from routes.main import _lineage_nodes_links, _flat_hierarchy_rows
 
 from routes import editor_visualization_api  # noqa: F401 - registers routes
 from routes import editor_audit_events  # noqa: F401
@@ -453,3 +454,18 @@ def clergy_form_content(clergy_id=None):
                              context_type=None,
                              context_clergy_id=None,
                              lineage_roots=_get_lineage_roots())
+
+
+@editor_bp.route('/editor/lineage-menu')
+@require_permission('edit_clergy')
+def editor_lineage_menu():
+    """HTMX endpoint for the center panel lineage menu in the editor."""
+    try:
+        nodes, links, _ = _lineage_nodes_links()
+        rows = _flat_hierarchy_rows(nodes, links)
+        user = User.query.get(session['user_id']) if 'user_id' in session else None
+        return render_template('editor_lineage_menu.html', rows=rows, user=user)
+    except Exception as e:
+        current_app.logger.error(f"Error in editor lineage menu: {e}")
+        return render_template('editor_lineage_menu.html', rows=[], user=None,
+                               error_message=f"Unable to load editor lineage menu data. Error: {str(e)}")

@@ -1,0 +1,265 @@
+/**
+ * Editor lineage table – forked from lineage-table.css so we can safely
+ * change layout for the editor without touching the public lineage page.
+ */
+
+:root {
+  --lineage-text: #1a1a1a;
+  --lineage-text-muted: #666;
+  --lineage-link: #0066cc;
+  --lineage-link-hover: #004499;
+  --lineage-error-bg: #fff3cd;
+  --lineage-error-text: #856404;
+  --lineage-tree-line: var(--lineage-text-muted);
+  --lineage-tree-overlap: 0.4em;
+  --lineage-tree-strip-gap: 0.25rem;
+  --lineage-tree-overhang: 0.25rem;
+}
+
+.lineage-error {
+  padding: 8px 12px;
+  background: var(--lineage-error-bg);
+  color: var(--lineage-error-text);
+  font-size: 0.9rem;
+}
+
+/* We keep wiki layout definitions in case they are reused, but they are
+ * effectively unused in the editor center-panel.
+ */
+.lineage-wiki-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* EDITOR CHANGE: do NOT use flex on the menu panel – let it be a simple
+ * block that can stretch to fill its container. This avoids the height
+ * issues we see in the editor center panel.
+ */
+.lineage-menu-panel {
+  min-height: 0;
+  border-right: 1px solid #e5e7eb;
+  /* no display:flex / flex-direction here for the editor */
+  overflow: hidden;
+  background-color: #ffffff;
+}
+
+.lineage-wiki-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Search strip: does not shrink; list scrolls in .lineage-table-wrap below */
+.lineage-search-wrap {
+  flex-shrink: 0;
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #ffffff;
+}
+
+.lineage-search-wrap .lineage-search-input {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.lineage-search-wrap .lineage-search-input:focus {
+  outline: none;
+  border-color: var(--lineage-link);
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+}
+
+.lineage-table-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  width: 100%;
+  padding: 12px 16px 12px 8px;
+  box-sizing: border-box;
+}
+
+.lineage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: var(--lineage-text);
+}
+
+.lineage-menu-panel .lineage-table {
+  width: auto;
+  max-width: 100%;
+}
+
+.lineage-table th,
+.lineage-table td {
+  text-align: left;
+}
+
+.lineage-table td.name-cell {
+  padding-left: 4px;
+}
+
+.lineage-table .event-marker {
+  margin-right: 0.25em;
+}
+
+.lineage-table td.name-cell .name-cell-inner {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.lineage-table td.name-cell .tree-glyph-strip {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  margin-right: var(--lineage-tree-strip-gap);
+}
+
+.lineage-table td.name-cell .tree-glyph {
+  position: relative;
+  display: inline-flex;
+  width: 1.25rem;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* Ancestor vertical guides */
+.lineage-table td.name-cell .tree-glyph-vert::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(-1 * var(--lineage-tree-overlap));
+  bottom: calc(-1 * var(--lineage-tree-overlap));
+  transform: translateX(-50%);
+  border-left: 1px solid var(--lineage-tree-line);
+}
+
+/* Root node: small diamond */
+.lineage-table td.name-cell .tree-glyph-root::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background-color: var(--lineage-text);
+}
+
+/* Branch connectors (non-last children) */
+.lineage-table td.name-cell .tree-glyph-branch::before,
+.lineage-table td.name-cell .tree-glyph-branch-last::before {
+  /* horizontal from guide to label */
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  right: calc(-1 * var(--lineage-tree-overhang));
+  border-top: 1px solid var(--lineage-tree-line);
+}
+
+.lineage-table td.name-cell .tree-glyph-branch::after,
+.lineage-table td.name-cell .tree-glyph-branch-last::after {
+  /* downward vertical from center of node box */
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 1px solid var(--lineage-tree-line);
+}
+
+.lineage-table td.name-cell .tree-glyph-branch::after {
+  top: calc(-1 * var(--lineage-tree-overlap));
+  bottom: calc(-1 * var(--lineage-tree-overlap));
+}
+
+.lineage-table td.name-cell .tree-glyph-branch-last::after {
+  /* short stub to visually terminate the branch */
+  top: calc(-1 * var(--lineage-tree-overlap));
+  bottom: 50%;
+}
+
+.lineage-table a {
+  color: var(--lineage-link);
+  text-decoration: none;
+}
+
+.lineage-table a:hover {
+  color: var(--lineage-link-hover);
+  text-decoration: underline;
+}
+
+.lineage-menu-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.lineage-menu-link:hover {
+  text-decoration: underline;
+}
+
+.lineage-root-heading-main .lineage-menu-link {
+  color: var(--lineage-link);
+}
+.lineage-root-heading-main .lineage-menu-link:hover {
+  color: var(--lineage-link-hover);
+  text-decoration: underline;
+}
+
+.lineage-root-summary-row .lineage-root-summary-cell {
+  padding-left: calc(8px + (var(--depth) + 1) * 1.25rem + var(--lineage-tree-strip-gap));
+  padding-top: 0.1em;
+  padding-bottom: 0;
+  vertical-align: bottom;
+}
+
+.lineage-root-summary {
+  font-size: 0.875em;
+  color: var(--lineage-text-muted);
+}
+
+.lineage-root-summary-row .lineage-root-summary {
+  margin-left: 0;
+}
+
+.lineage-row-active > .name-cell {
+  background-color: #eff6ff;
+}
+
+.lineage-table-empty {
+  color: var(--lineage-text-muted);
+}
+
+@media (max-width: 640px) {
+  .lineage-table-wrap {
+    padding: 8px 8px;
+  }
+
+  .lineage-table {
+    font-size: 0.875rem;
+  }
+
+  .lineage-table th,
+  .lineage-table td {
+    padding: 3px 8px;
+  }
+
+  .lineage-table td.name-cell .tree-glyph {
+    width: 1.1rem;
+  }
+
+  .lineage-table td.name-cell .tree-glyph-strip {
+    --lineage-tree-strip-gap: 0.2rem;
+    --lineage-tree-overhang: 0.2rem;
+  }
+}
+

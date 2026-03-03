@@ -918,6 +918,17 @@
     color: var(--editor-text-primary);
 }
 
+/* ===== CENTER PANEL LINEAGE MENU (editor) ===== */
+/* Grid/flex: allow center panel to shrink so it gets a definite height from the grid row */
+.center-panel {
+    min-height: 0;
+}
+/* In editor context, let the lineage menu behave like a simple block that fills the panel; inner table-wrap scrolls */
+.center-panel .editor-lineage-menu-panel {
+    display: block;
+    height: 100%;
+}
+
 /* ===== UNIFIED TAB STYLES ===== */
 .editor-tabs {
     display: flex;

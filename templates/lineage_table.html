@@ -24,18 +24,10 @@
             <table class="lineage-table">
                 <tbody>
                     {% for row in rows %}
-                    {# Insert a heading row whenever we enter a new root lineage #}
-                    {% if loop.first or row.root_id != loop.previtem.root_id %}
-                    <tr class="lineage-root-heading-row">
-                        <td class="lineage-root-heading-cell">
-                            <div class="lineage-root-heading-main">
-                                <a href="#" class="lineage-menu-link lineage-menu-link-heading" data-clergy-id="{{ row.id }}" data-clergy-name="{{ row.name }}">{{ row.name or '—' }}</a>
-                                {% if row.consecration_lineage_size is defined and row.consecration_lineage_size %}
-                                <span class="lineage-root-heading-size">
-                                    {{ row.consecration_lineage_size }} in consecration lineage
-                                </span>
-                                {% endif %}
-                            </div>
+                    {% if row.is_lineage_root %}
+                    <tr class="lineage-root-summary-row">
+                        <td class="lineage-root-summary-cell" style="--depth: {{ row.depth }};">
+                            <span class="lineage-root-summary">{{ row.consecrations_performed_count or 0 }} consecration{{ 's' if (row.consecrations_performed_count or 0) != 1 else '' }}, {{ row.ordinations_performed_count or 0 }} ordination{{ 's' if (row.ordinations_performed_count or 0) != 1 else '' }}</span>
                         </td>
                     </tr>
                     {% endif %}
@@ -62,16 +54,8 @@
                                     {% endif %}
                                 </span>
                                 {% if row.event_type == 'ordination' %}<span class="event-marker"><strong>O</strong></span>{% endif %}{% if row.event_type == 'consecration' %}<span class="event-marker"><strong>C</strong></span>{% endif %}{% if row.event_type == 'ordination_and_consecration' %}<span class="event-marker"><strong>OC</strong></span>{% endif %}
-                                {% if row.is_lineage_root %}
-                                <a href="#" class="lineage-menu-link lineage-menu-link-root" title="{{ row.name or '—' }}"
-                                   data-clergy-id="{{ row.id }}" data-clergy-name="{{ row.name }}">{{ row.name or '—' }}</a>
-                                <span class="lineage-root-summary">{{ row.consecrations_performed_count or 0 }} consecration{{ 's' if (row.consecrations_performed_count or 0) != 1 else '' }}, {{ row.ordinations_performed_count or 0 }} ordination{{ 's' if (row.ordinations_performed_count or 0) != 1 else '' }}</span>
-                                {% else %}
                                 <a href="#" class="lineage-menu-link"
-                                   data-clergy-id="{{ row.id }}" data-clergy-name="{{ row.name }}">
-                                    {{ row.name or '—' }}
-                                </a>
-                                {% endif %}
+                                   data-clergy-id="{{ row.id }}" data-clergy-name="{{ row.name }}">{{ row.name or '—' }}</a>
                             </span>
                         </td>
                     </tr>

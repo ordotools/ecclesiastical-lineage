@@ -525,6 +525,23 @@ def _flat_hierarchy_rows(nodes, links):
     if not flat:
         return flat
 
+    # Aggregate consecrations/ordinations performed over the *displayed* subtree only
+    # (each node counted once even if it appears in multiple rows due to multiple consecrations)
+    root_performed_totals = {}
+    for row in flat:
+        rid = row['root_id']
+        root_performed_totals.setdefault(rid, set()).add(row['id'])
+    for rid, node_ids in root_performed_totals.items():
+        cons = sum((node_by_id.get(nid) or {}).get('consecrations_performed_count') or 0 for nid in node_ids)
+        ords = sum((node_by_id.get(nid) or {}).get('ordinations_performed_count') or 0 for nid in node_ids)
+        root_performed_totals[rid] = {'consecrations': cons, 'ordinations': ords}
+    for row in flat:
+        if row.get('is_lineage_root'):
+            agg = root_performed_totals.get(row['root_id'])
+            if agg:
+                row['consecrations_performed_count'] = agg['consecrations']
+                row['ordinations_performed_count'] = agg['ordinations']
+
     def _has_next_sibling(flat_list, index):
         row = flat_list[index]
         depth = row['depth']

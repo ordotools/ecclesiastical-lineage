@@ -260,10 +260,20 @@
   text-decoration: underline;
 }
 
+.lineage-root-summary-row .lineage-root-summary-cell {
+  padding-left: calc(8px + (var(--depth) + 1) * 1.25rem + var(--lineage-tree-strip-gap));
+  padding-top: 0.1em;
+  padding-bottom: 0;
+  vertical-align: bottom;
+}
+
 .lineage-root-summary {
   font-size: 0.875em;
   color: var(--lineage-text-muted);
-  margin-left: 0.35em;
+}
+
+.lineage-root-summary-row .lineage-root-summary {
+  margin-left: 0;
 }
 
 .lineage-row-active > .name-cell {

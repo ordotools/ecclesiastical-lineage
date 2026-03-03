@@ -44,12 +44,10 @@
                                         {% endif %}
                                     {% endfor %}
 
-                                    {# connector at current depth #}
-                                    {% if row.flow == 'root' %}
-                                        <span class="tree-glyph tree-glyph-root"></span>
-                                    {% elif row.flow == 'sibling' %}
+                                    {# connector at current depth (no glyph for root) #}
+                                    {% if row.flow == 'sibling' %}
                                         <span class="tree-glyph tree-glyph-branch"></span>
-                                    {% else %}
+                                    {% elif row.flow != 'root' %}
                                         <span class="tree-glyph tree-glyph-branch-last"></span>
                                     {% endif %}
                                 </span>

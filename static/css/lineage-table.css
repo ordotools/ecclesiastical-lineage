@@ -124,7 +124,7 @@
   min-height: 0;
   overflow: auto;
   width: 100%;
-  padding: 12px 16px;
+  padding: 12px 16px 12px 8px;
   box-sizing: border-box;
 }
 
@@ -148,7 +148,7 @@
 }
 
 .lineage-table td.name-cell {
-  padding-left: 8px;
+  padding-left: 4px;
 }
 
 .lineage-table .event-marker {

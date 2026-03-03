@@ -252,6 +252,20 @@
   text-decoration: underline;
 }
 
+.lineage-root-heading-main .lineage-menu-link {
+  color: var(--lineage-link);
+}
+.lineage-root-heading-main .lineage-menu-link:hover {
+  color: var(--lineage-link-hover);
+  text-decoration: underline;
+}
+
+.lineage-root-summary {
+  font-size: 0.875em;
+  color: var(--lineage-text-muted);
+  margin-left: 0.35em;
+}
+
 .lineage-row-active > .name-cell {
   background-color: #eff6ff;
 }

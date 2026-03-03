@@ -85,12 +85,26 @@ def _get_ancestors_of_roots(root_clergy_ids, all_links):
 
 def _lineage_nodes_links():
     """Load clergy, build nodes/links, apply lineage-root filter. Returns (nodes, links, user)."""
-    from sqlalchemy.orm import joinedload
+    from sqlalchemy.orm import joinedload, selectinload
+
+    def _event_sort_key(date, year):
+        """
+        Comparable numeric key for ordering events.
+        Earlier dates have smaller keys; completely undated events return None.
+        """
+        if date:
+            return int(date.strftime('%Y%m%d'))
+        if year:
+            return year * 10000
+        return None
+
     all_clergy = Clergy.query.options(
         joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
         joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
         joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators),
-        joinedload(Clergy.statuses)
+        joinedload(Clergy.statuses),
+        selectinload(Clergy.ordinations_performed),
+        selectinload(Clergy.consecrations_performed),
     ).filter(Clergy.is_deleted != True).all()
     if not hasattr(g, 'organizations'):
         g.organizations = {org.name: org.color for org in Organization.query.all()}
@@ -135,6 +149,12 @@ def _lineage_nodes_links():
         elif clergy.consecrations:
             fc = clergy.get_all_consecrations()[0]
             consecration_date = fc.display_date
+        # Precompute this clergy member's own consecration sort keys (for date-window logic downstream)
+        own_consecration_sort_keys = []
+        for consecration in clergy.get_all_consecrations():
+            sort_key = _event_sort_key(consecration.date, consecration.year)
+            if sort_key is not None:
+                own_consecration_sort_keys.append(sort_key)
         nodes.append({
             'id': clergy.id,
             'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
@@ -146,17 +166,24 @@ def _lineage_nodes_links():
             'high_res_image_url': high_res_image_url,
             'ordinations_count': len(clergy.ordinations),
             'consecrations_count': len(clergy.consecrations),
+            'ordinations_performed_count': len(clergy.ordinations_performed),
+            'consecrations_performed_count': len(clergy.consecrations_performed),
             'ordination_date': ordination_date,
             'consecration_date': consecration_date,
             'bio': clergy.notes,
-            'statuses': statuses_data
+            'bio': clergy.notes,
+            'statuses': statuses_data,
+            # Used by lineage-table DFS to build consecration windows per parent
+            'own_consecration_sort_keys': sorted(set(own_consecration_sort_keys)),
         })
     for clergy in all_clergy:
         for ordination in clergy.ordinations:
             if ordination.ordaining_bishop:
+                sort_key = _event_sort_key(ordination.date, ordination.year)
                 links.append({
                     'source': ordination.ordaining_bishop.id, 'target': clergy.id, 'type': 'ordination',
                     'date': ordination.display_date,
+                    'event_sort_key': sort_key,
                     'color': BLACK_COLOR,
                     'is_invalid': ordination.is_invalid, 'is_doubtfully_valid': ordination.is_doubtfully_valid,
                     'is_doubtful_event': ordination.is_doubtful_event, 'is_sub_conditione': ordination.is_sub_conditione
@@ -164,9 +191,18 @@ def _lineage_nodes_links():
     for clergy in all_clergy:
         for consecration in clergy.consecrations:
             if consecration.consecrator:
+                sort_key = _event_sort_key(consecration.date, consecration.year)
+                consecrator = consecration.consecrator
+                # Rare but important: capture if the consecrator was already a bishop at this event
+                try:
+                    consecrator_was_bishop = consecrator.was_bishop_on(consecration.date)
+                except Exception:
+                    consecrator_was_bishop = True
                 links.append({
                     'source': consecration.consecrator.id, 'target': clergy.id, 'type': 'consecration',
                     'date': consecration.display_date,
+                    'event_sort_key': sort_key,
+                    'consecrator_was_bishop': consecrator_was_bishop,
                     'color': GREEN_COLOR,
                     'is_invalid': consecration.is_invalid, 'is_doubtfully_valid': consecration.is_doubtfully_valid,
                     'is_doubtful_event': consecration.is_doubtful_event, 'is_sub_conditione': consecration.is_sub_conditione
@@ -174,9 +210,11 @@ def _lineage_nodes_links():
     for clergy in all_clergy:
         for consecration in clergy.consecrations:
             for co_consecrator in consecration.co_consecrators:
+                sort_key = _event_sort_key(consecration.date, consecration.year)
                 links.append({
                     'source': co_consecrator.id, 'target': clergy.id, 'type': 'co-consecration',
                     'date': consecration.display_date,
+                    'event_sort_key': sort_key,
                     'color': GREEN_COLOR, 'dashed': True,
                     'is_invalid': consecration.is_invalid, 'is_doubtfully_valid': consecration.is_doubtfully_valid,
                     'is_doubtful_event': consecration.is_doubtful_event, 'is_sub_conditione': consecration.is_sub_conditione
@@ -213,31 +251,121 @@ def _flat_hierarchy_rows(nodes, links):
     When the same parent both ordained and consecrated a child, one row with marker OC."""
     event_links = [l for l in links if l.get('type') in ('ordination', 'consecration')]
     node_by_id = {n['id']: n for n in nodes}
-    # Group by (source, target): at most one ordination and one consecration per pair
-    # children_grouped[source_id] = list of (target_id, ord_link_or_None, cons_link_or_None)
-    by_source_target = {}
-    for link in event_links:
-        sid, tid = link['source'], link['target']
-        if sid not in by_source_target:
-            by_source_target[sid] = {}
-        if tid not in by_source_target[sid]:
-            by_source_target[sid][tid] = {'ordination': None, 'consecration': None}
-        by_source_target[sid][tid][link['type']] = link
-    children_grouped = {}
-    for sid in by_source_target:
-        children_grouped[sid] = [
-            (tid, by_source_target[sid][tid]['ordination'], by_source_target[sid][tid]['consecration'])
-            for tid in by_source_target[sid]
-        ]
-        children_grouped[sid].sort(
-            key=lambda x: ((node_by_id.get(x[0]) or {}).get('name') or '', x[0])
-        )
-    # roots: lineage roots or nodes with no incoming ordination/consecration
-    targets = {tid for sid in by_source_target for tid in by_source_target[sid]}
-    roots = [n for n in nodes if n.get('is_lineage_root') or n['id'] not in targets]
-    roots.sort(key=lambda n: (n.get('name') or '', n['id']))
 
-    def dfs(node, depth, incoming_ord, incoming_cons, path_set, parent_id=None):
+    def _alpha_key_for_node(node):
+        return ((node.get('name') or ''), node['id'])
+
+    # Precompute consecration-only adjacency for lineage-size calculation
+    consecration_children = {}
+    for link in event_links:
+        if link.get('type') != 'consecration':
+            continue
+        sid, tid = link['source'], link['target']
+        consecration_children.setdefault(sid, set()).add(tid)
+
+    # Precompute parent consecration windows from each clergy's own consecrations
+    # parent_windows[parent_id] = list of (start_sort_key, end_sort_key_or_None), length >= 2
+    parent_windows = {}
+    for n in nodes:
+        own_keys = n.get('own_consecration_sort_keys') or []
+        unique_sorted = sorted(set(k for k in own_keys if k is not None))
+        if len(unique_sorted) >= 2:
+            windows = []
+            for i, start in enumerate(unique_sorted):
+                end = unique_sorted[i + 1] if i + 1 < len(unique_sorted) else None
+                windows.append((start, end))
+            parent_windows[n['id']] = windows
+
+    # Children events grouped by parent (keep all event links; windowing happens later)
+    children_events = {}
+    for link in event_links:
+        sid = link['source']
+        children_events.setdefault(sid, []).append(link)
+
+    def _window_index_for_sort_key(sort_key, windows):
+        """Map an event sort key into a window index. Undated events go to the last window."""
+        if not windows:
+            return None
+        if sort_key is None:
+            return len(windows) - 1
+        for idx, (start, end) in enumerate(windows):
+            if end is None:
+                if sort_key >= start:
+                    return idx
+            else:
+                if start <= sort_key < end:
+                    return idx
+        return len(windows) - 1
+
+    def _children_for_parent(parent_id, consecration_window_idx):
+        """
+        For a given parent instance (optionally tied to a consecration window),
+        return a list of (target_id, ord_link, cons_link) rows. Multiple events
+        per pair are collapsed to at most one ordination and one consecration,
+        but filtered to the active window when applicable.
+        """
+        events = children_events.get(parent_id, [])
+        windows = parent_windows.get(parent_id)
+        use_windows = windows and consecration_window_idx is not None and len(windows) >= 2
+
+        by_target = {}
+        for link in events:
+            ltype = link.get('type')
+            if ltype not in ('ordination', 'consecration'):
+                continue
+
+            if use_windows:
+                if ltype == 'ordination':
+                    # Product choice: ordination children of a multiply consecrated parent
+                    # follow the first consecration window.
+                    target_window_idx = 0
+                else:
+                    sort_key = link.get('event_sort_key')
+                    target_window_idx = _window_index_for_sort_key(sort_key, windows)
+                if target_window_idx != consecration_window_idx:
+                    continue
+
+            tid = link['target']
+            bucket = by_target.setdefault(tid, {'ordination': None, 'consecration': None})
+            bucket[ltype] = link
+
+        children = [
+            (tid, bucket['ordination'], bucket['consecration'])
+            for tid, bucket in by_target.items()
+        ]
+        children.sort(
+            key=lambda child: _alpha_key_for_node(node_by_id.get(child[0]) or {'id': child[0]})
+        )
+        return children
+
+    # roots: lineage roots or nodes with no incoming ordination/consecration
+    targets = {link['target'] for link in event_links}
+    roots = [n for n in nodes if n.get('is_lineage_root') or n['id'] not in targets]
+
+    # Consecration-lineage size per root (Fix 1)
+    consecration_lineage_size = {}
+
+    def _count_consecration_descendants(root_id):
+        seen = set()
+        stack = list(consecration_children.get(root_id, ()))
+        while stack:
+            cid = stack.pop()
+            if cid in seen:
+                continue
+            seen.add(cid)
+            stack.extend(child for child in consecration_children.get(cid, ()) if child not in seen)
+        return len(seen)
+
+    for root in roots:
+        consecration_lineage_size[root['id']] = _count_consecration_descendants(root['id'])
+
+    def _root_sort_key(node):
+        size = consecration_lineage_size.get(node['id'], 0)
+        return (-size, _alpha_key_for_node(node))
+
+    roots.sort(key=_root_sort_key)
+
+    def _make_row(node, depth, incoming_ord, incoming_cons, parent_id, root_id):
         row = {
             'id': node['id'],
             'name': node.get('name'),
@@ -245,7 +373,19 @@ def _flat_hierarchy_rows(nodes, links):
             'organization': node.get('organization'),
             'depth': depth,
             'parent_id': parent_id,
+            'root_id': root_id if root_id is not None else node['id'],
+            'consecrations_count': node.get('consecrations_count'),
+            'ordinations_count': node.get('ordinations_count'),
+            'consecrations_performed_count': node.get('consecrations_performed_count'),
+            'ordinations_performed_count': node.get('ordinations_performed_count'),
         }
+        row['is_lineage_root'] = row['id'] == row['root_id']
+        if root_id is None:
+            root_key = row['id']
+        else:
+            root_key = root_id
+        if root_key in consecration_lineage_size:
+            row['consecration_lineage_size'] = consecration_lineage_size[root_key]
         if incoming_ord is None and incoming_cons is None:
             row['event_type'] = None
             row['ordination_date'] = node.get('ordination_date')
@@ -263,19 +403,124 @@ def _flat_hierarchy_rows(nodes, links):
                 row['event_type'] = 'consecration'
                 row['ordination_date'] = None
                 row['consecration_date'] = incoming_cons.get('date')
+        return row
+
+    def _child_window_idx(target_id, ord_link, cons_link):
+        """Consecration window index for a child when it has multiple consecrations; else None."""
+        child_windows = parent_windows.get(target_id)
+        if not child_windows or len(child_windows) < 2:
+            return None
+        link = cons_link or ord_link
+        sort_key = link.get('event_sort_key') if link else None
+        return _window_index_for_sort_key(sort_key, child_windows)
+
+    def dfs(node, depth, incoming_ord, incoming_cons, path_set, parent_id=None, root_id=None, consecration_window_idx=None):
+        node_windows = parent_windows.get(node['id'])
+        multi_window = node_windows and len(node_windows) >= 2
+        # When reached as a child (consecration_window_idx set), emit only one row for that window.
+        # Multi-row emission applies only to roots (no incoming link) or when we're the "parent" context.
+        as_child = consecration_window_idx is not None
+
+        if multi_window and not as_child:
+            # Root or top-level: emit one row per consecration window, recurse per window.
+            out = []
+            for w_idx in range(len(node_windows)):
+                row = _make_row(node, depth, incoming_ord, incoming_cons, parent_id, root_id)
+                out.append(row)
+                path_set.add((node['id'], w_idx))
+                for target_id, ord_link, cons_link in _children_for_parent(node['id'], w_idx):
+                    if target_id not in node_by_id:
+                        continue
+                    target_node = node_by_id[target_id]
+                    child_window_idx = _child_window_idx(target_id, ord_link, cons_link)
+                    if (target_id, child_window_idx) in path_set:
+                        continue
+                    if incoming_ord is not None:
+                        allow_child = bool(cons_link is not None and cons_link.get('consecrator_was_bishop') is False)
+                        if not allow_child:
+                            continue
+                    out.extend(
+                        dfs(
+                            target_node,
+                            depth + 1,
+                            ord_link,
+                            cons_link,
+                            path_set,
+                            node['id'],
+                            root_id,
+                            consecration_window_idx=child_window_idx,
+                        )
+                    )
+                path_set.discard((node['id'], w_idx))
+            return out
+
+        if multi_window and as_child:
+            # Child with multiple consecrations: emit single row for the link's window only.
+            w_idx = consecration_window_idx if 0 <= consecration_window_idx < len(node_windows) else (len(node_windows) - 1)
+            row = _make_row(node, depth, incoming_ord, incoming_cons, parent_id, root_id)
+            out = [row]
+            path_set.add((node['id'], w_idx))
+            for target_id, ord_link, cons_link in _children_for_parent(node['id'], w_idx):
+                if target_id not in node_by_id:
+                    continue
+                target_node = node_by_id[target_id]
+                child_window_idx = _child_window_idx(target_id, ord_link, cons_link)
+                if (target_id, child_window_idx) in path_set:
+                    continue
+                if incoming_ord is not None:
+                    allow_child = bool(cons_link is not None and cons_link.get('consecrator_was_bishop') is False)
+                    if not allow_child:
+                        continue
+                out.extend(
+                    dfs(
+                        target_node,
+                        depth + 1,
+                        ord_link,
+                        cons_link,
+                        path_set,
+                        node['id'],
+                        root_id,
+                        consecration_window_idx=child_window_idx,
+                    )
+                )
+            path_set.discard((node['id'], w_idx))
+            return out
+
+        row = _make_row(node, depth, incoming_ord, incoming_cons, parent_id, root_id)
         out = [row]
-        path_set.add(node['id'])
-        for target_id, ord_link, cons_link in children_grouped.get(node['id'], []):
-            if target_id not in node_by_id or target_id in path_set:
+        node_key = (node['id'], consecration_window_idx)
+        path_set.add(node_key)
+        for target_id, ord_link, cons_link in _children_for_parent(node['id'], consecration_window_idx):
+            if target_id not in node_by_id:
                 continue
             target_node = node_by_id[target_id]
-            out.extend(dfs(target_node, depth + 1, ord_link, cons_link, path_set, node['id']))
-        path_set.discard(node['id'])
+            child_window_idx = _child_window_idx(target_id, ord_link, cons_link)
+            if (target_id, child_window_idx) in path_set:
+                continue
+            if incoming_ord is not None:
+                allow_child = bool(cons_link is not None and cons_link.get('consecrator_was_bishop') is False)
+                if not allow_child:
+                    continue
+            out.extend(
+                dfs(
+                    target_node,
+                    depth + 1,
+                    ord_link,
+                    cons_link,
+                    path_set,
+                    node['id'],
+                    root_id,
+                    consecration_window_idx=child_window_idx,
+                )
+            )
+        path_set.discard(node_key)
         return out
 
     flat = []
     for root in roots:
-        flat.extend(dfs(root, 0, None, None, set(), None))
+        # Roots start without a consecration window; their own children are
+        # windowed based on the roots' own consecrations when applicable.
+        flat.extend(dfs(root, 0, None, None, set(), None, root_id=root['id'], consecration_window_idx=None))
 
     if not flat:
         return flat

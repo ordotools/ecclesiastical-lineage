@@ -134,6 +134,8 @@ class ResizablePanes {
         const bottomHeight = container.classList.contains('bottom-panel-collapsed')
             ? 40
             : (bottomPanel ? bottomPanel.offsetHeight : 0);
+        const validationPanel = document.querySelector('.validation-panel');
+        const currentValidationWidth = validationPanel ? validationPanel.offsetWidth : 0;
 
         if (this.currentResizer.id === 'left-resizer') {
             // Resizing between left and center panels
@@ -143,44 +145,32 @@ class ResizablePanes {
             const rightPanel = document.querySelector('.right-panel');
             const currentRightWidth = rightPanel ? rightPanel.offsetWidth : 400;
             
-            container.style.gridTemplateColumns = `${newLeftWidth}px 1fr ${currentRightWidth}px`;
-            
-            // Move the left resizer handle
-            this.currentResizer.style.left = `${newLeftWidth}px`;
-            
-            const newHeight = container.offsetHeight - bottomHeight;
-            this.currentResizer.style.height = `${newHeight}px`;
-            
-            // Update bottom resizer position and width to match new left panel width
-            const bottomResizer = document.getElementById('bottom-resizer');
-            if (bottomResizer) {
-                bottomResizer.style.left = `${newLeftWidth}px`;
-                bottomResizer.style.width = `${container.offsetWidth - newLeftWidth}px`;
+            // Preserve validation panel width as a separate column (four-column layout)
+            if (currentValidationWidth > 0) {
+                container.style.gridTemplateColumns = `${newLeftWidth}px 1fr ${currentRightWidth}px ${currentValidationWidth}px`;
+            } else {
+                container.style.gridTemplateColumns = `${newLeftWidth}px 1fr ${currentRightWidth}px`;
             }
             
         } else if (this.currentResizer.id === 'right-resizer') {
-            // Resizing between center and right panels
-            const newRightWidth = Math.max(250, Math.min(600, this.startRightWidth - deltaX));
+            // Resizing between center and right panels (with a fourth validation panel present)
+            // Since the handle sits on the LEFT edge of the right panel, dragging right
+            // should INCREASE the right panel width, and dragging left should DECREASE it.
+            const newRightWidth = Math.max(250, Math.min(600, this.startRightWidth + deltaX));
             
             // Keep the left panel at its current width
             const leftPanel = document.querySelector('.left-panel');
             const currentLeftWidth = leftPanel ? leftPanel.offsetWidth : 350;
             
-            container.style.gridTemplateColumns = `${currentLeftWidth}px 1fr ${newRightWidth}px`;
-            
-            // Move the right resizer handle
-            this.currentResizer.style.right = `${newRightWidth}px`;
-            
-            const newHeight = container.offsetHeight - bottomHeight;
-            this.currentResizer.style.height = `${newHeight}px`;
-            
-            // Update bottom resizer width to account for new right panel width
-            const bottomResizer = document.getElementById('bottom-resizer');
-            const currentLeftPanel = document.querySelector('.left-panel');
-            if (bottomResizer && currentLeftPanel) {
-                bottomResizer.style.width = `${container.offsetWidth - currentLeftPanel.offsetWidth}px`;
+            if (currentValidationWidth > 0) {
+                container.style.gridTemplateColumns = `${currentLeftWidth}px 1fr ${newRightWidth}px ${currentValidationWidth}px`;
+            } else {
+                container.style.gridTemplateColumns = `${currentLeftWidth}px 1fr ${newRightWidth}px`;
             }
         }
+
+        // After any vertical resize, recompute handle positions so they line up with panel edges
+        this.updateHandlePositions();
     }
 
     handleHorizontalResize(e, container) {
@@ -242,6 +232,7 @@ class ResizablePanes {
     saveLayout() {
         const leftPanel = document.querySelector('.left-panel');
         const rightPanel = document.querySelector('.right-panel');
+        const validationPanel = document.querySelector('.validation-panel');
         const bottomPanel = document.querySelector('.bottom-panel');
         const container = document.querySelector('.editor-container');
         
@@ -250,6 +241,9 @@ class ResizablePanes {
         const layout = JSON.parse(localStorage.getItem('editorLayout') || '{}');
         layout.leftWidth = leftPanel.offsetWidth;
         layout.rightWidth = rightPanel.offsetWidth;
+        if (validationPanel) {
+            layout.validationWidth = validationPanel.offsetWidth;
+        }
         // When collapsed, keep last expanded height for next expand
         if (!container.classList.contains('bottom-panel-collapsed')) {
             layout.bottomHeight = bottomPanel.offsetHeight;
@@ -265,12 +259,18 @@ class ResizablePanes {
         try {
             const layout = JSON.parse(savedLayout);
             const container = document.querySelector('.editor-container');
+            const validationPanel = document.querySelector('.validation-panel');
             
             if (container) {
                 const collapsed = container.classList.contains('bottom-panel-collapsed');
                 // Handle new format (dimensions)
                 if (layout.leftWidth && layout.rightWidth) {
-                    container.style.gridTemplateColumns = `${layout.leftWidth}px 1fr ${layout.rightWidth}px`;
+                    const validationWidth = layout.validationWidth || (validationPanel ? validationPanel.offsetWidth : 0);
+                    if (validationWidth > 0) {
+                        container.style.gridTemplateColumns = `${layout.leftWidth}px 1fr ${layout.rightWidth}px ${validationWidth}px`;
+                    } else {
+                        container.style.gridTemplateColumns = `${layout.leftWidth}px 1fr ${layout.rightWidth}px`;
+                    }
                     // Only restore bottom row when not collapsed (start with strip)
                     if (!collapsed && layout.bottomHeight) {
                         container.style.gridTemplateRows = `1fr ${layout.bottomHeight}px`;
@@ -309,6 +309,14 @@ class ResizablePanes {
         const collapsed = container.classList.contains('bottom-panel-collapsed');
         const bottomHeight = collapsed ? 40 : bottomPanel.offsetHeight;
         const verticalHeight = container.offsetHeight - bottomHeight;
+        const containerRect = container.getBoundingClientRect();
+        const rightRect = rightPanel.getBoundingClientRect();
+        // Left edge of the right panel, measured from the editor container.
+        // Nudge the handle a couple of pixels toward the center so it visually
+        // sits exactly on the panel boundary rather than overlapping the right panel.
+        const rightBoundaryFromLeftRaw = rightRect.left - containerRect.left;
+        const rightHandleOffset = 2;
+        const rightBoundaryFromLeft = Math.max(0, rightBoundaryFromLeftRaw - rightHandleOffset);
         
         const leftResizer = document.getElementById('left-resizer');
         const rightResizer = document.getElementById('right-resizer');
@@ -320,7 +328,10 @@ class ResizablePanes {
         }
         
         if (rightResizer) {
-            rightResizer.style.right = `${rightWidth}px`;
+            // Align with the (slightly inset) left edge of the right panel (between
+            // center and right), regardless of how many columns exist to the right.
+            rightResizer.style.left = `${rightBoundaryFromLeft}px`;
+            rightResizer.style.right = 'auto';
             rightResizer.style.height = `${verticalHeight}px`;
         }
         
@@ -335,8 +346,9 @@ class ResizablePanes {
     resetLayout() {
         const container = document.querySelector('.editor-container');
         if (container) {
-            container.style.gridTemplateColumns = '350px 1fr 400px';
-            container.style.gridTemplateRows = '1fr 300px';
+            // Reset to the default four-column layout defined in editor.html
+            container.style.gridTemplateColumns = 'minmax(200px, 400px) 1fr minmax(250px, 500px) minmax(260px, 420px)';
+            container.style.gridTemplateRows = '1fr minmax(200px, 500px)';
             localStorage.removeItem('editorLayout');
             
             // Update handle positions to match reset layout

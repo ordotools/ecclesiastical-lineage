@@ -219,7 +219,8 @@ if (typeof window.allClergyData === 'undefined') {
     window.allClergyData = [];
 }
 
-// Use window-scoped globals so HTMX reloads don't redeclare them
+// Expose clergy list and bishop validity data as window globals for status-inheritance.js,
+// editor-validation-impact.js, and other editor scripts. Updated on each clergy-list load.
 if (typeof window.clergyListData === 'undefined') {
     window.clergyListData = [];
 }

@@ -1072,6 +1072,179 @@
     background: rgba(255, 255, 255, 0.3);
 }
 
+/* ===== VALIDATION IMPACT PANEL (fourth column panel content) ===== */
+.validation-impact-panel {
+    font-size: 0.8em;
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    padding-left: var(--editor-spacing-m);
+    overflow-y: auto;
+}
+
+/* Validation Impact – descendant list */
+.validation-impact-descendant-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.validation-impact-descendant-row {
+    display: flex;
+    align-items: center;
+    gap: var(--editor-spacing-s);
+    padding: var(--editor-spacing-s) var(--editor-spacing-xs);
+    margin-bottom: var(--editor-spacing-xs);
+    background: var(--editor-bg-section);
+    border: 1px solid var(--editor-border-color);
+    border-radius: var(--editor-radius-s);
+    font-size: var(--editor-font-s);
+}
+
+.validation-impact-descendant-row:hover {
+    background: var(--editor-bg-hover);
+    border-color: var(--editor-border-color-medium);
+}
+
+.validation-impact-descendant-row.affected {
+    border-left: 3px solid rgba(245, 158, 11, 0.9);
+}
+
+.validation-impact-descendant-name {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--editor-text-primary);
+    max-width: 32ch;
+}
+
+.validation-impact-relation-badges {
+    display: inline-flex;
+    gap: var(--editor-spacing-xs);
+    flex-shrink: 0;
+}
+
+.validation-impact-relation-chip {
+    padding: 0.1em 0.35em;
+    font-size: 0.7em;
+    font-weight: 500;
+    border-radius: 2px;
+    background: var(--editor-bg-hover);
+    color: var(--editor-text-tertiary);
+}
+
+/* Validation Impact – status badges (valid / doubtful / invalid) */
+.validation-impact-status-badges {
+    display: inline-flex;
+    gap: var(--editor-spacing-xs);
+    flex-shrink: 0;
+}
+
+.validation-impact-badge {
+    padding: 0.15em 0.4em;
+    font-size: 0.7em;
+    font-weight: 500;
+    border-radius: var(--editor-radius-s);
+    white-space: nowrap;
+}
+
+.validation-impact-badge--valid {
+    background: rgba(34, 197, 94, 0.25);
+    border: 1px solid rgba(34, 197, 94, 0.5);
+    color: rgba(34, 197, 94, 0.95);
+}
+
+.validation-impact-badge--doubtfully_valid,
+.validation-impact-badge--doubtful_event {
+    background: rgba(245, 158, 11, 0.25);
+    border: 1px solid rgba(245, 158, 11, 0.5);
+    color: rgba(245, 158, 11, 0.95);
+}
+
+.validation-impact-badge--invalid {
+    background: rgba(239, 68, 68, 0.25);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    color: rgba(239, 68, 68, 0.95);
+}
+
+.validation-impact-badge--sub_conditione {
+    background: rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.45);
+    color: rgba(59, 130, 246, 0.9);
+}
+
+/* Validation Impact – action buttons */
+.validation-impact-actions {
+    margin-bottom: var(--editor-spacing-m);
+    display: flex;
+    flex-direction: column;
+    gap: var(--editor-spacing-s);
+}
+
+.validation-impact-btn-apply {
+    padding: var(--editor-spacing-s) var(--editor-spacing-m);
+    font-size: var(--editor-font-s);
+    font-weight: 500;
+    border-radius: var(--editor-radius-s);
+    cursor: pointer;
+    transition: var(--editor-transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--editor-spacing-xs);
+    background: rgba(34, 197, 94, 0.3);
+    border: 1px solid rgba(34, 197, 94, 0.5);
+    color: #fff;
+}
+
+.validation-impact-btn-apply:hover:not(:disabled) {
+    background: rgba(34, 197, 94, 0.5);
+    border-color: rgba(34, 197, 94, 0.7);
+}
+
+.validation-impact-btn-apply:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.validation-impact-btn-row {
+    padding: 0.2em 0.4em;
+    font-size: 0.7em;
+    background: var(--editor-bg-hover);
+    border: 1px solid var(--editor-border-color-medium);
+    border-radius: var(--editor-radius-s);
+    color: var(--editor-text-secondary);
+    cursor: pointer;
+    transition: var(--editor-transition);
+    white-space: nowrap;
+}
+
+.validation-impact-btn-row:hover {
+    background: var(--editor-bg-active);
+    border-color: var(--editor-border-color-strong);
+    color: var(--editor-text-primary);
+}
+
+.validation-impact-row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--editor-spacing-xs);
+    flex-shrink: 0;
+}
+
+.validation-impact-row-actions input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.validation-impact-empty,
+.validation-impact-loading {
+    padding: var(--editor-spacing-m);
+    text-align: center;
+    color: var(--editor-text-muted);
+    font-size: var(--editor-font-s);
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
     .editor-grid-2 {

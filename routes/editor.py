@@ -193,6 +193,120 @@ def bishop_validity(bishop_id):
     return jsonify(_get_bishop_summary(bishop))
 
 
+@editor_bp.route('/editor/api/validation-impact/bulk-update', methods=['POST'])
+@require_permission('edit_clergy')
+def validation_impact_bulk_update():
+    """
+    Bulk-update validity flags for ordinations and consecrations.
+
+    Expects JSON body:
+      {
+        "root_clergy_id": <int>,  # ID of the clergy from whose perspective the panel is open
+        "changes": [
+          {
+            "type": "ordination" | "consecration",
+            "id": <int>,  # Ordination/Consecration ID
+            "new_validity": "valid" | "doubtfully_valid" | "invalid"
+          },
+          ...
+        ]
+      }
+
+    The handler updates only the validity-related flags:
+      - "valid":            is_invalid = False, is_doubtfully_valid = False
+      - "doubtfully_valid": is_invalid = False, is_doubtfully_valid = True
+      - "invalid":          is_invalid = True,  is_doubtfully_valid = False
+
+    Other flags such as is_sub_conditione and is_doubtful_event are left unchanged.
+    """
+    payload = request.get_json(silent=True) or {}
+
+    root_clergy_id = payload.get('root_clergy_id')
+    changes = payload.get('changes') or []
+
+    if root_clergy_id is None or not isinstance(root_clergy_id, int):
+        return jsonify({'error': 'root_clergy_id must be provided as an integer'}), 400
+
+    if not isinstance(changes, list):
+        return jsonify({'error': 'changes must be a list'}), 400
+
+    updated_ordination_ids = []
+    updated_consecration_ids = []
+    affected_clergy_ids = set()
+
+    VALID_VALIDITY_VALUES = {'valid', 'doubtfully_valid', 'invalid'}
+
+    try:
+        for change in changes:
+            if not isinstance(change, dict):
+                continue
+
+            change_type = change.get('type')
+            change_id = change.get('id')
+            new_validity = change.get('new_validity')
+
+            if change_type not in ('ordination', 'consecration'):
+                continue
+            if not isinstance(change_id, int):
+                continue
+            if new_validity not in VALID_VALIDITY_VALUES:
+                continue
+
+            if change_type == 'ordination':
+                record = Ordination.query.get(change_id)
+            else:
+                record = Consecration.query.get(change_id)
+
+            if not record:
+                continue
+
+            # Update validity flags based on new_validity while preserving other flags.
+            if new_validity == 'valid':
+                record.is_invalid = False
+                record.is_doubtfully_valid = False
+            elif new_validity == 'doubtfully_valid':
+                record.is_invalid = False
+                record.is_doubtfully_valid = True
+            elif new_validity == 'invalid':
+                record.is_invalid = True
+                record.is_doubtfully_valid = False
+
+            if change_type == 'ordination':
+                updated_ordination_ids.append(record.id)
+                affected_clergy_ids.add(record.clergy_id)
+                if record.ordaining_bishop_id:
+                    affected_clergy_ids.add(record.ordaining_bishop_id)
+            else:
+                updated_consecration_ids.append(record.id)
+                affected_clergy_ids.add(record.clergy_id)
+                if record.consecrator_id:
+                    affected_clergy_ids.add(record.consecrator_id)
+
+        if updated_ordination_ids or updated_consecration_ids:
+            db.session.commit()
+        else:
+            # Nothing to update; no-op but still return a 200 response.
+            return jsonify({
+                'root_clergy_id': root_clergy_id,
+                'updated_count': 0,
+                'updated_ordination_ids': [],
+                'updated_consecration_ids': [],
+                'affected_clergy_ids': []
+            })
+
+        return jsonify({
+            'root_clergy_id': root_clergy_id,
+            'updated_count': len(updated_ordination_ids) + len(updated_consecration_ids),
+            'updated_ordination_ids': updated_ordination_ids,
+            'updated_consecration_ids': updated_consecration_ids,
+            'affected_clergy_ids': sorted(affected_clergy_ids),
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error in validation impact bulk update: {e}")
+        return jsonify({'error': 'Failed to apply bulk validation updates'}), 500
+
+
 @editor_bp.route('/editor/chapel-list')
 @require_permission('edit_clergy')
 def chapel_list_panel():

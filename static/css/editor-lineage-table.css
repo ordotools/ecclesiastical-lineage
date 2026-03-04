@@ -114,7 +114,7 @@
 .lineage-table td.name-cell .name-cell-inner {
   position: relative;
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
 }
 
 .lineage-table td.name-cell .tree-glyph-strip {
@@ -249,7 +249,7 @@
   --lineage-error-text: #f0e6c8;
   --lineage-tree-line: rgba(255, 255, 255, 0.35);
   --lineage-tree-line-width: 2px;
-  --lineage-tree-overlap: 0.65em;
+  --lineage-tree-overlap: 0.4em;
   background-color: transparent;
   border-right-color: var(--editor-border-color, rgba(255, 255, 255, 0.1));
 }
@@ -320,15 +320,8 @@
 }
 
 /* Editor-specific tweaks for avatar/text alignment and spacing (scoped to panel) */
-#visualization-panel-content .editor-lineage-menu-panel .lineage-table--editor {
-  border-collapse: separate;
-  border-spacing: 0 6px; /* extra space between rows */
-}
-
 #visualization-panel-content .editor-lineage-menu-panel .lineage-table--editor td.name-cell {
   vertical-align: middle;
-  padding-top: 6px;
-  padding-bottom: 6px;
 }
 
 #visualization-panel-content .editor-lineage-menu-panel .lineage-table--editor .lineage-sprite-thumb {

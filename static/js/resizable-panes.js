@@ -12,6 +12,7 @@ class ResizablePanes {
         this.startLeftWidth = 0;
         this.startRightWidth = 0;
         this.startBottomHeight = 0;
+        this.startValidationWidth = 0;
         this.initialized = false;
         
         this.init();
@@ -42,16 +43,21 @@ class ResizablePanes {
     }
 
     setupResizers() {
-        // Create and add resize handles
-        this.createVerticalResizer('left-resizer', 'left-panel', 'center-panel');
-        this.createVerticalResizer('right-resizer', 'center-panel', 'right-panel');
-        this.createHorizontalResizer('bottom-resizer', 'bottom-panel');
-        
-        // Add event listeners
-        this.addEventListeners();
-        
-        // Position handles correctly on initial setup
-        setTimeout(() => this.updateHandlePositions(), 0);
+        /*
+         * Temporary disablement of panel resizing.
+         * The code below is preserved so we can restore resizing later.
+         *
+         * // Create and add resize handles
+         * this.createVerticalResizer('left-resizer', 'left-panel', 'center-panel');
+         * this.createVerticalResizer('right-resizer', 'center-panel', 'right-panel');
+         * this.createHorizontalResizer('bottom-resizer', 'bottom-panel');
+         * 
+         * // Add event listeners
+         * this.addEventListeners();
+         * 
+         * // Position handles correctly on initial setup
+         * setTimeout(() => this.updateHandlePositions(), 0);
+         */
     }
 
     createVerticalResizer(id, leftPanelClass, rightPanelClass) {
@@ -135,7 +141,8 @@ class ResizablePanes {
             ? 40
             : (bottomPanel ? bottomPanel.offsetHeight : 0);
         const validationPanel = document.querySelector('.validation-panel');
-        const currentValidationWidth = validationPanel ? validationPanel.offsetWidth : 0;
+        const liveValidationWidth = validationPanel ? validationPanel.offsetWidth : 0;
+        const fixedValidationWidth = this.startValidationWidth || liveValidationWidth;
 
         if (this.currentResizer.id === 'left-resizer') {
             // Resizing between left and center panels
@@ -146,8 +153,8 @@ class ResizablePanes {
             const currentRightWidth = rightPanel ? rightPanel.offsetWidth : 400;
             
             // Preserve validation panel width as a separate column (four-column layout)
-            if (currentValidationWidth > 0) {
-                container.style.gridTemplateColumns = `${newLeftWidth}px 1fr ${currentRightWidth}px ${currentValidationWidth}px`;
+            if (fixedValidationWidth > 0) {
+                container.style.gridTemplateColumns = `${newLeftWidth}px 1fr ${currentRightWidth}px ${fixedValidationWidth}px`;
             } else {
                 container.style.gridTemplateColumns = `${newLeftWidth}px 1fr ${currentRightWidth}px`;
             }
@@ -162,8 +169,8 @@ class ResizablePanes {
             const leftPanel = document.querySelector('.left-panel');
             const currentLeftWidth = leftPanel ? leftPanel.offsetWidth : 350;
             
-            if (currentValidationWidth > 0) {
-                container.style.gridTemplateColumns = `${currentLeftWidth}px 1fr ${newRightWidth}px ${currentValidationWidth}px`;
+            if (fixedValidationWidth > 0) {
+                container.style.gridTemplateColumns = `${currentLeftWidth}px 1fr ${newRightWidth}px ${fixedValidationWidth}px`;
             } else {
                 container.style.gridTemplateColumns = `${currentLeftWidth}px 1fr ${newRightWidth}px`;
             }
@@ -227,6 +234,8 @@ class ResizablePanes {
         this.startBottomHeight = container.classList.contains('bottom-panel-collapsed')
             ? 40
             : bottomPanel.offsetHeight;
+        const validationPanel = document.querySelector('.validation-panel');
+        this.startValidationWidth = validationPanel ? validationPanel.offsetWidth : 0;
     }
 
     saveLayout() {
@@ -311,12 +320,15 @@ class ResizablePanes {
         const verticalHeight = container.offsetHeight - bottomHeight;
         const containerRect = container.getBoundingClientRect();
         const rightRect = rightPanel.getBoundingClientRect();
-        // Left edge of the right panel, measured from the editor container.
-        // Nudge the handle a couple of pixels toward the center so it visually
-        // sits exactly on the panel boundary rather than overlapping the right panel.
+        const validationPanel = document.querySelector('.validation-panel');
+        const validationWidth = validationPanel ? validationPanel.offsetWidth : 0;
+        // Position the right handle by shifting left from the right-panel edge
+        // by exactly the width of the container that holds the validation data.
         const rightBoundaryFromLeftRaw = rightRect.left - containerRect.left;
-        const rightHandleOffset = 2;
-        const rightBoundaryFromLeft = Math.max(0, rightBoundaryFromLeftRaw - rightHandleOffset);
+        const rightBoundaryFromLeft = Math.max(
+            0,
+            rightBoundaryFromLeftRaw - (validationWidth > 0 ? validationWidth : 2)
+        );
         
         const leftResizer = document.getElementById('left-resizer');
         const rightResizer = document.getElementById('right-resizer');
@@ -357,5 +369,16 @@ class ResizablePanes {
     }
 }
 
-// Initialize when the script loads
-new ResizablePanes();
+// Initialize when the script loads (guarded by feature flags)
+if (typeof window !== 'undefined') {
+    const panelResizeEnabled =
+        (typeof window.ENABLE_EDITOR_PANEL_RESIZING !== 'undefined'
+            ? window.ENABLE_EDITOR_PANEL_RESIZING
+            : false) ||
+        // Fallback to legacy flag if explicitly enabled
+        !!window.ENABLE_EDITOR_RESIZING;
+
+    if (panelResizeEnabled) {
+        new ResizablePanes();
+    }
+}

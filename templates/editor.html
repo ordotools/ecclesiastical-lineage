@@ -23,7 +23,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js" defer></script>
     <script src="{{ url_for('static', filename='js/d3.v7.min.js') }}" defer></script>
     <script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js" defer></script>
-    <script src="{{ url_for('static', filename='js/resizable-panes.js') }}" defer></script>
+    <script>
+        // Legacy flag (kept for backward compatibility)
+        window.ENABLE_EDITOR_RESIZING = false;
+        // New granular resize flags (both disabled by default)
+        window.ENABLE_EDITOR_PANEL_RESIZING = false;
+        window.ENABLE_CLERGY_INTERNAL_RESIZING = false;
+    </script>
+    <!-- <script src="{{ url_for('static', filename='js/resizable-panes.js') }}" defer></script> -->
     <script src="{{ url_for('static', filename='js/fuzzySearch.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/imageEditor.js') }}" defer></script>
     <!-- Clergy form JavaScript files - loaded before other form scripts -->
@@ -510,17 +517,24 @@
 
         .internal-resize-handle {
             height: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            cursor: row-resize;
+            background: rgba(255, 255, 255, 0.08);
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            cursor: default;
             transition: background-color 0.2s ease;
             flex-shrink: 0;
             margin-top: -2px;
             margin-bottom: -2px;
         }
 
-        .internal-resize-handle:hover {
+        .internal-resize-handle.internal-resize-active {
+            cursor: row-resize;
+            background: rgba(255, 255, 255, 0.1);
+            border-top-color: rgba(255, 255, 255, 0.05);
+            border-bottom-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .internal-resize-handle.internal-resize-active:hover {
             background: rgba(255, 255, 255, 0.2);
         }
 

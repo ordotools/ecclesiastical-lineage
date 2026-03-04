@@ -601,6 +601,8 @@ class ClergyPanelResizer {
         const resizer = document.getElementById('clergy-internal-resizer');
         if (!resizer) return;
 
+        resizer.classList.add('internal-resize-active');
+
         resizer.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         document.addEventListener('mouseup', () => this.handleMouseUp());
@@ -670,8 +672,19 @@ class ClergyPanelResizer {
     }
 }
 
-// Initialize clergy panel resizer
-new ClergyPanelResizer();
+// Initialize clergy panel resizer (guarded by feature flags)
+if (typeof window !== 'undefined') {
+    const internalResizeEnabled =
+        (typeof window.ENABLE_CLERGY_INTERNAL_RESIZING !== 'undefined'
+            ? window.ENABLE_CLERGY_INTERNAL_RESIZING
+            : false) ||
+        // Fallback to legacy flag if explicitly enabled
+        !!window.ENABLE_EDITOR_RESIZING;
+
+    if (internalResizeEnabled) {
+        new ClergyPanelResizer();
+    }
+}
 }
 
 // Clergy panel tab switching

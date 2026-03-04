@@ -11,6 +11,7 @@
   --lineage-error-bg: #fff3cd;
   --lineage-error-text: #856404;
   --lineage-tree-line: var(--lineage-text-muted);
+  --lineage-tree-line-width: 1px;
   --lineage-tree-overlap: 0.4em;
   --lineage-tree-strip-gap: 0.25rem;
   --lineage-tree-overhang: 0.25rem;
@@ -139,7 +140,7 @@
   top: calc(-1 * var(--lineage-tree-overlap));
   bottom: calc(-1 * var(--lineage-tree-overlap));
   transform: translateX(-50%);
-  border-left: 1px solid var(--lineage-tree-line);
+  border-left: var(--lineage-tree-line-width) solid var(--lineage-tree-line);
 }
 
 /* Root node: small diamond */
@@ -163,7 +164,7 @@
   top: 50%;
   left: 50%;
   right: calc(-1 * var(--lineage-tree-overhang));
-  border-top: 1px solid var(--lineage-tree-line);
+  border-top: var(--lineage-tree-line-width) solid var(--lineage-tree-line);
 }
 
 .lineage-table td.name-cell .tree-glyph-branch::after,
@@ -173,7 +174,7 @@
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  border-left: 1px solid var(--lineage-tree-line);
+  border-left: var(--lineage-tree-line-width) solid var(--lineage-tree-line);
 }
 
 .lineage-table td.name-cell .tree-glyph-branch::after {
@@ -235,24 +236,114 @@
   background-color: #eff6ff;
 }
 
-/* Editor-specific tweaks for avatar/text alignment and spacing */
-.lineage-table--editor {
+/* ===== Editor lineage menu (dark theme + tree line tweaks) =====
+ * Scoped to #visualization-panel-content so it only applies where the menu is rendered
+ * and beats .panel-content / inline rules. Table and cells get explicit color.
+ */
+#visualization-panel-content .editor-lineage-menu-panel.lineage-menu-panel {
+  --lineage-text: var(--editor-text-primary, rgba(255, 255, 255, 0.9));
+  --lineage-text-muted: var(--editor-text-tertiary, rgba(255, 255, 255, 0.6));
+  --lineage-link: rgba(255, 255, 255, 0.85);
+  --lineage-link-hover: rgba(255, 255, 255, 0.95);
+  --lineage-error-bg: rgba(120, 80, 0, 0.35);
+  --lineage-error-text: #f0e6c8;
+  --lineage-tree-line: rgba(255, 255, 255, 0.35);
+  --lineage-tree-line-width: 2px;
+  --lineage-tree-overlap: 0.65em;
+  background-color: transparent;
+  border-right-color: var(--editor-border-color, rgba(255, 255, 255, 0.1));
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table,
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table td {
+  color: var(--lineage-text);
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table-wrap {
+  color: var(--lineage-text);
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table a,
+#visualization-panel-content .editor-lineage-menu-panel .lineage-menu-link {
+  color: var(--lineage-link);
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table a:hover,
+#visualization-panel-content .editor-lineage-menu-panel .lineage-menu-link:hover {
+  color: var(--lineage-link-hover);
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-root-heading-main .lineage-menu-link {
+  color: var(--lineage-link);
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-root-heading-main .lineage-menu-link:hover {
+  color: var(--lineage-link-hover);
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-row-active > .name-cell,
+#visualization-panel-content .editor-lineage-menu-panel .lineage-row-selected > .name-cell {
+  background-color: var(--editor-bg-active, rgba(255, 255, 255, 0.15));
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-root-summary {
+  color: var(--lineage-text-muted);
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table-empty {
+  color: var(--lineage-text-muted);
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-error {
+  background: var(--lineage-error-bg);
+  color: var(--lineage-error-text);
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-search-wrap {
+  border-bottom-color: var(--editor-border-color, rgba(255, 255, 255, 0.1));
+  background-color: transparent;
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-search-wrap .lineage-search-input {
+  background: var(--editor-bg-section, rgba(255, 255, 255, 0.05));
+  border-color: var(--editor-border-color, rgba(255, 255, 255, 0.1));
+  color: var(--lineage-text);
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-search-wrap .lineage-search-input:focus {
+  border-color: var(--lineage-link);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table td.name-cell .tree-glyph {
+  width: 1.5rem;
+}
+
+/* Editor-specific tweaks for avatar/text alignment and spacing (scoped to panel) */
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table--editor {
   border-collapse: separate;
   border-spacing: 0 6px; /* extra space between rows */
 }
 
-.lineage-table--editor td.name-cell {
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table--editor td.name-cell {
   vertical-align: middle;
   padding-top: 6px;
   padding-bottom: 6px;
 }
 
-.lineage-table--editor .lineage-sprite-thumb {
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table--editor .lineage-sprite-thumb {
   display: inline-block;
   margin-right: 0.4rem; /* space between image and name */
 }
 
-.lineage-table--editor .lineage-row-meta {
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table--editor .lineage-row-rank {
+  margin-right: 0.35em;
+  font-size: 0.85em;
+  color: var(--lineage-text-muted);
+  font-weight: 500;
+}
+
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table--editor .lineage-row-meta {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem; /* space between counts and dates */
@@ -261,13 +352,14 @@
   color: var(--lineage-text-muted);
 }
 
-.lineage-table--editor .lineage-row-counts,
-.lineage-table--editor .lineage-row-dates {
-  white-space: nowrap;
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table--editor .lineage-row-org {
+  font-size: 0.85em;
+  opacity: 0.9;
 }
 
-.lineage-table-empty {
-  color: var(--lineage-text-muted);
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table--editor .lineage-row-counts,
+#visualization-panel-content .editor-lineage-menu-panel .lineage-table--editor .lineage-row-dates {
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {
@@ -291,6 +383,10 @@
   .lineage-table td.name-cell .tree-glyph-strip {
     --lineage-tree-strip-gap: 0.2rem;
     --lineage-tree-overhang: 0.2rem;
+  }
+
+  #visualization-panel-content .editor-lineage-menu-panel .lineage-table td.name-cell .tree-glyph {
+    width: 1.35rem;
   }
 }
 

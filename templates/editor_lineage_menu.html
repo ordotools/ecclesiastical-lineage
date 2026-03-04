@@ -15,6 +15,7 @@
                         <span class="lineage-root-summary">
                             {{ row.consecrations_performed_count or 0 }} consecration{{ 's' if (row.consecrations_performed_count or 0) != 1 else '' }},
                             {{ row.ordinations_performed_count or 0 }} ordination{{ 's' if (row.ordinations_performed_count or 0) != 1 else '' }}
+                            {% if row.consecration_lineage_size is not none %}<span class="lineage-root-size"> · {{ row.consecration_lineage_size }} in lineage</span>{% endif %}
                         </span>
                     </td>
                 </tr>
@@ -49,12 +50,14 @@
                                   {% if row.sprite_index is not none %}data-sprite-index="{{ row.sprite_index }}"{% endif %}>
                             </span>
 
+                            {% if row.rank %}<span class="lineage-row-rank" title="{{ row.rank }}">{{ row.rank }}</span>{% endif %}
                             <a href="#"
                                class="lineage-menu-link"
                                data-clergy-id="{{ row.id }}"
                                data-clergy-name="{{ row.name }}">{{ row.name or '—' }}</a>
 
                             <span class="lineage-row-meta">
+                                {% if row.organization %}<span class="lineage-row-org" title="{{ row.organization }}">{{ row.organization }}</span>{% endif %}
                                 <span class="lineage-row-counts">
                                     {{ row.consecrations_performed_count or 0 }} C /
                                     {{ row.ordinations_performed_count or 0 }} O

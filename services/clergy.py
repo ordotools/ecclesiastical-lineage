@@ -259,7 +259,11 @@ def create_ordinations_from_form(clergy, form):
         ordination.is_invalid = (validity == 'invalid')
         
         ordination.notes = data.get('notes', '')
-        
+
+        ordination.is_inherited = data.get('is_inherited') == 'on'
+        ordination.is_other = data.get('is_other') == 'on'
+        ordination.optional_notes = (data.get('optional_notes') or '').strip() or None
+
         # Handle ordaining bishop
         ordaining_bishop_id = data.get('ordaining_bishop_id')
         ordaining_bishop_input = data.get('ordaining_bishop_input')
@@ -342,7 +346,11 @@ def create_consecrations_from_form(clergy, form):
         consecration.is_invalid = (validity == 'invalid')
         
         consecration.notes = data.get('notes', '')
-        
+
+        consecration.is_inherited = data.get('is_inherited') == 'on'
+        consecration.is_other = data.get('is_other') == 'on'
+        consecration.optional_notes = (data.get('optional_notes') or '').strip() or None
+
         # Handle consecrator
         consecrator_id = data.get('consecrator_id')
         consecrator_input = data.get('consecrator_input')

@@ -509,6 +509,9 @@ function populateExistingOrdinations() {
             is_doubtfully_valid: {{ ordination.is_doubtfully_valid|lower }},
             is_doubtful_event: {{ ordination.is_doubtful_event|lower }},
             is_invalid: {{ ordination.is_invalid|lower }},
+            is_inherited: {{ ordination.is_inherited|lower }},
+            is_other: {{ ordination.is_other|lower }},
+            optional_notes: {{ ordination.optional_notes|tojson if ordination.optional_notes else 'null' }},
             notes: {{ ordination.notes|tojson if ordination.notes else 'null' }},
             ordaining_bishop: {% if ordination.ordaining_bishop %}{
                 id: {{ ordination.ordaining_bishop.id }},
@@ -575,6 +578,13 @@ function populateExistingOrdinations() {
             if (notesTextarea && ordination.notes) {
                 notesTextarea.value = ordination.notes;
             }
+            const isInheritedInput = ordinationEntry.querySelector('input[name*="[is_inherited]"]');
+            const isOtherInput = ordinationEntry.querySelector('input[name*="[is_other]"]');
+            const optionalNotesInput = ordinationEntry.querySelector('input[name*="[optional_notes]"]');
+            if (isInheritedInput) isInheritedInput.checked = !!ordination.is_inherited;
+            if (isOtherInput) isOtherInput.checked = !!ordination.is_other;
+            if (optionalNotesInput) optionalNotesInput.value = ordination.optional_notes || '';
+            window.syncValidityExtraForEntry && window.syncValidityExtraForEntry(ordinationEntry);
         }
     });
     {% else %}
@@ -617,6 +627,9 @@ function populateExistingConsecrations() {
             is_doubtfully_valid: {{ consecration.is_doubtfully_valid|lower }},
             is_doubtful_event: {{ consecration.is_doubtful_event|lower }},
             is_invalid: {{ consecration.is_invalid|lower }},
+            is_inherited: {{ consecration.is_inherited|lower }},
+            is_other: {{ consecration.is_other|lower }},
+            optional_notes: {{ consecration.optional_notes|tojson if consecration.optional_notes else 'null' }},
             notes: {{ consecration.notes|tojson if consecration.notes else 'null' }},
             consecrator: {% if consecration.consecrator %}{
                 id: {{ consecration.consecrator.id }},
@@ -716,6 +729,13 @@ function populateExistingConsecrations() {
             if (notesTextarea && consecration.notes) {
                 notesTextarea.value = consecration.notes;
             }
+            const isInheritedInput = consecrationEntry.querySelector('input[name*="[is_inherited]"]');
+            const isOtherInput = consecrationEntry.querySelector('input[name*="[is_other]"]');
+            const optionalNotesInput = consecrationEntry.querySelector('input[name*="[optional_notes]"]');
+            if (isInheritedInput) isInheritedInput.checked = !!consecration.is_inherited;
+            if (isOtherInput) isOtherInput.checked = !!consecration.is_other;
+            if (optionalNotesInput) optionalNotesInput.value = consecration.optional_notes || '';
+            window.syncValidityExtraForEntry && window.syncValidityExtraForEntry(consecrationEntry);
         }
     });
     {% else %}
@@ -902,6 +922,21 @@ document.addEventListener('DOMContentLoaded', function() {
     let consecrationCount = 0;
     let coConsecratorCount = 1;
 
+    function syncValidityExtraForEntry(entry) {
+        if (!entry) return;
+        const block = entry.querySelector('.validity-extra-block');
+        const validitySelect = entry.querySelector('select[name*="[validity]"]');
+        const otherCheckbox = entry.querySelector('input[name*="[is_other]"]');
+        const optionalNotesInput = entry.querySelector('input[name*="[optional_notes]"]');
+        if (!block || !validitySelect) return;
+        const showBlock = validitySelect.value !== 'valid';
+        block.style.display = showBlock ? 'block' : 'none';
+        if (otherCheckbox && optionalNotesInput) {
+            optionalNotesInput.disabled = !otherCheckbox.checked;
+            if (!otherCheckbox.checked) optionalNotesInput.value = '';
+        }
+    }
+
 // Add ordination functionality
 function addOrdination() {
     const container = document.getElementById('ordinationsContainer');
@@ -954,6 +989,17 @@ function addOrdination() {
                     </select>
                 </div>
             </div>
+            <div class="validity-extra-block" style="display: none; margin-bottom: 0.75em;">
+                <div style="display: flex; flex-wrap: wrap; gap: 1em 1.5em; align-items: center; margin-bottom: 0.5em;">
+                    <label style="display: flex; align-items: center; gap: 0.5em; color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0; cursor: pointer;">
+                        <input type="checkbox" name="ordinations[${ordinationCount}][is_inherited]" style="margin: 0;"> Inherited
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5em; color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0; cursor: pointer;">
+                        <input type="checkbox" name="ordinations[${ordinationCount}][is_other]" style="margin: 0;"> Other
+                    </label>
+                </div>
+                <input type="text" name="ordinations[${ordinationCount}][optional_notes]" placeholder="optional notes" disabled style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+            </div>
             <div style="margin-bottom: 0.75em;">
                 <label style="display: block; margin-bottom: 0.25em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Notes</label>
                 <textarea name="ordinations[${ordinationCount}][notes]" rows="2" placeholder="Additional notes..." style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white; resize: vertical;"></textarea>
@@ -979,6 +1025,7 @@ function addOrdination() {
         if (window.StatusInheritance && typeof window.StatusInheritance.handleNewEntry === 'function') {
             window.StatusInheritance.handleNewEntry(newOrdinationEntry, 'ordination');
         }
+        syncValidityExtraForEntry(newOrdinationEntry);
     }
 }
 
@@ -1050,6 +1097,17 @@ function addConsecration() {
                     </select>
                 </div>
             </div>
+            <div class="validity-extra-block" style="display: none; margin-bottom: 0.75em;">
+                <div style="display: flex; flex-wrap: wrap; gap: 1em 1.5em; align-items: center; margin-bottom: 0.5em;">
+                    <label style="display: flex; align-items: center; gap: 0.5em; color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0; cursor: pointer;">
+                        <input type="checkbox" name="consecrations[${consecrationCount}][is_inherited]" style="margin: 0;"> Inherited
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5em; color: rgba(255, 255, 255, 0.8); font-size: 0.8em; margin: 0; cursor: pointer;">
+                        <input type="checkbox" name="consecrations[${consecrationCount}][is_other]" style="margin: 0;"> Other
+                    </label>
+                </div>
+                <input type="text" name="consecrations[${consecrationCount}][optional_notes]" placeholder="optional notes" disabled style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white;">
+            </div>
             <div style="margin-bottom: 0.75em;">
                 <label style="display: block; margin-bottom: 0.25em; font-weight: 500; color: rgba(255, 255, 255, 0.8); font-size: 0.8em;">Notes</label>
                 <textarea name="consecrations[${consecrationCount}][notes]" rows="2" placeholder="Additional notes..." style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 4px; background: rgba(255, 255, 255, 0.08); font-size: 0.85em; color: white; resize: vertical;"></textarea>
@@ -1080,6 +1138,7 @@ function addConsecration() {
         if (window.StatusInheritance && typeof window.StatusInheritance.handleNewEntry === 'function') {
             window.StatusInheritance.handleNewEntry(newConsecrationEntry, 'consecration');
         }
+        syncValidityExtraForEntry(newConsecrationEntry);
     }
 }
 
@@ -1274,6 +1333,20 @@ if (!window.clergyFormEventListenersAttached) {
     window.clergyFormEventListenersAttached = true;
 }
 
+    // Event delegation: validity and is_other change → sync block visibility and optional_notes disabled
+    if (!window.clergyFormValidityExtraDelegationAttached) {
+        document.addEventListener('change', function(e) {
+            const t = e.target;
+            if (!t || !t.closest('#clergyForm')) return;
+            const entry = t.closest('.ordination-entry') || t.closest('.consecration-entry');
+            if (!entry) return;
+            const isValidity = t.matches('select[name*="[validity]"]');
+            const isOther = t.matches('input[name*="[is_other]"]');
+            if (isValidity || isOther) syncValidityExtraForEntry(entry);
+        });
+        window.clergyFormValidityExtraDelegationAttached = true;
+    }
+
     // File input change handler for image preview - use event delegation to avoid duplicates
     if (!window.clergyFormFileHandlerAttached) {
         document.addEventListener('change', function(e) {
@@ -1430,6 +1503,7 @@ if (!window.clergyFormEventListenersAttached) {
     window.addConsecration = addConsecration;
     window.addCoConsecrator = addCoConsecrator;
     window.toggleDateUnknown = toggleDateUnknown;
+    window.syncValidityExtraForEntry = syncValidityExtraForEntry;
     
     // Make initialization function globally available
     window.initializeFormFromRank = initializeFormFromRank;

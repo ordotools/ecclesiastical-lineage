@@ -285,6 +285,9 @@ class Ordination(db.Model):
     is_doubtful_event = db.Column(db.Boolean, default=False, nullable=False)
     is_invalid = db.Column(db.Boolean, default=False, nullable=False)
     notes = db.Column(db.Text, nullable=True)
+    is_inherited = db.Column(db.Boolean, default=False, nullable=False)
+    is_other = db.Column(db.Boolean, default=False, nullable=False)
+    optional_notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -315,6 +318,9 @@ class Consecration(db.Model):
     is_doubtful_event = db.Column(db.Boolean, default=False, nullable=False)
     is_invalid = db.Column(db.Boolean, default=False, nullable=False)
     notes = db.Column(db.Text, nullable=True)
+    is_inherited = db.Column(db.Boolean, default=False, nullable=False)
+    is_other = db.Column(db.Boolean, default=False, nullable=False)
+    optional_notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

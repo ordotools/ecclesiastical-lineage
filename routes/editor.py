@@ -29,6 +29,9 @@ class FormFields:
         self.cancel_url = None
 
 
+# Validity logic must match docs/VALIDITY_RULES.md and static/js/validity-rules.js
+# (Table A effective status, getEffectiveStatus, getWorstStatus, bishop summary / Table C).
+
 STATUS_PRIORITY = {
     'invalid': 4,
     'doubtfully_valid': 3,
@@ -37,8 +40,13 @@ STATUS_PRIORITY = {
     'valid': 0
 }
 
+EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS = ('valid', 'sub_conditione')
+
 
 def _get_effective_status(record):
+    """Effective status from record (Table A). Matches validity-rules.js getEffectiveStatus."""
+    if record is None:
+        return 'valid'
     validity = 'valid'
     if getattr(record, 'is_invalid', False):
         validity = 'invalid'
@@ -65,8 +73,9 @@ def _get_validity_value(record):
 
 
 def _get_worst_status(statuses):
+    """Worst (lowest validity) status by Table A priority. Matches validity-rules.js getWorstStatus."""
     if not statuses:
-        return 'valid'  # missing data = presume valid
+        return 'invalid'
     worst = None
     for status in statuses:
         if worst is None or STATUS_PRIORITY.get(status, 0) > STATUS_PRIORITY.get(worst, 0):
@@ -75,15 +84,22 @@ def _get_worst_status(statuses):
 
 
 def _get_bishop_summary(bishop):
-    ordination_statuses = [_get_effective_status(ordination) for ordination in bishop.ordinations]
-    consecration_statuses = [_get_effective_status(consecration) for consecration in bishop.consecrations]
-    has_valid_ordination = (not ordination_statuses) or any(status in ('valid', 'sub_conditione') for status in ordination_statuses)
-    has_valid_consecration = (not consecration_statuses) or any(status in ('valid', 'sub_conditione') for status in consecration_statuses)
+    """Bishop validity summary for rules 6–8 / Table C. Matches validity-rules.js bishop summary."""
+    ordination_statuses = [_get_effective_status(o) for o in bishop.ordinations]
+    consecration_statuses = [_get_effective_status(c) for c in bishop.consecrations]
+    has_valid_ordination = (
+        not ordination_statuses
+        or any(s in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS for s in ordination_statuses)
+    )
+    has_valid_consecration = (
+        not consecration_statuses
+        or any(s in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS for s in consecration_statuses)
+    )
     return {
         'has_valid_ordination': has_valid_ordination,
         'has_valid_consecration': has_valid_consecration,
         'worst_ordination_status': _get_worst_status(ordination_statuses),
-        'worst_consecration_status': _get_worst_status(consecration_statuses)
+        'worst_consecration_status': _get_worst_status(consecration_statuses),
     }
 
 @editor_bp.route('/editor')

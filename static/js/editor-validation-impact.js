@@ -1,6 +1,12 @@
 (() => {
     'use strict';
 
+    const ValidityRules = (typeof window !== 'undefined' && window.ValidityRules) ? window.ValidityRules : null;
+
+    function getRulesRef(StatusInheritanceRef) {
+        return ValidityRules || StatusInheritanceRef || (typeof window !== 'undefined' ? window.StatusInheritance : null);
+    }
+
     /**
      * Lightweight graph utilities for the Validation Impact panel.
      *
@@ -319,7 +325,7 @@
 
     /**
      * Build a lightweight record object for a form entry that can be consumed
-     * by StatusInheritance.getEffectiveStatus. This mirrors the shape used by
+     * by ValidityRules.getEffectiveStatus. This mirrors the shape used by
      * status-inheritance.js#getEntryRecord.
      *
      * @param {Element} entryElement
@@ -588,27 +594,43 @@
 
     /**
      * Compute validity per range: for each range, whether the form bishop could
-     * validly ordain and validly consecrate during that period, using lineage
-     * rules from status-inheritance.js.
-     *
-     * Rules: no valid ordination yet => cannot validly ordain or consecrate;
-     * valid ordination but no valid consecration yet => can validly ordain,
-     * cannot validly consecrate; valid consecration => can validly consecrate
-     * (and ordain) in that range.
+     * validly ordain and validly consecrate during that period (rules 1a, 1b, 2).
+     * Uses validity-rules.js when available; requires at least one prior valid
+     * ordination and one prior valid consecration (ordination before consecration).
      *
      * @param {Array<{ type: 'ordination'|'consecration', entry: Element }>} orders Ordered list of ordination/consecration entries (e.g. from buildFormBishopRanges)
-     * @param {object|null} StatusInheritanceRef Optional StatusInheritance ref (defaults to window.StatusInheritance)
+     * @param {object|null} StatusInheritanceRef Optional rules ref (defaults to ValidityRules / window.StatusInheritance)
      * @returns {Array<{ index: number, canValidlyOrdain: boolean, canValidlyConsecrate: boolean }>} One entry per range index 0..orders.length
      */
     function computeValidityPerRange(orders, StatusInheritanceRef) {
-        const StatusInheritance = StatusInheritanceRef || (typeof window !== 'undefined' ? window.StatusInheritance : null);
-        const getEffective = StatusInheritance && typeof StatusInheritance.getEffectiveStatus === 'function'
-            ? StatusInheritance.getEffectiveStatus.bind(StatusInheritance)
-            : null;
-
-        const result = [];
         const orderList = toArray(orders || []);
 
+        if (ValidityRules && typeof ValidityRules.canGiveOrdersValidlyInRange === 'function') {
+            const ordersWithRecords = orderList.map(order => ({
+                type: order.type,
+                record: order.entry ? getEntryRecordFromDom(order.entry) : {}
+            }));
+            const result = [];
+            for (let rangeIndex = 0; rangeIndex <= ordersWithRecords.length; rangeIndex++) {
+                const v = ValidityRules.canGiveOrdersValidlyInRange(ordersWithRecords, rangeIndex);
+                result.push({
+                    index: rangeIndex,
+                    canValidlyOrdain: v.canValidlyOrdain,
+                    canValidlyConsecrate: v.canValidlyConsecrate
+                });
+            }
+            return result;
+        }
+
+        const Rules = getRulesRef(StatusInheritanceRef);
+        const getEffective = Rules && typeof Rules.getEffectiveStatus === 'function'
+            ? Rules.getEffectiveStatus.bind(Rules)
+            : null;
+        const isValidForOrders = ValidityRules && typeof ValidityRules.isValidForGivingOrders === 'function'
+            ? ValidityRules.isValidForGivingOrders.bind(ValidityRules)
+            : (eff) => eff === 'valid' || eff === 'sub_conditione';
+
+        const result = [];
         for (let rangeIndex = 0; rangeIndex <= orderList.length; rangeIndex++) {
             let hasValidOrdination = false;
             let hasValidConsecration = false;
@@ -620,20 +642,21 @@
                 }
                 const record = getEntryRecordFromDom(order.entry);
                 const effective = getEffective ? getEffective(record) : 'valid';
-                const isValid = effective === 'valid' || effective === 'sub_conditione';
+                const valid = isValidForOrders(effective);
 
-                if (order.type === 'ordination' && isValid) {
+                if (order.type === 'ordination' && valid) {
                     hasValidOrdination = true;
                 }
-                if (order.type === 'consecration' && isValid) {
+                if (order.type === 'consecration' && valid) {
                     hasValidConsecration = true;
                 }
             }
 
+            const can = hasValidOrdination && hasValidConsecration;
             result.push({
                 index: rangeIndex,
-                canValidlyOrdain: hasValidOrdination,
-                canValidlyConsecrate: hasValidOrdination && hasValidConsecration
+                canValidlyOrdain: can,
+                canValidlyConsecrate: can
             });
         }
 
@@ -642,21 +665,28 @@
 
     /**
      * Compute validity per range from orders that have .record (e.g. from clergy list).
-     * Same semantics as computeValidityPerRange but uses StatusInheritance.getEffectiveStatus(order.record).
+     * Aligned with rules 1a, 1b, 2 (validity-rules.js). Uses ValidityRules when available.
      *
      * @param {Array<{ type: 'ordination'|'consecration', record: object }>} orders Ordered list with record (no DOM entry)
      * @param {object|null} StatusInheritanceRef
      * @returns {Array<{ index: number, canValidlyOrdain: boolean, canValidlyConsecrate: boolean }>}
      */
     function computeValidityPerRangeFromRecords(orders, StatusInheritanceRef) {
-        const StatusInheritance = StatusInheritanceRef || (typeof window !== 'undefined' ? window.StatusInheritance : null);
-        const getEffective = StatusInheritance && typeof StatusInheritance.getEffectiveStatus === 'function'
-            ? StatusInheritance.getEffectiveStatus.bind(StatusInheritance)
-            : null;
-
-        const result = [];
         const orderList = toArray(orders || []);
 
+        if (ValidityRules && typeof ValidityRules.computeValidityPerRangeFromRecords === 'function') {
+            return ValidityRules.computeValidityPerRangeFromRecords(orderList);
+        }
+
+        const Rules = getRulesRef(StatusInheritanceRef);
+        const getEffective = Rules && typeof Rules.getEffectiveStatus === 'function'
+            ? Rules.getEffectiveStatus.bind(Rules)
+            : null;
+        const isValidForOrders = ValidityRules && typeof ValidityRules.isValidForGivingOrders === 'function'
+            ? ValidityRules.isValidForGivingOrders.bind(ValidityRules)
+            : (eff) => eff === 'valid' || eff === 'sub_conditione';
+
+        const result = [];
         for (let rangeIndex = 0; rangeIndex <= orderList.length; rangeIndex++) {
             let hasValidOrdination = false;
             let hasValidConsecration = false;
@@ -667,20 +697,21 @@
                     continue;
                 }
                 const effective = getEffective ? getEffective(order.record) : 'valid';
-                const isValid = effective === 'valid' || effective === 'sub_conditione';
+                const valid = isValidForOrders(effective);
 
-                if (order.type === 'ordination' && isValid) {
+                if (order.type === 'ordination' && valid) {
                     hasValidOrdination = true;
                 }
-                if (order.type === 'consecration' && isValid) {
+                if (order.type === 'consecration' && valid) {
                     hasValidConsecration = true;
                 }
             }
 
+            const can = hasValidOrdination && hasValidConsecration;
             result.push({
                 index: rangeIndex,
-                canValidlyOrdain: hasValidOrdination,
-                canValidlyConsecrate: hasValidOrdination && hasValidConsecration
+                canValidlyOrdain: can,
+                canValidlyConsecrate: can
             });
         }
 
@@ -978,8 +1009,8 @@
      * Compute a synthetic bishop summary for the currently edited clergy based
      * on the live contents of the clergy form.
      *
-     * This mirrors routes.editor._get_bishop_summary on the server and uses
-     * StatusInheritance.getEffectiveStatus / getWorstStatus for consistency.
+     * This mirrors routes.editor._get_bishop_summary on the server. Uses
+     * validity-rules.js (getEffectiveStatus, getWorstStatus, isValidForGivingOrders).
      *
      * @param {Element} [root] Optional root element for the form (defaults to document)
      * @returns {{ has_valid_ordination: boolean, has_valid_consecration: boolean, worst_ordination_status: string, worst_consecration_status: string }}
@@ -995,7 +1026,12 @@
             };
         }
 
-        const StatusInheritance = (typeof window !== 'undefined' && window.StatusInheritance) ? window.StatusInheritance : null;
+        const Rules = getRulesRef(null);
+        const getEffective = Rules && typeof Rules.getEffectiveStatus === 'function' ? Rules.getEffectiveStatus.bind(Rules) : null;
+        const getWorst = Rules && typeof Rules.getWorstStatus === 'function' ? Rules.getWorstStatus.bind(Rules) : null;
+        const isValid = ValidityRules && typeof ValidityRules.isValidForGivingOrders === 'function'
+            ? ValidityRules.isValidForGivingOrders.bind(ValidityRules)
+            : (eff) => eff === 'valid' || eff === 'sub_conditione';
 
         const ordinationEntries = scope.querySelectorAll ? scope.querySelectorAll('.ordination-entry') : [];
         const consecrationEntries = scope.querySelectorAll ? scope.querySelectorAll('.consecration-entry') : [];
@@ -1005,11 +1041,9 @@
 
         toArray(ordinationEntries).forEach(entry => {
             const record = getEntryRecordFromDom(entry);
-            const status = StatusInheritance && typeof StatusInheritance.getEffectiveStatus === 'function'
-                ? StatusInheritance.getEffectiveStatus(record)
-                : 'valid';
+            const status = getEffective ? getEffective(record) : 'valid';
             ordinationStatuses.push(status);
-            if (status === 'valid' || status === 'sub_conditione') {
+            if (isValid(status)) {
                 hasValidOrdination = true;
             }
         });
@@ -1019,32 +1053,18 @@
 
         toArray(consecrationEntries).forEach(entry => {
             const record = getEntryRecordFromDom(entry);
-            const status = StatusInheritance && typeof StatusInheritance.getEffectiveStatus === 'function'
-                ? StatusInheritance.getEffectiveStatus(record)
-                : 'valid';
+            const status = getEffective ? getEffective(record) : 'valid';
             consecrationStatuses.push(status);
-            if (status === 'valid' || status === 'sub_conditione') {
+            if (isValid(status)) {
                 hasValidConsecration = true;
             }
         });
 
-        // Server-side semantics:
-        // - If no ordinations, bishop is treated as having a valid ordination (worst 'valid').
-        // - If no consecrations, bishop is treated as having a valid consecration (worst 'valid').
         const hasAnyOrdinations = ordinationStatuses.length > 0;
         const hasAnyConsecrations = consecrationStatuses.length > 0;
 
-        const worstOrdinationStatus = hasAnyOrdinations
-            ? (StatusInheritance && typeof StatusInheritance.getWorstStatus === 'function'
-                ? StatusInheritance.getWorstStatus(ordinationStatuses)
-                : 'valid')
-            : 'valid';
-
-        const worstConsecrationStatus = hasAnyConsecrations
-            ? (StatusInheritance && typeof StatusInheritance.getWorstStatus === 'function'
-                ? StatusInheritance.getWorstStatus(consecrationStatuses)
-                : 'valid')
-            : 'valid';
+        const worstOrdinationStatus = hasAnyOrdinations && getWorst ? getWorst(ordinationStatuses) : 'valid';
+        const worstConsecrationStatus = hasAnyConsecrations && getWorst ? getWorst(consecrationStatuses) : 'valid';
 
         return {
             has_valid_ordination: hasAnyOrdinations ? hasValidOrdination : true,
@@ -1056,7 +1076,7 @@
 
     /**
      * Map an effective status to a validity dropdown value.
-     * Matches the mapping described in status-inheritance.js:
+     * Matches the mapping in validity-rules.js (Table A validity dropdown):
      *   - valid / sub_conditione / doubtful_event -> 'valid'
      *   - doubtfully_valid -> 'doubtfully_valid'
      *   - invalid -> 'invalid'
@@ -1076,8 +1096,7 @@
 
     /**
      * Compute how a single ordination / consecration record's effective status
-     * would be treated under a given bishop summary, using the same inheritance
-     * rules as status-inheritance.js.
+     * would be treated under a given bishop summary (rules 6–8, validity-rules.js).
      *
      * Returns both the original and adjusted effective statuses along with a
      * flag indicating whether the current status is already allowed or would
@@ -1095,8 +1114,8 @@
      * }}
      */
     function computeAdjustedEffectiveStatus(record, bishopSummary, type, StatusInheritanceRef) {
-        const StatusInheritance = StatusInheritanceRef || (typeof window !== 'undefined' ? window.StatusInheritance : null);
-        if (!StatusInheritance || typeof StatusInheritance.getEffectiveStatus !== 'function') {
+        const Rules = getRulesRef(StatusInheritanceRef);
+        if (!Rules || typeof Rules.getEffectiveStatus !== 'function') {
             return {
                 effectiveBefore: 'valid',
                 effectiveAfter: 'valid',
@@ -1105,7 +1124,7 @@
             };
         }
 
-        const effectiveBefore = StatusInheritance.getEffectiveStatus(record);
+        const effectiveBefore = Rules.getEffectiveStatus(record);
 
         if (!bishopSummary) {
             return {
@@ -1118,8 +1137,8 @@
 
         const getAllowed =
             type === 'consecration'
-                ? (StatusInheritance.getAllowedConsecrationStatuses || StatusInheritance.getAllowedEffectiveConsecrationStatuses)
-                : (StatusInheritance.getAllowedOrdinationStatuses || StatusInheritance.getAllowedEffectiveOrdinationStatuses);
+                ? (Rules.getAllowedConsecrationStatuses || Rules.getAllowedEffectiveConsecrationStatuses)
+                : (Rules.getAllowedOrdinationStatuses || Rules.getAllowedEffectiveOrdinationStatuses);
 
         const allowedEffective = typeof getAllowed === 'function'
             ? (getAllowed(bishopSummary) || [])
@@ -1135,9 +1154,9 @@
             };
         }
 
-        // Choose the "worst" allowed status, matching STATUS_PRIORITY ordering
-        // used by status-inheritance.js (ALL_EFFECTIVE_STATUSES).
-        const effectiveAfter = allowedEffective[allowedEffective.length - 1] || effectiveBefore;
+        const effectiveAfter = (Rules.getWorstStatus && typeof Rules.getWorstStatus === 'function')
+            ? Rules.getWorstStatus(allowedEffective)
+            : (allowedEffective[allowedEffective.length - 1] || effectiveBefore);
         const targetValidity = mapEffectiveToValidity(effectiveAfter);
 
         return {
@@ -1166,10 +1185,13 @@
      * @returns {{ has_valid_ordination: boolean, has_valid_consecration: boolean, worst_ordination_status: string, worst_consecration_status: string }}
      */
     function buildSyntheticSummaryForClergyId(clergyId, summaryById, eventImpactsByChildId, clergyById, StatusInheritanceRef, isRoot) {
-        const StatusInheritance = StatusInheritanceRef || (typeof window !== 'undefined' ? window.StatusInheritance : null);
+        const Rules = getRulesRef(StatusInheritanceRef);
         const clergy = clergyById.get(clergyId);
+        const isValid = ValidityRules && typeof ValidityRules.isValidForGivingOrders === 'function'
+            ? ValidityRules.isValidForGivingOrders.bind(ValidityRules)
+            : (eff) => eff === 'valid' || eff === 'sub_conditione';
 
-        if (!StatusInheritance || !clergy) {
+        if (!Rules || !clergy) {
             return {
                 has_valid_ordination: true,
                 has_valid_consecration: true,
@@ -1178,8 +1200,6 @@
             };
         }
 
-        // For the root, when a summary is already supplied (from the live form),
-        // we trust that synthetic summary and do not recompute it from list data.
         if (isRoot && summaryById.has(clergyId)) {
             return summaryById.get(clergyId);
         }
@@ -1193,7 +1213,7 @@
             let effectiveStatus;
 
             if (parentSummary) {
-                const adjusted = computeAdjustedEffectiveStatus(ordination, parentSummary, 'ordination', StatusInheritance);
+                const adjusted = computeAdjustedEffectiveStatus(ordination, parentSummary, 'ordination', StatusInheritanceRef);
                 effectiveStatus = adjusted.effectiveAfter;
 
                 let impacts = eventImpactsByChildId.get(clergyId);
@@ -1211,11 +1231,11 @@
                     targetValidity: adjusted.targetValidity
                 });
             } else {
-                effectiveStatus = StatusInheritance.getEffectiveStatus(ordination);
+                effectiveStatus = Rules.getEffectiveStatus(ordination);
             }
 
             ordinationStatuses.push(effectiveStatus);
-            if (effectiveStatus === 'valid' || effectiveStatus === 'sub_conditione') {
+            if (isValid(effectiveStatus)) {
                 hasValidOrdination = true;
             }
         });
@@ -1229,7 +1249,7 @@
             let effectiveStatus;
 
             if (parentSummary) {
-                const adjusted = computeAdjustedEffectiveStatus(consecration, parentSummary, 'consecration', StatusInheritance);
+                const adjusted = computeAdjustedEffectiveStatus(consecration, parentSummary, 'consecration', StatusInheritanceRef);
                 effectiveStatus = adjusted.effectiveAfter;
 
                 let impacts = eventImpactsByChildId.get(clergyId);
@@ -1247,11 +1267,11 @@
                     targetValidity: adjusted.targetValidity
                 });
             } else {
-                effectiveStatus = StatusInheritance.getEffectiveStatus(consecration);
+                effectiveStatus = Rules.getEffectiveStatus(consecration);
             }
 
             consecrationStatuses.push(effectiveStatus);
-            if (effectiveStatus === 'valid' || effectiveStatus === 'sub_conditione') {
+            if (isValid(effectiveStatus)) {
                 hasValidConsecration = true;
             }
         });
@@ -1259,16 +1279,11 @@
         const hasAnyOrdinations = ordinationStatuses.length > 0;
         const hasAnyConsecrations = consecrationStatuses.length > 0;
 
-        const worstOrdinationStatus = hasAnyOrdinations
-            ? (StatusInheritance.getWorstStatus
-                ? StatusInheritance.getWorstStatus(ordinationStatuses)
-                : 'valid')
+        const worstOrdinationStatus = hasAnyOrdinations && Rules.getWorstStatus
+            ? Rules.getWorstStatus(ordinationStatuses)
             : 'valid';
-
-        const worstConsecrationStatus = hasAnyConsecrations
-            ? (StatusInheritance.getWorstStatus
-                ? StatusInheritance.getWorstStatus(consecrationStatuses)
-                : 'valid')
+        const worstConsecrationStatus = hasAnyConsecrations && Rules.getWorstStatus
+            ? Rules.getWorstStatus(consecrationStatuses)
             : 'valid';
 
         return {
@@ -1321,12 +1336,12 @@
             };
         }
 
-        const StatusInheritance = (typeof window !== 'undefined' && window.StatusInheritance) ? window.StatusInheritance : null;
+        const Rules = getRulesRef(null);
         const cache = getOrBuildCachedAdjacency();
         const clergyById = cache.clergyById || new Map();
         const adjacency = cache.adjacency || new Map();
 
-        if (!StatusInheritance || !clergyById.has(rootId)) {
+        if (!Rules || !clergyById.has(rootId)) {
             return {
                 rootId: rootId,
                 descendants: [],
@@ -1351,7 +1366,7 @@
                 summaryById,
                 eventImpactsByChildId,
                 clergyById,
-                StatusInheritance,
+                Rules,
                 isRoot
             );
             summaryById.set(id, summary);
@@ -1598,11 +1613,11 @@
         panel.appendChild(stateIndicator);
         panel.appendChild(actions);
 
-        const StatusInheritance = (typeof window !== 'undefined' && window.StatusInheritance) ? window.StatusInheritance : null;
+        const Rules = getRulesRef(null);
         const { ranges: rangesWithValidity } = getFormBishopRangesWithValidityForPanel(typeof document !== 'undefined' ? document : null, impactResult.rootId);
         const groups = buildDescendantGroupsByRange(descendants, rangesWithValidity);
 
-        function buildDescendantRow(desc, events, clergyByIdRef, StatusInheritanceRef) {
+        function buildDescendantRow(desc, events, clergyByIdRef, RulesRef) {
             const eventList = Array.isArray(events) ? events : [];
             const hasViolation = eventList.some(evt => evt && evt.isAllowed === false);
 
@@ -1634,8 +1649,8 @@
                 }
                 const typeShort = evt.lineType === 'consecration' ? 'Cons.' : 'Ord.';
                 const statusForBadge = evt.effectiveAfter || evt.effectiveBefore;
-                const statusLabel = (StatusInheritanceRef && typeof StatusInheritanceRef.getStatusLabel === 'function')
-                    ? StatusInheritanceRef.getStatusLabel(statusForBadge)
+                const statusLabel = (RulesRef && typeof RulesRef.getStatusLabel === 'function')
+                    ? RulesRef.getStatusLabel(statusForBadge)
                     : (statusForBadge || 'Valid');
                 const chip = document.createElement('span');
                 chip.className = 'validation-impact-relation-chip';
@@ -1649,15 +1664,15 @@
             const effectiveStatuses = eventList
                 .map(evt => evt && (evt.effectiveBefore || evt.effectiveAfter))
                 .filter(Boolean);
-            const worstStatus = (effectiveStatuses.length > 0 && StatusInheritanceRef && typeof StatusInheritanceRef.getWorstStatus === 'function')
-                ? StatusInheritanceRef.getWorstStatus(effectiveStatuses)
+            const worstStatus = (effectiveStatuses.length > 0 && RulesRef && typeof RulesRef.getWorstStatus === 'function')
+                ? RulesRef.getWorstStatus(effectiveStatuses)
                 : null;
 
             if (worstStatus) {
                 const statusBadge = document.createElement('span');
                 statusBadge.className = 'validation-impact-badge validation-impact-badge--' + worstStatus;
-                statusBadge.textContent = (StatusInheritanceRef && typeof StatusInheritanceRef.getStatusLabel === 'function')
-                    ? StatusInheritanceRef.getStatusLabel(worstStatus)
+                statusBadge.textContent = (RulesRef && typeof RulesRef.getStatusLabel === 'function')
+                    ? RulesRef.getStatusLabel(worstStatus)
                     : (worstStatus || 'Valid');
                 statusContainer.appendChild(statusBadge);
             }
@@ -1724,7 +1739,7 @@
                 list.className = 'validation-impact-descendant-list';
 
                 grp.items.forEach(({ desc, events: itemEvents }) => {
-                    const row = buildDescendantRow(desc, itemEvents, clergyById, StatusInheritance);
+                    const row = buildDescendantRow(desc, itemEvents, clergyById, Rules);
                     list.appendChild(row);
                 });
 

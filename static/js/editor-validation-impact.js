@@ -878,6 +878,36 @@
         return { orders: [], ranges: [{ index: 0, start: null, end: null, canValidlyOrdain: false, canValidlyConsecrate: false }] };
     }
 
+    /**
+     * Return true if the given clergy has at least one range where they can validly ordain.
+     * Uses clergy list data (getOrBuildCachedAdjacency). If list data is not yet loaded, returns true as safe default.
+     * @param {number} clergyId
+     * @returns {boolean}
+     */
+    function canClergyValidlyOrdain(clergyId) {
+        const { clergyById } = getOrBuildCachedAdjacency();
+        if (!clergyById) {
+            return true;
+        }
+        const { ranges } = buildRangesWithValidityFromClergy(clergyId, clergyById);
+        return ranges.some(r => r.canValidlyOrdain === true);
+    }
+
+    /**
+     * Return true if the given clergy has at least one range where they can validly consecrate.
+     * Uses clergy list data (getOrBuildCachedAdjacency). If list data is not yet loaded, returns true as safe default.
+     * @param {number} clergyId
+     * @returns {boolean}
+     */
+    function canClergyValidlyConsecrate(clergyId) {
+        const { clergyById } = getOrBuildCachedAdjacency();
+        if (!clergyById) {
+            return true;
+        }
+        const { ranges } = buildRangesWithValidityFromClergy(clergyId, clergyById);
+        return ranges.some(r => r.canValidlyConsecrate === true);
+    }
+
     /** Cached result of last buildRangesWithValidity for panel and hints. Cleared when form/selection changes. */
     let cachedRangesWithValidity = null;
 
@@ -1797,17 +1827,24 @@
 
         // Derive the current root clergy ID from the last impact result or
         // fall back to the globally-tracked selected clergy.
-        const rootIdFromImpact = lastImpactResult && typeof lastImpactResult.rootId === 'number'
-            ? lastImpactResult.rootId
-            : null;
-        const globalRootId = (typeof window !== 'undefined' && typeof window.currentSelectedClergyId === 'number')
-            ? window.currentSelectedClergyId
-            : null;
-        const rootClergyId = rootIdFromImpact || globalRootId;
+        const parsedImpact = lastImpactResult && lastImpactResult.rootId != null
+            ? parseInt(lastImpactResult.rootId, 10)
+            : NaN;
+        const rootIdFromImpact = Number.isFinite(parsedImpact) ? parsedImpact : null;
+        const globalParsed = (typeof window !== 'undefined' && window.currentSelectedClergyId != null)
+            ? parseInt(window.currentSelectedClergyId, 10)
+            : NaN;
+        const globalRootId = Number.isFinite(globalParsed) ? globalParsed : null;
+        const rootClergyId = rootIdFromImpact ?? globalRootId;
 
         if (!rootClergyId) {
             if (typeof console !== 'undefined' && console.warn) {
                 console.warn('ValidationImpactPanel.applyBulkChanges: no root clergy ID available.');
+            }
+            if (typeof window !== 'undefined' && typeof window.showNotification === 'function') {
+                window.showNotification('No clergy selected. Select a clergy member first, then run validation impact.', 'warning');
+            } else if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+                window.alert('No clergy selected. Select a clergy member first, then run validation impact.');
             }
             return;
         }
@@ -1832,6 +1869,9 @@
             .filter(function (id) { return id !== null; });
 
         if (selectedIds.length === 0) {
+            if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+                window.alert("No descendants selected. Check 'Update this clergy' for the ones to update.");
+            }
             return;
         }
 
@@ -1878,6 +1918,11 @@
         });
 
         if (changes.length === 0) {
+            if (typeof window !== 'undefined' && typeof window.showNotification === 'function') {
+                window.showNotification('No validity changes to apply for the selected descendants.', 'warning');
+            } else if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+                window.alert('No validity changes to apply for the selected descendants.');
+            }
             return;
         }
 
@@ -1897,7 +1942,7 @@
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({
-                    root_clergy_id: rootClergyId,
+                    root_clergy_id: Math.floor(rootClergyId),
                     changes: changes
                 })
             });
@@ -2090,6 +2135,8 @@
         buildFormBishopRangesWithValidity,
         buildRangesWithValidityFromClergy,
         buildRangesWithValidity,
+        canClergyValidlyOrdain,
+        canClergyValidlyConsecrate,
         getFormBishopRangesWithValidityForPanel,
         getCachedRangesWithValidity,
         buildDescendantGroupsByRange,

@@ -273,6 +273,11 @@ def validation_impact_bulk_update():
                 record.is_invalid = True
                 record.is_doubtfully_valid = False
 
+            if new_validity in ('invalid', 'doubtfully_valid'):
+                record.is_inherited = True
+            elif new_validity == 'valid':
+                record.is_inherited = False
+
             if change_type == 'ordination':
                 updated_ordination_ids.append(record.id)
                 affected_clergy_ids.add(record.clergy_id)

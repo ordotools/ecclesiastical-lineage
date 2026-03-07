@@ -1347,6 +1347,46 @@ if (!window.clergyFormEventListenersAttached) {
         window.clergyFormValidityExtraDelegationAttached = true;
     }
 
+    // Event delegation: ordaining_bishop_id / consecrator_id change → auto-set validity to doubtfully_valid and check Inherited when bishop cannot validly ordain/consecrate
+    if (!window.clergyFormBishopConsecratorDelegationAttached) {
+        document.addEventListener('change', function(e) {
+            const t = e.target;
+            if (!t || !t.closest('#clergyForm')) return;
+            if (!t.matches('input[name*="[ordaining_bishop_id]"]') && !t.matches('input[name*="[consecrator_id]"]')) return;
+            const idRaw = (t.value || '').trim();
+            if (!idRaw) return;
+            const id = parseInt(idRaw, 10);
+            if (Number.isNaN(id)) return;
+            const panel = window.ValidationImpactPanel;
+            if (!panel || typeof panel.canClergyValidlyOrdain !== 'function' || typeof panel.canClergyValidlyConsecrate !== 'function') return;
+
+            if (t.matches('input[name*="[ordaining_bishop_id]"]')) {
+                const entry = t.closest('.ordination-entry');
+                if (!entry || panel.canClergyValidlyOrdain(id)) return;
+                const validitySelect = entry.querySelector('select[name*="[validity]"]');
+                if (validitySelect && validitySelect.value === 'valid') {
+                    validitySelect.value = 'doubtfully_valid';
+                    syncValidityExtraForEntry(entry);
+                }
+                const inheritedCheckbox = entry.querySelector('input[name*="[is_inherited]"]');
+                if (inheritedCheckbox) inheritedCheckbox.checked = true;
+                return;
+            }
+            if (t.matches('input[name*="[consecrator_id]"]')) {
+                const entry = t.closest('.consecration-entry');
+                if (!entry || panel.canClergyValidlyConsecrate(id)) return;
+                const validitySelect = entry.querySelector('select[name*="[validity]"]');
+                if (validitySelect && validitySelect.value === 'valid') {
+                    validitySelect.value = 'doubtfully_valid';
+                    syncValidityExtraForEntry(entry);
+                }
+                const inheritedCheckbox = entry.querySelector('input[name*="[is_inherited]"]');
+                if (inheritedCheckbox) inheritedCheckbox.checked = true;
+            }
+        });
+        window.clergyFormBishopConsecratorDelegationAttached = true;
+    }
+
     // File input change handler for image preview - use event delegation to avoid duplicates
     if (!window.clergyFormFileHandlerAttached) {
         document.addEventListener('change', function(e) {

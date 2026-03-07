@@ -144,6 +144,7 @@ def clergy_list_panel():
             if ordination.ordaining_bishop_id:
                 bishop_ids.add(ordination.ordaining_bishop_id)
             ordinations_data.append({
+                'id': ordination.id,
                 'ordaining_bishop_id': ordination.ordaining_bishop_id,
                 'date': ordination.date.isoformat() if ordination.date else None,
                 'date_unknown': ordination.date is None,
@@ -159,6 +160,7 @@ def clergy_list_panel():
             if consecration.consecrator_id:
                 bishop_ids.add(consecration.consecrator_id)
             consecrations_data.append({
+                'id': consecration.id,
                 'consecrator_id': consecration.consecrator_id,
                 'date': consecration.date.isoformat() if consecration.date else None,
                 'date_unknown': consecration.date is None,

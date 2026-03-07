@@ -1200,9 +1200,7 @@
             };
         }
 
-        if (isRoot && summaryById.has(clergyId)) {
-            return summaryById.get(clergyId);
-        }
+        const isRootWithSynthetic = isRoot && summaryById.has(clergyId);
 
         const ordinationStatuses = [];
         let hasValidOrdination = false;
@@ -1286,6 +1284,9 @@
             ? Rules.getWorstStatus(consecrationStatuses)
             : 'valid';
 
+        if (isRootWithSynthetic) {
+            return summaryById.get(clergyId);
+        }
         return {
             has_valid_ordination: hasAnyOrdinations ? hasValidOrdination : true,
             has_valid_consecration: hasAnyConsecrations ? hasValidConsecration : true,
@@ -1324,6 +1325,15 @@
      *     }>,
      *     hasViolation: boolean
      *   }>,
+     *   rootEvents: Array<{
+     *     type: 'ordination'|'consecration',
+     *     parentId: number,
+     *     record: object,
+     *     effectiveBefore: string,
+     *     effectiveAfter: string,
+     *     isAllowed: boolean,
+     *     targetValidity: ('valid'|'doubtfully_valid'|'invalid')|null
+     *   }>,
      *   summariesById: { [id: number]: { has_valid_ordination: boolean, has_valid_consecration: boolean, worst_ordination_status: string, worst_consecration_status: string } }
      * }}
      */
@@ -1332,6 +1342,7 @@
             return {
                 rootId: rootId,
                 descendants: [],
+                rootEvents: [],
                 summariesById: {}
             };
         }
@@ -1345,6 +1356,7 @@
             return {
                 rootId: rootId,
                 descendants: [],
+                rootEvents: [],
                 summariesById: {}
             };
         }
@@ -1354,6 +1366,34 @@
 
         if (syntheticRootSummary) {
             summaryById.set(rootId, syntheticRootSummary);
+        }
+
+        // Pre-populate summaries for the root's ordaining bishops/consecrators so root's own
+        // events get impacts in eventImpactsByChildId (and can be exposed as rootEvents).
+        const rootClergy = clergyById.get(rootId);
+        if (rootClergy) {
+            const rootBishopIds = new Set();
+            toArray(rootClergy.ordinations).forEach(o => {
+                const id = o && o.ordaining_bishop_id;
+                if (id != null && typeof id === 'number') rootBishopIds.add(id);
+            });
+            toArray(rootClergy.consecrations).forEach(c => {
+                const id = c && c.consecrator_id;
+                if (id != null && typeof id === 'number') rootBishopIds.add(id);
+            });
+            rootBishopIds.forEach(bishopId => {
+                if (!summaryById.has(bishopId)) {
+                    const summary = buildSyntheticSummaryForClergyId(
+                        bishopId,
+                        summaryById,
+                        eventImpactsByChildId,
+                        clergyById,
+                        Rules,
+                        false
+                    );
+                    summaryById.set(bishopId, summary);
+                }
+            });
         }
 
         const descendantDescriptors = getDescendantsBFS(rootId, adjacency);
@@ -1391,6 +1431,14 @@
             });
         });
 
+        const rootEventsRaw = eventImpactsByChildId.get(rootId) || [];
+        const rootEvents = rootEventsRaw.map(evt => {
+            if (!evt) return evt;
+            const { unknown } = getEventDateSortValue(evt.record);
+            const { rangeIndex, lineType } = placeEventInRange(evt.record, formBishopRanges, evt.type, unknown);
+            return Object.assign({}, evt, { rangeIndex, lineType });
+        });
+
         const summariesPlain = {};
         summaryById.forEach((summary, id) => {
             summariesPlain[id] = summary;
@@ -1399,6 +1447,7 @@
         return {
             rootId: rootId,
             descendants: descendants,
+            rootEvents: rootEvents,
             summariesById: summariesPlain
         };
     }
@@ -1899,7 +1948,7 @@
         lastImpactResult = impact;
 
         // Build the changes payload from all violating events for the
-        // selected descendants.
+        // selected descendants, plus the root's own violating events.
         const changes = [];
         const descendants = Array.isArray(impact.descendants) ? impact.descendants : [];
         descendants.forEach(function (desc) {
@@ -1929,6 +1978,26 @@
                     id: eventId,
                     new_validity: evt.targetValidity
                 });
+            });
+        });
+
+        // Include root's own violating events so the root form can show updated validity and "Inherited".
+        const rootEvents = Array.isArray(impact.rootEvents) ? impact.rootEvents : [];
+        rootEvents.forEach(function (evt) {
+            if (!evt || evt.isAllowed !== false || !evt.targetValidity) {
+                return;
+            }
+            const record = evt.record || {};
+            const rawId = record.id;
+            const eventId = typeof rawId === 'number' ? rawId : parseInt(rawId, 10);
+            if (!Number.isFinite(eventId)) {
+                return;
+            }
+            const type = evt.type === 'consecration' ? 'consecration' : 'ordination';
+            changes.push({
+                type: type,
+                id: eventId,
+                new_validity: evt.targetValidity
             });
         });
 

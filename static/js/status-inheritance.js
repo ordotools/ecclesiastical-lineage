@@ -122,6 +122,9 @@
         } else {
             setEntryNotice(entryElement, '');
         }
+        if (typeof window.syncValidityExtraForEntry === 'function') {
+            window.syncValidityExtraForEntry(entryElement);
+        }
     }
 
     function getEntryRecord(entryElement) {
@@ -201,13 +204,22 @@
         const ordinationEntries = scope.querySelectorAll('.ordination-entry');
         const consecrationEntries = scope.querySelectorAll('.consecration-entry');
 
+        const promises = [];
         ordinationEntries.forEach(entry => {
             const bishopId = getEntryBishopId(entry, 'ordination');
-            applyRestrictionsForEntry(entry, 'ordination', bishopId);
+            promises.push(applyRestrictionsForEntry(entry, 'ordination', bishopId));
         });
         consecrationEntries.forEach(entry => {
             const bishopId = getEntryBishopId(entry, 'consecration');
-            applyRestrictionsForEntry(entry, 'consecration', bishopId);
+            promises.push(applyRestrictionsForEntry(entry, 'consecration', bishopId));
+        });
+
+        Promise.all(promises).then(() => {
+            if (typeof window.syncValidityExtraForEntry !== 'function') {
+                return;
+            }
+            const allEntries = scope.querySelectorAll('.ordination-entry, .consecration-entry');
+            allEntries.forEach(entry => window.syncValidityExtraForEntry(entry));
         });
     }
 

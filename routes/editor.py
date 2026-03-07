@@ -232,10 +232,10 @@ def validation_impact_bulk_update():
         ]
       }
 
-    The handler updates only the validity-related flags:
-      - "valid":            is_invalid = False, is_doubtfully_valid = False
-      - "doubtfully_valid": is_invalid = False, is_doubtfully_valid = True
-      - "invalid":          is_invalid = True,  is_doubtfully_valid = False
+    The handler updates validity-related flags and is_inherited:
+      - "valid":            is_invalid = False, is_doubtfully_valid = False, is_inherited = False
+      - "doubtfully_valid": is_invalid = False, is_doubtfully_valid = True,  is_inherited = True
+      - "invalid":          is_invalid = True,  is_doubtfully_valid = False, is_inherited = True
 
     Other flags such as is_sub_conditione and is_doubtful_event are left unchanged.
     """

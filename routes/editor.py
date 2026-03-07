@@ -155,6 +155,8 @@ def clergy_list_panel():
             })
         clergy_list_data.append({
             'id': clergy.id,
+            'name': clergy.name,
+            'display_name': getattr(clergy, 'display_name', None),
             'ordinations': ordinations_data,
             'consecrations': consecrations_data
         })

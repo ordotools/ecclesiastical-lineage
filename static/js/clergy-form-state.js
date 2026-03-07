@@ -78,6 +78,12 @@ window.resetClergyFormDirtyState = function() {
     setSaveButtonEnabled(form, true);
 };
 
+/** Used by Validation Impact panel to show "unsaved form" vs "saved record". */
+window.isClergyFormDirty = function() {
+    const form = document.getElementById('clergyForm');
+    return form ? isFormDirty(form) : false;
+};
+
 // Function to clear form state - idempotent, safe to call multiple times
 window.clearFormState = function() {
     const form = document.getElementById('clergyForm');

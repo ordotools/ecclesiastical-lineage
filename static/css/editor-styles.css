@@ -1080,6 +1080,37 @@
     overflow-y: auto;
 }
 
+/* Validation Impact – range groups and headers */
+.validation-impact-group {
+    margin-bottom: var(--editor-spacing-m);
+}
+
+.validation-impact-group-header {
+    display: flex;
+    align-items: center;
+    gap: var(--editor-spacing-s);
+    padding: var(--editor-spacing-xs) var(--editor-spacing-s);
+    margin-bottom: var(--editor-spacing-xs);
+    font-size: var(--editor-font-s);
+    font-weight: 500;
+    border-bottom: 1px solid var(--editor-border-color);
+    color: var(--editor-text-secondary);
+}
+
+.validation-impact-group-title {
+    flex: 1;
+}
+
+.validation-impact-group-valid {
+    font-size: 0.75em;
+    color: rgba(34, 197, 94, 0.95);
+}
+
+.validation-impact-group-invalid {
+    font-size: 0.75em;
+    color: rgba(239, 68, 68, 0.95);
+}
+
 /* Validation Impact – descendant list */
 .validation-impact-descendant-list {
     list-style: none;
@@ -1171,6 +1202,19 @@
     background: rgba(59, 130, 246, 0.2);
     border: 1px solid rgba(59, 130, 246, 0.45);
     color: rgba(59, 130, 246, 0.9);
+}
+
+/* Validation Impact – unsaved vs saved indicator */
+.validation-impact-state-indicator {
+    font-size: var(--editor-font-xs);
+    margin-bottom: var(--editor-spacing-s);
+    padding: var(--editor-spacing-xs) 0;
+}
+.validation-impact-state-indicator--unsaved {
+    color: rgba(245, 158, 11, 0.95);
+}
+.validation-impact-state-indicator--saved {
+    color: var(--editor-text-tertiary);
 }
 
 /* Validation Impact – action buttons */

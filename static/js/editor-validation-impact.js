@@ -352,6 +352,599 @@
     }
 
     /**
+     * Get date (or year/unknown) from a single ordination or consecration form entry.
+     * Looks for .ordination-date-block / .consecration-date-block and inputs [date], [date_unknown], [year].
+     *
+     * @param {Element} entryElement .ordination-entry or .consecration-entry
+     * @returns {{ date: string|null, year: number|null, dateUnknown: boolean }} dateUnknown true when date is not set; date YYYY-MM-DD when known; year when dateUnknown and year given.
+     */
+    function getDateFromFormEntry(entryElement) {
+        if (!entryElement || typeof entryElement.querySelector !== 'function') {
+            return { date: null, year: null, dateUnknown: true };
+        }
+        const dateBlock = entryElement.querySelector('.ordination-date-block') || entryElement.querySelector('.consecration-date-block');
+        if (!dateBlock) {
+            return { date: null, year: null, dateUnknown: true };
+        }
+        const dateInput = dateBlock.querySelector('input[name*="[date]"]');
+        const dateUnknownInput = dateBlock.querySelector('input[name*="[date_unknown]"]');
+        const yearInput = dateBlock.querySelector('input[name*="[year]"]');
+
+        const dateVal = dateInput && dateInput.value ? dateInput.value.trim() : '';
+        if (dateVal) {
+            return { date: dateVal, year: null, dateUnknown: false };
+        }
+        const isUnknown = dateUnknownInput && (dateUnknownInput.value === '1' || dateUnknownInput.value === 'on' || String(dateUnknownInput.value).trim() !== '');
+        if (isUnknown) {
+            const yearVal = yearInput && yearInput.value ? parseInt(yearInput.value.trim(), 10) : NaN;
+            return {
+                date: null,
+                year: Number.isFinite(yearVal) ? yearVal : null,
+                dateUnknown: true
+            };
+        }
+        return { date: null, year: null, dateUnknown: true };
+    }
+
+    /**
+     * Get date info from a clergy-list ordination/consecration record (date, date_unknown, year).
+     *
+     * @param {object} record Ordination or consecration record from clergyListData
+     * @returns {{ date: string|null, year: number|null, dateUnknown: boolean }}
+     */
+    function getDateFromRecord(record) {
+        if (!record) {
+            return { date: null, year: null, dateUnknown: true };
+        }
+        const dateVal = record.date && String(record.date).trim();
+        if (dateVal) {
+            return { date: dateVal, year: null, dateUnknown: false };
+        }
+        const isUnknown = record.date_unknown === true || record.date_unknown === 1 || record.date_unknown === '1' || record.date_unknown === 'on';
+        if (isUnknown) {
+            const y = record.year != null ? parseInt(record.year, 10) : NaN;
+            return {
+                date: null,
+                year: Number.isFinite(y) ? y : null,
+                dateUnknown: true
+            };
+        }
+        return { date: null, year: null, dateUnknown: true };
+    }
+
+    /**
+     * Sortable value for an event date for range comparison. Unknown dates map to Infinity so they sort into the last range.
+     *
+     * @param {object} record Ordination/consecration record with date, date_unknown, year
+     * @returns {{ t: number, unknown: boolean }}
+     */
+    function getEventDateSortValue(record) {
+        const dateInfo = getDateFromRecord(record);
+        if (dateInfo.date) {
+            const t = new Date(dateInfo.date).getTime();
+            return { t: Number.isFinite(t) ? t : Infinity, unknown: false };
+        }
+        if (dateInfo.dateUnknown && dateInfo.year != null) {
+            return { t: new Date(dateInfo.year, 0, 1).getTime(), unknown: false };
+        }
+        return { t: Infinity, unknown: true };
+    }
+
+    /**
+     * Sortable value for a range boundary (start or end). null start => -Infinity; null end => +Infinity; 'unknown' => +Infinity so unknown-dated events fall in last range.
+     *
+     * @param {string|null} boundary ISO date, year string, 'unknown', or null
+     * @param {boolean} asEnd True for range end (null => +Infinity), false for start (null => -Infinity)
+     * @returns {number}
+     */
+    function getBoundarySortValue(boundary, asEnd) {
+        if (boundary == null) {
+            return asEnd ? Infinity : -Infinity;
+        }
+        if (boundary === 'unknown') {
+            return Infinity;
+        }
+        const parsed = new Date(boundary);
+        if (Number.isFinite(parsed.getTime())) {
+            return parsed.getTime();
+        }
+        const year = parseInt(boundary, 10);
+        if (Number.isFinite(year)) {
+            return new Date(year, 0, 1).getTime();
+        }
+        return asEnd ? Infinity : -Infinity;
+    }
+
+    /**
+     * Place a descendant event (by date) into the form bishop's timeline; return the range index and line type.
+     * Events with unknown date are placed in the last range. When a range boundary is 'unknown', only
+     * unknown-dated events are placed in that range; known-dated events skip to the next range.
+     *
+     * @param {object} record Ordination or consecration record (with date, date_unknown, year)
+     * @param {Array<{ index: number, start: string|null, end: string|null }>} ranges Form bishop ranges from buildFormBishopRanges
+     * @param {'ordination'|'consecration'} lineType
+     * @param {boolean} [eventUnknown] True when the event has unknown date (from getEventDateSortValue(record).unknown)
+     * @returns {{ rangeIndex: number, lineType: 'ordination'|'consecration' }}
+     */
+    function placeEventInRange(record, ranges, lineType, eventUnknown) {
+        const rangeList = toArray(ranges || []);
+        if (rangeList.length === 0) {
+            return { rangeIndex: 0, lineType: lineType };
+        }
+        const { t: eventT, unknown: evtUnknown } = getEventDateSortValue(record);
+        const isUnknown = eventUnknown !== undefined ? !!eventUnknown : !!evtUnknown;
+        for (let i = 0; i < rangeList.length; i++) {
+            const r = rangeList[i];
+            if (r.end === 'unknown' || r.start === 'unknown') {
+                if (!isUnknown) {
+                    continue;
+                }
+            }
+            const startVal = getBoundarySortValue(r.start, false);
+            const endVal = getBoundarySortValue(r.end, true);
+            if (eventT >= startVal && eventT < endVal) {
+                return { rangeIndex: r.index, lineType: lineType };
+            }
+        }
+        return { rangeIndex: rangeList[rangeList.length - 1].index, lineType: lineType };
+    }
+
+    /**
+     * Sort key for ordering form bishop orders by date. Unknown dates sort last; same date uses type order (ordination before consecration).
+     * @param {{ date: string|null, year: number|null, dateUnknown: boolean }} dateInfo
+     * @param {'ordination'|'consecration'} type
+     * @returns {{ t: number, typeOrder: number }} t is timestamp (Infinity for unknown), typeOrder 0 = ordination, 1 = consecration
+     */
+    function getOrderSortKey(dateInfo, type) {
+        const typeOrder = type === 'consecration' ? 1 : 0;
+        if (dateInfo.dateUnknown) {
+            if (dateInfo.year != null) {
+                const t = new Date(dateInfo.year, 0, 1).getTime();
+                return { t, typeOrder };
+            }
+            return { t: Infinity, typeOrder };
+        }
+        const t = new Date(dateInfo.date).getTime();
+        return { t: Number.isFinite(t) ? t : Infinity, typeOrder };
+    }
+
+    /**
+     * Build the form bishop's timeline (ranges) from form ordination and consecration entries, ordered by date.
+     * N orders (lines) yield N+1 ranges. Range 0 = before first order, range N = after last order.
+     * Boundaries are either an ISO date string (YYYY-MM-DD) or 'unknown' when the boundary event has no known date.
+     *
+     * @param {Element} [root] Optional root (default document) to query .ordination-entry and .consecration-entry
+     * @returns {{ orders: Array<{ type: 'ordination'|'consecration', entry: Element, dateInfo: object, sortKey: object }>, ranges: Array<{ index: number, start: string|null, end: string|null }> }} ranges[].start/end are ISO date or 'unknown' or null (start null = beginning; end null = open end)
+     */
+    function buildFormBishopRanges(root) {
+        const scope = root || (typeof document !== 'undefined' ? document : null);
+        const orders = [];
+        if (!scope || typeof scope.querySelectorAll !== 'function') {
+            return { orders: [], ranges: [{ index: 0, start: null, end: null }] };
+        }
+
+        const ordinationEntries = scope.querySelectorAll('.ordination-entry');
+        const consecrationEntries = scope.querySelectorAll('.consecration-entry');
+
+        toArray(ordinationEntries).forEach(entry => {
+            const dateInfo = getDateFromFormEntry(entry);
+            orders.push({
+                type: 'ordination',
+                entry,
+                dateInfo,
+                sortKey: getOrderSortKey(dateInfo, 'ordination')
+            });
+        });
+        toArray(consecrationEntries).forEach(entry => {
+            const dateInfo = getDateFromFormEntry(entry);
+            orders.push({
+                type: 'consecration',
+                entry,
+                dateInfo,
+                sortKey: getOrderSortKey(dateInfo, 'consecration')
+            });
+        });
+
+        orders.sort((a, b) => {
+            if (a.sortKey.t !== b.sortKey.t) {
+                return a.sortKey.t - b.sortKey.t;
+            }
+            return a.sortKey.typeOrder - b.sortKey.typeOrder;
+        });
+
+        const ranges = [];
+        if (orders.length === 0) {
+            ranges.push({ index: 0, start: null, end: null });
+            return { orders: [], ranges };
+        }
+
+        const boundary = (order) => {
+            if (order.dateInfo.dateUnknown) {
+                return order.dateInfo.year != null ? String(order.dateInfo.year) : 'unknown';
+            }
+            return order.dateInfo.date;
+        };
+
+        ranges.push({
+            index: 0,
+            start: null,
+            end: boundary(orders[0])
+        });
+        for (let i = 0; i < orders.length - 1; i++) {
+            ranges.push({
+                index: i + 1,
+                start: boundary(orders[i]),
+                end: boundary(orders[i + 1])
+            });
+        }
+        ranges.push({
+            index: orders.length,
+            start: boundary(orders[orders.length - 1]),
+            end: null
+        });
+
+        return { orders, ranges };
+    }
+
+    /**
+     * Compute validity per range: for each range, whether the form bishop could
+     * validly ordain and validly consecrate during that period, using lineage
+     * rules from status-inheritance.js.
+     *
+     * Rules: no valid ordination yet => cannot validly ordain or consecrate;
+     * valid ordination but no valid consecration yet => can validly ordain,
+     * cannot validly consecrate; valid consecration => can validly consecrate
+     * (and ordain) in that range.
+     *
+     * @param {Array<{ type: 'ordination'|'consecration', entry: Element }>} orders Ordered list of ordination/consecration entries (e.g. from buildFormBishopRanges)
+     * @param {object|null} StatusInheritanceRef Optional StatusInheritance ref (defaults to window.StatusInheritance)
+     * @returns {Array<{ index: number, canValidlyOrdain: boolean, canValidlyConsecrate: boolean }>} One entry per range index 0..orders.length
+     */
+    function computeValidityPerRange(orders, StatusInheritanceRef) {
+        const StatusInheritance = StatusInheritanceRef || (typeof window !== 'undefined' ? window.StatusInheritance : null);
+        const getEffective = StatusInheritance && typeof StatusInheritance.getEffectiveStatus === 'function'
+            ? StatusInheritance.getEffectiveStatus.bind(StatusInheritance)
+            : null;
+
+        const result = [];
+        const orderList = toArray(orders || []);
+
+        for (let rangeIndex = 0; rangeIndex <= orderList.length; rangeIndex++) {
+            let hasValidOrdination = false;
+            let hasValidConsecration = false;
+
+            for (let i = 0; i < rangeIndex; i++) {
+                const order = orderList[i];
+                if (!order || !order.entry) {
+                    continue;
+                }
+                const record = getEntryRecordFromDom(order.entry);
+                const effective = getEffective ? getEffective(record) : 'valid';
+                const isValid = effective === 'valid' || effective === 'sub_conditione';
+
+                if (order.type === 'ordination' && isValid) {
+                    hasValidOrdination = true;
+                }
+                if (order.type === 'consecration' && isValid) {
+                    hasValidConsecration = true;
+                }
+            }
+
+            result.push({
+                index: rangeIndex,
+                canValidlyOrdain: hasValidOrdination,
+                canValidlyConsecrate: hasValidOrdination && hasValidConsecration
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * Compute validity per range from orders that have .record (e.g. from clergy list).
+     * Same semantics as computeValidityPerRange but uses StatusInheritance.getEffectiveStatus(order.record).
+     *
+     * @param {Array<{ type: 'ordination'|'consecration', record: object }>} orders Ordered list with record (no DOM entry)
+     * @param {object|null} StatusInheritanceRef
+     * @returns {Array<{ index: number, canValidlyOrdain: boolean, canValidlyConsecrate: boolean }>}
+     */
+    function computeValidityPerRangeFromRecords(orders, StatusInheritanceRef) {
+        const StatusInheritance = StatusInheritanceRef || (typeof window !== 'undefined' ? window.StatusInheritance : null);
+        const getEffective = StatusInheritance && typeof StatusInheritance.getEffectiveStatus === 'function'
+            ? StatusInheritance.getEffectiveStatus.bind(StatusInheritance)
+            : null;
+
+        const result = [];
+        const orderList = toArray(orders || []);
+
+        for (let rangeIndex = 0; rangeIndex <= orderList.length; rangeIndex++) {
+            let hasValidOrdination = false;
+            let hasValidConsecration = false;
+
+            for (let i = 0; i < rangeIndex; i++) {
+                const order = orderList[i];
+                if (!order || !order.record) {
+                    continue;
+                }
+                const effective = getEffective ? getEffective(order.record) : 'valid';
+                const isValid = effective === 'valid' || effective === 'sub_conditione';
+
+                if (order.type === 'ordination' && isValid) {
+                    hasValidOrdination = true;
+                }
+                if (order.type === 'consecration' && isValid) {
+                    hasValidConsecration = true;
+                }
+            }
+
+            result.push({
+                index: rangeIndex,
+                canValidlyOrdain: hasValidOrdination,
+                canValidlyConsecrate: hasValidOrdination && hasValidConsecration
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * Build grouped (rangeIndex only) entries for the validation panel: each group has a label,
+     * validity flag, and list of { desc, events } — one entry per clergy per range, with all their
+     * ordination/consecration events in that range merged.
+     *
+     * @param {Array<object>} descendants Result of evaluateCascadeImpact with events enriched with rangeIndex, lineType
+     * @param {Array<{ index: number, canValidlyOrdain: boolean, canValidlyConsecrate: boolean }>} rangesWithValidity From buildFormBishopRangesWithValidity
+     * @returns {Array<{ rangeIndex: number, rangeLabel: string, isValid: boolean, items: Array<{ desc: object, events: Array<object> }> }>}
+     */
+    function buildDescendantGroupsByRange(descendants, rangesWithValidity) {
+        const rangeMap = new Map((rangesWithValidity || []).map(r => [r.index, r]));
+        /** @type {Map<number, Map<number, { desc: object, events: Array<object> }>>} rangeIndex -> descId -> { desc, events } */
+        const rangeToClergy = new Map();
+
+        toArray(descendants || []).forEach(desc => {
+            toArray(desc.events || []).forEach(evt => {
+                const ri = evt.rangeIndex;
+                const lt = evt.lineType;
+                if (ri == null || !lt) {
+                    return;
+                }
+                if (!rangeToClergy.has(ri)) {
+                    rangeToClergy.set(ri, new Map());
+                }
+                const clergyInRange = rangeToClergy.get(ri);
+                const descId = desc.id;
+                if (!clergyInRange.has(descId)) {
+                    clergyInRange.set(descId, { desc, events: [] });
+                }
+                clergyInRange.get(descId).events.push(evt);
+            });
+        });
+
+        const groups = [];
+        rangeToClergy.forEach((clergyMap, rangeIndex) => {
+            const range = rangeMap.get(rangeIndex);
+            const items = Array.from(clergyMap.values());
+
+            let hasOrdination = false;
+            let hasConsecration = false;
+            items.forEach(({ events }) => {
+                events.forEach(evt => {
+                    if (evt.lineType === 'ordination') {
+                        hasOrdination = true;
+                    } else if (evt.lineType === 'consecration') {
+                        hasConsecration = true;
+                    }
+                });
+            });
+
+            const canValidlyOrdain = range ? range.canValidlyOrdain : false;
+            const canValidlyConsecrate = range ? range.canValidlyConsecrate : false;
+            const isValid = items.length === 0 ||
+                ((!hasOrdination || canValidlyOrdain) && (!hasConsecration || canValidlyConsecrate));
+            const rangeLabel = `Range ${rangeIndex} (${isValid ? 'Valid' : 'Invalid'})`;
+
+            groups.push({
+                rangeIndex,
+                rangeLabel,
+                isValid: !!isValid,
+                items
+            });
+        });
+
+        groups.sort((a, b) => a.rangeIndex - b.rangeIndex);
+        return groups;
+    }
+
+    /**
+     * Build form bishop ranges and compute validity per range. Convenience
+     * that returns ranges enriched with canValidlyOrdain and canValidlyConsecrate.
+     *
+     * @param {Element} [root] Optional root for form query (default document)
+     * @returns {{ orders: Array, ranges: Array<{ index: number, start: string|null, end: string|null, canValidlyOrdain: boolean, canValidlyConsecrate: boolean }> }}
+     */
+    function buildFormBishopRangesWithValidity(root) {
+        const { orders, ranges } = buildFormBishopRanges(root);
+        const validityPerRange = computeValidityPerRange(orders);
+        const validityByIndex = new Map(validityPerRange.map(v => [v.index, v]));
+        const enrichedRanges = ranges.map(r => ({
+            ...r,
+            canValidlyOrdain: validityByIndex.get(r.index)?.canValidlyOrdain ?? false,
+            canValidlyConsecrate: validityByIndex.get(r.index)?.canValidlyConsecrate ?? false
+        }));
+        return { orders, ranges: enrichedRanges };
+    }
+
+    /**
+     * Build ranges and range validity from clergy list data for a given clergy ID.
+     * Same timeline/validity semantics as buildFormBishopRangesWithValidity but
+     * uses ordination/consecration records from clergyById (no DOM).
+     *
+     * @param {number} clergyId
+     * @param {Map<number, object>} clergyById Map from clergy list (e.g. getOrBuildCachedAdjacency().clergyById)
+     * @param {object|null} StatusInheritanceRef Optional StatusInheritance (defaults to window.StatusInheritance)
+     * @returns {{ orders: Array<{ type: string, record: object, dateInfo: object }>, ranges: Array<{ index: number, start: string|null, end: string|null, canValidlyOrdain: boolean, canValidlyConsecrate: boolean }> }}
+     */
+    function buildRangesWithValidityFromClergy(clergyId, clergyById, StatusInheritanceRef) {
+        const clergy = clergyById && typeof clergyById.get === 'function' ? clergyById.get(clergyId) : null;
+        const defaultRanges = [{ index: 0, start: null, end: null, canValidlyOrdain: false, canValidlyConsecrate: false }];
+        if (!clergy) {
+            return { orders: [], ranges: defaultRanges };
+        }
+
+        const orders = [];
+        toArray(clergy.ordinations || []).forEach(record => {
+            const dateInfo = getDateFromRecord(record);
+            orders.push({
+                type: 'ordination',
+                record,
+                dateInfo,
+                sortKey: getOrderSortKey(dateInfo, 'ordination')
+            });
+        });
+        toArray(clergy.consecrations || []).forEach(record => {
+            const dateInfo = getDateFromRecord(record);
+            orders.push({
+                type: 'consecration',
+                record,
+                dateInfo,
+                sortKey: getOrderSortKey(dateInfo, 'consecration')
+            });
+        });
+
+        orders.sort((a, b) => {
+            if (a.sortKey.t !== b.sortKey.t) {
+                return a.sortKey.t - b.sortKey.t;
+            }
+            return a.sortKey.typeOrder - b.sortKey.typeOrder;
+        });
+
+        if (orders.length === 0) {
+            return { orders: [], ranges: defaultRanges };
+        }
+
+        const boundary = (order) => {
+            if (order.dateInfo.dateUnknown) {
+                return order.dateInfo.year != null ? String(order.dateInfo.year) : 'unknown';
+            }
+            return order.dateInfo.date;
+        };
+
+        const ranges = [];
+        ranges.push({ index: 0, start: null, end: boundary(orders[0]) });
+        for (let i = 0; i < orders.length - 1; i++) {
+            ranges.push({
+                index: i + 1,
+                start: boundary(orders[i]),
+                end: boundary(orders[i + 1])
+            });
+        }
+        ranges.push({
+            index: orders.length,
+            start: boundary(orders[orders.length - 1]),
+            end: null
+        });
+
+        const validityPerRange = computeValidityPerRangeFromRecords(orders, StatusInheritanceRef);
+        const validityByIndex = new Map(validityPerRange.map(v => [v.index, v]));
+        const enrichedRanges = ranges.map(r => ({
+            ...r,
+            canValidlyOrdain: validityByIndex.get(r.index)?.canValidlyOrdain ?? false,
+            canValidlyConsecrate: validityByIndex.get(r.index)?.canValidlyConsecrate ?? false
+        }));
+
+        return { orders, ranges: enrichedRanges };
+    }
+
+    /**
+     * Shared helper: build ranges and range validity from form DOM or clergy list data.
+     * Use this for the validation panel and for inline hints so both use the same model.
+     *
+     * @param {{ root?: Element, clergyId?: number, clergyById?: Map<number, object> }} source
+     *   - root: optional form root (document or #clergyForm) to build from form DOM.
+     *   - clergyId + clergyById: to build from clergy list when form is not available.
+     * @returns {{ orders: Array, ranges: Array<{ index: number, start: string|null, end: string|null, canValidlyOrdain: boolean, canValidlyConsecrate: boolean }> }}
+     */
+    function buildRangesWithValidity(source) {
+        const root = source && source.root;
+        const clergyId = source && source.clergyId;
+        const clergyById = source && source.clergyById;
+
+        if (root && typeof root.querySelectorAll === 'function') {
+            return buildFormBishopRangesWithValidity(root);
+        }
+        if (clergyId != null && clergyById) {
+            return buildRangesWithValidityFromClergy(clergyId, clergyById);
+        }
+        return { orders: [], ranges: [{ index: 0, start: null, end: null, canValidlyOrdain: false, canValidlyConsecrate: false }] };
+    }
+
+    /** Cached result of last buildRangesWithValidity for panel and hints. Cleared when form/selection changes. */
+    let cachedRangesWithValidity = null;
+
+    /**
+     * Get the current form bishop ranges with validity, building from form DOM or clergy list as appropriate.
+     * On form load and on form change we build and cache here so the panel and hints can reuse.
+     *
+     * @param {Element} [formRoot] Optional form root (defaults to document)
+     * @param {number|null} [optionalRootId] Optional clergy ID for clergy-list fallback when form has 0 orders
+     * @returns {{ orders: Array, ranges: Array }}
+     */
+    function getFormBishopRangesWithValidityForPanel(formRoot, optionalRootId) {
+        const root = formRoot || (typeof document !== 'undefined' ? document : null);
+        const cache = typeof window !== 'undefined' ? window.__validationImpactRangesCache : null;
+        const rootId = optionalRootId ?? (typeof window !== 'undefined' ? window.currentSelectedClergyId : undefined) ?? currentRootClergyId;
+
+        const hasForm = root && (root.id === 'clergyForm' || (root.querySelector && root.querySelector('#clergyForm')));
+        if (hasForm) {
+            const result = buildFormBishopRangesWithValidity(root);
+            if (result.orders.length === 0 && rootId != null) {
+                const { clergyById } = getOrBuildCachedAdjacency();
+                const fallbackResult = buildRangesWithValidity({ clergyId: rootId, clergyById });
+                cachedRangesWithValidity = fallbackResult;
+                if (typeof window !== 'undefined') {
+                    window.__validationImpactRangesCache = fallbackResult;
+                }
+                return fallbackResult;
+            }
+            cachedRangesWithValidity = result;
+            if (typeof window !== 'undefined') {
+                window.__validationImpactRangesCache = result;
+            }
+            return result;
+        }
+        if (rootId != null) {
+            const { clergyById } = getOrBuildCachedAdjacency();
+            const result = buildRangesWithValidity({ clergyId: rootId, clergyById });
+            cachedRangesWithValidity = result;
+            if (typeof window !== 'undefined') {
+                window.__validationImpactRangesCache = result;
+            }
+            return result;
+        }
+        if (cache && cache.ranges) {
+            return cache;
+        }
+        const fallback = { orders: [], ranges: [{ index: 0, start: null, end: null, canValidlyOrdain: false, canValidlyConsecrate: false }] };
+        cachedRangesWithValidity = fallback;
+        return fallback;
+    }
+
+    /**
+     * Return the last built ranges with validity (for hints / panel without re-querying).
+     *
+     * @returns {{ orders: Array, ranges: Array }|null}
+     */
+    function getCachedRangesWithValidity() {
+        if (cachedRangesWithValidity) {
+            return cachedRangesWithValidity;
+        }
+        if (typeof window !== 'undefined' && window.__validationImpactRangesCache) {
+            return window.__validationImpactRangesCache;
+        }
+        return null;
+    }
+
+    /**
      * Compute a synthetic bishop summary for the currently edited clergy based
      * on the live contents of the clergy form.
      *
@@ -734,11 +1327,21 @@
             summaryById.set(id, summary);
         });
 
+        const { ranges: formBishopRanges } = getFormBishopRangesWithValidityForPanel(document, rootId);
+
         const descendants = descendantDescriptors.map(desc => {
             const events = eventImpactsByChildId.get(desc.id) || [];
-            const hasViolation = events.some(evt => evt && evt.isAllowed === false);
+            const enrichedEvents = events.map(evt => {
+                if (!evt || evt.parentId !== rootId) {
+                    return evt;
+                }
+                const { unknown } = getEventDateSortValue(evt.record);
+                const { rangeIndex, lineType } = placeEventInRange(evt.record, formBishopRanges, evt.type, unknown);
+                return Object.assign({}, evt, { rangeIndex, lineType });
+            });
+            const hasViolation = enrichedEvents.some(evt => evt && evt.isAllowed === false);
             return Object.assign({}, desc, {
-                events: events,
+                events: enrichedEvents,
                 hasViolation: hasViolation
             });
         });
@@ -768,6 +1371,62 @@
      * @type {number|null}
      */
     let currentRootClergyId = null;
+
+    /** @type {MutationObserver|null} Observer for ordination/consecration containers so panel re-renders when entries are injected. */
+    let entriesObserver = null;
+    /** @type {number|null} Debounce timer for entries-observer callback. */
+    let entriesObserverDebounceTimer = null;
+    const ENTRIES_OBSERVER_DEBOUNCE_MS = 100;
+
+    /**
+     * Set up a MutationObserver on #ordinationsContainer and #consecrationsContainer.
+     * When entries are added (e.g. by initializeFormFromRank), re-run the panel from form data
+     * so it switches from list-based to form-based ranges.
+     */
+    function setupEntriesObserver() {
+        if (typeof document === 'undefined') {
+            return;
+        }
+        if (entriesObserver) {
+            entriesObserver.disconnect();
+            entriesObserver = null;
+        }
+        if (entriesObserverDebounceTimer != null) {
+            clearTimeout(entriesObserverDebounceTimer);
+            entriesObserverDebounceTimer = null;
+        }
+        const form = document.getElementById('clergyForm');
+        const root = form || document;
+        const ordinationsContainer = root.querySelector('#ordinationsContainer');
+        const consecrationsContainer = root.querySelector('#consecrationsContainer');
+        if (!ordinationsContainer && !consecrationsContainer) {
+            return;
+        }
+        entriesObserver = new MutationObserver(function (mutations) {
+            const hasAdditions = mutations.some(function (m) {
+                return m.type === 'childList' && m.addedNodes && m.addedNodes.length > 0;
+            });
+            if (!hasAdditions) {
+                return;
+            }
+            if (entriesObserverDebounceTimer != null) {
+                clearTimeout(entriesObserverDebounceTimer);
+            }
+            entriesObserverDebounceTimer = window.setTimeout(function () {
+                entriesObserverDebounceTimer = null;
+                if (currentRootClergyId != null && Number.isFinite(currentRootClergyId)) {
+                    handleFormChanged();
+                }
+            }, ENTRIES_OBSERVER_DEBOUNCE_MS);
+        });
+        const observerOpts = { childList: true, subtree: true };
+        if (ordinationsContainer) {
+            entriesObserver.observe(ordinationsContainer, observerOpts);
+        }
+        if (consecrationsContainer) {
+            entriesObserver.observe(consecrationsContainer, observerOpts);
+        }
+    }
 
     /**
      * Render an explicit "no selection" empty state into the Validation
@@ -850,7 +1509,14 @@
         }
 
         const descendants = Array.isArray(impactResult.descendants) ? impactResult.descendants : [];
+        const unsaved = typeof window !== 'undefined' && typeof window.isClergyFormDirty === 'function' && window.isClergyFormDirty();
+
         if (descendants.length === 0) {
+            const stateIndicator = document.createElement('div');
+            stateIndicator.className = 'validation-impact-state-indicator validation-impact-state-indicator--' + (unsaved ? 'unsaved' : 'saved');
+            stateIndicator.setAttribute('aria-live', 'polite');
+            stateIndicator.textContent = unsaved ? 'Showing: unsaved form' : 'Showing: saved record';
+            panel.appendChild(stateIndicator);
             const empty = document.createElement('div');
             empty.className = 'validation-impact-empty';
             empty.textContent = 'No descendant clergy found for this bishop in the current graph.';
@@ -862,6 +1528,11 @@
         const clergyById = cache.clergyById || new Map();
 
         const affectedCount = descendants.reduce((count, desc) => desc && desc.hasViolation ? count + 1 : count, 0);
+
+        const stateIndicator = document.createElement('div');
+        stateIndicator.className = 'validation-impact-state-indicator validation-impact-state-indicator--' + (unsaved ? 'unsaved' : 'saved');
+        stateIndicator.setAttribute('aria-live', 'polite');
+        stateIndicator.textContent = unsaved ? 'Showing: unsaved form' : 'Showing: saved record';
 
         const actions = document.createElement('div');
         actions.className = 'validation-impact-actions';
@@ -894,109 +1565,74 @@
         actions.appendChild(metaLine);
         actions.appendChild(selectAllWrapper);
 
+        panel.appendChild(stateIndicator);
         panel.appendChild(actions);
 
-        const list = document.createElement('ul');
-        list.className = 'validation-impact-descendant-list';
+        const StatusInheritance = (typeof window !== 'undefined' && window.StatusInheritance) ? window.StatusInheritance : null;
+        const { ranges: rangesWithValidity } = getFormBishopRangesWithValidityForPanel(typeof document !== 'undefined' ? document : null, impactResult.rootId);
+        const groups = buildDescendantGroupsByRange(descendants, rangesWithValidity);
 
-        const STATUS_PRIORITY = {
-            invalid: 4,
-            doubtfully_valid: 3,
-            doubtful_event: 2,
-            sub_conditione: 1,
-            valid: 0
-        };
-
-        function getWorstStatus(statuses) {
-            if (!statuses || statuses.length === 0) {
-                return null;
-            }
-            let worst = null;
-            let worstScore = -1;
-            statuses.forEach(status => {
-                const score = STATUS_PRIORITY[status] != null ? STATUS_PRIORITY[status] : -1;
-                if (score > worstScore) {
-                    worstScore = score;
-                    worst = status;
-                }
-            });
-            return worst;
-        }
-
-        function getStatusLabel(status) {
-            switch (status) {
-                case 'invalid':
-                    return 'Invalid';
-                case 'doubtfully_valid':
-                    return 'Doubtfully valid';
-                case 'doubtful_event':
-                    return 'Doubtful event';
-                case 'sub_conditione':
-                    return 'Sub conditione';
-                case 'valid':
-                default:
-                    return 'Valid';
-            }
-        }
-
-        descendants.forEach(desc => {
-            if (!desc || typeof desc.id !== 'number') {
-                return;
-            }
+        function buildDescendantRow(desc, events, clergyByIdRef, StatusInheritanceRef) {
+            const eventList = Array.isArray(events) ? events : [];
+            const hasViolation = eventList.some(evt => evt && evt.isAllowed === false);
 
             const row = document.createElement('li');
             row.className = 'validation-impact-descendant-row';
             row.setAttribute('data-clergy-id', String(desc.id));
-            if (desc.hasViolation) {
+            if (hasViolation) {
                 row.classList.add('affected');
                 row.setAttribute('data-affected', 'true');
             }
 
-            const clergy = clergyById.get(desc.id) || {};
+            const clergy = clergyByIdRef.get(desc.id) || {};
             const fullName = clergy.name || clergy.display_name || `Clergy #${desc.id}`;
+            const VALIDATION_IMPACT_NAME_MAX_LEN = 25;
+            const displayName = fullName.length > VALIDATION_IMPACT_NAME_MAX_LEN
+                ? fullName.slice(0, VALIDATION_IMPACT_NAME_MAX_LEN - 3) + '...'
+                : fullName;
 
             const nameEl = document.createElement('span');
             nameEl.className = 'validation-impact-descendant-name';
-            nameEl.textContent = fullName;
+            nameEl.textContent = displayName;
             nameEl.title = fullName;
 
             const relationBadges = document.createElement('span');
             relationBadges.className = 'validation-impact-relation-badges';
-
-            const viaArray = Array.isArray(desc.via) ? desc.via : [];
-            const hasOrdEdge = viaArray.some(v => v && Array.isArray(v.ordinations) && v.ordinations.length > 0);
-            const hasConsEdge = viaArray.some(v => v && Array.isArray(v.consecrations) && v.consecrations.length > 0);
-
-            if (hasOrdEdge) {
-                const ordChip = document.createElement('span');
-                ordChip.className = 'validation-impact-relation-chip';
-                ordChip.textContent = hasConsEdge ? 'Ord.' : 'Ordination';
-                relationBadges.appendChild(ordChip);
-            }
-            if (hasConsEdge) {
-                const consChip = document.createElement('span');
-                consChip.className = 'validation-impact-relation-chip';
-                consChip.textContent = hasOrdEdge ? 'Cons.' : 'Consecration';
-                relationBadges.appendChild(consChip);
-            }
+            eventList.forEach(evt => {
+                if (!evt) {
+                    return;
+                }
+                const typeShort = evt.lineType === 'consecration' ? 'Cons.' : 'Ord.';
+                const statusForBadge = evt.effectiveAfter || evt.effectiveBefore;
+                const statusLabel = (StatusInheritanceRef && typeof StatusInheritanceRef.getStatusLabel === 'function')
+                    ? StatusInheritanceRef.getStatusLabel(statusForBadge)
+                    : (statusForBadge || 'Valid');
+                const chip = document.createElement('span');
+                chip.className = 'validation-impact-relation-chip';
+                chip.textContent = `${typeShort} ${statusLabel}`;
+                relationBadges.appendChild(chip);
+            });
 
             const statusContainer = document.createElement('span');
             statusContainer.className = 'validation-impact-status-badges';
 
-            const events = Array.isArray(desc.events) ? desc.events : [];
-            const effectiveStatuses = events
+            const effectiveStatuses = eventList
                 .map(evt => evt && (evt.effectiveBefore || evt.effectiveAfter))
                 .filter(Boolean);
-            const worstStatus = getWorstStatus(effectiveStatuses);
+            const worstStatus = (effectiveStatuses.length > 0 && StatusInheritanceRef && typeof StatusInheritanceRef.getWorstStatus === 'function')
+                ? StatusInheritanceRef.getWorstStatus(effectiveStatuses)
+                : null;
 
             if (worstStatus) {
                 const statusBadge = document.createElement('span');
                 statusBadge.className = 'validation-impact-badge validation-impact-badge--' + worstStatus;
-                statusBadge.textContent = getStatusLabel(worstStatus);
+                statusBadge.textContent = (StatusInheritanceRef && typeof StatusInheritanceRef.getStatusLabel === 'function')
+                    ? StatusInheritanceRef.getStatusLabel(worstStatus)
+                    : (worstStatus || 'Valid');
                 statusContainer.appendChild(statusBadge);
             }
 
-            if (desc.hasViolation) {
+            if (hasViolation) {
                 const impactBadge = document.createElement('span');
                 impactBadge.className = 'validation-impact-badge validation-impact-badge--doubtfully_valid';
                 impactBadge.textContent = 'Will downgrade';
@@ -1026,10 +1662,47 @@
             row.appendChild(statusContainer);
             row.appendChild(actionsCell);
 
-            list.appendChild(row);
-        });
+            return row;
+        }
 
-        panel.appendChild(list);
+        const visibleGroups = (groups || []).filter(
+            grp => grp.rangeIndex > 1 || (grp.items && grp.items.length > 0)
+        );
+        if (groups.length === 0) {
+            const emptyGroupsNote = document.createElement('div');
+            emptyGroupsNote.className = 'validation-impact-empty editor-text-xs editor-text-tertiary';
+            emptyGroupsNote.textContent = 'No ordination or consecration events by this bishop in the current graph.';
+            panel.appendChild(emptyGroupsNote);
+        } else {
+            visibleGroups.forEach(grp => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'validation-impact-group';
+
+                const groupHeader = document.createElement('div');
+                groupHeader.className = 'validation-impact-group-header';
+                groupHeader.setAttribute('data-range-index', String(grp.rangeIndex));
+                const headerLabel = document.createElement('span');
+                headerLabel.className = 'validation-impact-group-title';
+                headerLabel.textContent = grp.rangeLabel;
+                const headerValidity = document.createElement('span');
+                headerValidity.className = grp.isValid ? 'validation-impact-group-valid' : 'validation-impact-group-invalid';
+                headerValidity.textContent = grp.isValid ? 'valid' : 'invalid';
+                groupHeader.appendChild(headerLabel);
+                groupHeader.appendChild(headerValidity);
+
+                const list = document.createElement('ul');
+                list.className = 'validation-impact-descendant-list';
+
+                grp.items.forEach(({ desc, events: itemEvents }) => {
+                    const row = buildDescendantRow(desc, itemEvents, clergyById, StatusInheritance);
+                    list.appendChild(row);
+                });
+
+                groupDiv.appendChild(groupHeader);
+                groupDiv.appendChild(list);
+                panel.appendChild(groupDiv);
+            });
+        }
 
         function getRowCheckboxes() {
             return Array.prototype.slice.call(
@@ -1241,6 +1914,12 @@
                 return;
             }
 
+            // Invalidate caches so subsequent panel operations use fresh data.
+            if (typeof window !== 'undefined') {
+                window.__validationImpactGraphCache = undefined;
+                window.__validationImpactRangesCache = undefined;
+            }
+
             // Soft refresh the visualization so its link colours / statuses
             // reflect the newly applied validity changes.
             if (typeof window !== 'undefined' && typeof window.softRefreshVisualization === 'function') {
@@ -1303,6 +1982,7 @@
      * Internal helper to attach change listeners to the clergy form so that
      * the Validation Impact panel can react to live edits to validity
      * dropdowns and status checkboxes.
+     * Validation panel updates are intentionally synchronous so changes are instant.
      *
      * @param {Element} root
      */
@@ -1359,19 +2039,22 @@
         currentRootClergyId = numericId;
         renderValidationImpactLoading('Computing validation impact...');
 
-        const syntheticSummary = buildSyntheticBishopSummaryFromForm(
-            document.getElementById('clergyForm') || document
-        );
+        const formRoot = document.getElementById('clergyForm') || document;
+        getFormBishopRangesWithValidityForPanel(formRoot, currentRootClergyId);
+
+        const syntheticSummary = buildSyntheticBishopSummaryFromForm(formRoot);
         const impact = evaluateCascadeImpact(currentRootClergyId, syntheticSummary);
         lastImpactResult = impact;
         renderValidationImpactPanel(impact);
 
         wireFormChangeListeners(document.getElementById('clergyForm') || document);
+        setupEntriesObserver();
     }
 
     /**
      * Recompute the cascade impact when the clergy form changes. This uses
      * the current root clergy ID and the latest synthetic bishop summary.
+     * Validation panel updates are intentionally synchronous so changes are instant.
      */
     function handleFormChanged() {
         if (typeof document === 'undefined') {
@@ -1380,9 +2063,9 @@
         if (!currentRootClergyId || !Number.isFinite(currentRootClergyId)) {
             return;
         }
-        const syntheticSummary = buildSyntheticBishopSummaryFromForm(
-            document.getElementById('clergyForm') || document
-        );
+        const formRoot = document.getElementById('clergyForm') || document;
+        getFormBishopRangesWithValidityForPanel(formRoot, currentRootClergyId);
+        const syntheticSummary = buildSyntheticBishopSummaryFromForm(formRoot);
         const impact = evaluateCascadeImpact(currentRootClergyId, syntheticSummary);
         lastImpactResult = impact;
         renderValidationImpactPanel(impact);
@@ -1396,6 +2079,20 @@
         getDescendantsBFS,
         getDescendantsDFS,
         getOrBuildCachedAdjacency,
+        getDateFromFormEntry,
+        getDateFromRecord,
+        getEventDateSortValue,
+        getBoundarySortValue,
+        placeEventInRange,
+        buildFormBishopRanges,
+        computeValidityPerRange,
+        computeValidityPerRangeFromRecords,
+        buildFormBishopRangesWithValidity,
+        buildRangesWithValidityFromClergy,
+        buildRangesWithValidity,
+        getFormBishopRangesWithValidityForPanel,
+        getCachedRangesWithValidity,
+        buildDescendantGroupsByRange,
         buildSyntheticBishopSummaryFromForm,
         evaluateCascadeImpact,
         renderValidationImpactPanel,
@@ -1436,10 +2133,15 @@
             }
             const formElement = containsForm || (isForm ? target : null) || document.getElementById('clergyForm');
             wireFormChangeListeners(formElement || document);
+            // Observe ordination/consecration containers so when entries are injected we re-render the panel
+            window.setTimeout(setupEntriesObserver, 0);
 
-            const rootId = (typeof window.currentSelectedClergyId === 'number')
-                ? window.currentSelectedClergyId
-                : currentRootClergyId;
+            // Defer panel init until form entries are populated (clergyFormEntriesPopulated event)
+            // so panel uses form-based data after switchToEditMode / save
+        });
+
+        document.body.addEventListener('clergyFormEntriesPopulated', function (event) {
+            const rootId = (event.detail && event.detail.rootId != null) ? event.detail.rootId : (typeof window.currentSelectedClergyId === 'number' ? window.currentSelectedClergyId : currentRootClergyId);
             if (rootId && typeof window.ValidationImpactPanel.init === 'function') {
                 window.ValidationImpactPanel.init(rootId);
             } else if (!rootId) {

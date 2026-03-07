@@ -888,6 +888,9 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
                 } else {
                     console.warn('HTMX afterSwap: initializeEmbeddedFormScript not available');
                 }
+                // Defer validation panel init until form entries are populated (post-save-reinit-panel)
+                var rootId = (typeof window.currentSelectedClergyId === 'number') ? window.currentSelectedClergyId : null;
+                document.body.dispatchEvent(new CustomEvent('clergyFormEntriesPopulated', { detail: { rootId: rootId } }));
             }, 10);
         }, 50);
         

@@ -1,6 +1,22 @@
 (() => {
     'use strict';
 
+    /*
+     * LINEAGE RULES (single source of truth for status/validity)
+     *
+     * Effective statuses (worst to best): invalid, doubtfully_valid, doubtful_event, sub_conditione, valid.
+     * Priority order: higher number = worse (invalid=4, valid=0). getWorstStatus uses this.
+     *
+     * Bishop summary semantics: has_valid_ordination, has_valid_consecration, worst_ordination_status,
+     * worst_consecration_status. If the bishop has valid ordination (consecration), all effective statuses
+     * are allowed for ordinations (consecrations) performed by them; otherwise allowed statuses are
+     * restricted via mapWorstStatusToAllowedEffective.
+     *
+     * Rule APIs: getEffectiveStatus(record), getWorstStatus(statuses),
+     * getAllowedOrdinationStatuses(bishopSummary), getAllowedConsecrationStatuses(bishopSummary).
+     * Constants: STATUS_PRIORITY, ALL_EFFECTIVE_STATUSES, VALIDITY_VALUES. Helper: getStatusLabel(status).
+     */
+
     const STATUS_PRIORITY = {
         invalid: 4,
         doubtfully_valid: 3,
@@ -75,6 +91,17 @@
             }
             return STATUS_PRIORITY[current] > STATUS_PRIORITY[worst] ? current : worst;
         }, null);
+    }
+
+    function getStatusLabel(status) {
+        switch (status) {
+            case 'invalid': return 'Invalid';
+            case 'doubtfully_valid': return 'Doubtfully valid';
+            case 'doubtful_event': return 'Doubtful event';
+            case 'sub_conditione': return 'Sub conditione';
+            case 'valid': return 'Valid';
+            default: return status || 'Valid';
+        }
     }
 
     function mapWorstStatusToAllowedEffective(worstStatus) {
@@ -475,8 +502,12 @@
     });
 
     window.StatusInheritance = {
+        STATUS_PRIORITY,
+        ALL_EFFECTIVE_STATUSES,
+        VALIDITY_VALUES,
         getEffectiveStatus,
         getWorstStatus,
+        getStatusLabel,
         getAllowedOrdinationStatuses: getAllowedEffectiveOrdinationStatuses,
         getAllowedConsecrationStatuses: getAllowedEffectiveConsecrationStatuses,
         isOrdinationStatusAllowed,

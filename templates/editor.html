@@ -1235,9 +1235,7 @@
                                 highlightClergyInList(clergyId);
                                 highlightClergyInVisualization(clergyId);
                             }
-                                if (window.ValidationImpactPanel && typeof window.ValidationImpactPanel.init === 'function') {
-                                    window.ValidationImpactPanel.init(clergyId || null);
-                                }
+                            // Panel init deferred until clergyFormEntriesPopulated (after form entries populated)
                             resolve();
                         }).catch(error => {
                             console.error('Error loading form:', error);
@@ -1256,9 +1254,7 @@
                                 highlightClergyInList(clergyId);
                                 highlightClergyInVisualization(clergyId);
                             }
-                            if (window.ValidationImpactPanel && typeof window.ValidationImpactPanel.init === 'function') {
-                                window.ValidationImpactPanel.init(clergyId || null);
-                            }
+                            // Panel init deferred until clergyFormEntriesPopulated (after form content loaded into loader)
                             resolve();
                         }).catch(error => {
                             console.error('Error loading clergy form panel:', error);

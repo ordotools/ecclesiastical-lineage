@@ -1074,28 +1074,14 @@
         }
         window.getRequestType = getRequestType;
 
-        // Global event listeners for panel updates (single handler: clergy-api → refresh viz + clergy-count; clergy-selection → re-highlight only)
+        // Global event listeners for panel updates (clergy-api → unified refreshEditorAfterClergySave; clergy-selection → re-highlight only)
         document.body.addEventListener('htmx:afterRequest', function (evt) {
             const requestType = getRequestType(evt);
 
             if (requestType === 'clergy-api') {
-                // Refresh lineage menu — menu template re-highlights from window.currentSelectedClergyId
-                const menuTarget = document.getElementById('visualization-panel-content');
-                if (menuTarget && typeof htmx !== 'undefined') {
-                    htmx.ajax('GET', '/editor/lineage-menu', { target: menuTarget, swap: 'innerHTML' });
+                if (typeof window.refreshEditorAfterClergySave === 'function') {
+                    window.refreshEditorAfterClergySave();
                 }
-                // Update clergy count in status bar
-                setTimeout(() => {
-                    fetch('/api/stats/clergy-count')
-                        .then(response => response.json())
-                        .then(data => {
-                            const el = document.getElementById('clergy-count');
-                            if (el) el.textContent = data.count || 0;
-                        })
-                        .catch(error => {
-                            console.error('Failed to update clergy count:', error);
-                        });
-                }, 500);
             } else if (requestType === 'clergy-selection') {
                 // Re-highlight after selection
                 if (window.currentSelectedClergyId) {
@@ -1117,9 +1103,9 @@
             // Only refresh visualization for actual updates, not selections
             if (evt.detail && evt.detail.action && (evt.detail.action === 'updated' || evt.detail.action === 'created' || evt.detail.action === 'deleted')) {
                 // HTMX panel reload (same pattern as clergy list) — menu template re-highlights from window.currentSelectedClergyId
-                const menuTarget = document.getElementById('visualization-panel-content');
-                if (menuTarget && typeof htmx !== 'undefined') {
-                    htmx.ajax('GET', '/editor/lineage-menu', { target: menuTarget, swap: 'innerHTML' });
+                const centerPanelContent = document.getElementById('visualization-panel-content');
+                if (typeof htmx !== 'undefined' && centerPanelContent) {
+                    htmx.ajax('GET', '/editor/lineage-menu', { target: centerPanelContent, swap: 'innerHTML' });
                 }
             }
         });
@@ -1128,9 +1114,9 @@
         document.body.addEventListener('click', function (e) {
             if (e.target.closest('#viz-reload-btn')) {
                 e.preventDefault();
-                const menuTarget = document.getElementById('visualization-panel-content');
-                if (menuTarget && typeof htmx !== 'undefined') {
-                    htmx.ajax('GET', '/editor/lineage-menu', { target: menuTarget, swap: 'innerHTML' });
+                const centerPanelContent = document.getElementById('visualization-panel-content');
+                if (typeof htmx !== 'undefined' && centerPanelContent) {
+                    htmx.ajax('GET', '/editor/lineage-menu', { target: centerPanelContent, swap: 'innerHTML' });
                 }
             }
         });
@@ -1457,6 +1443,50 @@
                     statusDetails.textContent = 'Failed to check status';
                 });
         }
+
+        /**
+         * Unified post-save refresh: clergy list, lineage menu, status bar, validation caches, optional viz + highlight.
+         * Call after successful clergy add/edit/delete (e.g. from fetch save in clergy-form-submission.js).
+         * @param {number|null} [clergyId] - Current clergy id for re-init and re-highlight (defaults to currentSelectedClergyId).
+         */
+        function refreshEditorAfterClergySave(clergyId) {
+            const id = clergyId != null ? clergyId : window.currentSelectedClergyId;
+            const leftPanelContent = document.querySelector('.left-panel .panel-content');
+            const centerPanelContent = document.getElementById('visualization-panel-content');
+
+            updateStatusBar();
+
+            const listPromise = leftPanelContent && typeof htmx !== 'undefined'
+                ? htmx.ajax('GET', '/editor/clergy-list', { target: leftPanelContent, swap: 'innerHTML' })
+                : Promise.resolve();
+
+            Promise.all([listPromise]).then(() => {
+                const menuPromise = centerPanelContent && typeof htmx !== 'undefined'
+                    ? htmx.ajax('GET', '/editor/lineage-menu', { target: centerPanelContent, swap: 'innerHTML' })
+                    : Promise.resolve();
+                return menuPromise;
+            }).then(() => {
+                window.__validationImpactGraphCache = undefined;
+                window.__validationImpactRangesCache = undefined;
+                if (typeof window.ValidationImpactPanel !== 'undefined' && typeof window.ValidationImpactPanel.init === 'function') {
+                    window.ValidationImpactPanel.init(id);
+                }
+                if (typeof window.softRefreshVisualization === 'function') {
+                    window.softRefreshVisualization();
+                }
+                if (id && typeof window.highlightClergyInList === 'function') {
+                    window.highlightClergyInList(id);
+                }
+                if (id && typeof window.highlightClergyInVisualization === 'function') {
+                    window.highlightClergyInVisualization(id);
+                }
+                const auditEl = document.getElementById('clergy-audit-logs-content');
+                if (auditEl && auditEl.classList.contains('active') && typeof htmx !== 'undefined') {
+                    htmx.ajax('GET', '/editor/audit-logs', { target: '#clergy-audit-logs-content', swap: 'innerHTML' });
+                }
+            }).catch(err => console.error('refreshEditorAfterClergySave:', err));
+        }
+        window.refreshEditorAfterClergySave = refreshEditorAfterClergySave;
 
         // Update status bar on page load
         document.addEventListener('DOMContentLoaded', function () {

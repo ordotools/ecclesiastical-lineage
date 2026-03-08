@@ -217,8 +217,6 @@ window.submitForm = function(form) {
                 if (wasMarkedDeleted && typeof window.clearFormForNewEntry === 'function') {
                     window.clearFormForNewEntry().then(hideOverlayAndReset).catch(hideOverlayAndReset);
                 } else if (data.clergy_id && typeof window.switchToEditMode === 'function') {
-                    window.__validationImpactGraphCache = undefined;
-                    window.__validationImpactRangesCache = undefined;
                     window.switchToEditMode(data.clergy_id).then(hideOverlayAndReset).catch(hideOverlayAndReset);
                 } else {
                     hideOverlayAndReset();
@@ -227,6 +225,10 @@ window.submitForm = function(form) {
                 if (data.clergy_id && typeof window.startSpritesheetPolling === 'function') {
                     window.startSpritesheetPolling(data.clergy_id);
                 }
+                if (typeof window.refreshEditorAfterClergySave === 'function') {
+                    window.refreshEditorAfterClergySave(data.clergy_id);
+                }
+                document.dispatchEvent(new CustomEvent('editor:clergy-saved', { detail: { clergyId: data.clergy_id } }));
             } else {
                 setTimeout(() => {
                     if (typeof window.clearFormCompletely === 'function') {

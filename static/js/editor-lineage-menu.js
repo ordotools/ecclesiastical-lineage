@@ -239,6 +239,16 @@
         });
     }
 
+    /**
+     * Center panel owns refresh after clergy save: listen for editor:clergy-saved and reload lineage menu.
+     */
+    document.addEventListener('editor:clergy-saved', function () {
+        const root = document.getElementById(CENTER_PANEL_ID);
+        if (root && typeof htmx !== 'undefined') {
+            htmx.ajax('GET', '/editor/lineage-menu', { target: root, swap: 'innerHTML' });
+        }
+    });
+
     // Expose helpers for debugging / potential reuse
     if (typeof window !== 'undefined') {
         window.initializeEditorLineageMenu = initializeEditorLineageMenu;

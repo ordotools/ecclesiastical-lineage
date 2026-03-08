@@ -35,7 +35,7 @@
 
 <script>
     (function () {
-        console.log('Globe view template script starting...');
+        if (window.EDITOR_DEBUG) console.log('Globe view template script starting...');
 
         // Data from the server
         const nodesData = {{ nodes_json | safe
@@ -46,21 +46,21 @@
     window.nodesData = nodesData;
     window.linksData = linksData;
 
-    console.log('Globe view - Location data:', nodesData.length, 'Links data:', linksData.length);
+    if (window.EDITOR_DEBUG) console.log('Globe view - Location data:', nodesData.length, 'Links data:', linksData.length);
 
     // Wait for the script to load and then initialize
     function waitForScriptAndInitialize() {
         if (typeof window.ChapelViewVisualization === 'undefined') {
-            console.log('ChapelViewVisualization not yet loaded, retrying...');
+            if (window.EDITOR_DEBUG) console.log('ChapelViewVisualization not yet loaded, retrying...');
             setTimeout(waitForScriptAndInitialize, 100);
             return;
         }
 
-        console.log('Script loaded, initializing globe view...');
+        if (window.EDITOR_DEBUG) console.log('Script loaded, initializing globe view...');
 
         // Cleanup existing globe visualization on panel reload
         if (window.geographicVisualization) {
-            console.log('Cleaning up existing globe visualization...');
+            if (window.EDITOR_DEBUG) console.log('Cleaning up existing globe visualization...');
             if (typeof window.geographicVisualization.cleanup === 'function') {
                 window.geographicVisualization.cleanup();
             }
@@ -75,7 +75,7 @@
         setupMobileControls();
 
         // The globe visualization already displays location markers, so no need for chapel overlay
-        console.log('Globe view initialized successfully with', nodesData.length, 'chapel locations');
+        if (window.EDITOR_DEBUG) console.log('Globe view initialized successfully with', nodesData.length, 'chapel locations');
     }
 
     // Setup mobile controls

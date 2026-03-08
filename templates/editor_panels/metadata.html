@@ -56,7 +56,7 @@ function openMetadataModal() {
     if (typeof window.openMetadataManagementModal === 'function') {
         window.openMetadataManagementModal();
     } else {
-        console.error('Metadata management modal function not available');
+        if (window.EDITOR_DEBUG) console.error('Metadata management modal function not available');
         // Fallback notification
         if (typeof window.showNotification === 'function') {
             window.showNotification('Metadata management modal not available', 'error');

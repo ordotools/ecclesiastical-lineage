@@ -117,7 +117,7 @@
 <script>
 // Comment management functions
 function viewClergy(clergyId) {
-    console.log('View clergy:', clergyId);
+    if (window.EDITOR_DEBUG) console.log('View clergy:', clergyId);
     if (typeof window.selectClergy === 'function') {
         window.selectClergy(clergyId);
     }
@@ -156,7 +156,7 @@ function resolveComment(commentId) {
 }
 
 function replyToComment(commentId) {
-    console.log('Reply to comment:', commentId);
+    if (window.EDITOR_DEBUG) console.log('Reply to comment:', commentId);
     window.showNotification('Comment reply functionality coming soon', 'info');
 }
 

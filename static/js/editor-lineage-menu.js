@@ -52,7 +52,7 @@
                     const contentType = response.headers.get('content-type');
                     if (!contentType || !contentType.includes('application/json')) {
                         const text = await response.text();
-                        console.warn(
+                        if (window.EDITOR_DEBUG) console.warn(
                             'Sprite sheet endpoint returned non-JSON response for lineage menu:',
                             contentType,
                             text.substring(0, 200)
@@ -63,7 +63,7 @@
                 }
             }
         } catch (err) {
-            console.warn('Error fetching sprite sheet data for lineage menu:', err);
+            if (window.EDITOR_DEBUG) console.warn('Error fetching sprite sheet data for lineage menu:', err);
             return;
         }
 

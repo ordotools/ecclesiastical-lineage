@@ -76,11 +76,11 @@ class VisualizationStyleController {
                 // Wait for elements to be ready before updating UI
                 this.updateUIFromStyles();
             } else {
-                console.warn('Failed to load styles, using defaults');
+                if (window.EDITOR_DEBUG) console.warn('Failed to load styles, using defaults');
                 this.loadDefaultStyles();
             }
         } catch (error) {
-            console.error('Error loading styles:', error);
+            if (window.EDITOR_DEBUG) console.error('Error loading styles:', error);
             this.loadDefaultStyles();
         }
     }
@@ -131,7 +131,7 @@ class VisualizationStyleController {
             if (retryCount < 10) {
                 setTimeout(() => this.updateUIFromStyles(retryCount + 1), 100);
             } else {
-                console.warn('Style panel elements not found after retries');
+                if (window.EDITOR_DEBUG) console.warn('Style panel elements not found after retries');
             }
             return;
         }
@@ -150,7 +150,7 @@ class VisualizationStyleController {
                 }
                 return true;
             } catch (e) {
-                console.error(`Error setting value for ${id}:`, e);
+                if (window.EDITOR_DEBUG) console.error(`Error setting value for ${id}:`, e);
                 return false;
             }
         };
@@ -344,7 +344,7 @@ class VisualizationStyleController {
                     }, 1500);
                 }
             } else {
-                console.error('Failed to save styles:', data.error);
+                if (window.EDITOR_DEBUG) console.error('Failed to save styles:', data.error);
                 if (saveBtn) {
                     saveBtn.textContent = 'Error - Retry';
                     setTimeout(() => {
@@ -354,7 +354,7 @@ class VisualizationStyleController {
                 }
             }
         } catch (error) {
-            console.error('Error saving styles:', error);
+            if (window.EDITOR_DEBUG) console.error('Error saving styles:', error);
             const saveBtn = document.getElementById('viz-style-save');
             if (saveBtn) {
                 saveBtn.textContent = 'Error - Retry';

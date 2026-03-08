@@ -8,7 +8,7 @@
         try {
             return JSON.parse(root.dataset[key]);
         } catch (error) {
-            console.warn(`Failed to parse data-${key}:`, error);
+            if (window.EDITOR_DEBUG) console.warn(`Failed to parse data-${key}:`, error);
             return [];
         }
     }
@@ -289,7 +289,7 @@
                 tableContainer.innerHTML = html;
                 renderMarkdownNotes(tableContainer);
             } catch (error) {
-                console.error(error);
+                if (window.EDITOR_DEBUG) console.error(error);
                 showMessage(error.message, 'error');
             }
         };
@@ -315,7 +315,7 @@
         };
 
         if (document.body) {
-            document.body.addEventListener('clergySeleced', (event) => {
+            document.body.addEventListener('clergySelected', (event) => {
                 const clergyId = event.detail ? event.detail.clergyId : null;
                 handleClergySelectionEvent(clergyId);
             });
@@ -400,7 +400,7 @@
                     }
                     loadEvents(currentClergy, true);
                 } catch (error) {
-                    console.error(error);
+                    if (window.EDITOR_DEBUG) console.error(error);
                     showMessage(error.message, 'error');
                 } finally {
                     setFormBusy(false);

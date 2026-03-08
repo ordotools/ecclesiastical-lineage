@@ -438,7 +438,7 @@
         }
       })
       .catch(error => {
-        console.error('Error loading user:', error);
+        if (window.EDITOR_DEBUG) console.error('Error loading user:', error);
         showMessage('Error loading user data', 'error');
       });
   }
@@ -465,7 +465,7 @@
         }
       })
       .catch(error => {
-        console.error('Error deleting user:', error);
+        if (window.EDITOR_DEBUG) console.error('Error deleting user:', error);
         showMessage('Error deleting user', 'error');
       });
     }
@@ -507,7 +507,7 @@
       }
     })
     .catch(error => {
-      console.error('Error saving user:', error);
+      if (window.EDITOR_DEBUG) console.error('Error saving user:', error);
       showMessage('Error saving user', 'error');
     });
   });

@@ -1,7 +1,14 @@
 /**
  * Resizable Panes for Editor Interface
- * Provides drag-to-resize functionality for editor panels
+ * Provides drag-to-resize functionality for editor panels.
+ * Gated by ENABLE_EDITOR_PANEL_RESIZING (or ENABLE_EDITOR_RESIZING) set in editor-init.js.
+ * Script is currently commented out in editor.html; see that file to enable.
  */
+
+function getEditorBottomStripHeightPx() {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--editor-bottom-strip-height').trim();
+    return v ? parseInt(v, 10) : 40;
+}
 
 class ResizablePanes {
     constructor() {
@@ -138,7 +145,7 @@ class ResizablePanes {
         const deltaX = e.clientX - this.startX;
         const bottomPanel = document.querySelector('.bottom-panel');
         const bottomHeight = container.classList.contains('bottom-panel-collapsed')
-            ? 40
+            ? getEditorBottomStripHeightPx()
             : (bottomPanel ? bottomPanel.offsetHeight : 0);
         const validationPanel = document.querySelector('.validation-panel');
         const liveValidationWidth = validationPanel ? validationPanel.offsetWidth : 0;
@@ -232,7 +239,7 @@ class ResizablePanes {
         this.startLeftWidth = leftPanel.offsetWidth;
         this.startRightWidth = rightPanel.offsetWidth;
         this.startBottomHeight = container.classList.contains('bottom-panel-collapsed')
-            ? 40
+            ? getEditorBottomStripHeightPx()
             : bottomPanel.offsetHeight;
         const validationPanel = document.querySelector('.validation-panel');
         this.startValidationWidth = validationPanel ? validationPanel.offsetWidth : 0;
@@ -297,7 +304,7 @@ class ResizablePanes {
                 setTimeout(() => this.updateHandlePositions(), 0);
             }
         } catch (e) {
-            console.warn('Failed to load saved editor layout:', e);
+            if (window.EDITOR_DEBUG) console.warn('Failed to load saved editor layout:', e);
             // Clear corrupted data
             localStorage.removeItem('editorLayout');
         }
@@ -316,7 +323,7 @@ class ResizablePanes {
         const leftWidth = leftPanel.offsetWidth;
         const rightWidth = rightPanel.offsetWidth;
         const collapsed = container.classList.contains('bottom-panel-collapsed');
-        const bottomHeight = collapsed ? 40 : bottomPanel.offsetHeight;
+        const bottomHeight = collapsed ? getEditorBottomStripHeightPx() : bottomPanel.offsetHeight;
         const verticalHeight = container.offsetHeight - bottomHeight;
         const containerRect = container.getBoundingClientRect();
         const rightRect = rightPanel.getBoundingClientRect();

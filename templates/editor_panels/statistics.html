@@ -113,17 +113,17 @@
 <script>
 // Statistics panel functions
 function exportData() {
-    console.log('Export data requested');
+    if (window.EDITOR_DEBUG) console.log('Export data requested');
     window.showNotification('Data export functionality coming soon', 'info');
 }
 
 function generateReport() {
-    console.log('Generate report requested');
+    if (window.EDITOR_DEBUG) console.log('Generate report requested');
     window.showNotification('Report generation functionality coming soon', 'info');
 }
 
 function refreshStats() {
-    console.log('Refresh stats requested');
+    if (window.EDITOR_DEBUG) console.log('Refresh stats requested');
     // Reload the statistics panel
     htmx.ajax('GET', '/editor/statistics', {
         target: '#statistics-content',

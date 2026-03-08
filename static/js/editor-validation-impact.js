@@ -1866,7 +1866,7 @@
             const api = (typeof window !== 'undefined' && window.ValidationImpactPanel) ? window.ValidationImpactPanel : null;
             if (api && typeof api.applyBulkChanges === 'function') {
                 api.applyBulkChanges();
-            } else if (typeof console !== 'undefined' && console.warn) {
+            } else if (window.EDITOR_DEBUG && typeof console !== 'undefined' && console.warn) {
                 console.warn('ValidationImpactPanel.applyBulkChanges is not defined yet.');
             }
         });
@@ -1902,7 +1902,7 @@
         const rootClergyId = rootIdFromImpact ?? globalRootId;
 
         if (!rootClergyId) {
-            if (typeof console !== 'undefined' && console.warn) {
+            if (window.EDITOR_DEBUG && typeof console !== 'undefined' && console.warn) {
                 console.warn('ValidationImpactPanel.applyBulkChanges: no root clergy ID available.');
             }
             if (typeof window !== 'undefined' && typeof window.showNotification === 'function') {
@@ -2034,7 +2034,7 @@
             const data = await response.json().catch(function () { return {}; });
 
             if (!response.ok || data.error) {
-                if (typeof console !== 'undefined' && console.error) {
+                if (window.EDITOR_DEBUG && typeof console !== 'undefined' && console.error) {
                     console.error('Validation impact bulk update failed:', data.error || response.statusText);
                 }
                 if (typeof window !== 'undefined' && typeof window.alert === 'function') {
@@ -2091,7 +2091,7 @@
             lastImpactResult = newImpact;
             renderValidationImpactPanel(newImpact);
         } catch (error) {
-            if (typeof console !== 'undefined' && console.error) {
+            if (window.EDITOR_DEBUG && typeof console !== 'undefined' && console.error) {
                 console.error('Error during validation impact bulk update:', error);
             }
             if (typeof window !== 'undefined' && typeof window.alert === 'function') {
@@ -2238,8 +2238,8 @@
         const existing = window.ValidationImpactPanel || {};
         window.ValidationImpactPanel = Object.assign(existing, exported);
 
-        // Wire global events: clergySeleced and HTMX afterSwap
-        document.body.addEventListener('clergySeleced', function (event) {
+        // Wire global events: clergySelected and HTMX afterSwap
+        document.body.addEventListener('clergySelected', function (event) {
             const detail = event && event.detail ? event.detail : {};
             const clergyId = detail.clergyId;
             if (clergyId == null) {

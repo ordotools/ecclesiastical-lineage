@@ -238,7 +238,7 @@ try {
         window.bishopValidityMap = JSON.parse(bishopDataEl.textContent || '{}');
     }
 } catch (error) {
-    console.warn('Failed to parse status inheritance data', error);
+    if (window.EDITOR_DEBUG) console.warn('Failed to parse status inheritance data', error);
 }
 
 // Initialize clergy data from DOM
@@ -296,14 +296,14 @@ function applyFilters() {
     
     // Apply fuzzy search
     if (searchTerm) {
-        console.log('Applying search for:', searchTerm, 'on', filteredData.length, 'items');
+        if (window.EDITOR_DEBUG) console.log('Applying search for:', searchTerm, 'on', filteredData.length, 'items');
         if (typeof window.fuzzySearch === 'function') {
-            console.log('Using fuzzy search');
+            if (window.EDITOR_DEBUG) console.log('Using fuzzy search');
             const searchResults = window.fuzzySearch(filteredData, searchTerm, clergy => clergy.name);
-            console.log('Fuzzy search results:', searchResults.length);
+            if (window.EDITOR_DEBUG) console.log('Fuzzy search results:', searchResults.length);
             filteredData = searchResults.map(result => result.item);
         } else {
-            console.log('Using fallback search');
+            if (window.EDITOR_DEBUG) console.log('Using fallback search');
             // Fallback to simple substring search if fuzzy search not available
             const normalizedSearch = searchTerm.toLowerCase();
             filteredData = filteredData.filter(clergy => 
@@ -311,7 +311,7 @@ function applyFilters() {
                 (clergy.organization && clergy.organization.toLowerCase().includes(normalizedSearch))
             );
         }
-        console.log('Final filtered results:', filteredData.length);
+        if (window.EDITOR_DEBUG) console.log('Final filtered results:', filteredData.length);
     }
     
     // Update visibility of clergy items
@@ -346,13 +346,13 @@ function applyFilters() {
 
 // Clergy list specific selection function
 function selectClergyFromList(clergyId) {
-    console.log('Clergy selected from list:', clergyId);
+    if (window.EDITOR_DEBUG) console.log('Clergy selected from list:', clergyId);
     
     // Call the global selectClergy function to handle the form loading and highlighting
     if (typeof window.selectClergy === 'function') {
         window.selectClergy(clergyId);
     } else {
-        console.warn('window.selectClergy not available, using fallback');
+        if (window.EDITOR_DEBUG) console.warn('window.selectClergy not available, using fallback');
         // Fallback: load form content directly (skip intermediate template)
         // Clear form state first
         if (typeof window.clearGlobalFormState === 'function') {
@@ -496,7 +496,7 @@ function permanentlyDeleteSelected() {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
+        if (window.EDITOR_DEBUG) console.error('Error:', error);
         alert('Error deleting records. Please try again.');
     })
     .finally(() => {
@@ -508,29 +508,29 @@ function permanentlyDeleteSelected() {
 
 // Initialize when DOM is loaded
 function initializeClergyList() {
-    console.log('Initializing clergy list...');
+    if (window.EDITOR_DEBUG) console.log('Initializing clergy list...');
     
     // Initialize clergy data
     initializeClergyData();
-    console.log('Clergy data initialized:', allClergyData.length, 'items');
+    if (window.EDITOR_DEBUG) console.log('Clergy data initialized:', allClergyData.length, 'items');
     
     // Debug: Check if audit logs tab exists and is still in the DOM (avoid HTMX insertBefore on detached nodes)
     const auditLogsTab = document.getElementById('clergy-audit-logs-content');
     const auditTabInDom = auditLogsTab && document.contains(auditLogsTab);
-    console.log('🔍 Audit logs tab exists:', !!auditLogsTab, 'in DOM:', !!auditTabInDom);
+    if (window.EDITOR_DEBUG) console.log('🔍 Audit logs tab exists:', !!auditLogsTab, 'in DOM:', !!auditTabInDom);
     if (auditTabInDom) {
-        console.log('🔍 Attempting to load audit logs content manually...');
+        if (window.EDITOR_DEBUG) console.log('🔍 Attempting to load audit logs content manually...');
         try {
             htmx.ajax('GET', '/editor/audit-logs', {
                 target: auditLogsTab,
                 swap: 'innerHTML'
             }).then(() => {
-                console.log('✅ Manual audit logs load successful');
+                if (window.EDITOR_DEBUG) console.log('✅ Manual audit logs load successful');
             }).catch(error => {
-                console.error('❌ Manual audit logs load failed:', error);
+                if (window.EDITOR_DEBUG) console.error('❌ Manual audit logs load failed:', error);
             });
         } catch (error) {
-            console.error('❌ Error in manual audit logs load:', error);
+            if (window.EDITOR_DEBUG) console.error('❌ Error in manual audit logs load:', error);
         }
     }
     
@@ -539,7 +539,7 @@ function initializeClergyList() {
     const clearBtn = document.getElementById('clearSearchBtn');
     
     if (searchInput) {
-        console.log('Setting up search input listener');
+        if (window.EDITOR_DEBUG) console.log('Setting up search input listener');
         searchInput.addEventListener('input', applyFilters);
         
         // Clear search functionality
@@ -550,7 +550,7 @@ function initializeClergyList() {
             });
         }
     } else {
-        console.error('Search input not found!');
+        if (window.EDITOR_DEBUG) console.error('Search input not found!');
     }
     
     // Apply initial filters to set correct state
@@ -573,7 +573,7 @@ function initializeClergyList() {
         );
     }
     
-    console.log('Clergy list initialization complete');
+    if (window.EDITOR_DEBUG) console.log('Clergy list initialization complete');
 }
 
 // Try multiple initialization approaches
@@ -720,30 +720,32 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Load audit logs content initially since it's the active tab
-    console.log('🔍 Clergy list initialization complete, calling loadAuditLogsContent...');
+    if (window.EDITOR_DEBUG) console.log('🔍 Clergy list initialization complete, calling loadAuditLogsContent...');
     try {
         // Add a small delay to ensure DOM is fully ready
         setTimeout(() => {
             loadAuditLogsContent();
-            console.log('🔍 loadAuditLogsContent() call completed');
+            if (window.EDITOR_DEBUG) console.log('🔍 loadAuditLogsContent() call completed');
         }, 50);
     } catch (error) {
-        console.error('❌ Error calling loadAuditLogsContent():', error);
+        if (window.EDITOR_DEBUG) console.error('❌ Error calling loadAuditLogsContent():', error);
     }
 });
 
 // Function to load audit logs content manually
 function loadAuditLogsContent() {
-    console.log('🔍 loadAuditLogsContent() function called');
+    if (window.EDITOR_DEBUG) console.log('🔍 loadAuditLogsContent() function called');
     const auditLogsContent = document.getElementById('clergy-audit-logs-content');
-    console.log('🔍 Loading audit logs content...', auditLogsContent);
+    if (window.EDITOR_DEBUG) console.log('🔍 Loading audit logs content...', auditLogsContent);
     
     if (!auditLogsContent) {
-        console.log('❌ Audit logs content element not found');
-        console.log('🔍 Available elements with "audit" in ID:', 
-            Array.from(document.querySelectorAll('[id*="audit"]')).map(el => el.id));
-        console.log('🔍 Available elements with "clergy" in ID:', 
-            Array.from(document.querySelectorAll('[id*="clergy"]')).map(el => el.id));
+        if (window.EDITOR_DEBUG) console.log('❌ Audit logs content element not found');
+        if (window.EDITOR_DEBUG) {
+            console.log('🔍 Available elements with "audit" in ID:', 
+                Array.from(document.querySelectorAll('[id*="audit"]')).map(el => el.id));
+            console.log('🔍 Available elements with "clergy" in ID:', 
+                Array.from(document.querySelectorAll('[id*="clergy"]')).map(el => el.id));
+        }
         return;
     }
     
@@ -752,11 +754,11 @@ function loadAuditLogsContent() {
     const hasAuditLogsList = auditLogsContent.querySelector('#audit-logs-list');
     
     if (!hasLoadingSpinner || hasAuditLogsList) {
-        console.log('⏭️ Audit logs already loaded or not in loading state');
+        if (window.EDITOR_DEBUG) console.log('⏭️ Audit logs already loaded or not in loading state');
         return;
     }
     
-    console.log('✅ Loading audit logs content via HTMX...');
+    if (window.EDITOR_DEBUG) console.log('✅ Loading audit logs content via HTMX...');
     
     // Load audit logs content via HTMX with better error handling
     try {
@@ -764,27 +766,27 @@ function loadAuditLogsContent() {
             target: auditLogsContent,
             swap: 'innerHTML'
         }).then(() => {
-            console.log('✅ Audit logs content loaded, initializing smart updater...');
+            if (window.EDITOR_DEBUG) console.log('✅ Audit logs content loaded, initializing smart updater...');
             // Initialize the smart updater after content is loaded
             setTimeout(() => {
                 try {
                     if (!window.auditLogsUpdater && window.AuditLogsUpdater) {
-                        console.log('🚀 Creating new AuditLogsUpdater instance...');
+                        if (window.EDITOR_DEBUG) console.log('🚀 Creating new AuditLogsUpdater instance...');
                         window.auditLogsUpdater = new window.AuditLogsUpdater();
                     } else {
-                        console.log('♻️ AuditLogsUpdater already exists, skipping creation');
+                        if (window.EDITOR_DEBUG) console.log('♻️ AuditLogsUpdater already exists, skipping creation');
                     }
                 } catch (error) {
-                    console.error('❌ Error initializing AuditLogsUpdater:', error);
+                    if (window.EDITOR_DEBUG) console.error('❌ Error initializing AuditLogsUpdater:', error);
                 }
             }, 100);
         }).catch(error => {
-            console.error('❌ Error loading audit logs content:', error);
+            if (window.EDITOR_DEBUG) console.error('❌ Error loading audit logs content:', error);
             // Show error message in the content area
             auditLogsContent.innerHTML = '<div style="text-align: center; padding: 1em; color: rgba(255, 255, 255, 0.6); font-size: 0.8em;">Error loading audit logs. Please try again.</div>';
         });
     } catch (error) {
-        console.error('❌ Error in loadAuditLogsContent:', error);
+        if (window.EDITOR_DEBUG) console.error('❌ Error in loadAuditLogsContent:', error);
         auditLogsContent.innerHTML = '<div style="text-align: center; padding: 1em; color: rgba(255, 255, 255, 0.6); font-size: 0.8em;">Error loading audit logs. Please try again.</div>';
     }
 }

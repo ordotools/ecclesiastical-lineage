@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Ensure the form submission handler is available
     if (typeof handleLocationFormSubmit === 'undefined') {
-        console.warn('handleLocationFormSubmit function not found. Make sure locationForm.js is loaded.');
+        if (window.EDITOR_DEBUG) console.warn('handleLocationFormSubmit function not found. Make sure locationForm.js is loaded.');
     }
     
     // Add a small visual indicator for pastor creation

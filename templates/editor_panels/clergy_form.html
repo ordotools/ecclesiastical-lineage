@@ -636,7 +636,7 @@ function startSpritesheetPolling(clergyId) {
                     clearInterval(window.spritesheetPollingInterval);
                     window.spritesheetPollingInterval = null;
                     
-                    console.error('Spritesheet generation error:', data.error);
+                    if (window.EDITOR_DEBUG) console.error('Spritesheet generation error:', data.error);
                     if (typeof window.showNotification === 'function') {
                         window.showNotification('Spritesheet generation failed: ' + (data.error || 'Unknown error'), 'error');
                     }
@@ -644,7 +644,7 @@ function startSpritesheetPolling(clergyId) {
                 // If status is 'in_progress' or 'idle', continue polling
             })
             .catch(error => {
-                console.error('Error polling spritesheet status:', error);
+                if (window.EDITOR_DEBUG) console.error('Error polling spritesheet status:', error);
                 // Continue polling on error
             });
         
@@ -652,7 +652,7 @@ function startSpritesheetPolling(clergyId) {
         if (pollCount >= maxPolls) {
             clearInterval(window.spritesheetPollingInterval);
             window.spritesheetPollingInterval = null;
-            console.warn('Spritesheet polling timeout - generation may still be in progress');
+            if (window.EDITOR_DEBUG) console.warn('Spritesheet polling timeout - generation may still be in progress');
         }
     }, 1000); // Poll every second
 }
@@ -665,10 +665,10 @@ function refreshVisualizationSpritesheet(spriteData) {
     
     // Update visualization spritesheet without full reload
     if (window.editorVisualization && typeof window.editorVisualization.updateSpritesheet === 'function') {
-        console.log('Updating visualization spritesheet with new data');
+        if (window.EDITOR_DEBUG) console.log('Updating visualization spritesheet with new data');
         window.editorVisualization.updateSpritesheet(spriteData);
     } else {
-        console.log('Visualization not available, fetching latest spritesheet data');
+        if (window.EDITOR_DEBUG) console.log('Visualization not available, fetching latest spritesheet data');
         // Use cache utility if available, otherwise fallback to direct fetch
         if (typeof window.refreshSpriteSheetData === 'function') {
             window.refreshSpriteSheetData()
@@ -683,7 +683,7 @@ function refreshVisualizationSpritesheet(spriteData) {
                     }
                 })
                 .catch(error => {
-                    console.error('Error refreshing visualization spritesheet:', error);
+                    if (window.EDITOR_DEBUG) console.error('Error refreshing visualization spritesheet:', error);
                 });
         } else {
             // Fallback to direct fetch
@@ -700,7 +700,7 @@ function refreshVisualizationSpritesheet(spriteData) {
                     }
                 })
                 .catch(error => {
-                    console.error('Error refreshing visualization spritesheet:', error);
+                    if (window.EDITOR_DEBUG) console.error('Error refreshing visualization spritesheet:', error);
                 });
         }
     }
@@ -709,7 +709,7 @@ function refreshVisualizationSpritesheet(spriteData) {
 function refreshClergyListImages(spriteData) {
     // Update clergy list images after spritesheet generation
     // Soft refresh: update only image elements with cache-busting URLs
-    console.log('Refreshing clergy list images after spritesheet update');
+    if (window.EDITOR_DEBUG) console.log('Refreshing clergy list images after spritesheet update');
     
     const clergyItems = document.querySelectorAll('.clergy-item-card');
     
@@ -761,14 +761,14 @@ function refreshClergyListImages(spriteData) {
         initializeClergyData();
     }
     
-    console.log('Clergy list images refreshed');
+    if (window.EDITOR_DEBUG) console.log('Clergy list images refreshed');
 }
 
 // Soft update: add or update a single clergy item in the list
 async function softUpdateClergyListItem(clergyId) {
     if (!clergyId) return;
     
-    console.log('Soft updating clergy list item:', clergyId);
+    if (window.EDITOR_DEBUG) console.log('Soft updating clergy list item:', clergyId);
     
     // Check if item already exists
     const existingItem = document.querySelector(`[data-clergy-id="${clergyId}"]`);
@@ -856,7 +856,7 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
     }
     const clergyForm = swapTarget.querySelector('#clergyForm') || (swapTarget.id === 'clergyForm' ? swapTarget : null);
     if (clergyForm) {
-        console.log('HTMX afterSwap: Clergy form detected');
+        if (window.EDITOR_DEBUG) console.log('HTMX afterSwap: Clergy form detected');
         
         // NOTE: We do NOT clear form state here because the form has just been loaded with NEW data
         // Clearing was already done in selectClergy() BEFORE the HTMX request was made
@@ -868,13 +868,13 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
             // Initialize the form FIRST - this populates ordinations/consecrations
             // Check if we have initialization functions available
             if (typeof window.initializeFormFromRank === 'function') {
-                console.log('HTMX afterSwap: Calling initializeFormFromRank FIRST (to populate data)');
+                if (window.EDITOR_DEBUG) console.log('HTMX afterSwap: Calling initializeFormFromRank FIRST (to populate data)');
                 window.initializeFormFromRank();
             } else {
                 // Initialize directly if the functions are in the loaded content
                 const rankSelect = document.getElementById('rank');
                 if (rankSelect && rankSelect.value) {
-                    console.log('HTMX afterSwap: Triggering rank change event');
+                    if (window.EDITOR_DEBUG) console.log('HTMX afterSwap: Triggering rank change event');
                     rankSelect.dispatchEvent(new Event('change'));
                 }
             }
@@ -883,10 +883,10 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
             // This ensures data is already populated before any other initialization
             setTimeout(function() {
                 if (typeof window.initializeEmbeddedFormScript === 'function') {
-                    console.log('HTMX afterSwap: Calling initializeEmbeddedFormScript AFTER data population');
+                    if (window.EDITOR_DEBUG) console.log('HTMX afterSwap: Calling initializeEmbeddedFormScript AFTER data population');
                     window.initializeEmbeddedFormScript();
                 } else {
-                    console.warn('HTMX afterSwap: initializeEmbeddedFormScript not available');
+                    if (window.EDITOR_DEBUG) console.warn('HTMX afterSwap: initializeEmbeddedFormScript not available');
                 }
                 // Defer validation panel init until form entries are populated (post-save-reinit-panel)
                 var rootId = (typeof window.currentSelectedClergyId === 'number') ? window.currentSelectedClergyId : null;
@@ -896,18 +896,18 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
         
         // Additional initialization to ensure consecration field is shown for bishops
         setTimeout(() => {
-            console.log('🔍 HTMX TIMEOUT: Starting HTMX consecration field check');
+            if (window.EDITOR_DEBUG) console.log('🔍 HTMX TIMEOUT: Starting HTMX consecration field check');
             const rankSelect = document.getElementById('rank');
             const consecrationsField = document.getElementById('consecrationsField');
             
-            console.log('🔍 HTMX TIMEOUT: rankSelect found =', !!rankSelect);
-            console.log('🔍 HTMX TIMEOUT: consecrationsField found =', !!consecrationsField);
+            if (window.EDITOR_DEBUG) console.log('🔍 HTMX TIMEOUT: rankSelect found =', !!rankSelect);
+            if (window.EDITOR_DEBUG) console.log('🔍 HTMX TIMEOUT: consecrationsField found =', !!consecrationsField);
             
             if (rankSelect && consecrationsField) {
                 const selectedOption = rankSelect.options[rankSelect.selectedIndex];
                 const isBishop = selectedOption && selectedOption.getAttribute('data-is-bishop') === 'true';
                 
-                console.log('🔍 HTMX TIMEOUT: Checking bishop status:', {
+                if (window.EDITOR_DEBUG) console.log('🔍 HTMX TIMEOUT: Checking bishop status:', {
                     rankValue: rankSelect.value,
                     isBishop: isBishop,
                     consecrationsField: !!consecrationsField,
@@ -917,28 +917,28 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
                 
                 if (isBishop) {
                     consecrationsField.style.display = 'block';
-                    console.log('🔍 HTMX TIMEOUT: ✅ Showing consecrations field for bishop rank');
+                    if (window.EDITOR_DEBUG) console.log('🔍 HTMX TIMEOUT: ✅ Showing consecrations field for bishop rank');
                     
                     // Also try to populate consecrations if in edit mode
                     const clergyForm = document.getElementById('clergyForm');
                     if (clergyForm && clergyForm.dataset.editMode === 'true') {
-                        console.log('🔍 HTMX TIMEOUT: About to call populateExistingConsecrations() from HTMX timeout');
+                        if (window.EDITOR_DEBUG) console.log('🔍 HTMX TIMEOUT: About to call populateExistingConsecrations() from HTMX timeout');
                         if (typeof populateExistingConsecrations === 'function') {
                             populateExistingConsecrations();
                         } else {
-                            console.error('❌ HTMX TIMEOUT: populateExistingConsecrations function not found');
+                            if (window.EDITOR_DEBUG) console.error('❌ HTMX TIMEOUT: populateExistingConsecrations function not found');
                         }
                     }
                 } else {
-                    console.log('🔍 HTMX TIMEOUT: ❌ Not a bishop rank, not showing consecrations field');
+                    if (window.EDITOR_DEBUG) console.log('🔍 HTMX TIMEOUT: ❌ Not a bishop rank, not showing consecrations field');
                 }
             } else {
-                console.log('🔍 HTMX TIMEOUT: ❌ Missing required elements - rankSelect:', !!rankSelect, 'consecrationsField:', !!consecrationsField);
+                if (window.EDITOR_DEBUG) console.log('🔍 HTMX TIMEOUT: ❌ Missing required elements - rankSelect:', !!rankSelect, 'consecrationsField:', !!consecrationsField);
             }
         }, 100);
         
         // Initialize photo controls
-        console.log('HTMX afterSwap: Initializing photo controls');
+        if (window.EDITOR_DEBUG) console.log('HTMX afterSwap: Initializing photo controls');
         initializePhotoControls();
         
         // Initialize clergy autocomplete for HTMX-loaded content
@@ -972,7 +972,7 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
             initializeCancelButtonHandler();
             
             // Initialize photo controls
-            console.log('HTMX timeout: Initializing photo controls');
+            if (window.EDITOR_DEBUG) console.log('HTMX timeout: Initializing photo controls');
             initializePhotoControls();
         }, 200);
     }
@@ -1003,7 +1003,7 @@ function initializeCancelButtonHandler() {
 
 // Initialize photo control buttons for HTMX-loaded content
 function initializePhotoControls() {
-    console.log('=== initializePhotoControls START ===');
+    if (window.EDITOR_DEBUG) console.log('=== initializePhotoControls START ===');
     
     // Check if required elements exist
     const imageInput = document.getElementById('clergyImage');
@@ -1011,7 +1011,7 @@ function initializePhotoControls() {
     const cropBtn = document.getElementById('cropExistingBtn');
     const removeBtn = document.getElementById('removeImageBtn');
     
-    console.log('Photo control elements found:', {
+    if (window.EDITOR_DEBUG) console.log('Photo control elements found:', {
         imageInput: !!imageInput,
         uploadBtn: !!uploadBtn,
         cropBtn: !!cropBtn,
@@ -1020,33 +1020,33 @@ function initializePhotoControls() {
     
     // Ensure image editor is available
     if (!window.imageEditor && typeof ImageEditor !== 'undefined') {
-        console.log('Creating new ImageEditor instance for photo controls');
+        if (window.EDITOR_DEBUG) console.log('Creating new ImageEditor instance for photo controls');
         try {
             window.imageEditor = new ImageEditor();
-            console.log('ImageEditor instance created successfully');
+            if (window.EDITOR_DEBUG) console.log('ImageEditor instance created successfully');
         } catch (error) {
-            console.error('Error creating ImageEditor instance:', error);
+            if (window.EDITOR_DEBUG) console.error('Error creating ImageEditor instance:', error);
             return;
         }
     } else if (!window.imageEditor) {
-        console.warn('ImageEditor class not available');
+        if (window.EDITOR_DEBUG) console.warn('ImageEditor class not available');
         return;
     }
     
     // Reattach form event listeners for photo controls
     if (window.imageEditor && typeof window.imageEditor.reattachFormEventListeners === 'function') {
-        console.log('Reattaching form event listeners for photo controls');
+        if (window.EDITOR_DEBUG) console.log('Reattaching form event listeners for photo controls');
         try {
             window.imageEditor.reattachFormEventListeners();
-            console.log('Form event listeners reattached successfully');
+            if (window.EDITOR_DEBUG) console.log('Form event listeners reattached successfully');
         } catch (error) {
-            console.error('Error reattaching form event listeners:', error);
+            if (window.EDITOR_DEBUG) console.error('Error reattaching form event listeners:', error);
         }
     } else {
-        console.warn('reattachFormEventListeners method not available');
+        if (window.EDITOR_DEBUG) console.warn('reattachFormEventListeners method not available');
     }
     
-    console.log('=== initializePhotoControls END ===');
+    if (window.EDITOR_DEBUG) console.log('=== initializePhotoControls END ===');
 }
 
 // Initialize drag and drop functionality for HTMX-loaded content
@@ -1107,13 +1107,13 @@ function initializeDragDropForHTMX() {
                         try {
                             // Store the file globally for form submission
                             window.droppedFile = file;
-                            console.log('File stored globally:', file.name, file.size, file.type);
+                            if (window.EDITOR_DEBUG) console.log('File stored globally:', file.name, file.size, file.type);
                             
                             // Try to set the file in the input element
                             const dataTransfer = new DataTransfer();
                             dataTransfer.items.add(file);
                             fileInput.files = dataTransfer.files;
-                            console.log('File set in input element using DataTransfer');
+                            if (window.EDITOR_DEBUG) console.log('File set in input element using DataTransfer');
                             
                             // Trigger the image editor if available
                             if (window.imageEditor && typeof window.imageEditor.handleFormImageUpload === 'function') {
@@ -1138,7 +1138,7 @@ function initializeDragDropForHTMX() {
                                 reader.readAsDataURL(file);
                             }
                         } catch (error) {
-                            console.error('Error processing file from image drop:', error);
+                            if (window.EDITOR_DEBUG) console.error('Error processing file from image drop:', error);
                         }
                     } else {
                         alert('Please select an image file.');
@@ -1190,7 +1190,7 @@ function initializeDragDropForHTMX() {
                 dataTransfer.items.add(file);
                 fileInput.files = dataTransfer.files;
             } catch (error) {
-                console.error('Error setting file in input:', error);
+                if (window.EDITOR_DEBUG) console.error('Error setting file in input:', error);
             }
 
             // Handle image preview/editing
@@ -1224,7 +1224,7 @@ function switchToEditMode(clergyId) {
     if (typeof window.selectClergy === 'function') {
         return window.selectClergy(clergyId);
     }
-    console.error('selectClergy function not found, falling back to manual approach');
+    if (window.EDITOR_DEBUG) console.error('selectClergy function not found, falling back to manual approach');
     const swapTarget = window.getClergyFormSwapTarget?.() || document.querySelector('.right-panel .panel-content');
     return htmx.ajax('GET', `/editor/clergy-form-content/${clergyId}`, {
         target: swapTarget,
@@ -1248,7 +1248,7 @@ function clearFormForNewEntry() {
     if (typeof window.selectClergy === 'function') {
         return window.selectClergy(null);
     }
-    console.error('selectClergy function not found, falling back to manual approach');
+    if (window.EDITOR_DEBUG) console.error('selectClergy function not found, falling back to manual approach');
     return htmx.ajax('GET', '/editor/clergy-form-content', {
         target: '.right-panel .panel-content',
         swap: 'innerHTML'
@@ -1341,7 +1341,7 @@ function initializeClergyAutocompleteDirect(input) {
                 });
             })
             .catch(error => {
-                console.error('Error fetching bishops:', error);
+                if (window.EDITOR_DEBUG) console.error('Error fetching bishops:', error);
             });
     });
     

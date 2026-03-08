@@ -347,7 +347,7 @@ class EditorVisualization {
                     const contentType = spriteResponse.headers.get('content-type');
                     if (!contentType || !contentType.includes('application/json')) {
                         const text = await spriteResponse.text();
-                        console.warn('Sprite sheet endpoint returned non-JSON response:', contentType, text.substring(0, 200));
+                        if (window.EDITOR_DEBUG) console.warn('Sprite sheet endpoint returned non-JSON response:', contentType, text.substring(0, 200));
                         throw new Error('Invalid response type');
                     }
                     spriteSheetData = await spriteResponse.json();
@@ -389,9 +389,9 @@ class EditorVisualization {
                 }
             }
         } catch (error) {
-            console.warn('Failed to load sprite sheet, falling back to individual images:', error);
+            if (window.EDITOR_DEBUG) console.warn('Failed to load sprite sheet, falling back to individual images:', error);
             if (error.message) {
-                console.warn('Error details:', error.message);
+                if (window.EDITOR_DEBUG) console.warn('Error details:', error.message);
             }
         }
 
@@ -758,7 +758,7 @@ class EditorVisualization {
         if (typeof window.selectClergy === 'function') {
             window.selectClergy(d.id);
         } else {
-            console.warn('window.selectClergy not available, falling back to direct HTMX');
+            if (window.EDITOR_DEBUG) console.warn('window.selectClergy not available, falling back to direct HTMX');
             // Fallback: load form content directly
             if (d && d.id) {
                 const rightPanelContent = document.querySelector('.right-panel .panel-content');
@@ -776,7 +776,7 @@ class EditorVisualization {
                         // Highlight in visualization
                         this.highlightNode(d.id);
                     }).catch(error => {
-                        console.error('Error loading form:', error);
+                        if (window.EDITOR_DEBUG) console.error('Error loading form:', error);
                     });
                 }
             }
@@ -869,7 +869,7 @@ class EditorVisualization {
     updateSpritesheet(spriteData) {
         /** Update spritesheet without full reload */
         if (!this.svg || !spriteData || !spriteData.success) {
-            console.warn('Cannot update spritesheet: invalid data or SVG not initialized');
+            if (window.EDITOR_DEBUG) console.warn('Cannot update spritesheet: invalid data or SVG not initialized');
             return;
         }
         
@@ -913,7 +913,7 @@ class EditorVisualization {
     updateData(nodesData, linksData) {
         /** Soft refresh: update visualization data without full reload */
         if (!this.isInitialized || !this.svg || !this.simulation) {
-            console.warn('Cannot update data: visualization not initialized');
+            if (window.EDITOR_DEBUG) console.warn('Cannot update data: visualization not initialized');
             return;
         }
         
@@ -968,7 +968,7 @@ class EditorVisualization {
         const simulationNodes = this.simulation.nodes();
         
         if (!Array.isArray(simulationNodes)) {
-            console.error('simulation.nodes() did not return an array:', simulationNodes);
+            if (window.EDITOR_DEBUG) console.error('simulation.nodes() did not return an array:', simulationNodes);
             return;
         }
         
@@ -987,10 +987,10 @@ class EditorVisualization {
             const targetNode = nodeMap.get(targetId);
             
             if (!sourceNode) {
-                console.warn('Could not resolve source node for link:', sourceId);
+                if (window.EDITOR_DEBUG) console.warn('Could not resolve source node for link:', sourceId);
             }
             if (!targetNode) {
-                console.warn('Could not resolve target node for link:', targetId);
+                if (window.EDITOR_DEBUG) console.warn('Could not resolve target node for link:', targetId);
             }
             
             // Create a new link object with all properties, but source/target reference simulation nodes
@@ -1201,12 +1201,12 @@ class EditorVisualization {
     applyStyles(styles) {
         /** Apply style preferences to visualization without full reload */
         if (!this.isInitialized || !this.svg || !this.node || !this.link) {
-            console.warn('Cannot apply styles: visualization not initialized');
+            if (window.EDITOR_DEBUG) console.warn('Cannot apply styles: visualization not initialized');
             return;
         }
         
         if (!styles) {
-            console.warn('Cannot apply styles: no styles provided');
+            if (window.EDITOR_DEBUG) console.warn('Cannot apply styles: no styles provided');
             return;
         }
         

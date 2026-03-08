@@ -6,7 +6,7 @@
 <script type="module">
     // Import color constants from constants.js and set CSS variables dynamically
     // This ensures CSS variables always match the JavaScript constants
-    import { GREEN_COLOR, BLACK_COLOR } from '/static/js/constants.js';
+    import { GREEN_COLOR, BLACK_COLOR } from '{{ url_for("static", filename="js/constants.js") }}';
     document.documentElement.style.setProperty('--lineage-green', GREEN_COLOR);
     document.documentElement.style.setProperty('--lineage-black', BLACK_COLOR);
 </script>

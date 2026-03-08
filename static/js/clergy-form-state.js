@@ -205,7 +205,7 @@ window.clearFormState = function() {
 window.clearFormCompletely = function() {
     const form = document.getElementById('clergyForm');
     if (!form) {
-        console.warn('clearFormCompletely: No form found');
+        if (window.EDITOR_DEBUG) console.warn('clearFormCompletely: No form found');
         return;
     }
     

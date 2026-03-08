@@ -116,7 +116,7 @@ class ImageEditor {
                 this.currentImageData = originalImageData;
                 this.currentEditorImageData = originalImageData;
             } catch (error) {
-                console.error('Error loading original image from file:', error);
+                if (window.EDITOR_DEBUG) console.error('Error loading original image from file:', error);
                 // Fallback to provided imageData
                 this.originalImageData = imageData;
                 this.originalImageFile = originalFile;
@@ -172,7 +172,7 @@ class ImageEditor {
         if (imageSrc && imageSrc.startsWith('data:')) {
             // Check if it's a valid data URL format
             if (!imageSrc.includes(';base64,') && !imageSrc.includes(';charset=')) {
-                console.error('Invalid data URL format:', imageSrc.substring(0, 100) + '...');
+                if (window.EDITOR_DEBUG) console.error('Invalid data URL format:', imageSrc.substring(0, 100) + '...');
                 this.showNotification('Invalid image data format. Please try uploading again.', 'error');
                 return;
             }
@@ -192,17 +192,21 @@ class ImageEditor {
 
             // Additional validation - check if we got the right image
             if (editorImage.naturalWidth <= 48 || editorImage.naturalHeight <= 48) {
-                console.error('ERROR: Image dimensions are very small! This is likely the 48x48 lineage image instead of full resolution.');
-                console.error('Image source:', this.currentEditorImageData.substring(0, 100));
-                console.error('Original URL should be:', this.originalImageUrl);
+                if (window.EDITOR_DEBUG) {
+                        console.error('ERROR: Image dimensions are very small! This is likely the 48x48 lineage image instead of full resolution.');
+                        console.error('Image source:', this.currentEditorImageData.substring(0, 100));
+                        console.error('Original URL should be:', this.originalImageUrl);
+                    }
                 this.showNotification('Warning: Low resolution image detected. Please ensure the original image URL is correct.', 'warning');
             } else if (editorImage.naturalWidth <= 320 && editorImage.naturalHeight <= 320) {
-                console.warn('WARNING: Image dimensions are 320x320 or smaller! This might be the detail image instead of the original.');
-                console.warn('Expected original image to be larger than 320x320');
-                console.warn('Original URL used:', this.originalImageUrl);
+                if (window.EDITOR_DEBUG) {
+                        console.warn('WARNING: Image dimensions are 320x320 or smaller! This might be the detail image instead of the original.');
+                        console.warn('Expected original image to be larger than 320x320');
+                        console.warn('Original URL used:', this.originalImageUrl);
+                    }
                 // Check if URL contains 'detail_' which would indicate wrong image
                 if (this.originalImageUrl && this.originalImageUrl.includes('detail_')) {
-                    console.error('ERROR: Original URL contains "detail_" - this is the wrong image!');
+                    if (window.EDITOR_DEBUG) console.error('ERROR: Original URL contains "detail_" - this is the wrong image!');
                     this.showNotification('Error: Detail image loaded instead of original. Please reload the form.', 'error');
                     return;
                 }
@@ -215,9 +219,11 @@ class ImageEditor {
         
         // Handle image load errors
         editorImage.onerror = (error) => {
-            console.error('Failed to load image in editor');
-            console.error('Image source that failed:', imageSrc.substring(0, 100) + '...');
-            console.error('Error details:', error);
+            if (window.EDITOR_DEBUG) {
+                console.error('Failed to load image in editor');
+                console.error('Image source that failed:', imageSrc.substring(0, 100) + '...');
+                console.error('Error details:', error);
+            }
             this.showNotification('Failed to load image. Please try again.', 'error');
         };
     }
@@ -229,7 +235,7 @@ class ImageEditor {
         const editorImage = document.getElementById('editorImage');
         
         if (!editorImage) {
-            console.error('Editor image element not found');
+            if (window.EDITOR_DEBUG) console.error('Editor image element not found');
             return;
         }
         
@@ -497,7 +503,7 @@ class ImageEditor {
             previewModal.show();
             
         } catch (error) {
-            console.error('Error generating preview:', error);
+            if (window.EDITOR_DEBUG) console.error('Error generating preview:', error);
             this.hideProcessingStatus();
             this.showNotification('Error generating preview. Please try again.', 'error');
         }
@@ -510,14 +516,14 @@ class ImageEditor {
     async applyChanges() {
         
         if (!this.cropper || this.isProcessing) {
-            console.warn('Cannot apply changes: cropper not available or already processing');
+            if (window.EDITOR_DEBUG) console.warn('Cannot apply changes: cropper not available or already processing');
             this.showNotification('Cannot process image at this time. Please try again.', 'warning');
             return;
         }
         
         // Validate that we have valid image data
         if (!this.originalImageData) {
-            console.error('No valid original image data available for processing');
+            if (window.EDITOR_DEBUG) console.error('No valid original image data available for processing');
             this.showNotification('No valid original image data available. Please try uploading again.', 'error');
             return;
         }
@@ -643,7 +649,7 @@ class ImageEditor {
                     }
                 }, 100);
             } else {
-                console.warn('Image editor modal instance not found');
+                if (window.EDITOR_DEBUG) console.warn('Image editor modal instance not found');
             }
             
             this.hideProcessingStatus();
@@ -653,7 +659,7 @@ class ImageEditor {
             this.showNotification('Square cropped image processed successfully!', 'success');
             
         } catch (error) {
-            console.error('Error processing cropped image:', error);
+            if (window.EDITOR_DEBUG) console.error('Error processing cropped image:', error);
             this.hideProcessingStatus();
             this.isProcessing = false;
             this.showNotification('Error processing image: ' + error.message, 'error');
@@ -752,7 +758,7 @@ class ImageEditor {
             return;
         }
         
-        console.warn('Could not extract clergy ID from URL or form');
+        if (window.EDITOR_DEBUG) console.warn('Could not extract clergy ID from URL or form');
     }
 
     /**
@@ -817,7 +823,7 @@ class ImageEditor {
                 await this.openEditor(imageData, file);
                 return;
             } catch (error) {
-                console.error('Error converting data URL to blob:', error);
+                if (window.EDITOR_DEBUG) console.error('Error converting data URL to blob:', error);
                 // Fallback: use data URL directly
                 this.originalImageData = imageUrl;
                 this.currentImageData = imageUrl;
@@ -858,7 +864,7 @@ class ImageEditor {
             await this.openEditor(imageData, file);
             
         } catch (error) {
-            console.error('Error loading original image:', error);
+            if (window.EDITOR_DEBUG) console.error('Error loading original image:', error);
             // Fallback to proxy URL loading if blob loading fails
             
             // Use proxy URL to avoid CORS issues, with cache-busting
@@ -1116,7 +1122,7 @@ class ImageEditor {
             
             this.showNotification('Image loaded successfully!', 'success');
         } catch (error) {
-            console.error('Error processing file:', error);
+            if (window.EDITOR_DEBUG) console.error('Error processing file:', error);
             this.showNotification('Error processing the selected file. Please try again.', 'error');
         }
     }
@@ -1144,8 +1150,10 @@ class ImageEditor {
         if (originalImageUrl && originalImageUrl.length > 0) {
             // Validate that this is actually an original URL, not detail or lineage
             if (originalImageUrl.includes('detail_') || originalImageUrl.includes('lineage_')) {
-                console.error('ERROR: data-original-image contains detail_ or lineage_ - this is wrong!');
-                console.error('URL:', originalImageUrl);
+                if (window.EDITOR_DEBUG) {
+                    console.error('ERROR: data-original-image contains detail_ or lineage_ - this is wrong!');
+                    console.error('URL:', originalImageUrl);
+                }
                 this.showNotification('Error: Original image URL is incorrect. Please reload the form.', 'error');
                 return;
             }
@@ -1164,7 +1172,7 @@ class ImageEditor {
 
         // Priority 3: Fallback - try to extract original from image_data if available
         // This should rarely happen if template is correct
-        console.warn('No original image URL found in data attributes, attempting fallback');
+        if (window.EDITOR_DEBUG) console.warn('No original image URL found in data attributes, attempting fallback');
         const fallbackUrl = previewImage.src;
         if (fallbackUrl && !fallbackUrl.includes('lineage_') && !fallbackUrl.includes('detail_')) {
             // Only use if it doesn't look like a cropped version
@@ -1370,10 +1378,10 @@ class ImageEditor {
                 swap: 'innerHTML'
             }).then(() => {
             }).catch(error => {
-                console.error('Visualization refresh failed after image processing:', error);
+                if (window.EDITOR_DEBUG) console.error('Visualization refresh failed after image processing:', error);
             });
         } else {
-            console.warn('Visualization target not found or HTMX not available for refresh');
+            if (window.EDITOR_DEBUG) console.warn('Visualization target not found or HTMX not available for refresh');
         }
     }
 

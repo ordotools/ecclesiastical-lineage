@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Function to select a chapel and load its details
 function selectChapel(locationId) {
-    console.log('Selected chapel with ID:', locationId);
+    if (window.EDITOR_DEBUG) console.log('Selected chapel with ID:', locationId);
     
     // Update the right panel with chapel form for this location
     if (typeof htmx !== 'undefined') {
@@ -95,16 +95,16 @@ function selectChapel(locationId) {
             target: '.right-panel .panel-content',
             swap: 'innerHTML'
         }).then(() => {
-            console.log('Chapel form loaded for location:', locationId);
+            if (window.EDITOR_DEBUG) console.log('Chapel form loaded for location:', locationId);
         }).catch(error => {
-            console.error('Error loading chapel form:', error);
+            if (window.EDITOR_DEBUG) console.error('Error loading chapel form:', error);
         });
     }
 }
 
 // Function for opening chapel modal (add new chapel)
 function openChapelModal() {
-    console.log('Opening chapel modal for new chapel');
+    if (window.EDITOR_DEBUG) console.log('Opening chapel modal for new chapel');
     
     // Load empty chapel form for adding new chapel
     if (typeof htmx !== 'undefined') {
@@ -112,9 +112,9 @@ function openChapelModal() {
             target: '.right-panel .panel-content',
             swap: 'innerHTML'
         }).then(() => {
-            console.log('Empty chapel form loaded for new chapel');
+            if (window.EDITOR_DEBUG) console.log('Empty chapel form loaded for new chapel');
         }).catch(error => {
-            console.error('Error loading empty chapel form:', error);
+            if (window.EDITOR_DEBUG) console.error('Error loading empty chapel form:', error);
         });
     }
 }

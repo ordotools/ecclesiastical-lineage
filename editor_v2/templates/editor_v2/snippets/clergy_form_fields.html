@@ -44,14 +44,15 @@
     </select>
   </div>
 
-  <div class="form-field">
-    <label for="date_of_birth" class="form-label">Date of Birth</label>
-    <input type="date" id="date_of_birth" name="date_of_birth" value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}">
-  </div>
-
-  <div class="form-field">
-    <label for="date_of_death" class="form-label">Date of Death</label>
-    <input type="date" id="date_of_death" name="date_of_death" value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}">
+  <div class="form-field-row form-field-row--dates">
+    <div class="form-field">
+      <label for="date_of_birth" class="form-label">Date of Birth</label>
+      <input type="date" id="date_of_birth" name="date_of_birth" value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}">
+    </div>
+    <div class="form-field">
+      <label for="date_of_death" class="form-label">Date of Death</label>
+      <input type="date" id="date_of_death" name="date_of_death" value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}">
+    </div>
   </div>
 
   <div class="form-field">

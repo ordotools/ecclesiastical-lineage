@@ -1,5 +1,10 @@
-{% set form_action = url_for('clergy.edit_clergy', clergy_id=clergy.id) if edit_mode and clergy else url_for('clergy.add_clergy') %}
-<form id="clergyForm" method="POST" action="{{ form_action }}" enctype="multipart/form-data">
+{% set form_action = url_for('editor_v2_bp.clergy_edit_v2', clergy_id=clergy.id) if edit_mode and clergy else url_for('editor_v2_bp.clergy_add_v2') %}
+<form id="clergyForm"
+      method="POST"
+      action="{{ form_action }}"
+      enctype="multipart/form-data"
+      data-editor-v2-clergy-form="true"
+      {% if edit_mode and clergy %}data-clergy-id="{{ clergy.id }}"{% endif %}>
 
   <div class="form-field">
     <label for="name" class="form-label required">Full Name</label>

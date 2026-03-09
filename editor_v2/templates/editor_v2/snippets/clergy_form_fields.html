@@ -4,6 +4,7 @@
       action="{{ form_action }}"
       enctype="multipart/form-data"
       data-editor-v2-clergy-form="true"
+      data-panel-center-url="{{ url_for('editor_v2_bp.panel_center') }}"
       {% if edit_mode and clergy %}data-clergy-id="{{ clergy.id }}"{% endif %}>
 
   <div class="form-field">
@@ -11,7 +12,7 @@
     <input type="text" id="name" name="name" value="{{ clergy.name if edit_mode and clergy else '' }}" required>
   </div>
 
-  <div class="form-field">
+  <div id="papalNameField" class="form-field">
     <label for="papal_name" class="form-label">Papal Name</label>
     <input type="text" id="papal_name" name="papal_name" value="{{ clergy.papal_name if edit_mode and clergy else '' }}" placeholder="e.g., Pope Francis">
   </div>
@@ -60,66 +61,78 @@
 
   <div class="form-section">
     <h5>Ordinations</h5>
-    <div class="form-field">
-      <label class="form-label">Date</label>
-      <input type="date" name="ordinations[0][date]" value="{{ clergy.ordinations[0].date.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].date else '' }}">
+    <div id="ordinationsContainer">
+      <div class="ordination-entry">
+        <div class="form-field">
+          <label class="form-label">Date</label>
+          <input type="date" name="ordinations[0][date]" value="{{ clergy.ordinations[0].date.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].date else '' }}">
+        </div>
+        <div class="form-field bishop-autocomplete-field">
+          <label class="form-label">Ordaining bishop</label>
+          <input type="text" name="ordinations[0][ordaining_bishop_input]" placeholder="Search for bishop..." autocomplete="off" value="{{ clergy.ordinations[0].ordaining_bishop.name if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0].ordaining_bishop else '' }}">
+          <input type="hidden" name="ordinations[0][ordaining_bishop_id]" value="{{ clergy.ordinations[0].ordaining_bishop_id if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else '' }}">
+          <div class="autocomplete-dropdown"></div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Validity</label>
+          <select name="ordinations[0][validity]">
+            <option value="valid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and not clergy.ordinations[0].is_invalid and not clergy.ordinations[0].is_doubtfully_valid %}selected{% endif %}>Valid</option>
+            <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
+            <option value="invalid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_invalid %}selected{% endif %}>Invalid</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label><input type="checkbox" name="ordinations[0][is_sub_conditione]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_sub_conditione %}checked{% endif %}> Sub conditione</label>
+        </div>
+        <div class="form-field">
+          <label><input type="checkbox" name="ordinations[0][is_doubtful_event]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Notes</label>
+          <textarea name="ordinations[0][notes]" rows="2">{{ clergy.ordinations[0].notes if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else '' }}</textarea>
+        </div>
+        <button type="button" class="remove-ordination">Remove</button>
+      </div>
     </div>
-    <div class="form-field">
-      <label class="form-label">Ordaining bishop</label>
-      <input type="text" name="ordinations[0][ordaining_bishop_input]" placeholder="Search for bishop..." value="{{ clergy.ordinations[0].ordaining_bishop.name if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0].ordaining_bishop else '' }}">
-      <input type="hidden" name="ordinations[0][ordaining_bishop_id]" value="{{ clergy.ordinations[0].ordaining_bishop_id if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else '' }}">
-    </div>
-    <div class="form-field">
-      <label class="form-label">Validity</label>
-      <select name="ordinations[0][validity]">
-        <option value="valid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and not clergy.ordinations[0].is_invalid and not clergy.ordinations[0].is_doubtfully_valid %}selected{% endif %}>Valid</option>
-        <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
-        <option value="invalid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_invalid %}selected{% endif %}>Invalid</option>
-      </select>
-    </div>
-    <div class="form-field">
-      <label><input type="checkbox" name="ordinations[0][is_sub_conditione]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_sub_conditione %}checked{% endif %}> Sub conditione</label>
-    </div>
-    <div class="form-field">
-      <label><input type="checkbox" name="ordinations[0][is_doubtful_event]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_doubtful_event %}checked{% endif %}> Doubtful event</label>
-    </div>
-    <div class="form-field">
-      <label class="form-label">Notes</label>
-      <textarea name="ordinations[0][notes]" rows="2">{{ clergy.ordinations[0].notes if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else '' }}</textarea>
-    </div>
-    <button type="button">Add Ordination</button>
+    <button type="button" id="addOrdinationBtn">Add Ordination</button>
   </div>
 
   <div class="form-section consecrations-section" {% if edit_mode and clergy and clergy.rank and clergy.rank.lower() not in ['bishop', 'archbishop', 'cardinal', 'pope'] %}hidden{% endif %}>
     <h5>Consecrations</h5>
-    <div class="form-field">
-      <label class="form-label">Date</label>
-      <input type="date" name="consecrations[0][date]" value="{{ clergy.consecrations[0].date.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].date else '' }}">
+    <div id="consecrationsContainer">
+      <div class="consecration-entry">
+        <div class="form-field">
+          <label class="form-label">Date</label>
+          <input type="date" name="consecrations[0][date]" value="{{ clergy.consecrations[0].date.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].date else '' }}">
+        </div>
+        <div class="form-field bishop-autocomplete-field">
+          <label class="form-label">Consecrator</label>
+          <input type="text" name="consecrations[0][consecrator_input]" placeholder="Search for consecrator..." autocomplete="off" value="{{ clergy.consecrations[0].consecrator.name if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0].consecrator else '' }}">
+          <input type="hidden" name="consecrations[0][consecrator_id]" value="{{ clergy.consecrations[0].consecrator_id if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else '' }}">
+          <div class="autocomplete-dropdown"></div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Validity</label>
+          <select name="consecrations[0][validity]">
+            <option value="valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and not clergy.consecrations[0].is_invalid and not clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Valid</option>
+            <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
+            <option value="invalid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_invalid %}selected{% endif %}>Invalid</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label><input type="checkbox" name="consecrations[0][is_sub_conditione]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_sub_conditione %}checked{% endif %}> Sub conditione</label>
+        </div>
+        <div class="form-field">
+          <label><input type="checkbox" name="consecrations[0][is_doubtful_event]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Notes</label>
+          <textarea name="consecrations[0][notes]" rows="2">{{ clergy.consecrations[0].notes if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else '' }}</textarea>
+        </div>
+        <button type="button" class="remove-consecration">Remove</button>
+      </div>
     </div>
-    <div class="form-field">
-      <label class="form-label">Consecrator</label>
-      <input type="text" name="consecrations[0][consecrator_input]" placeholder="Search for consecrator..." value="{{ clergy.consecrations[0].consecrator.name if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0].consecrator else '' }}">
-      <input type="hidden" name="consecrations[0][consecrator_id]" value="{{ clergy.consecrations[0].consecrator_id if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else '' }}">
-    </div>
-    <div class="form-field">
-      <label class="form-label">Validity</label>
-      <select name="consecrations[0][validity]">
-        <option value="valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and not clergy.consecrations[0].is_invalid and not clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Valid</option>
-        <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
-        <option value="invalid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_invalid %}selected{% endif %}>Invalid</option>
-      </select>
-    </div>
-    <div class="form-field">
-      <label><input type="checkbox" name="consecrations[0][is_sub_conditione]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_sub_conditione %}checked{% endif %}> Sub conditione</label>
-    </div>
-    <div class="form-field">
-      <label><input type="checkbox" name="consecrations[0][is_doubtful_event]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtful_event %}checked{% endif %}> Doubtful event</label>
-    </div>
-    <div class="form-field">
-      <label class="form-label">Notes</label>
-      <textarea name="consecrations[0][notes]" rows="2">{{ clergy.consecrations[0].notes if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else '' }}</textarea>
-    </div>
-    <button type="button">Add Consecration</button>
+    <button type="button" id="addConsecrationBtn">Add Consecration</button>
   </div>
 
   {% if fields.statuses %}
@@ -147,7 +160,231 @@
   {% endif %}
 
   <div class="form-actions">
-    <a href="{{ url_for('clergy.clergy_list') }}">Cancel</a>
+    <a href="#" class="editor-v2-cancel">Cancel</a>
     <button type="submit">{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}</button>
   </div>
 </form>
+<script>
+(function() {
+  function updateRankVisibility(form) {
+    var rankSelect = form.querySelector('#rank');
+    var papalField = form.querySelector('#papalNameField');
+    var consecrationsSection = form.querySelector('.consecrations-section');
+    if (!rankSelect) return;
+    var selected = rankSelect.options[rankSelect.selectedIndex];
+    var rankValue = selected ? selected.value : '';
+    var isBishop = selected && selected.getAttribute('data-is-bishop') === 'true';
+    if (papalField) papalField.style.display = (rankValue === 'pope') ? '' : 'none';
+    if (consecrationsSection) consecrationsSection.hidden = !isBishop;
+  }
+
+  function reindexOrdinationEntries(form) {
+    var container = form.querySelector('#ordinationsContainer');
+    if (!container) return;
+    var entries = container.querySelectorAll('.ordination-entry');
+    entries.forEach(function(entry, i) {
+      entry.querySelectorAll('input, select, textarea').forEach(function(el) {
+        var name = el.getAttribute('name');
+        if (name && name.indexOf('ordinations[') === 0) {
+          el.setAttribute('name', name.replace(/^ordinations\[\d+\]/, 'ordinations[' + i + ']'));
+        }
+      });
+    });
+  }
+
+  function addOrdination(form) {
+    var container = form.querySelector('#ordinationsContainer');
+    var first = container && container.querySelector('.ordination-entry');
+    if (!container || !first) return;
+    var clone = first.cloneNode(true);
+    clone.querySelectorAll('input:not([type="hidden"])').forEach(function(el) { el.value = ''; });
+    clone.querySelectorAll('input[type="checkbox"]').forEach(function(el) { el.checked = false; });
+    clone.querySelectorAll('textarea').forEach(function(el) { el.value = ''; });
+    clone.querySelectorAll('select').forEach(function(el) {
+      var firstOpt = el.querySelector('option');
+      if (firstOpt) el.selectedIndex = 0;
+    });
+    clone.querySelector('input[name*="ordaining_bishop_id"]').value = '';
+    var dropdown = clone.querySelector('.autocomplete-dropdown');
+    if (dropdown) dropdown.remove();
+    container.appendChild(clone);
+    reindexOrdinationEntries(form);
+    setupOrdinationBishopAutocomplete(form);
+  }
+
+  function removeOrdination(form, entry) {
+    var container = form.querySelector('#ordinationsContainer');
+    var entries = container && container.querySelectorAll('.ordination-entry');
+    if (!entries || entries.length <= 1) return;
+    entry.remove();
+    reindexOrdinationEntries(form);
+  }
+
+  function ensureBishopDropdown(parentEl) {
+    var dropdown = parentEl.querySelector('.autocomplete-dropdown');
+    if (!dropdown) {
+      dropdown = document.createElement('div');
+      dropdown.className = 'autocomplete-dropdown';
+      parentEl.appendChild(dropdown);
+    }
+    return dropdown;
+  }
+
+  function attachBishopAutocomplete(textInput, hiddenInput, dropdown) {
+    if (textInput.getAttribute('data-bishop-autocomplete-inited') === 'true') return;
+    textInput.setAttribute('data-bishop-autocomplete-inited', 'true');
+
+    textInput.addEventListener('input', function() {
+      var query = textInput.value.trim();
+      if (query.length < 2) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      fetch('/api/search_bishops?q=' + encodeURIComponent(query))
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+          dropdown.innerHTML = html;
+          dropdown.style.display = 'block';
+          var results = dropdown.querySelectorAll('.bishop-search-result');
+          results.forEach(function(el) {
+            el.addEventListener('click', function() {
+              var id = el.getAttribute('data-id');
+              var name = el.getAttribute('data-display-name') || el.getAttribute('data-name') || '';
+              textInput.value = name;
+              if (hiddenInput) hiddenInput.value = id || '';
+              dropdown.style.display = 'none';
+            });
+          });
+        })
+        .catch(function() { dropdown.style.display = 'none'; });
+    });
+
+    textInput.addEventListener('blur', function() {
+      setTimeout(function() { dropdown.style.display = 'none'; }, 200);
+    });
+  }
+
+  function setupOrdinationBishopAutocomplete(form) {
+    var inputs = form.querySelectorAll('input[name*="ordaining_bishop_input"]');
+    inputs.forEach(function(input) {
+      var parent = input.closest('.form-field');
+      if (!parent) return;
+      var dropdown = ensureBishopDropdown(parent);
+      var hidden = parent.querySelector('input[name*="ordaining_bishop_id"]');
+      attachBishopAutocomplete(input, hidden, dropdown);
+    });
+  }
+
+  function reindexConsecrationEntries(form) {
+    var container = form.querySelector('#consecrationsContainer');
+    if (!container) return;
+    var entries = container.querySelectorAll('.consecration-entry');
+    entries.forEach(function(entry, i) {
+      entry.querySelectorAll('input, select, textarea').forEach(function(el) {
+        var name = el.getAttribute('name');
+        if (name && name.indexOf('consecrations[') === 0) {
+          el.setAttribute('name', name.replace(/^consecrations\[\d+\]/, 'consecrations[' + i + ']'));
+        }
+      });
+    });
+  }
+
+  function addConsecration(form) {
+    var container = form.querySelector('#consecrationsContainer');
+    var first = container && container.querySelector('.consecration-entry');
+    if (!container || !first) return;
+    var clone = first.cloneNode(true);
+    clone.querySelectorAll('input:not([type="hidden"])').forEach(function(el) { el.value = ''; });
+    clone.querySelectorAll('input[type="checkbox"]').forEach(function(el) { el.checked = false; });
+    clone.querySelectorAll('textarea').forEach(function(el) { el.value = ''; });
+    clone.querySelectorAll('select').forEach(function(el) {
+      var firstOpt = el.querySelector('option');
+      if (firstOpt) el.selectedIndex = 0;
+    });
+    clone.querySelector('input[name*="consecrator_id"]').value = '';
+    var dropdown = clone.querySelector('.autocomplete-dropdown');
+    if (dropdown) dropdown.remove();
+    container.appendChild(clone);
+    reindexConsecrationEntries(form);
+    setupConsecrationBishopAutocomplete(form);
+  }
+
+  function removeConsecration(form, entry) {
+    var container = form.querySelector('#consecrationsContainer');
+    var entries = container && container.querySelectorAll('.consecration-entry');
+    if (!entries || entries.length <= 1) return;
+    entry.remove();
+    reindexConsecrationEntries(form);
+  }
+
+  function setupConsecrationBishopAutocomplete(form) {
+    var inputs = form.querySelectorAll('input[name*="consecrator_input"]');
+    inputs.forEach(function(input) {
+      var parent = input.closest('.form-field');
+      if (!parent) return;
+      var dropdown = ensureBishopDropdown(parent);
+      var hidden = parent.querySelector('input[name*="consecrator_id"]');
+      attachBishopAutocomplete(input, hidden, dropdown);
+    });
+  }
+
+  function initClergyFormV2() {
+    var form = document.getElementById('clergyForm');
+    if (!form || form.getAttribute('data-clergy-form-v2-inited') === 'true') return;
+    form.setAttribute('data-clergy-form-v2-inited', 'true');
+
+    var rankSelect = form.querySelector('#rank');
+    if (rankSelect) {
+      rankSelect.addEventListener('change', function() { updateRankVisibility(form); });
+      updateRankVisibility(form);
+    }
+
+    setupOrdinationBishopAutocomplete(form);
+    setupConsecrationBishopAutocomplete(form);
+
+    var cancelLink = form.querySelector('a.editor-v2-cancel');
+    if (cancelLink) {
+      cancelLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        var url = form.getAttribute('data-panel-center-url');
+        if (url && typeof htmx !== 'undefined') {
+          htmx.ajax('GET', url, { target: '#editor-panel-center', swap: 'innerHTML' });
+        }
+      });
+    }
+
+    form.addEventListener('click', function(e) {
+      if (e.target && e.target.id === 'addOrdinationBtn') {
+        e.preventDefault();
+        addOrdination(form);
+        return;
+      }
+      if (e.target && e.target.classList && e.target.classList.contains('remove-ordination')) {
+        e.preventDefault();
+        var entry = e.target.closest('.ordination-entry');
+        if (entry) removeOrdination(form, entry);
+        return;
+      }
+      if (e.target && e.target.id === 'addConsecrationBtn') {
+        e.preventDefault();
+        addConsecration(form);
+        return;
+      }
+      if (e.target && e.target.classList && e.target.classList.contains('remove-consecration')) {
+        e.preventDefault();
+        var entry = e.target.closest('.consecration-entry');
+        if (entry) removeConsecration(form, entry);
+      }
+    });
+  }
+
+  initClergyFormV2();
+
+  document.body.addEventListener('htmx:afterSwap', function(ev) {
+    var target = ev.detail && ev.detail.target;
+    if (target && (target.id === 'editor-panel-center' || (target.querySelector && target.querySelector('#clergyForm')))) {
+      initClergyFormV2();
+    }
+  });
+})();
+</script>

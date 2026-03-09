@@ -221,3 +221,47 @@ body {
 .clergy-needs-update .right-panel-clergy-name {
   text-decoration: underline;
 }
+
+/* Bishop autocomplete (ordaining bishop / consecrator) */
+
+.bishop-autocomplete-field {
+  position: relative;
+}
+
+.bishop-autocomplete-field .autocomplete-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  z-index: 20;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result,
+.bishop-autocomplete-field .autocomplete-dropdown .dropdown-item {
+  padding: 0.4em 0.6em;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9em;
+  color: #333;
+}
+
+.bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result:last-child,
+.bishop-autocomplete-field .autocomplete-dropdown .dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result:hover {
+  background: rgba(0, 123, 255, 0.1);
+}
+
+.bishop-autocomplete-field .autocomplete-dropdown .dropdown-item.text-muted {
+  color: #666;
+  cursor: default;
+}

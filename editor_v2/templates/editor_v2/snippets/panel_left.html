@@ -1,0 +1,27 @@
+<div class="panel-left-content">
+  <ul class="panel-left-clergy-list">
+    {% if user and user.can_edit_clergy() %}
+    <li class="panel-left-clergy-item panel-left-add">
+      <a href="{{ url_for('editor_v2_bp.panel_center') }}"
+         class="panel-left-link"
+         hx-get="{{ url_for('editor_v2_bp.panel_center') }}"
+         hx-target="#editor-panel-center"
+         hx-swap="innerHTML"
+         hx-push-url="false">Add clergy</a>
+    </li>
+    {% endif %}
+    {% for clergy in clergy_list %}
+    <li class="panel-left-clergy-item">
+      <a href="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ clergy.id }}"
+         class="panel-left-link"
+         hx-get="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ clergy.id }}"
+         hx-target="#editor-panel-center"
+         hx-swap="innerHTML"
+         hx-push-url="false">{{ clergy.name }}{% if clergy.rank %} ({{ clergy.rank }}){% endif %}</a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if not clergy_list %}
+  <p class="panel-left-empty">No clergy.</p>
+  {% endif %}
+</div>

@@ -1,0 +1,24 @@
+{% extends "editor_v2/base.html" %}
+{% block title %}Editor v2{% endblock %}
+{% block content %}
+  <div class="editor-shell">
+    <div class="editor-panels-row">
+      <div class="editor-panel editor-panel-left"
+           hx-get="{{ url_for('editor_v2_bp.panel_left') }}"
+           hx-trigger="load"
+           hx-swap="innerHTML"></div>
+      <div id="editor-panel-center" class="editor-panel editor-panel-center"
+           hx-get="{{ url_for('editor_v2_bp.panel_center') }}"
+           hx-trigger="load"
+           hx-swap="innerHTML"></div>
+      <div class="editor-panel editor-panel-right"
+           hx-get="{{ url_for('editor_v2_bp.panel_right') }}"
+           hx-trigger="load"
+           hx-swap="innerHTML"></div>
+    </div>
+    <div class="editor-statusbar"
+         hx-get="{{ url_for('editor_v2_bp.panel_statusbar') }}"
+         hx-trigger="load"
+         hx-swap="innerHTML"></div>
+  </div>
+{% endblock %}

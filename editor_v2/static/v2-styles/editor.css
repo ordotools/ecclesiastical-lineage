@@ -1,0 +1,92 @@
+/* Editor v2: 3 columns + statusbar, 10px sans-serif, black/white, no animation */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 10px;
+  color: #000;
+  background: #fff;
+}
+
+.editor-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.editor-panels-row {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+}
+
+.editor-shell .editor-panel {
+  min-width: 0;
+  border: 1px solid #000;
+  padding: 1em;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.editor-shell .editor-panel::-webkit-scrollbar {
+  display: none;
+}
+
+.editor-panels-row .editor-panel-left,
+.editor-panels-row .editor-panel-center,
+.editor-panels-row .editor-panel-right {
+  flex: 1 1 0;
+}
+
+.editor-shell .editor-statusbar {
+  flex: 0 0 auto;
+  border: 1px solid #000;
+  border-top: 1px solid #000;
+  height: 2em;
+  padding: .5em 1em;
+  background: #fff;
+  color: #000;
+  font-size: 10px;
+}
+
+.panel-left-content {
+  padding: 0;
+}
+
+.panel-left-clergy-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.panel-left-clergy-item {
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid #ccc;
+}
+
+.panel-left-clergy-item:last-child {
+  border-bottom: 0;
+}
+
+.panel-left-link {
+  display: block;
+  padding: 0.5em 0;
+  color: #000;
+  text-decoration: none;
+}
+
+.panel-left-add .panel-left-link {
+  font-weight: bold;
+}
+
+.panel-left-empty {
+  margin: 0;
+  padding: 0.5em 0;
+  color: #666;
+}

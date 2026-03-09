@@ -1,0 +1,148 @@
+{% set form_action = url_for('clergy.edit_clergy', clergy_id=clergy.id) if edit_mode and clergy else url_for('clergy.add_clergy') %}
+<form id="clergyForm" method="POST" action="{{ form_action }}" enctype="multipart/form-data">
+
+  <div class="form-field">
+    <label for="name" class="form-label required">Full Name</label>
+    <input type="text" id="name" name="name" value="{{ clergy.name if edit_mode and clergy else '' }}" required>
+  </div>
+
+  <div class="form-field">
+    <label for="papal_name" class="form-label">Papal Name</label>
+    <input type="text" id="papal_name" name="papal_name" value="{{ clergy.papal_name if edit_mode and clergy else '' }}" placeholder="e.g., Pope Francis">
+  </div>
+
+  <div class="form-field">
+    <label for="organization" class="form-label">Organization</label>
+    <select id="organization" name="organization">
+      <option value="">Select Organization</option>
+      {% for org in fields.organizations %}
+      <option value="{{ org.name }}" {% if clergy and clergy.organization == org.name %}selected{% endif %}>{{ org.name }}{% if org.abbreviation %} ({{ org.abbreviation }}){% endif %}</option>
+      {% endfor %}
+    </select>
+    <button type="button">Add</button>
+  </div>
+
+  <div class="form-field">
+    <label class="form-label">Photo</label>
+    <input type="file" name="clergy_image" accept="image/*">
+    <span>No photo</span>
+  </div>
+
+  <div class="form-field">
+    <label for="rank" class="form-label">Rank</label>
+    <select id="rank" name="rank" required>
+      <option value="">Select Rank</option>
+      {% for rank in fields.ranks %}
+      <option value="{{ rank.name }}" data-is-bishop="{{ 'true' if rank.is_bishop else 'false' }}" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>{{ rank.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="form-field">
+    <label for="date_of_birth" class="form-label">Date of Birth</label>
+    <input type="date" id="date_of_birth" name="date_of_birth" value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}">
+  </div>
+
+  <div class="form-field">
+    <label for="date_of_death" class="form-label">Date of Death</label>
+    <input type="date" id="date_of_death" name="date_of_death" value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}">
+  </div>
+
+  <div class="form-field">
+    <label for="notes" class="form-label">Notes</label>
+    <textarea id="notes" name="notes" rows="3" placeholder="Additional notes...">{{ clergy.notes if edit_mode and clergy else '' }}</textarea>
+  </div>
+
+  <div class="form-section">
+    <h5>Ordinations</h5>
+    <div class="form-field">
+      <label class="form-label">Date</label>
+      <input type="date" name="ordinations[0][date]" value="{{ clergy.ordinations[0].date.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].date else '' }}">
+    </div>
+    <div class="form-field">
+      <label class="form-label">Ordaining bishop</label>
+      <input type="text" name="ordinations[0][ordaining_bishop_input]" placeholder="Search for bishop..." value="{{ clergy.ordinations[0].ordaining_bishop.name if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0].ordaining_bishop else '' }}">
+      <input type="hidden" name="ordinations[0][ordaining_bishop_id]" value="{{ clergy.ordinations[0].ordaining_bishop_id if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else '' }}">
+    </div>
+    <div class="form-field">
+      <label class="form-label">Validity</label>
+      <select name="ordinations[0][validity]">
+        <option value="valid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and not clergy.ordinations[0].is_invalid and not clergy.ordinations[0].is_doubtfully_valid %}selected{% endif %}>Valid</option>
+        <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
+        <option value="invalid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_invalid %}selected{% endif %}>Invalid</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label><input type="checkbox" name="ordinations[0][is_sub_conditione]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_sub_conditione %}checked{% endif %}> Sub conditione</label>
+    </div>
+    <div class="form-field">
+      <label><input type="checkbox" name="ordinations[0][is_doubtful_event]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Notes</label>
+      <textarea name="ordinations[0][notes]" rows="2">{{ clergy.ordinations[0].notes if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else '' }}</textarea>
+    </div>
+    <button type="button">Add Ordination</button>
+  </div>
+
+  <div class="form-section consecrations-section" {% if edit_mode and clergy and clergy.rank and clergy.rank.lower() not in ['bishop', 'archbishop', 'cardinal', 'pope'] %}hidden{% endif %}>
+    <h5>Consecrations</h5>
+    <div class="form-field">
+      <label class="form-label">Date</label>
+      <input type="date" name="consecrations[0][date]" value="{{ clergy.consecrations[0].date.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].date else '' }}">
+    </div>
+    <div class="form-field">
+      <label class="form-label">Consecrator</label>
+      <input type="text" name="consecrations[0][consecrator_input]" placeholder="Search for consecrator..." value="{{ clergy.consecrations[0].consecrator.name if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0].consecrator else '' }}">
+      <input type="hidden" name="consecrations[0][consecrator_id]" value="{{ clergy.consecrations[0].consecrator_id if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else '' }}">
+    </div>
+    <div class="form-field">
+      <label class="form-label">Validity</label>
+      <select name="consecrations[0][validity]">
+        <option value="valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and not clergy.consecrations[0].is_invalid and not clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Valid</option>
+        <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
+        <option value="invalid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_invalid %}selected{% endif %}>Invalid</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label><input type="checkbox" name="consecrations[0][is_sub_conditione]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_sub_conditione %}checked{% endif %}> Sub conditione</label>
+    </div>
+    <div class="form-field">
+      <label><input type="checkbox" name="consecrations[0][is_doubtful_event]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Notes</label>
+      <textarea name="consecrations[0][notes]" rows="2">{{ clergy.consecrations[0].notes if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else '' }}</textarea>
+    </div>
+    <button type="button">Add Consecration</button>
+  </div>
+
+  {% if fields.statuses %}
+  <div class="form-section">
+    <h5>Status Indicators</h5>
+    {% for status in fields.statuses %}
+    <div class="form-field">
+      <input type="checkbox" id="status_{{ status.id }}" name="status_ids[]" value="{{ status.id }}" {% if edit_mode and clergy and status in clergy.statuses %}checked{% endif %}>
+      <label for="status_{{ status.id }}">{{ status.name|title }}</label>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if edit_mode and clergy and user and user.can_edit_clergy() %}
+  <div class="form-section admin-controls">
+    <h5>Administrative Controls</h5>
+    <div class="form-field">
+      <label><input type="checkbox" id="mark_deleted" name="mark_deleted" value="1" {% if clergy.is_deleted %}checked{% endif %}> Mark this record as deleted</label>
+    </div>
+    <div class="form-field">
+      <label><input type="checkbox" id="is_lineage_root" name="is_lineage_root" value="1" {% if edit_mode and clergy and clergy in (lineage_roots|default([])) %}checked{% endif %}> Lineage root</label>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="form-actions">
+    <a href="{{ url_for('clergy.clergy_list') }}">Cancel</a>
+    <button type="submit">{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}</button>
+  </div>
+</form>

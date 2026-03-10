@@ -3,7 +3,7 @@
 {% block content %}
   <div class="editor-shell">
     <div class="editor-panels-row">
-      <div class="editor-panel editor-panel-left"
+      <div id="editor-panel-left" class="editor-panel editor-panel-left"
            hx-get="{{ url_for('editor_v2_bp.panel_left') }}"
            hx-trigger="load"
            hx-swap="innerHTML"></div>

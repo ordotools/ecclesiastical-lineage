@@ -7,49 +7,51 @@
       data-panel-center-url="{{ url_for('editor_v2_bp.panel_center') }}"
       {% if edit_mode and clergy %}data-clergy-id="{{ clergy.id }}"{% endif %}>
 
-  <div class="form-field">
-    <label for="name" class="form-label required">Full Name</label>
-    <input type="text" id="name" name="name" value="{{ clergy.name if edit_mode and clergy else '' }}" required>
+  <div class="form-grid form-grid--identity">
+    <div class="form-field full-width">
+      <label for="name" class="form-label required">Full Name</label>
+      <input type="text" id="name" name="name" value="{{ clergy.name if edit_mode and clergy else '' }}" required>
+    </div>
+
+    <div id="papalNameField" class="form-field full-width">
+      <label for="papal_name" class="form-label">Papal Name</label>
+      <input type="text" id="papal_name" name="papal_name" value="{{ clergy.papal_name if edit_mode and clergy else '' }}" placeholder="e.g., Pope Francis">
+    </div>
+
+    <div class="form-field full-width">
+      <label for="organization" class="form-label">Organization</label>
+      <div class="organization-input-group">
+        <select id="organization" name="organization">
+          <option value="">Select Organization</option>
+          {% for org in fields.organizations %}
+          <option value="{{ org.name }}" {% if clergy and clergy.organization == org.name %}selected{% endif %}>{{ org.name }}{% if org.abbreviation %} ({{ org.abbreviation }}){% endif %}</option>
+          {% endfor %}
+        </select>
+        <button type="button" class="editor-button editor-button--action">Add</button>
+      </div>
+    </div>
   </div>
 
-  <div id="papalNameField" class="form-field">
-    <label for="papal_name" class="form-label">Papal Name</label>
-    <input type="text" id="papal_name" name="papal_name" value="{{ clergy.papal_name if edit_mode and clergy else '' }}" placeholder="e.g., Pope Francis">
-  </div>
-
-  <div class="form-field">
-    <label for="organization" class="form-label">Organization</label>
-    <select id="organization" name="organization">
-      <option value="">Select Organization</option>
-      {% for org in fields.organizations %}
-      <option value="{{ org.name }}" {% if clergy and clergy.organization == org.name %}selected{% endif %}>{{ org.name }}{% if org.abbreviation %} ({{ org.abbreviation }}){% endif %}</option>
-      {% endfor %}
-    </select>
-    <button type="button">Add</button>
-  </div>
-
-  <div class="form-field">
-    <label class="form-label">Photo</label>
-    <input type="file" name="clergy_image" accept="image/*">
-    <span>No photo</span>
-  </div>
-
-  <div class="form-field">
-    <label for="rank" class="form-label">Rank</label>
-    <select id="rank" name="rank" required>
+  <div class="form-grid form-grid--photo-fields">
+    <div id="photoField" class="form-field photo-section">
+      <label class="form-label">Photo</label>
+      <input type="file" name="clergy_image" accept="image/*">
+      <span>No photo</span>
+    </div>
+    <div id="rankField" class="form-field">
+      <label for="rank" class="form-label">Rank</label>
+      <select id="rank" name="rank" required>
       <option value="">Select Rank</option>
       {% for rank in fields.ranks %}
       <option value="{{ rank.name }}" data-is-bishop="{{ 'true' if rank.is_bishop else 'false' }}" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>{{ rank.name }}</option>
       {% endfor %}
     </select>
-  </div>
-
-  <div class="form-field-row form-field-row--dates">
-    <div class="form-field">
+    </div>
+    <div id="birthField" class="form-field">
       <label for="date_of_birth" class="form-label">Date of Birth</label>
       <input type="date" id="date_of_birth" name="date_of_birth" value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}">
     </div>
-    <div class="form-field">
+    <div id="deathField" class="form-field">
       <label for="date_of_death" class="form-label">Date of Death</label>
       <input type="date" id="date_of_death" name="date_of_death" value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}">
     </div>
@@ -64,76 +66,168 @@
     <h5>Ordinations</h5>
     <div id="ordinationsContainer">
       <div class="ordination-entry">
-        <div class="form-field">
-          <label class="form-label">Date</label>
-          <input type="date" name="ordinations[0][date]" value="{{ clergy.ordinations[0].date.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].date else '' }}">
+        <div class="ordination-entry__compact-row">
+          {% set first_ordination = clergy.ordinations[0] if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else None %}
+          {% set first_ordination_date = first_ordination.date if first_ordination and first_ordination.date else None %}
+          {% set first_ordination_year = first_ordination.year if first_ordination and first_ordination.year else None %}
+          {% set first_ordination_unknown = (first_ordination_date is none and first_ordination_year is not none) %}
+          <div class="form-field ordination-date-block{% if first_ordination_unknown %} is-unknown-date{% endif %}">
+            <label class="form-label">Date</label>
+            <div class="date-input-wrapper">
+              <input
+                type="date"
+                name="ordinations[0][date]"
+                value="{{ first_ordination_date.strftime('%Y-%m-%d') if first_ordination_date else '' }}">
+            </div>
+            <div class="date-unknown-wrapper">
+              <input
+                type="hidden"
+                name="ordinations[0][date_unknown]"
+                value="{{ '1' if first_ordination_unknown else '' }}">
+              <input
+                type="number"
+                name="ordinations[0][year]"
+                min="1"
+                max="9999"
+                placeholder="Year"
+                value="{{ first_ordination_year if first_ordination_year is not none else '' }}">
+            </div>
+            <a
+              href="#"
+              class="date-unknown-link">date unknown</a>
+            <a
+              href="#"
+              class="specify-date-link">specify date</a>
+          </div>
+          <div class="form-field bishop-autocomplete-field">
+            <label class="form-label">Ordaining bishop</label>
+            <input type="text" name="ordinations[0][ordaining_bishop_input]" placeholder="Search for bishop..." autocomplete="off" value="{{ clergy.ordinations[0].ordaining_bishop.name if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0].ordaining_bishop else '' }}">
+            <input type="hidden" name="ordinations[0][ordaining_bishop_id]" value="{{ clergy.ordinations[0].ordaining_bishop_id if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else '' }}">
+            <div class="autocomplete-dropdown"></div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Validity</label>
+            <select name="ordinations[0][validity]">
+              <option value="valid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and not clergy.ordinations[0].is_invalid and not clergy.ordinations[0].is_doubtfully_valid %}selected{% endif %}>Valid</option>
+              <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
+              <option value="invalid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_invalid %}selected{% endif %}>Invalid</option>
+            </select>
+          </div>
         </div>
-        <div class="form-field bishop-autocomplete-field">
-          <label class="form-label">Ordaining bishop</label>
-          <input type="text" name="ordinations[0][ordaining_bishop_input]" placeholder="Search for bishop..." autocomplete="off" value="{{ clergy.ordinations[0].ordaining_bishop.name if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0].ordaining_bishop else '' }}">
-          <input type="hidden" name="ordinations[0][ordaining_bishop_id]" value="{{ clergy.ordinations[0].ordaining_bishop_id if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else '' }}">
-          <div class="autocomplete-dropdown"></div>
+        <div class="ordination-entry__checkbox-row">
+          <div class="form-field">
+            <label><input type="checkbox" name="ordinations[0][is_sub_conditione]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_sub_conditione %}checked{% endif %}> Sub conditione</label>
+          </div>
+          <div class="form-field">
+            <label><input type="checkbox" name="ordinations[0][is_doubtful_event]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+          </div>
         </div>
-        <div class="form-field">
-          <label class="form-label">Validity</label>
-          <select name="ordinations[0][validity]">
-            <option value="valid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and not clergy.ordinations[0].is_invalid and not clergy.ordinations[0].is_doubtfully_valid %}selected{% endif %}>Valid</option>
-            <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
-            <option value="invalid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_invalid %}selected{% endif %}>Invalid</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label><input type="checkbox" name="ordinations[0][is_sub_conditione]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_sub_conditione %}checked{% endif %}> Sub conditione</label>
-        </div>
-        <div class="form-field">
-          <label><input type="checkbox" name="ordinations[0][is_doubtful_event]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+        <div class="validity-extra-block" style="display: none;">
+          <div class="ordination-entry__checkbox-row">
+            <div class="form-field">
+              <label><input type="checkbox" name="ordinations[0][is_inherited]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_inherited %}checked{% endif %}> Inherited</label>
+            </div>
+            <div class="form-field">
+              <label><input type="checkbox" name="ordinations[0][is_other]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_other %}checked{% endif %}> Other</label>
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Optional notes</label>
+            <input type="text" name="ordinations[0][optional_notes]" placeholder="optional notes" disabled value="{{ clergy.ordinations[0].optional_notes if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].optional_notes else '' }}">
+          </div>
         </div>
         <div class="form-field">
           <label class="form-label">Notes</label>
           <textarea name="ordinations[0][notes]" rows="2">{{ clergy.ordinations[0].notes if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else '' }}</textarea>
         </div>
-        <button type="button" class="remove-ordination">Remove</button>
+        <button type="button" class="editor-button editor-button--danger remove-ordination">Remove</button>
       </div>
     </div>
-    <button type="button" id="addOrdinationBtn">Add Ordination</button>
+    <button type="button" id="addOrdinationBtn" class="editor-button editor-button--action">Add Ordination</button>
   </div>
 
   <div class="form-section consecrations-section" {% if edit_mode and clergy and clergy.rank and clergy.rank.lower() not in ['bishop', 'archbishop', 'cardinal', 'pope'] %}hidden{% endif %}>
     <h5>Consecrations</h5>
     <div id="consecrationsContainer">
       <div class="consecration-entry">
-        <div class="form-field">
-          <label class="form-label">Date</label>
-          <input type="date" name="consecrations[0][date]" value="{{ clergy.consecrations[0].date.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].date else '' }}">
+        <div class="consecration-entry__compact-row">
+          {% set first_consecration = clergy.consecrations[0] if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else None %}
+          {% set first_consecration_date = first_consecration.date if first_consecration and first_consecration.date else None %}
+          {% set first_consecration_year = first_consecration.year if first_consecration and first_consecration.year else None %}
+          {% set first_consecration_unknown = (first_consecration_date is none and first_consecration_year is not none) %}
+          <div class="form-field consecration-date-block{% if first_consecration_unknown %} is-unknown-date{% endif %}">
+            <label class="form-label">Date</label>
+            <div class="date-input-wrapper">
+              <input
+                type="date"
+                name="consecrations[0][date]"
+                value="{{ first_consecration_date.strftime('%Y-%m-%d') if first_consecration_date else '' }}">
+            </div>
+            <div class="date-unknown-wrapper">
+              <input
+                type="hidden"
+                name="consecrations[0][date_unknown]"
+                value="{{ '1' if first_consecration_unknown else '' }}">
+              <input
+                type="number"
+                name="consecrations[0][year]"
+                min="1"
+                max="9999"
+                placeholder="Year"
+                value="{{ first_consecration_year if first_consecration_year is not none else '' }}">
+            </div>
+            <a
+              href="#"
+              class="date-unknown-link">date unknown</a>
+            <a
+              href="#"
+              class="specify-date-link">specify date</a>
+          </div>
+          <div class="form-field bishop-autocomplete-field">
+            <label class="form-label">Consecrator</label>
+            <input type="text" name="consecrations[0][consecrator_input]" placeholder="Search for consecrator..." autocomplete="off" value="{{ clergy.consecrations[0].consecrator.name if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0].consecrator else '' }}">
+            <input type="hidden" name="consecrations[0][consecrator_id]" value="{{ clergy.consecrations[0].consecrator_id if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else '' }}">
+            <div class="autocomplete-dropdown"></div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Validity</label>
+            <select name="consecrations[0][validity]">
+              <option value="valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and not clergy.consecrations[0].is_invalid and not clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Valid</option>
+              <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
+              <option value="invalid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_invalid %}selected{% endif %}>Invalid</option>
+            </select>
+          </div>
         </div>
-        <div class="form-field bishop-autocomplete-field">
-          <label class="form-label">Consecrator</label>
-          <input type="text" name="consecrations[0][consecrator_input]" placeholder="Search for consecrator..." autocomplete="off" value="{{ clergy.consecrations[0].consecrator.name if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0].consecrator else '' }}">
-          <input type="hidden" name="consecrations[0][consecrator_id]" value="{{ clergy.consecrations[0].consecrator_id if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else '' }}">
-          <div class="autocomplete-dropdown"></div>
+        <div class="consecration-entry__checkbox-row">
+          <div class="form-field">
+            <label><input type="checkbox" name="consecrations[0][is_sub_conditione]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_sub_conditione %}checked{% endif %}> Sub conditione</label>
+          </div>
+          <div class="form-field">
+            <label><input type="checkbox" name="consecrations[0][is_doubtful_event]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+          </div>
         </div>
-        <div class="form-field">
-          <label class="form-label">Validity</label>
-          <select name="consecrations[0][validity]">
-            <option value="valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and not clergy.consecrations[0].is_invalid and not clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Valid</option>
-            <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
-            <option value="invalid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_invalid %}selected{% endif %}>Invalid</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label><input type="checkbox" name="consecrations[0][is_sub_conditione]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_sub_conditione %}checked{% endif %}> Sub conditione</label>
-        </div>
-        <div class="form-field">
-          <label><input type="checkbox" name="consecrations[0][is_doubtful_event]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+        <div class="validity-extra-block" style="display: none;">
+          <div class="consecration-entry__checkbox-row">
+            <div class="form-field">
+              <label><input type="checkbox" name="consecrations[0][is_inherited]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_inherited %}checked{% endif %}> Inherited</label>
+            </div>
+            <div class="form-field">
+              <label><input type="checkbox" name="consecrations[0][is_other]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_other %}checked{% endif %}> Other</label>
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Optional notes</label>
+            <input type="text" name="consecrations[0][optional_notes]" placeholder="optional notes" disabled value="{{ clergy.consecrations[0].optional_notes if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].optional_notes else '' }}">
+          </div>
         </div>
         <div class="form-field">
           <label class="form-label">Notes</label>
           <textarea name="consecrations[0][notes]" rows="2">{{ clergy.consecrations[0].notes if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else '' }}</textarea>
         </div>
-        <button type="button" class="remove-consecration">Remove</button>
+        <button type="button" class="editor-button editor-button--danger remove-consecration">Remove</button>
       </div>
     </div>
-    <button type="button" id="addConsecrationBtn">Add Consecration</button>
+    <button type="button" id="addConsecrationBtn" class="editor-button editor-button--action">Add Consecration</button>
   </div>
 
   {% if fields.statuses %}
@@ -161,8 +255,8 @@
   {% endif %}
 
   <div class="form-actions">
-    <a href="#" class="editor-v2-cancel">Cancel</a>
-    <button type="submit">{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}</button>
+    <a href="#" class="editor-button editor-button--danger editor-v2-cancel">Cancel</a>
+    <button type="submit" class="editor-button editor-button--save">{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}</button>
   </div>
 </form>
 <script>
@@ -174,9 +268,17 @@
     if (!rankSelect) return;
     var selected = rankSelect.options[rankSelect.selectedIndex];
     var rankValue = selected ? selected.value : '';
+    var normalizedRank = (rankValue || '').toLowerCase();
     var isBishop = selected && selected.getAttribute('data-is-bishop') === 'true';
-    if (papalField) papalField.style.display = (rankValue === 'pope') ? '' : 'none';
-    if (consecrationsSection) consecrationsSection.hidden = !isBishop;
+    if (papalField) papalField.style.display = (normalizedRank === 'pope') ? '' : 'none';
+    if (consecrationsSection) {
+      consecrationsSection.hidden = !isBishop;
+      if (consecrationsSection.hidden) {
+        consecrationsSection.querySelectorAll('input, select, textarea').forEach(function(el) {
+          el.removeAttribute('required');
+        });
+      }
+    }
   }
 
   function reindexOrdinationEntries(form) {
@@ -206,11 +308,16 @@
       if (firstOpt) el.selectedIndex = 0;
     });
     clone.querySelector('input[name*="ordaining_bishop_id"]').value = '';
+    var ordinationDateBlock = clone.querySelector('.ordination-date-block');
+    if (ordinationDateBlock) {
+      toggleDateUnknown(ordinationDateBlock, false);
+    }
     var dropdown = clone.querySelector('.autocomplete-dropdown');
     if (dropdown) dropdown.remove();
     container.appendChild(clone);
     reindexOrdinationEntries(form);
     setupOrdinationBishopAutocomplete(form);
+    syncValidityExtraForEntry(clone);
   }
 
   function removeOrdination(form, entry) {
@@ -303,11 +410,16 @@
       if (firstOpt) el.selectedIndex = 0;
     });
     clone.querySelector('input[name*="consecrator_id"]').value = '';
+    var consecrationDateBlock = clone.querySelector('.consecration-date-block');
+    if (consecrationDateBlock) {
+      toggleDateUnknown(consecrationDateBlock, false);
+    }
     var dropdown = clone.querySelector('.autocomplete-dropdown');
     if (dropdown) dropdown.remove();
     container.appendChild(clone);
     reindexConsecrationEntries(form);
     setupConsecrationBishopAutocomplete(form);
+    syncValidityExtraForEntry(clone);
   }
 
   function removeConsecration(form, entry) {
@@ -329,6 +441,53 @@
     });
   }
 
+  function syncValidityExtraForEntry(entry) {
+    if (!entry) return;
+    var block = entry.querySelector('.validity-extra-block');
+    var validitySelect = entry.querySelector('select[name*="[validity]"]');
+    var isOther = entry.querySelector('input[name*="[is_other]"]');
+    var optionalNotes = entry.querySelector('input[name*="[optional_notes]"]');
+    if (!block || !validitySelect) return;
+    var validity = (validitySelect.value || '').toLowerCase();
+    block.style.display = (validity !== 'valid') ? '' : 'none';
+    if (optionalNotes) {
+      var otherChecked = isOther && isOther.checked;
+      optionalNotes.disabled = !otherChecked;
+      if (!otherChecked) optionalNotes.value = '';
+    }
+  }
+
+  function toggleDateUnknown(block, isUnknown) {
+    if (!block) return;
+    var dateWrapper = block.querySelector('.date-input-wrapper');
+    var unknownWrapper = block.querySelector('.date-unknown-wrapper');
+    var dateInput = dateWrapper && dateWrapper.querySelector('input[type="date"]');
+    var unknownInput = unknownWrapper && unknownWrapper.querySelector('input[name*="[date_unknown]"]');
+    var yearInput = unknownWrapper && unknownWrapper.querySelector('input[name*="[year]"]');
+    var unknownLink = block.querySelector('.date-unknown-link');
+    var specifyLink = block.querySelector('.specify-date-link');
+
+    if (isUnknown) {
+      if (dateWrapper) dateWrapper.style.display = 'none';
+      if (unknownWrapper) unknownWrapper.style.display = 'block';
+      if (unknownLink) unknownLink.style.display = 'none';
+      if (specifyLink) specifyLink.style.display = '';
+      if (dateInput) {
+        dateInput.value = '';
+        dateInput.removeAttribute('required');
+      }
+      if (unknownInput) unknownInput.value = '1';
+    } else {
+      if (dateWrapper) dateWrapper.style.display = '';
+      if (unknownWrapper) unknownWrapper.style.display = 'none';
+      if (unknownLink) unknownLink.style.display = '';
+      if (specifyLink) specifyLink.style.display = 'none';
+      if (dateInput) dateInput.removeAttribute('required');
+      if (unknownInput) unknownInput.value = '';
+      if (yearInput) yearInput.value = '';
+    }
+  }
+
   function initClergyFormV2() {
     var form = document.getElementById('clergyForm');
     if (!form || form.getAttribute('data-clergy-form-v2-inited') === 'true') return;
@@ -343,6 +502,28 @@
     setupOrdinationBishopAutocomplete(form);
     setupConsecrationBishopAutocomplete(form);
 
+    form.querySelectorAll('.ordination-entry, .consecration-entry').forEach(function(entry) {
+      syncValidityExtraForEntry(entry);
+    });
+
+    form.querySelectorAll('.ordination-date-block, .consecration-date-block').forEach(function(block) {
+      var dateInput = block.querySelector('.date-input-wrapper input[type="date"]');
+      var unknownInput = block.querySelector('.date-unknown-wrapper input[name*="[date_unknown]"]');
+      var yearInput = block.querySelector('.date-unknown-wrapper input[name*="[year]"]');
+      var hasUnknownFlag = unknownInput && unknownInput.value === '1';
+      var hasYearOnly = yearInput && yearInput.value && (!dateInput || !dateInput.value);
+      toggleDateUnknown(block, !!(hasUnknownFlag || hasYearOnly));
+    });
+
+    form.addEventListener('change', function(e) {
+      var target = e.target;
+      if (!target || !target.getAttribute || !target.getAttribute('name')) return;
+      var name = target.getAttribute('name');
+      if (name.indexOf('[validity]') === -1 && name.indexOf('[is_other]') === -1) return;
+      var entry = target.closest('.ordination-entry') || target.closest('.consecration-entry');
+      if (entry) syncValidityExtraForEntry(entry);
+    });
+
     var cancelLink = form.querySelector('a.editor-v2-cancel');
     if (cancelLink) {
       cancelLink.addEventListener('click', function(e) {
@@ -355,25 +536,48 @@
     }
 
     form.addEventListener('click', function(e) {
-      if (e.target && e.target.id === 'addOrdinationBtn') {
+      var target = e.target;
+      if (!target) return;
+
+      if (target.classList && target.classList.contains('date-unknown-link')) {
+        e.preventDefault();
+        var entryUnknown = target.closest('.ordination-entry') || target.closest('.consecration-entry');
+        if (entryUnknown) {
+          var blockUnknown = entryUnknown.querySelector('.ordination-date-block') || entryUnknown.querySelector('.consecration-date-block');
+          if (blockUnknown) toggleDateUnknown(blockUnknown, true);
+        }
+        return;
+      }
+
+      if (target.classList && target.classList.contains('specify-date-link')) {
+        e.preventDefault();
+        var entrySpecify = target.closest('.ordination-entry') || target.closest('.consecration-entry');
+        if (entrySpecify) {
+          var blockSpecify = entrySpecify.querySelector('.ordination-date-block') || entrySpecify.querySelector('.consecration-date-block');
+          if (blockSpecify) toggleDateUnknown(blockSpecify, false);
+        }
+        return;
+      }
+
+      if (target && target.id === 'addOrdinationBtn') {
         e.preventDefault();
         addOrdination(form);
         return;
       }
-      if (e.target && e.target.classList && e.target.classList.contains('remove-ordination')) {
+      if (target && target.classList && target.classList.contains('remove-ordination')) {
         e.preventDefault();
-        var entry = e.target.closest('.ordination-entry');
+        var entry = target.closest('.ordination-entry');
         if (entry) removeOrdination(form, entry);
         return;
       }
-      if (e.target && e.target.id === 'addConsecrationBtn') {
+      if (target && target.id === 'addConsecrationBtn') {
         e.preventDefault();
         addConsecration(form);
         return;
       }
-      if (e.target && e.target.classList && e.target.classList.contains('remove-consecration')) {
+      if (target && target.classList && target.classList.contains('remove-consecration')) {
         e.preventDefault();
-        var entry = e.target.closest('.consecration-entry');
+        var entry = target.closest('.consecration-entry');
         if (entry) removeConsecration(form, entry);
       }
     });

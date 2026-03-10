@@ -292,26 +292,89 @@ body {
   padding: 0.25em;
   border: 1px solid #d3d3d3;
   width: 100%;
+  box-sizing: border-box;
+}
+
+#clergyForm input[type="text"],
+#clergyForm input[type="date"],
+#clergyForm input[type="number"],
+#clergyForm select {
+  height: 2.25em;
 }
 
 #clergyForm textarea {
   resize: vertical;
 }
 
-#clergyForm .form-field-row--dates {
-  display: flex;
+/* Form grid - base */
+#clergyForm .form-grid {
+  display: grid;
   gap: 0.75em;
 }
 
-#clergyForm .form-field-row--dates .form-field {
-  flex: 1 1 0;
+/* Identity section form grid */
+#clergyForm .form-grid--identity {
+  grid-template-columns: 1fr;
+}
+
+#clergyForm .form-field.full-width {
+  grid-column: 1 / -1;
+}
+
+#clergyForm .organization-input-group {
+  display: flex;
+  gap: 0.5em;
+  align-items: center;
+}
+
+#clergyForm .organization-input-group select {
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+/* Photo + Rank/DoB/DoD two-column grid */
+#clergyForm .form-grid--photo-fields {
+  grid-template-columns: 200px 1fr;
+  grid-template-rows: auto auto auto;
+  align-items: start;
+}
+
+/* Photo section - left column, spans 3 rows, fills full height */
+#clergyForm .photo-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+}
+
+#clergyForm #photoField {
+  grid-column: 1;
+  grid-row: 1 / 4;
+  align-self: stretch;
+  min-height: 200px;
+}
+
+#clergyForm .photo-section > span {
+  flex: 1;
+  min-height: 0;
+}
+
+#clergyForm #rankField {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+#clergyForm #birthField {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+#clergyForm #deathField {
+  grid-column: 2;
+  grid-row: 3;
 }
 
 #clergyForm button,
 #clergyForm .editor-v2-cancel {
-  background: none;
-  border: none;
   padding: 0.25em 0.5em;
   cursor: pointer;
 }
@@ -320,6 +383,47 @@ body {
   display: flex;
   gap: 1em;
   margin-top: 0.5em;
+}
+
+/* Editor v2 button roles */
+
+.editor-button {
+  display: inline-block;
+  padding: 0.25em 0.75em;
+  font: inherit;
+  background: none;
+  border: none;
+  color: #000;
+  text-decoration: none;
+}
+
+.editor-button--save {
+  color: #005c1a;            /* muted green text */
+  border: 1px solid #005c1a; /* green outline on white */
+  background: #fff;
+}
+
+.editor-button--danger {
+  color: #a00000;            /* muted red text */
+  border: 1px solid #a00000; /* red outline on white */
+  background: #fff;
+}
+
+.editor-button--action {
+  color: #004c99;            /* muted blue text */
+  text-decoration: underline;
+  border: none;
+  background: none;
+}
+
+.editor-button--save:hover,
+.editor-button--save:focus,
+.editor-button--danger:hover,
+.editor-button--danger:focus,
+.editor-button--action:hover,
+.editor-button--action:focus {
+  outline: none;
+  text-decoration: underline;
 }
 
 /* Form sections (Ordinations, Consecrations, Status Indicators, Admin) */
@@ -363,6 +467,44 @@ body {
   width: 100%;
 }
 
+/* Compact row: Date | Bishop | Validity */
+#clergyForm .ordination-entry__compact-row,
+#clergyForm .consecration-entry__compact-row {
+  display: flex;
+  gap: 0.75em;
+  flex-wrap: wrap;
+}
+
+#clergyForm .ordination-entry__compact-row .form-field:first-child,
+#clergyForm .consecration-entry__compact-row .form-field:first-child {
+  flex: 0 0 10em;
+}
+
+#clergyForm .ordination-entry__compact-row .form-field:nth-child(2),
+#clergyForm .consecration-entry__compact-row .form-field:nth-child(2) {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+
+#clergyForm .ordination-entry__compact-row .form-field:nth-child(3),
+#clergyForm .consecration-entry__compact-row .form-field:nth-child(3) {
+  flex: 0 0 9em;
+}
+
+/* Checkbox row: Sub conditione and Doubtful event side-by-side */
+#clergyForm .ordination-entry__checkbox-row,
+#clergyForm .consecration-entry__checkbox-row {
+  display: flex;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+
+#clergyForm .ordination-entry__checkbox-row .form-field,
+#clergyForm .consecration-entry__checkbox-row .form-field {
+  flex: 0 0 auto;
+  width: auto;
+}
+
 #clergyForm .ordination-entry > button,
 #clergyForm .consecration-entry > button {
   align-self: flex-start;
@@ -370,4 +512,58 @@ body {
 
 #clergyForm .form-section > button {
   margin-top: 0.5em;
+}
+
+/* Unknown-date blocks (ordinations / consecrations) */
+
+#clergyForm .ordination-date-block,
+#clergyForm .consecration-date-block {
+  display: flex;
+  flex-direction: column;
+}
+
+#clergyForm .ordination-date-block .date-input-wrapper,
+#clergyForm .consecration-date-block .date-input-wrapper,
+#clergyForm .ordination-date-block .date-unknown-wrapper,
+#clergyForm .consecration-date-block .date-unknown-wrapper {
+  width: 100%;
+}
+
+/* Default: precise date mode */
+#clergyForm .ordination-date-block .date-unknown-wrapper,
+#clergyForm .consecration-date-block .date-unknown-wrapper,
+#clergyForm .ordination-date-block .specify-date-link,
+#clergyForm .consecration-date-block .specify-date-link {
+  display: none;
+}
+
+/* Year-only unknown-date mode */
+#clergyForm .ordination-date-block.is-unknown-date .date-input-wrapper,
+#clergyForm .consecration-date-block.is-unknown-date .date-input-wrapper,
+#clergyForm .ordination-date-block.is-unknown-date .date-unknown-link,
+#clergyForm .consecration-date-block.is-unknown-date .date-unknown-link {
+  display: none;
+}
+
+#clergyForm .ordination-date-block.is-unknown-date .date-unknown-wrapper,
+#clergyForm .consecration-date-block.is-unknown-date .date-unknown-wrapper,
+#clergyForm .ordination-date-block.is-unknown-date .specify-date-link,
+#clergyForm .consecration-date-block.is-unknown-date .specify-date-link {
+  display: inline-block;
+}
+
+#clergyForm .date-unknown-link,
+#clergyForm .specify-date-link {
+  margin-top: 0.25em;
+  font-size: 0.9em;
+  color: #555;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#clergyForm .date-unknown-link:hover,
+#clergyForm .date-unknown-link:focus,
+#clergyForm .specify-date-link:hover,
+#clergyForm .specify-date-link:focus {
+  color: #000;
 }

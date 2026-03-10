@@ -234,9 +234,15 @@
 
                     renderFormStatus(form, 'success', message);
 
-                    if (typeof window !== 'undefined' && typeof window.htmx !== 'undefined' && typeof window.htmx.ajax === 'function' && clergyId != null) {
-                        window.htmx.ajax('GET', `/editor-v2/panel/center?clergy_id=${clergyId}`, {
-                            target: '#editor-panel-center',
+                    if (typeof window !== 'undefined' && typeof window.htmx !== 'undefined' && typeof window.htmx.ajax === 'function') {
+                        if (clergyId != null) {
+                            window.htmx.ajax('GET', `/editor-v2/panel/center?clergy_id=${clergyId}`, {
+                                target: '#editor-panel-center',
+                                swap: 'innerHTML'
+                            });
+                        }
+                        window.htmx.ajax('GET', '/editor-v2/panel/left', {
+                            target: '#editor-panel-left',
                             swap: 'innerHTML'
                         });
                     }

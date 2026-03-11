@@ -29,6 +29,7 @@ editor_v2_bp = Blueprint(
 
 
 @editor_v2_bp.route('/')
+@require_permission('edit_clergy')
 def shell():
     """Full-page shell (three panels + statusbar)."""
     return render_template('editor_v2/shell.html')
@@ -478,12 +479,14 @@ def ordained_consecrated_data():
 
 
 @editor_v2_bp.route('/panel/right')
+@require_permission('edit_clergy')
 def panel_right():
     """Right panel snippet for HTMX swap."""
     return render_template('editor_v2/snippets/panel_right.html')
 
 
 @editor_v2_bp.route('/panel/statusbar')
+@require_permission('edit_clergy')
 def panel_statusbar():
     """Statusbar snippet for HTMX swap."""
     return render_template('editor_v2/snippets/statusbar.html')

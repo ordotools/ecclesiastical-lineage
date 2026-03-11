@@ -159,6 +159,10 @@
             }
 
             const formData = new FormData(form);
+            const submitter = event.submitter;
+            if (submitter && submitter.getAttribute('name') === 'update_descendants') {
+                formData.append('update_descendants', submitter.getAttribute('value') || '1');
+            }
 
             fetch(action, {
                 method: 'POST',
@@ -207,9 +211,12 @@
                 })
                 .then(function (data) {
                     const success = data && data.success === true;
-                    const message = data && typeof data.message === 'string'
+                    let message = data && typeof data.message === 'string'
                         ? data.message
                         : (success ? 'Clergy record saved.' : 'Failed to save clergy record.');
+                    if (success && typeof data.updated_descendants_count === 'number') {
+                        message = 'Saved. ' + data.updated_descendants_count + ' descendant records updated.';
+                    }
 
                     if (!success) {
                         renderFormStatus(form, 'error', message);
@@ -265,16 +272,113 @@
         });
     }
 
+    /**
+     * Snapshot current ordination/consecration validity values from the form
+     * (ordered: ordinations by index, then consecrations by index).
+     * @param {HTMLFormElement} form
+     * @returns {string[]}
+     */
+    function getValiditySnapshot(form) {
+        if (!form || !form.querySelectorAll) {
+            return [];
+        }
+        function orderedValues(prefix) {
+            const selects = form.querySelectorAll('select[name^="' + prefix + '"][name$="[validity]"]');
+            const byName = Array.from(selects).map(function (el) {
+                return { name: el.getAttribute('name'), value: (el.value || '').trim() };
+            });
+            byName.sort(function (a, b) {
+                return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true });
+            });
+            return byName.map(function (o) {
+                return o.value;
+            });
+        }
+        return orderedValues('ordinations[').concat(orderedValues('consecrations['));
+    }
+
+    /**
+     * Enable "Save and update descendants" only when has_descendants and
+     * current validity snapshot differs from initial.
+     */
+    function initUpdateDescendantsButtonLogic() {
+        if (typeof document === 'undefined') {
+            return;
+        }
+        const form = document.getElementById('clergyForm');
+        if (!form || !form.matches('[data-editor-v2-clergy-form="true"]')) {
+            return;
+        }
+        if (form.getAttribute('data-update-descendants-js-inited') === 'true') {
+            return;
+        }
+        form.setAttribute('data-update-descendants-js-inited', 'true');
+
+        const btn = form.querySelector('.editor-button--update-descendants');
+        if (!btn) {
+            return;
+        }
+
+        form._editorV2InitialValidity = getValiditySnapshot(form);
+
+        function updateButton() {
+            const hasDescendants = form.getAttribute('data-has-descendants') === 'true';
+            const initial = form._editorV2InitialValidity || [];
+            const current = getValiditySnapshot(form);
+            const sameLength = initial.length === current.length;
+            const sameValues = sameLength && current.every(function (v, i) {
+                return initial[i] === v;
+            });
+            btn.disabled = !(hasDescendants && (!sameLength || !sameValues));
+        }
+
+        form.addEventListener('change', function (e) {
+            const name = (e.target && e.target.getAttribute && e.target.getAttribute('name')) || '';
+            if (name.indexOf('[validity]') === -1) {
+                return;
+            }
+            updateButton();
+        });
+
+        const ordContainer = form.querySelector('#ordinationsContainer');
+        const consContainer = form.querySelector('#consecrationsContainer');
+        function observeContainer(container) {
+            if (!container) {
+                return;
+            }
+            const obs = new MutationObserver(function () {
+                updateButton();
+            });
+            obs.observe(container, { childList: true, subtree: true });
+        }
+        observeContainer(ordContainer);
+        observeContainer(consContainer);
+
+        updateButton();
+    }
+
     if (typeof document !== 'undefined') {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function () {
                 initSelectionWiring();
                 initClergyFormInterceptor();
+                initUpdateDescendantsButtonLogic();
             });
         } else {
             initSelectionWiring();
             initClergyFormInterceptor();
+            initUpdateDescendantsButtonLogic();
         }
     }
+
+    document.body.addEventListener('htmx:afterSwap', function (event) {
+        const detail = event.detail || {};
+        const target = detail.target || event.target;
+        const panelCenter = document.getElementById('editor-panel-center');
+        const affectedCenter = panelCenter && (target === panelCenter || panelCenter.contains(target));
+        if (affectedCenter) {
+            initUpdateDescendantsButtonLogic();
+        }
+    });
 })();
 

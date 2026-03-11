@@ -183,13 +183,17 @@
             return { date: dateVal, year: null, dateUnknown: false };
         }
         const isUnknown = record.date_unknown === true || record.date_unknown === 1 || record.date_unknown === '1' || record.date_unknown === 'on';
+        const y = record.year != null ? parseInt(record.year, 10) : NaN;
+        const yearNum = Number.isFinite(y) ? y : null;
         if (isUnknown) {
-            const y = record.year != null ? parseInt(record.year, 10) : NaN;
             return {
                 date: null,
-                year: Number.isFinite(y) ? y : null,
+                year: yearNum,
                 dateUnknown: true
             };
+        }
+        if (yearNum != null) {
+            return { date: null, year: yearNum, dateUnknown: true };
         }
         return { date: null, year: null, dateUnknown: true };
     }

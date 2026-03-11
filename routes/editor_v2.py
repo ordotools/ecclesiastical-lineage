@@ -1,5 +1,5 @@
 """Editor v2: SPA shell with HTMX-loaded panels. Blueprint uses editor_v2/ templates and static."""
-from flask import Blueprint, render_template, request, session, jsonify
+from flask import Blueprint, render_template, request, session, jsonify, current_app
 from sqlalchemy.orm import joinedload
 
 from models import (
@@ -11,6 +11,7 @@ from models import (
     Ordination,
     Consecration,
     LineageRoot,
+    co_consecrators,
     db,
 )
 from services import clergy as clergy_service
@@ -80,6 +81,7 @@ def panel_center():
 
     edit_mode = bool(clergy)
     lineage_roots = _get_lineage_roots()
+    has_descendants = bool(_get_direct_dependents(clergy.id)) if clergy else False
 
     return render_template(
         'editor_v2/snippets/panel_center.html',
@@ -88,6 +90,7 @@ def panel_center():
         edit_mode=edit_mode,
         user=user,
         lineage_roots=lineage_roots,
+        has_descendants=has_descendants,
     )
 
 
@@ -113,6 +116,7 @@ def _serialize_event(event, kind):
         'kind': kind,
         'date': event.date.isoformat() if event.date else None,
         'year': event.year,
+        'date_unknown': event.date is None and event.year is not None,
         'display_date': event.display_date,
         'is_sub_conditione': event.is_sub_conditione,
         'is_doubtfully_valid': getattr(event, 'is_doubtfully_valid', False),
@@ -141,6 +145,75 @@ def _serialize_clergy_basic(clergy):
         'rank': clergy.rank,
         'organization': clergy.organization,
     }
+
+
+# Lineage tree caps to avoid huge payloads
+MAX_LINEAGE_DEPTH = 10
+MAX_LINEAGE_NODES = 500
+
+
+def _get_direct_dependents(clergy_id):
+    """Return list of (clergy_obj, event, role) for direct ordinees/consecrands/co-consecrated."""
+    result = []
+    ordained_rows = (
+        db.session.query(Clergy, Ordination)
+        .join(Ordination, Clergy.id == Ordination.clergy_id)
+        .filter(
+            Ordination.ordaining_bishop_id == clergy_id,
+            Clergy.is_deleted == False,  # noqa: E712
+        )
+        .all()
+    )
+    for c_obj, evt in ordained_rows:
+        result.append((c_obj, evt, 'ordinand'))
+    consecrated_rows = (
+        db.session.query(Clergy, Consecration)
+        .join(Consecration, Clergy.id == Consecration.clergy_id)
+        .filter(
+            Consecration.consecrator_id == clergy_id,
+            Clergy.is_deleted == False,  # noqa: E712
+        )
+        .all()
+    )
+    for c_obj, evt in consecrated_rows:
+        result.append((c_obj, evt, 'consecrand'))
+    co_rows = (
+        db.session.query(Clergy, Consecration)
+        .join(Consecration, Clergy.id == Consecration.clergy_id)
+        .join(co_consecrators, Consecration.id == co_consecrators.c.consecration_id)
+        .filter(
+            co_consecrators.c.co_consecrator_id == clergy_id,
+            Clergy.is_deleted == False,  # noqa: E712
+        )
+        .all()
+    )
+    for c_obj, evt in co_rows:
+        result.append((c_obj, evt, 'co_consecrator'))
+    return result
+
+
+def _build_descendants_tree(clergy_id, depth, max_depth, max_nodes, nodes_count):
+    """Build recursive descendants tree; nodes_count is a list of one int (mutated)."""
+    if depth >= max_depth or nodes_count[0] >= max_nodes:
+        return []
+    dependents = _get_direct_dependents(clergy_id)
+    nodes = []
+    for c_obj, event, role in dependents:
+        if nodes_count[0] >= max_nodes:
+            break
+        nodes_count[0] += 1
+        kind = 'ordination' if isinstance(event, Ordination) else 'consecration'
+        node = {
+            'clergy': _serialize_clergy_basic(c_obj),
+            'event': _serialize_event(event, kind),
+            'role': role,
+            'lineType': kind,
+            'descendants': _build_descendants_tree(
+                c_obj.id, depth + 1, max_depth, max_nodes, nodes_count
+            ),
+        }
+        nodes.append(node)
+    return nodes
 
 
 def _normalize_clergy_save_result(clergy, response, status_code=None):
@@ -309,6 +382,10 @@ def ordained_consecrated_data():
                 'clergy': _serialize_clergy_basic(c_obj),
                 'event': _serialize_event(ordination, 'ordination'),
                 'role': 'ordinand',
+                'lineType': 'ordination',
+                'descendants': _build_descendants_tree(
+                    c_obj.id, 0, MAX_LINEAGE_DEPTH, MAX_LINEAGE_NODES, [0]
+                ),
             }
         )
     for c_obj, consecration in consecrated_rows:
@@ -317,7 +394,17 @@ def ordained_consecrated_data():
                 'clergy': _serialize_clergy_basic(c_obj),
                 'event': _serialize_event(consecration, 'consecration'),
                 'role': 'consecrand',
+                'lineType': 'consecration',
+                'descendants': _build_descendants_tree(
+                    c_obj.id, 0, MAX_LINEAGE_DEPTH, MAX_LINEAGE_NODES, [0]
+                ),
             }
+        )
+    for item in co_consecrated:
+        cid = item['clergy']['id']
+        item['lineType'] = 'consecration'
+        item['descendants'] = _build_descendants_tree(
+            cid, 0, MAX_LINEAGE_DEPTH, MAX_LINEAGE_NODES, [0]
         )
     ordained_consecrated.extend(co_consecrated)
 
@@ -392,5 +479,20 @@ def clergy_edit_v2(clergy_id):
             clergy, response, status_code = result[0], result[1], result[2]
     else:
         response = result
+
+    update_descendants = request.values.get('update_descendants') in ('1', 'true', 'on')
+    if update_descendants and response and getattr(response, 'get_json', None):
+        data = response.get_json(silent=True)
+        if isinstance(data, dict) and data.get('success'):
+            try:
+                from services.validation_cascade import compute_cascade_impact, apply_cascade_changes
+                changes = compute_cascade_impact(clergy_id)
+                count = apply_cascade_changes(changes)
+                data['updated_descendants_count'] = count
+            except Exception as e:
+                current_app.logger.exception("Cascade apply failed: %s", e)
+                data['updated_descendants_count'] = 0
+            status = getattr(response, 'status_code', None) or 200
+            return jsonify(data), status
 
     return _normalize_clergy_save_result(clergy, response, status_code)

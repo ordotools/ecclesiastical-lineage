@@ -124,7 +124,8 @@
                 role: item.role || null,
                 lineType: kind,
                 rangeIndex: rangeIndex,
-                rangeMeta: range
+                rangeMeta: range,
+                descendants: toArray(item.descendants)
             };
 
             if (kind === 'consecration') {
@@ -158,7 +159,35 @@
     }
 
     /**
+     * Sort key for an entry (or descendant node) by event date for ordering.
+     * @param {{ event?: object }} entry
+     * @returns {number}
+     */
+    function getEntryDateSortKey(entry) {
+        const event = entry && entry.event;
+        if (!event) {
+            return Infinity;
+        }
+        const EditorRanges = (typeof window !== 'undefined' && window.EditorRangesValidity) ? window.EditorRangesValidity : null;
+        if (EditorRanges && typeof EditorRanges.getEventDateSortValue === 'function') {
+            const v = EditorRanges.getEventDateSortValue(event);
+            return v && typeof v.t === 'number' ? v.t : Infinity;
+        }
+        if (event.date) {
+            const t = new Date(event.date).getTime();
+            return Number.isFinite(t) ? t : Infinity;
+        }
+        if (event.year != null) {
+            return new Date(event.year, 0, 1).getTime();
+        }
+        return Infinity;
+    }
+
+    /**
      * Build a human-readable label for a range based on its boundaries.
+     *
+     * For year-only boundaries (e.g. 4-digit year strings or reasonable numeric years),
+     * prefer "From year YYYY" / "Until year YYYY" phrasing instead of "After 1990" / "Before 1990".
      *
      * @param {{ index: number, start: string|null, end: string|null }} range
      * @param {boolean} isValid
@@ -169,15 +198,55 @@
         const start = range.start;
         const end = range.end;
 
+        function isYearOnly(value) {
+            if (typeof value === 'number') {
+                return Number.isInteger(value) && value >= 1000 && value <= 3000;
+            }
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (!/^\d{4}$/.test(trimmed)) {
+                    return false;
+                }
+                const yearNum = parseInt(trimmed, 10);
+                return yearNum >= 1000 && yearNum <= 3000;
+            }
+            return false;
+        }
+
+        function formatYearLabel(kind, value) {
+            const yearText = String(value).trim();
+            if (kind === 'start') {
+                return `From year ${yearText}`;
+            }
+            if (kind === 'end') {
+                return `Until year ${yearText}`;
+            }
+            return yearText;
+        }
+
         let core;
         if (start == null && end == null) {
             core = 'Entire timeline';
         } else if (start == null) {
-            core = end === 'unknown' ? 'Before first known order' : `Before ${end}`;
+            if (end === 'unknown') {
+                core = 'Before first known order';
+            } else if (isYearOnly(end)) {
+                core = formatYearLabel('end', end);
+            } else {
+                core = `Before ${end}`;
+            }
         } else if (end == null) {
-            core = start === 'unknown' ? 'After unknown date' : `After ${start}`;
+            if (start === 'unknown') {
+                core = 'After unknown date';
+            } else if (isYearOnly(start)) {
+                core = formatYearLabel('start', start);
+            } else {
+                core = `After ${start}`;
+            }
         } else {
-            core = `${start} → ${end}`;
+            const startLabel = isYearOnly(start) ? formatYearLabel('start', start) : String(start);
+            const endLabel = isYearOnly(end) ? formatYearLabel('end', end) : String(end);
+            core = `${startLabel} → ${endLabel}`;
         }
         const validity = isValid ? 'valid' : 'invalid';
         return `Range ${idx} — ${core} (${validity})`;
@@ -275,7 +344,16 @@
             const clergyList = document.createElement('div');
             clergyList.className = 'right-panel-clergy-list';
 
-            function renderEntry(entry) {
+            const indentPerDepth = 1.25;
+
+            function renderLineageNode(entry, depth, parentList) {
+                const nodeWrap = document.createElement('div');
+                nodeWrap.className = 'right-panel-lineage-node';
+                nodeWrap.setAttribute('data-depth', String(depth));
+                if (depth > 0) {
+                    nodeWrap.style.paddingLeft = (depth * indentPerDepth) + 'em';
+                }
+
                 const row = document.createElement('div');
                 row.className = 'right-panel-clergy-item';
                 row.classList.add(entry.lineType === 'consecration'
@@ -289,7 +367,7 @@
                     row.setAttribute('data-clergy-id', String(cid));
                 }
 
-                if (prevSnapshot && Number.isFinite(cid)) {
+                if (depth === 0 && prevSnapshot && Number.isFinite(cid)) {
                     const prev = prevSnapshot.get(cid);
                     if (prev && (prev.rangeIndex !== entry.rangeIndex || prev.isValidForOrders !== group.isValidForOrders)) {
                         row.classList.add('clergy-needs-update');
@@ -338,12 +416,24 @@
 
                 row.appendChild(name);
                 row.appendChild(meta);
+                nodeWrap.appendChild(row);
 
-                clergyList.appendChild(row);
+                const descendants = toArray(entry.descendants);
+                if (descendants.length > 0) {
+                    const sortedDesc = descendants.slice().sort((a, b) => getEntryDateSortKey(a) - getEntryDateSortKey(b));
+                    sortedDesc.forEach(function (child) {
+                        renderLineageNode(child, depth + 1, nodeWrap);
+                    });
+                }
+
+                parentList.appendChild(nodeWrap);
             }
 
-            toArray(group.ordained).forEach(renderEntry);
-            toArray(group.consecrated).forEach(renderEntry);
+            const allDirect = toArray(group.ordained).concat(toArray(group.consecrated));
+            const sortedDirect = allDirect.slice().sort((a, b) => getEntryDateSortKey(a) - getEntryDateSortKey(b));
+            sortedDirect.forEach(function (entry) {
+                renderLineageNode(entry, 0, clergyList);
+            });
 
             if (!clergyList.children.length) {
                 const empty = document.createElement('div');

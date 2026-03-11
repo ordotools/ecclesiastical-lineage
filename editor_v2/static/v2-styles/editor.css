@@ -184,6 +184,36 @@ body {
   /* subtle marker for consecrations */
 }
 
+/* Lineage tree: one wrapper per node; indent by depth */
+.right-panel-lineage-node {
+  margin: 0;
+  padding: 0;
+}
+
+.right-panel-lineage-depth-0 {
+  padding-left: 0;
+}
+
+.right-panel-lineage-depth-1 {
+  padding-left: 1.25em;
+}
+
+.right-panel-lineage-depth-2 {
+  padding-left: 2.5em;
+}
+
+.right-panel-lineage-depth-3 {
+  padding-left: 3.75em;
+}
+
+.right-panel-lineage-depth-4 {
+  padding-left: 5em;
+}
+
+.right-panel-lineage-depth-5 {
+  padding-left: 6.25em;
+}
+
 .right-panel-clergy-name {
   display: inline-block;
   font-weight: 600;
@@ -424,6 +454,15 @@ body {
 .editor-button--action:focus {
   outline: none;
   text-decoration: underline;
+}
+
+.editor-button--update-descendants:disabled,
+.editor-button--update-descendants[disabled] {
+  color: #999;
+  border-color: #ccc;
+  background: #f5f5f5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* Form sections (Ordinations, Consecrations, Status Indicators, Admin) */

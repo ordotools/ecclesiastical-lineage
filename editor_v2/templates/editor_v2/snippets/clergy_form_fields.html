@@ -5,7 +5,8 @@
       enctype="multipart/form-data"
       data-editor-v2-clergy-form="true"
       data-panel-center-url="{{ url_for('editor_v2_bp.panel_center') }}"
-      {% if edit_mode and clergy %}data-clergy-id="{{ clergy.id }}"{% endif %}>
+      {% if edit_mode and clergy %}data-clergy-id="{{ clergy.id }}"{% endif %}
+      {% if edit_mode and clergy and has_descendants %}data-has-descendants="true"{% endif %}>
 
   <div class="form-grid form-grid--identity">
     <div class="form-field full-width">
@@ -257,6 +258,9 @@
   <div class="form-actions">
     <a href="#" class="editor-button editor-button--danger editor-v2-cancel">Cancel</a>
     <button type="submit" class="editor-button editor-button--save">{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}</button>
+    {% if edit_mode and clergy %}
+    <button type="submit" name="update_descendants" value="1" class="editor-button editor-button--save editor-button--update-descendants" disabled>Save and update descendants</button>
+    {% endif %}
   </div>
 </form>
 <script>

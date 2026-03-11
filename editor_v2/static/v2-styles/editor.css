@@ -351,6 +351,10 @@ body {
   grid-column: 1 / -1;
 }
 
+#clergyForm #papalNameField {
+  display: none;
+}
+
 #clergyForm .organization-input-group {
   display: flex;
   gap: 0.5em;

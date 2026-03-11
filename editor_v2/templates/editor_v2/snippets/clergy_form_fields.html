@@ -21,7 +21,7 @@
 
     <div id="papalNameField" class="form-field full-width">
       <label for="papal_name" class="form-label">Papal Name</label>
-      <input type="text" id="papal_name" name="papal_name" value="{{ clergy.papal_name if edit_mode and clergy else '' }}" placeholder="e.g., Pope Francis">
+      <input type="text" id="papal_name" name="papal_name" value="{{ clergy.papal_name if (edit_mode and clergy and clergy.papal_name is not none and clergy.papal_name != 'None') else '' }}" placeholder="e.g., Pope Francis">
     </div>
 
     <div class="form-field full-width">
@@ -336,7 +336,7 @@
     var rankValue = selected ? selected.value : '';
     var normalizedRank = (rankValue || '').toLowerCase();
     var isBishop = selected && selected.getAttribute('data-is-bishop') === 'true';
-    if (papalField) papalField.style.display = (normalizedRank === 'pope') ? '' : 'none';
+    if (papalField) papalField.style.display = (normalizedRank === 'pope') ? 'flex' : 'none';
     if (consecrationsSection) {
       consecrationsSection.hidden = !isBishop;
       if (consecrationsSection.hidden) {

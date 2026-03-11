@@ -78,7 +78,8 @@
         });
 
         // Fallback: when HTMX swaps in a new center panel, keep selection in sync
-        // using the most recent request path (if available).
+        // using the most recent request path (if available). When loading a blank
+        // "Add clergy" form (no clergy_id in the path), clear the selection.
         document.body.addEventListener('htmx:afterSwap', function (event) {
             const detail = event.detail || {};
             const target = detail.target || event.target;
@@ -96,10 +97,10 @@
             const path = requestConfig.path || requestConfig.pathInfo || requestConfig.url || '';
             const idFromPath = extractClergyIdFromUrl(path);
 
-            // Only update when we can recover an explicit clergy_id; "Add clergy"
-            // and initial load keep the current selection as-is.
             if (idFromPath != null) {
                 setCurrentClergyId(idFromPath);
+            } else {
+                setCurrentClergyId(null);
             }
         });
     }
@@ -298,6 +299,129 @@
     }
 
     /**
+     * Build a formEvents snapshot from the current ordination / consecration
+     * fields in the clergy form. The shape mirrors the backend
+     * _serialize_event() / ordained_consecrated_data endpoint enough for
+     * EditorRangesValidity and right-panel grouping logic.
+     *
+     * @param {HTMLFormElement} form
+     * @returns {{ ordinations: Array<object>, consecrations: Array<object> }}
+     */
+    function buildFormEventsFromForm(form) {
+        if (!form || !form.querySelectorAll) {
+            return { ordinations: [], consecrations: [] };
+        }
+
+        function collectEvents(prefix, kind) {
+            const selector = 'input[name^="' + prefix + '"], select[name^="' + prefix + '"], textarea[name^="' + prefix + '"]';
+            const fields = form.querySelectorAll(selector);
+            /** @type {Map<number, object>} */
+            const byIndex = new Map();
+            const re = new RegExp('^' + prefix + '\\[(\\d+)\\]\\[([^\\]]+)\\]');
+
+            fields.forEach(function (el) {
+                const nameAttr = el.getAttribute('name') || '';
+                const match = nameAttr.match(re);
+                if (!match) {
+                    return;
+                }
+                const idx = parseInt(match[1], 10);
+                if (!Number.isFinite(idx)) {
+                    return;
+                }
+                const fieldKey = match[2];
+                // Ignore nested collections like co_consecrators – they do not
+                // participate in the primary bishop's own formEvents.
+                if (!fieldKey || fieldKey.indexOf('co_consecrators') === 0) {
+                    return;
+                }
+
+                let record = byIndex.get(idx);
+                if (!record) {
+                    record = {
+                        id: null,
+                        kind: kind,
+                        date: null,
+                        year: null,
+                        date_unknown: false,
+                        display_date: null,
+                        is_sub_conditione: false,
+                        is_doubtfully_valid: false,
+                        is_doubtful_event: false,
+                        is_invalid: false,
+                        is_inherited: false,
+                        is_other: false,
+                        optional_notes: null,
+                        notes: null
+                    };
+                    byIndex.set(idx, record);
+                }
+
+                if (fieldKey === 'date') {
+                    const value = (el.value || '').trim();
+                    record.date = value || null;
+                } else if (fieldKey === 'year') {
+                    const raw = (el.value || '').trim();
+                    const n = raw ? parseInt(raw, 10) : NaN;
+                    record.year = Number.isFinite(n) ? n : null;
+                } else if (fieldKey === 'date_unknown') {
+                    const raw = (el.value || '').trim().toLowerCase();
+                    record.date_unknown = raw === '1' || raw === 'true' || raw === 'on';
+                } else if (fieldKey === 'validity') {
+                    const v = (el.value || '').trim().toLowerCase() || 'valid';
+                    record.validity = v;
+                    record.is_invalid = v === 'invalid';
+                    record.is_doubtfully_valid = v === 'doubtfully_valid';
+                } else if (fieldKey === 'is_sub_conditione') {
+                    record.is_sub_conditione = !!el.checked;
+                } else if (fieldKey === 'is_doubtfully_valid') {
+                    record.is_doubtfully_valid = !!el.checked;
+                } else if (fieldKey === 'is_doubtful_event') {
+                    record.is_doubtful_event = !!el.checked;
+                } else if (fieldKey === 'is_inherited') {
+                    record.is_inherited = !!el.checked;
+                } else if (fieldKey === 'is_other') {
+                    record.is_other = !!el.checked;
+                } else if (fieldKey === 'optional_notes') {
+                    const value = (el.value || '').trim();
+                    record.optional_notes = value || null;
+                } else if (fieldKey === 'notes') {
+                    const value = (el.value || '').trim();
+                    record.notes = value || null;
+                }
+            });
+
+            // Finalize display_date from date/year, roughly mirroring backend behaviour.
+            const events = Array.from(byIndex.keys())
+                .sort(function (a, b) { return a - b; })
+                .map(function (idx) {
+                    const evt = byIndex.get(idx);
+                    if (!evt) {
+                        return null;
+                    }
+                    if (!evt.display_date) {
+                        if (evt.date) {
+                            evt.display_date = evt.date;
+                        } else if (evt.year != null) {
+                            evt.display_date = String(evt.year);
+                        } else {
+                            evt.display_date = null;
+                        }
+                    }
+                    return evt;
+                })
+                .filter(function (evt) { return !!evt; });
+
+            return events;
+        }
+
+        return {
+            ordinations: collectEvents('ordinations', 'ordination'),
+            consecrations: collectEvents('consecrations', 'consecration')
+        };
+    }
+
+    /**
      * Enable "Save and update descendants" only when has_descendants and
      * current validity snapshot differs from initial.
      */
@@ -332,12 +456,46 @@
             btn.disabled = !(hasDescendants && (!sameLength || !sameValues));
         }
 
+        function dispatchPendingValidityPreview() {
+            if (typeof document === 'undefined' || !document.body) {
+                return;
+            }
+
+            const hasDescendants = form.getAttribute('data-has-descendants') === 'true';
+            if (!hasDescendants) {
+                return;
+            }
+
+            const fromAttr = form.getAttribute('data-clergy-id');
+            const fromWindow = (typeof window !== 'undefined' && window.currentSelectedClergyId != null)
+                ? window.currentSelectedClergyId
+                : null;
+            const fallback = (fromAttr != null && fromAttr !== '')
+                ? fromAttr
+                : fromWindow;
+            const parsed = fallback != null ? parseInt(fallback, 10) : NaN;
+            const clergyId = Number.isFinite(parsed) ? parsed : null;
+            if (clergyId == null) {
+                return;
+            }
+
+            const formEvents = buildFormEventsFromForm(form);
+
+            document.body.dispatchEvent(new CustomEvent('editor:pendingValidityChanged', {
+                detail: {
+                    clergyId: clergyId,
+                    formEvents: formEvents
+                }
+            }));
+        }
+
         form.addEventListener('change', function (e) {
             const name = (e.target && e.target.getAttribute && e.target.getAttribute('name')) || '';
             if (name.indexOf('[validity]') === -1) {
                 return;
             }
             updateButton();
+            dispatchPendingValidityPreview();
         });
 
         const ordContainer = form.querySelector('#ordinationsContainer');
@@ -348,6 +506,7 @@
             }
             const obs = new MutationObserver(function () {
                 updateButton();
+                dispatchPendingValidityPreview();
             });
             obs.observe(container, { childList: true, subtree: true });
         }

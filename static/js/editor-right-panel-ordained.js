@@ -256,6 +256,78 @@
     }
 
     /**
+     * Compute simple counts for a legend / summary block:
+     * - Total descendants
+     * - How many fall in ranges that are valid vs invalid for orders
+     * - How many top-level descendants differ from the previous snapshot
+     *
+     * The "will change" count mirrors the same top-level comparison used for the
+     * clergy-needs-update highlighting, but stays independent from DOM rendering.
+     *
+     * @param {Array<object>} groups
+     * @param {Map<number, { rangeIndex: number, isValidForOrders: boolean }>|null} previousSnapshot
+     * @returns {{ totalDescendants: number, totalValid: number, totalInvalid: number, willChangeCount: number }}
+     */
+    function computeSummaryFromGroups(groups, previousSnapshot) {
+        /** @type {{ totalDescendants: number, totalValid: number, totalInvalid: number, willChangeCount: number }} */
+        const summary = {
+            totalDescendants: 0,
+            totalValid: 0,
+            totalInvalid: 0,
+            willChangeCount: 0
+        };
+
+        if (!Array.isArray(groups) || groups.length === 0) {
+            return summary;
+        }
+
+        function visitEntry(entry, group) {
+            summary.totalDescendants += 1;
+            if (group && group.isValidForOrders) {
+                summary.totalValid += 1;
+            } else {
+                summary.totalInvalid += 1;
+            }
+
+            const descendants = toArray(entry && entry.descendants);
+            descendants.forEach(function (child) {
+                visitEntry(child, group);
+            });
+        }
+
+        groups.forEach(function (group) {
+            const allDirect = toArray(group && group.ordained).concat(toArray(group && group.consecrated));
+
+            allDirect.forEach(function (entry) {
+                visitEntry(entry, group);
+
+                if (!previousSnapshot) {
+                    return;
+                }
+
+                const clergy = entry && entry.clergy ? entry.clergy : null;
+                const cid = clergy && typeof clergy.id === 'number'
+                    ? clergy.id
+                    : parseInt(clergy && clergy.id, 10);
+                if (!Number.isFinite(cid)) {
+                    return;
+                }
+
+                const prev = previousSnapshot.get(cid);
+                if (!prev) {
+                    return;
+                }
+
+                if (prev.rangeIndex !== group.rangeIndex || prev.isValidForOrders !== group.isValidForOrders) {
+                    summary.willChangeCount += 1;
+                }
+            });
+        });
+
+        return summary;
+    }
+
+    /**
      * Render an empty or initial state into the right panel.
      */
     function renderEmpty() {
@@ -317,6 +389,53 @@
 
         header.appendChild(title);
         root.appendChild(header);
+
+        const summary = computeSummaryFromGroups(state.groups, prevSnapshot);
+
+        const legend = document.createElement('div');
+        legend.className = 'right-panel-legend';
+
+        const legendBadges = document.createElement('div');
+        legendBadges.className = 'right-panel-legend-row';
+
+        const legendValid = document.createElement('span');
+        legendValid.className = 'right-panel-range-badge right-panel-range-badge--valid';
+        legendValid.textContent = 'valid range';
+
+        const legendInvalid = document.createElement('span');
+        legendInvalid.className = 'right-panel-range-badge right-panel-range-badge--invalid';
+        legendInvalid.textContent = 'invalid range';
+
+        legendBadges.appendChild(legendValid);
+        legendBadges.appendChild(document.createTextNode(' '));
+        legendBadges.appendChild(legendInvalid);
+
+        const legendHighlight = document.createElement('div');
+        legendHighlight.className = 'right-panel-legend-row';
+
+        const highlightSample = document.createElement('span');
+        highlightSample.className = 'clergy-needs-update';
+        highlightSample.textContent = 'rows like this differ from the last saved validity';
+
+        legendHighlight.appendChild(highlightSample);
+
+        const summaryLine = document.createElement('div');
+        summaryLine.className = 'right-panel-summary';
+        if (summary.totalDescendants === 0) {
+            summaryLine.textContent = 'No descendants found for this clergy.';
+        } else {
+            const baseText = `${summary.totalValid} of ${summary.totalDescendants} descendants are in ranges valid for orders; ${summary.totalInvalid} in ranges not valid for orders.`;
+            if (prevSnapshot && summary.willChangeCount > 0) {
+                summaryLine.textContent = `${baseText} ${summary.willChangeCount} top-level descendants differ from the last saved validity.`;
+            } else {
+                summaryLine.textContent = baseText;
+            }
+        }
+
+        legend.appendChild(legendBadges);
+        legend.appendChild(legendHighlight);
+        legend.appendChild(summaryLine);
+        root.appendChild(legend);
 
         const listWrapper = document.createElement('div');
         listWrapper.className = 'right-panel-ranges';
@@ -454,7 +573,16 @@
     }
 
     /**
-     * Global state cache to support "needs update" highlighting across recomputes.
+     * Global state cache to support "needs update" highlighting across recomputes,
+     * and to enable reuse of the last loaded payload for a given clergy.
+     */
+    /** @type {Map<number, { clergy: object|null, formEvents: object, ordainedConsecrated: Array<object>, snapshotByClergyId: Map<number, { rangeIndex: number, isValidForOrders: boolean }> }>} */
+    const stateByClergyId = new Map();
+
+    /**
+     * Persisted snapshot for the most recently rendered clergy, derived from backend form_events.
+     * This is intentionally kept separate from the full per-clergy cache so that callers can
+     * compare pending changes against the last known saved state.
      */
     let lastSnapshotByClergyId = null;
     let lastClergyId = null;
@@ -500,10 +628,19 @@
             const ordainedConsecrated = data.ordained_consecrated || [];
 
             const grouped = groupOrdainedConsecratedByRange(formEvents, ordainedConsecrated);
+            const clergy = data.clergy || null;
+
+            const cachedState = {
+                clergy: clergy,
+                formEvents: formEvents,
+                ordainedConsecrated: ordainedConsecrated,
+                snapshotByClergyId: grouped.snapshotByClergyId
+            };
+            stateByClergyId.set(numericId, cachedState);
 
             renderRightPanel(
                 {
-                    clergy: data.clergy || null,
+                    clergy: clergy,
                     ranges: grouped.ranges,
                     groups: grouped.groups
                 },
@@ -539,6 +676,55 @@
     }
 
     /**
+     * Handle a pending-validity change notification by recomputing ranges from the
+     * cached tree plus the new in-memory formEvents, and re-rendering the right
+     * panel using the last persisted snapshot for "needs update" highlighting.
+     *
+     * @param {CustomEvent} event
+     */
+    function handlePendingValidityChanged(event) {
+        const detail = event && event.detail ? event.detail : {};
+        const rawClergyId = detail.clergyId != null ? detail.clergyId : null;
+        const formEvents = detail.formEvents || null;
+
+        if (rawClergyId == null || !formEvents) {
+            return;
+        }
+
+        const numericId = parseInt(rawClergyId, 10);
+        if (!Number.isFinite(numericId)) {
+            return;
+        }
+
+        if (typeof window !== 'undefined') {
+            const selected = window.currentSelectedClergyId != null
+                ? parseInt(window.currentSelectedClergyId, 10)
+                : null;
+            if (!Number.isFinite(selected) || selected !== numericId) {
+                return;
+            }
+        }
+
+        const cached = stateByClergyId.get(numericId);
+        if (!cached || !Array.isArray(cached.ordainedConsecrated) || cached.ordainedConsecrated.length === 0) {
+            return;
+        }
+
+        const grouped = groupOrdainedConsecratedByRange(formEvents, cached.ordainedConsecrated);
+
+        renderRightPanel(
+            {
+                clergy: cached.clergy || null,
+                ranges: grouped.ranges,
+                groups: grouped.groups
+            },
+            {
+                previousSnapshot: lastSnapshotByClergyId
+            }
+        );
+    }
+
+    /**
      * Wire global event listeners once the DOM is ready.
      */
     function initGlobalListeners() {
@@ -566,9 +752,16 @@
                 return;
             }
 
-            const currentId = typeof window !== 'undefined' && window.currentSelectedClergyId != null
-                ? window.currentSelectedClergyId
-                : lastClergyId;
+            // If a selection has been explicitly cleared (window.currentSelectedClergyId === null),
+            // do not fall back to the lastClergyId cache. Only use lastClergyId when there has
+            // never been an explicit selection (currentSelectedClergyId is undefined).
+            let currentId = null;
+            if (typeof window !== 'undefined' && 'currentSelectedClergyId' in window) {
+                currentId = window.currentSelectedClergyId;
+            } else {
+                currentId = lastClergyId;
+            }
+
             if (currentId != null) {
                 loadAndRenderForClergy(currentId);
             }
@@ -576,6 +769,10 @@
 
         document.body.addEventListener('editor:validityChanged', function (event) {
             handleValidityChanged(event);
+        });
+
+        document.body.addEventListener('editor:pendingValidityChanged', function (event) {
+            handlePendingValidityChanged(event);
         });
     }
 
@@ -592,7 +789,8 @@
             groupOrdainedConsecratedByRange: groupOrdainedConsecratedByRange,
             renderRightPanel: renderRightPanel,
             loadForClergy: loadAndRenderForClergy,
-            handleValidityChanged: handleValidityChanged
+            handleValidityChanged: handleValidityChanged,
+            handlePendingValidityChanged: handlePendingValidityChanged
         };
     }
 })();

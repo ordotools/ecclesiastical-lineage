@@ -733,6 +733,16 @@
     if (cancelLink) {
       cancelLink.addEventListener('click', function(e) {
         e.preventDefault();
+
+        if (typeof window !== 'undefined') {
+          window.currentSelectedClergyId = null;
+        }
+        if (typeof document !== 'undefined' && document.body && typeof CustomEvent !== 'undefined') {
+          document.body.dispatchEvent(new CustomEvent('clergySelected', {
+            detail: { clergyId: null }
+          }));
+        }
+
         var url = form.getAttribute('data-panel-center-url');
         if (url && typeof htmx !== 'undefined') {
           htmx.ajax('GET', url, { target: '#editor-panel-center', swap: 'innerHTML' });

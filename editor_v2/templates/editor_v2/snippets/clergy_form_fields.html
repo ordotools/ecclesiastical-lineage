@@ -1,6 +1,7 @@
 <script>
   window.EDITOR_V2_FORM = window.EDITOR_V2_FORM || {};
   window.EDITOR_V2_FORM.bishops = {{ all_bishops_suggested | tojson | safe if all_bishops_suggested is defined else '[]' }};
+  window.EDITOR_V2_FORM.all_clergy = {{ all_clergy_suggested | tojson | safe if all_clergy_suggested is defined else '[]' }};
 </script>
 
 {% set form_action = url_for('editor_v2_bp.clergy_edit_v2', clergy_id=clergy.id) if edit_mode and clergy else url_for('editor_v2_bp.clergy_add_v2') %}
@@ -216,7 +217,7 @@
                     <input
                       type="text"
                       name="consecrations[0][co_consecrators][{{ loop.index0 }}][input]"
-                      placeholder="Search for co-consecrator..."
+                      placeholder="Search for clergy..."
                       autocomplete="off"
                       value="{{ co_consecrator.name if co_consecrator and co_consecrator.name else '' }}">
                     <input
@@ -238,7 +239,7 @@
                     <input
                       type="text"
                       name="consecrations[0][co_consecrators][0][input]"
-                      placeholder="Search for co-consecrator..."
+                      placeholder="Search for clergy..."
                       autocomplete="off">
                     <input
                       type="hidden"
@@ -462,6 +463,88 @@
     });
   }
 
+  var clergyFuse = null;
+  var clergyFuseItems = null;
+
+  function ensureClergyIndex() {
+    if (clergyFuse || typeof Fuse === 'undefined') return;
+    var clergy = (window.EDITOR_V2_FORM && Array.isArray(window.EDITOR_V2_FORM.all_clergy))
+      ? window.EDITOR_V2_FORM.all_clergy
+      : [];
+    if (!clergy.length) return;
+    clergyFuseItems = clergy.map(function(c) {
+      var name = c.name || '';
+      var rank = c.rank || '';
+      var organization = c.organization || '';
+      var combined = (name + ' ' + rank + ' ' + organization).trim();
+      return {
+        source: c,
+        searchTextNormalized: normalizeForSearchLocal(combined)
+      };
+    });
+    clergyFuse = new Fuse(clergyFuseItems, {
+      keys: ['searchTextNormalized'],
+      includeScore: true,
+      shouldSort: true,
+      ignoreLocation: true,
+      threshold: 0.35,
+      minMatchCharLength: 2
+    });
+  }
+
+  function searchClergyClient(query, limit) {
+    if (!query || !query.trim()) return [];
+    ensureClergyIndex();
+    if (!clergyFuse) return [];
+    var normalizedQuery = normalizeForSearchLocal(query.trim());
+    if (!normalizedQuery) return [];
+    var results = clergyFuse.search(normalizedQuery);
+    return results.slice(0, (typeof limit === 'number' ? limit : 10)).map(function(res) {
+      return res.item.source;
+    });
+  }
+
+  function attachClergyAutocomplete(textInput, hiddenInput, dropdown) {
+    if (textInput.getAttribute('data-clergy-autocomplete-inited') === 'true') return;
+    textInput.setAttribute('data-clergy-autocomplete-inited', 'true');
+
+    textInput.addEventListener('input', function() {
+      var query = textInput.value.trim();
+      if (query.length < 2) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      var results = searchClergyClient(query, 10);
+      if (!results.length) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      dropdown.innerHTML = '';
+      results.forEach(function(clergy) {
+        var el = document.createElement('div');
+        el.className = 'bishop-search-result';
+        el.setAttribute('data-id', clergy.id);
+        el.setAttribute('data-display-name', clergy.name || '');
+        var display = clergy.name + (clergy.organization ? ' — ' + clergy.organization : '');
+        if (clergy.rank) display += ' (' + clergy.rank + ')';
+        el.textContent = display;
+        el.addEventListener('click', function() {
+          var id = el.getAttribute('data-id');
+          var name = el.getAttribute('data-display-name') || '';
+          textInput.value = name;
+          if (hiddenInput) hiddenInput.value = id || '';
+          dropdown.style.display = 'none';
+        });
+        dropdown.appendChild(el);
+      });
+      dropdown.style.display = 'block';
+    });
+
+    textInput.addEventListener('blur', function() {
+      setTimeout(function() { dropdown.style.display = 'none'; }, 200);
+    });
+  }
+
   function attachBishopAutocomplete(textInput, hiddenInput, dropdown) {
     if (textInput.getAttribute('data-bishop-autocomplete-inited') === 'true') return;
     textInput.setAttribute('data-bishop-autocomplete-inited', 'true');
@@ -557,7 +640,7 @@
       if (!parent) return;
       var dropdown = ensureBishopDropdown(parent);
       var hidden = parent.querySelector('input[name*="co_consecrators"][name*="[id]"]');
-      attachBishopAutocomplete(input, hidden, dropdown);
+      attachClergyAutocomplete(input, hidden, dropdown);
     });
   }
 
@@ -582,6 +665,7 @@
           item.querySelectorAll('input').forEach(function(el) {
             el.value = '';
             el.removeAttribute('data-bishop-autocomplete-inited');
+            el.removeAttribute('data-clergy-autocomplete-inited');
           });
           var itemDropdown = item.querySelector('.autocomplete-dropdown');
           if (itemDropdown) {
@@ -634,6 +718,7 @@
     clone.querySelectorAll('input').forEach(function(el) {
       el.value = '';
       el.removeAttribute('data-bishop-autocomplete-inited');
+      el.removeAttribute('data-clergy-autocomplete-inited');
     });
     var dropdown = clone.querySelector('.autocomplete-dropdown');
     if (dropdown) {

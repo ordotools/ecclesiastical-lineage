@@ -83,6 +83,21 @@ def panel_center():
         for bishop in all_bishops
     ]
 
+    all_clergy = (
+        Clergy.query.filter(Clergy.is_deleted != True)  # noqa: E712
+        .order_by(Clergy.name)
+        .all()
+    )
+    all_clergy_suggested = [
+        {
+            'id': c.id,
+            'name': getattr(c, 'display_name', c.name),
+            'rank': c.rank,
+            'organization': c.organization,
+        }
+        for c in all_clergy
+    ]
+
     clergy = None
     if clergy_id_raw is not None:
         try:
@@ -112,6 +127,7 @@ def panel_center():
         lineage_roots=lineage_roots,
         has_descendants=has_descendants,
         all_bishops_suggested=all_bishops_suggested,
+        all_clergy_suggested=all_clergy_suggested,
     )
 
 

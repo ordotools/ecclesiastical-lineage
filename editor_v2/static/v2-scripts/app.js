@@ -378,6 +378,11 @@
         const affectedCenter = panelCenter && (target === panelCenter || panelCenter.contains(target));
         if (affectedCenter) {
             initUpdateDescendantsButtonLogic();
+            if (typeof window !== 'undefined' &&
+                window.EDITOR_V2_FORM &&
+                typeof window.EDITOR_V2_FORM.initClergyFormV2 === 'function') {
+                window.EDITOR_V2_FORM.initClergyFormV2();
+            }
         }
     });
 })();

@@ -161,6 +161,7 @@
           {% set first_consecration_date = first_consecration.date if first_consecration and first_consecration.date else None %}
           {% set first_consecration_year = first_consecration.year if first_consecration and first_consecration.year else None %}
           {% set first_consecration_unknown = (first_consecration_date is none and first_consecration_year is not none) %}
+          {% set first_consecration_co_consecrators = first_consecration.co_consecrators if first_consecration and first_consecration.co_consecrators else [] %}
           <div class="form-field consecration-date-block{% if first_consecration_unknown %} is-unknown-date{% endif %}">
             <label class="form-label">Date</label>
             <div class="date-input-wrapper">
@@ -202,6 +203,62 @@
               <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
               <option value="invalid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_invalid %}selected{% endif %}>Invalid</option>
             </select>
+          </div>
+        </div>
+        <div class="consecration-entry__co-consecrators-row">
+          <div class="form-field">
+            <label class="form-label">Co-consecrators</label>
+            <div class="co-consecrators-list">
+              {% if edit_mode and clergy and first_consecration_co_consecrators %}
+                {% for co_consecrator in first_consecration_co_consecrators %}
+                <div class="co-consecrator-item">
+                  <div class="form-field bishop-autocomplete-field">
+                    <input
+                      type="text"
+                      name="consecrations[0][co_consecrators][{{ loop.index0 }}][input]"
+                      placeholder="Search for co-consecrator..."
+                      autocomplete="off"
+                      value="{{ co_consecrator.name if co_consecrator and co_consecrator.name else '' }}">
+                    <input
+                      type="hidden"
+                      name="consecrations[0][co_consecrators][{{ loop.index0 }}][id]"
+                      value="{{ co_consecrator.id if co_consecrator and co_consecrator.id else '' }}">
+                    <div class="autocomplete-dropdown"></div>
+                  </div>
+                  <button
+                    type="button"
+                    class="editor-button editor-button--danger remove-co-consecrator">
+                    Remove
+                  </button>
+                </div>
+                {% endfor %}
+              {% else %}
+                <div class="co-consecrator-item">
+                  <div class="form-field bishop-autocomplete-field">
+                    <input
+                      type="text"
+                      name="consecrations[0][co_consecrators][0][input]"
+                      placeholder="Search for co-consecrator..."
+                      autocomplete="off">
+                    <input
+                      type="hidden"
+                      name="consecrations[0][co_consecrators][0][id]"
+                      value="">
+                    <div class="autocomplete-dropdown"></div>
+                  </div>
+                  <button
+                    type="button"
+                    class="editor-button editor-button--danger remove-co-consecrator">
+                    Remove
+                  </button>
+                </div>
+              {% endif %}
+            </div>
+            <button
+              type="button"
+              class="editor-button editor-button--action add-co-consecrator">
+              Add co-consecrator
+            </button>
           </div>
         </div>
         <div class="consecration-entry__checkbox-row">
@@ -466,6 +523,41 @@
           el.setAttribute('name', name.replace(/^consecrations\[\d+\]/, 'consecrations[' + i + ']'));
         }
       });
+      reindexCoConsecratorsForEntry(entry);
+    });
+  }
+
+  function reindexCoConsecratorsForEntry(entry) {
+    if (!entry) return;
+    var list = entry.querySelector('.co-consecrators-list');
+    if (!list) return;
+    var items = list.querySelectorAll('.co-consecrator-item');
+    items.forEach(function(item, j) {
+      item.querySelectorAll('input').forEach(function(el) {
+        var name = el.getAttribute('name');
+        if (!name) return;
+        var marker = '[co_consecrators][';
+        var markerIndex = name.indexOf(marker);
+        if (markerIndex === -1) return;
+        var prefix = name.substring(0, markerIndex + marker.length);
+        var rest = name.substring(prefix.length);
+        var closingIndex = rest.indexOf(']');
+        if (closingIndex === -1) return;
+        var suffix = rest.substring(closingIndex);
+        el.setAttribute('name', prefix + j + suffix);
+      });
+    });
+  }
+
+  function setupCoConsecratorAutocomplete(form) {
+    if (!form) return;
+    var inputs = form.querySelectorAll('input[name*="co_consecrators"][name*="[input]"]');
+    inputs.forEach(function(input) {
+      var parent = input.closest('.bishop-autocomplete-field') || input.closest('.form-field');
+      if (!parent) return;
+      var dropdown = ensureBishopDropdown(parent);
+      var hidden = parent.querySelector('input[name*="co_consecrators"][name*="[id]"]');
+      attachBishopAutocomplete(input, hidden, dropdown);
     });
   }
 
@@ -482,15 +574,34 @@
       if (firstOpt) el.selectedIndex = 0;
     });
     clone.querySelector('input[name*="consecrator_id"]').value = '';
+    var coList = clone.querySelector('.co-consecrators-list');
+    if (coList) {
+      var items = Array.prototype.slice.call(coList.querySelectorAll('.co-consecrator-item'));
+      items.forEach(function(item, idx) {
+        if (idx === 0) {
+          item.querySelectorAll('input').forEach(function(el) {
+            el.value = '';
+            el.removeAttribute('data-bishop-autocomplete-inited');
+          });
+          var itemDropdown = item.querySelector('.autocomplete-dropdown');
+          if (itemDropdown) {
+            itemDropdown.innerHTML = '';
+          }
+        } else {
+          item.remove();
+        }
+      });
+    }
     var consecrationDateBlock = clone.querySelector('.consecration-date-block');
     if (consecrationDateBlock) {
       toggleDateUnknown(consecrationDateBlock, false);
     }
-    var dropdown = clone.querySelector('.autocomplete-dropdown');
-    if (dropdown) dropdown.remove();
+    var dropdowns = clone.querySelectorAll('.autocomplete-dropdown');
+    dropdowns.forEach(function(dd) { dd.remove(); });
     container.appendChild(clone);
     reindexConsecrationEntries(form);
     setupConsecrationBishopAutocomplete(form);
+    setupCoConsecratorAutocomplete(form);
     syncValidityExtraForEntry(clone);
   }
 
@@ -511,6 +622,35 @@
       var hidden = parent.querySelector('input[name*="consecrator_id"]');
       attachBishopAutocomplete(input, hidden, dropdown);
     });
+  }
+
+  function addCoConsecrator(form, entry) {
+    if (!form || !entry) return;
+    var list = entry.querySelector('.co-consecrators-list');
+    if (!list) return;
+    var templateItem = list.querySelector('.co-consecrator-item');
+    if (!templateItem) return;
+    var clone = templateItem.cloneNode(true);
+    clone.querySelectorAll('input').forEach(function(el) {
+      el.value = '';
+      el.removeAttribute('data-bishop-autocomplete-inited');
+    });
+    var dropdown = clone.querySelector('.autocomplete-dropdown');
+    if (dropdown) {
+      dropdown.innerHTML = '';
+    }
+    list.appendChild(clone);
+    reindexCoConsecratorsForEntry(entry);
+    var form = entry.closest('form');
+    if (form) {
+      setupCoConsecratorAutocomplete(form);
+    }
+  }
+
+  function removeCoConsecrator(entry, item) {
+    if (!entry || !item) return;
+    item.remove();
+    reindexCoConsecratorsForEntry(entry);
   }
 
   function syncValidityExtraForEntry(entry) {
@@ -565,6 +705,7 @@
 
     setupOrdinationBishopAutocomplete(form);
     setupConsecrationBishopAutocomplete(form);
+    setupCoConsecratorAutocomplete(form);
 
     form.querySelectorAll('.ordination-entry, .consecration-entry').forEach(function(entry) {
       syncValidityExtraForEntry(entry);
@@ -643,8 +784,27 @@
         e.preventDefault();
         var entry = target.closest('.consecration-entry');
         if (entry) removeConsecration(form, entry);
+        return;
+      }
+      if (target && target.classList && target.classList.contains('add-co-consecrator')) {
+        e.preventDefault();
+        var addEntry = target.closest('.consecration-entry');
+        if (addEntry) addCoConsecrator(form, addEntry);
+        return;
+      }
+      if (target && target.classList && target.classList.contains('remove-co-consecrator')) {
+        e.preventDefault();
+        var removeEntry = target.closest('.consecration-entry');
+        var item = target.closest('.co-consecrator-item');
+        if (removeEntry && item) removeCoConsecrator(removeEntry, item);
       }
     });
+  }
+
+  // Expose initializer for v2 shell HTMX handlers.
+  if (typeof window !== 'undefined') {
+    window.EDITOR_V2_FORM = window.EDITOR_V2_FORM || {};
+    window.EDITOR_V2_FORM.initClergyFormV2 = initClergyFormV2;
   }
 
   initClergyFormV2();

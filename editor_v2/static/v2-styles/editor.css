@@ -544,6 +544,38 @@ body {
   width: auto;
 }
 
+/* Co-consecrators row: list of bishop autocomplete + remove button */
+
+#clergyForm .consecration-entry__co-consecrators-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+#clergyForm .co-consecrators-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  margin-top: 0.25em;
+}
+
+#clergyForm .co-consecrator-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  align-items: flex-end;
+}
+
+#clergyForm .co-consecrator-item .bishop-autocomplete-field {
+  flex: 1 1 16em;
+  min-width: 0;
+}
+
+#clergyForm .co-consecrator-item .editor-button {
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+
 #clergyForm .ordination-entry > button,
 #clergyForm .consecration-entry > button {
   align-self: flex-start;

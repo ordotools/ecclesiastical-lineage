@@ -371,6 +371,8 @@ def ordained_consecrated_data():
         .all()
     )
 
+    direct_ordained_ids = {c_obj.id for c_obj, _ in ordained_rows}
+
     # Clergy consecrated by this bishop (as principal consecrator)
     consecrated_rows = (
         db.session.query(Clergy, Consecration)
@@ -381,6 +383,10 @@ def ordained_consecrated_data():
         )
         .all()
     )
+
+    direct_consecrated_ids = {c_obj.id for c_obj, _ in consecrated_rows}
+
+    protected_ids = direct_ordained_ids | direct_consecrated_ids
 
     # Co-consecrated clergy where this bishop served as a co-consecrator
     co_consecrated = []
@@ -426,7 +432,37 @@ def ordained_consecrated_data():
         item['descendants'] = _build_descendants_tree(
             cid, 0, MAX_LINEAGE_DEPTH, MAX_LINEAGE_NODES, [0]
         )
-    ordained_consecrated.extend(co_consecrated)
+
+    def _compute_excluded_ids_for_co_consecrators(co_items):
+        """Return set of clergy IDs to exclude for co-consecrator-derived lines."""
+        excluded_ids = set()
+
+        def _walk(nodes):
+            for node in nodes:
+                clergy_info = node.get('clergy') or {}
+                node_clergy_id = clergy_info.get('id')
+                if node_clergy_id is not None:
+                    excluded_ids.add(node_clergy_id)
+                _walk(node.get('descendants') or [])
+
+        for co_item in co_items:
+            clergy_info = co_item.get('clergy') or {}
+            co_id = clergy_info.get('id')
+            if co_id is not None:
+                excluded_ids.add(co_id)
+            _walk(co_item.get('descendants') or [])
+
+        return excluded_ids
+
+    excluded_clergy_ids = _compute_excluded_ids_for_co_consecrators(co_consecrated)
+    effective_excluded_ids = excluded_clergy_ids - protected_ids
+
+    if effective_excluded_ids:
+        ordained_consecrated = [
+            item
+            for item in ordained_consecrated
+            if (item.get('clergy') or {}).get('id') not in effective_excluded_ids
+        ]
 
     return jsonify(
         {

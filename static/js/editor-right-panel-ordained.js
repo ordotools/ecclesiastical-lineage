@@ -94,6 +94,9 @@
             if (!item || !item.event || !item.clergy) {
                 return;
             }
+            if (item.role === 'co_consecrator') {
+                return;
+            }
             const event = item.event;
             const clergy = item.clergy;
             const kind = event.kind === 'consecration' ? 'consecration' : 'ordination';

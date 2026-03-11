@@ -63,6 +63,25 @@ def panel_center():
     fields = FormFields(ranks, organizations, statuses)
     user = User.query.get(session['user_id']) if 'user_id' in session else None
 
+    # Preload bishops for client-side autocomplete in the v2 clergy form.
+    # This mirrors the data shape used by legacy clergy forms and modals.
+    all_bishops = (
+        db.session.query(Clergy)
+        .join(Rank, Clergy.rank == Rank.name)
+        .filter(Rank.is_bishop == True, Clergy.is_deleted != True)  # noqa: E712
+        .order_by(Clergy.name)
+        .all()
+    )
+    all_bishops_suggested = [
+        {
+            'id': bishop.id,
+            'name': getattr(bishop, 'display_name', bishop.name),
+            'rank': bishop.rank,
+            'organization': bishop.organization,
+        }
+        for bishop in all_bishops
+    ]
+
     clergy = None
     if clergy_id_raw is not None:
         try:
@@ -91,6 +110,7 @@ def panel_center():
         user=user,
         lineage_roots=lineage_roots,
         has_descendants=has_descendants,
+        all_bishops_suggested=all_bishops_suggested,
     )
 
 

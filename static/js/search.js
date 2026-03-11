@@ -1,10 +1,12 @@
 // Search module for clergy visualization
 import { centerNodeInViewport } from './ui.js';
 import { handleNodeClick } from './modals.js';
+import { createClergyFuseIndex, searchClergy } from './fuzzySearchV2.js';
 
 // Search state
 let searchIndex = [];
 let currentSearchResults = [];
+let searchFuse = null;
 
 // Initialize search functionality
 export function initializeSearch() {
@@ -348,14 +350,15 @@ function selectOverlaySearchResult(node, resultsContainer) {
 
 // Build search index from nodes
 export function buildSearchIndex(nodes) {
-  searchIndex = nodes.map(node => ({
-    id: node.id,
-    name: node.name,
-    rank: node.rank || '',
-    organization: node.organization || '',
+  const { fuse, indexedItems } = createClergyFuseIndex(nodes || []);
+
+  searchFuse = fuse;
+
+  // Preserve the public shape of searchIndex for any existing consumers
+  searchIndex = indexedItems.map((item) => ({
+    ...item,
     // Keep the original searchText for backward compatibility
-    searchText: `${node.name} ${node.rank || ''} ${node.organization || ''}`.toLowerCase(),
-    node: node
+    searchText: `${item.name} ${item.rank || ''} ${item.organization || ''}`.toLowerCase(),
   }));
 }
 
@@ -428,20 +431,19 @@ function performSearch(query) {
   
   // Build search index lazily if not already built
   ensureSearchIndex();
-  
-  // Use fuzzy search for better matching
-  const searchResults = window.fuzzySearch(searchIndex, query.trim(), (item) => {
-    // Create a searchable string that includes name, rank, and organization
-    return `${item.name} ${item.rank || ''} ${item.organization || ''}`.trim();
-  });
+
+  if (!searchFuse) return [];
+
+  // Use Fuse.js-based v2 search for better matching
+  const searchResults = searchClergy(searchFuse, query.trim(), 50);
   
   // Filter out nodes that are currently filtered (hidden)
   const visibleResults = searchResults
-    .filter(result => !result.item.node.filtered)
+    .filter(item => !item.node?.filtered)
     .slice(0, 10); // Limit to top 10 results
   
   // Return the items in the expected format
-  return visibleResults.map(result => result.item);
+  return visibleResults;
 }
 
 // Display search results

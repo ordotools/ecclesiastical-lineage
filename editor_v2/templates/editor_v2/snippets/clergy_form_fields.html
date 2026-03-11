@@ -1,3 +1,8 @@
+<script>
+  window.EDITOR_V2_FORM = window.EDITOR_V2_FORM || {};
+  window.EDITOR_V2_FORM.bishops = {{ all_bishops_suggested | tojson | safe if all_bishops_suggested is defined else '[]' }};
+</script>
+
 {% set form_action = url_for('editor_v2_bp.clergy_edit_v2', clergy_id=clergy.id) if edit_mode and clergy else url_for('editor_v2_bp.clergy_add_v2') %}
 <form id="clergyForm"
       method="POST"
@@ -342,6 +347,64 @@
     return dropdown;
   }
 
+  // Lightweight normalization mirroring the Fuse-based v2 search.
+  function normalizeForSearchLocal(str) {
+    if (!str) return '';
+    var deAccented = str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[đĐ]/g, 'd')
+      .replace(/[^\w\s\-'.]/g, '')
+      .toLowerCase()
+      .trim();
+    var noPunct = deAccented.replace(/['\-.]/g, '');
+    if (!noPunct || noPunct === deAccented.replace(/\s+/g, ' ')) {
+      return deAccented;
+    }
+    return deAccented + ' ' + noPunct;
+  }
+
+  var bishopFuse = null;
+  var bishopFuseItems = null;
+
+  function ensureBishopIndex() {
+    if (bishopFuse || typeof Fuse === 'undefined') return;
+    var bishops = (window.EDITOR_V2_FORM && Array.isArray(window.EDITOR_V2_FORM.bishops))
+      ? window.EDITOR_V2_FORM.bishops
+      : [];
+    if (!bishops.length) return;
+    bishopFuseItems = bishops.map(function(bishop) {
+      var name = bishop.name || '';
+      var rank = bishop.rank || '';
+      var organization = bishop.organization || '';
+      var combined = (name + ' ' + rank + ' ' + organization).trim();
+      return {
+        source: bishop,
+        searchTextNormalized: normalizeForSearchLocal(combined)
+      };
+    });
+    bishopFuse = new Fuse(bishopFuseItems, {
+      keys: ['searchTextNormalized'],
+      includeScore: true,
+      shouldSort: true,
+      ignoreLocation: true,
+      threshold: 0.35,
+      minMatchCharLength: 2
+    });
+  }
+
+  function searchBishopsClient(query, limit) {
+    if (!query || !query.trim()) return [];
+    ensureBishopIndex();
+    if (!bishopFuse) return [];
+    var normalizedQuery = normalizeForSearchLocal(query.trim());
+    if (!normalizedQuery) return [];
+    var results = bishopFuse.search(normalizedQuery);
+    return results.slice(0, (typeof limit === 'number' ? limit : 10)).map(function(res) {
+      return res.item.source;
+    });
+  }
+
   function attachBishopAutocomplete(textInput, hiddenInput, dropdown) {
     if (textInput.getAttribute('data-bishop-autocomplete-inited') === 'true') return;
     textInput.setAttribute('data-bishop-autocomplete-inited', 'true');
@@ -352,23 +415,28 @@
         dropdown.style.display = 'none';
         return;
       }
-      fetch('/api/search_bishops?q=' + encodeURIComponent(query))
-        .then(function(r) { return r.text(); })
-        .then(function(html) {
-          dropdown.innerHTML = html;
-          dropdown.style.display = 'block';
-          var results = dropdown.querySelectorAll('.bishop-search-result');
-          results.forEach(function(el) {
-            el.addEventListener('click', function() {
-              var id = el.getAttribute('data-id');
-              var name = el.getAttribute('data-display-name') || el.getAttribute('data-name') || '';
-              textInput.value = name;
-              if (hiddenInput) hiddenInput.value = id || '';
-              dropdown.style.display = 'none';
-            });
-          });
-        })
-        .catch(function() { dropdown.style.display = 'none'; });
+      var results = searchBishopsClient(query, 10);
+      if (!results.length) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      dropdown.innerHTML = '';
+      results.forEach(function(bishop) {
+        var el = document.createElement('div');
+        el.className = 'bishop-search-result';
+        el.setAttribute('data-id', bishop.id);
+        el.setAttribute('data-display-name', bishop.name || '');
+        el.textContent = bishop.name + (bishop.organization ? ' — ' + bishop.organization : '');
+        el.addEventListener('click', function() {
+          var id = el.getAttribute('data-id');
+          var name = el.getAttribute('data-display-name') || '';
+          textInput.value = name;
+          if (hiddenInput) hiddenInput.value = id || '';
+          dropdown.style.display = 'none';
+        });
+        dropdown.appendChild(el);
+      });
+      dropdown.style.display = 'block';
     });
 
     textInput.addEventListener('blur', function() {

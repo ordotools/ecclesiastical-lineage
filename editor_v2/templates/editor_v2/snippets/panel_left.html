@@ -1,6 +1,7 @@
 {% macro render_tree(nodes, deceased_ids) %}
   {% for node in nodes %}
-  <li class="panel-left-clergy-item panel-left-row">
+  <li class="panel-left-clergy-item panel-left-clergy-item--clergy panel-left-row"
+      data-clergy-id="{{ node.row.id }}">
     <a href="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ node.row.id }}"
        class="panel-left-link"
        hx-get="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ node.row.id }}"
@@ -28,12 +29,17 @@
     </li>
     {% endif %}
   </ul>
+  {% if rows_tree %}
   <div class="file-tree">
     <ul>
       {{ render_tree(rows_tree, deceased_ids) }}
     </ul>
   </div>
-  {% if not rows_tree %}
-  <p class="panel-left-empty">No clergy in lineage.</p>
+  {% else %}
+  <div class="file-tree">
+    {% if not (user and user.can_edit_clergy()) %}
+    <p class="panel-left-empty">No clergy in lineage.</p>
+    {% endif %}
+  </div>
   {% endif %}
 </div>

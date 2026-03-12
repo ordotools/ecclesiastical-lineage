@@ -24,7 +24,21 @@ from routes.main import _lineage_nodes_links, _flat_hierarchy_rows
 
 def _rows_to_tree(rows):
     """Convert flat DFS-ordered rows (with depth) into a nested tree.
-    Returns a root list of nodes: { 'row': row, 'children': [ ... ] }.
+
+    Data contract:
+    - Input ``rows`` is an iterable of mapping-like objects where each row
+      at minimum exposes:
+        - ``id``: ``int`` clergy ID (normalized upstream; see ``panel_left``)
+        - ``depth``: ``int`` depth from the root (0-based)
+        - other display fields used by the template (e.g. ``name``, ``rank``,
+          ``organization``).
+    - Return value is a list of tree nodes where each node is a dict with:
+        - ``'row'``: the original row mapping
+        - ``'children'``: ``list`` of child nodes using the same shape.
+
+    The ``children`` field is always present and is always a list (possibly
+    empty) so that the Jinja template can safely recurse without additional
+    ``None`` checks.
     """
     stack = []
     root_list = []
@@ -86,9 +100,44 @@ def api_clergy_list():
 @editor_v2_bp.route('/panel/left')
 @require_permission('edit_clergy')
 def panel_left():
-    """Left panel snippet for HTMX swap (tiered clergy list, same as lineage menu)."""
-    nodes, links, _ = _lineage_nodes_links()
+    """Left panel snippet for HTMX swap (tiered clergy list, same as lineage menu).
+
+    Context variables/contracts passed to the template:
+    - ``rows``: list of flat row dicts, DFS-ordered, where each row has at
+      minimum:
+        - ``id``: ``int`` clergy ID (normalized here before tree building)
+        - ``depth``: ``int`` depth used by ``_rows_to_tree``
+        - display fields such as ``name``, ``rank``, ``organization``.
+    - ``rows_tree``: list of nested tree nodes produced by ``_rows_to_tree``,
+      where each node is a dict: ``{'row': row_dict, 'children': [node, ...]}``.
+      The ``children`` key is always present and is always a list.
+    - ``deceased_ids``: ``set[int]`` of clergy IDs that have a non-null
+      ``date_of_death``; used exclusively for template-level deceased markers.
+    """
+    nodes, links, _ = _lineage_nodes_links(apply_root_filter=False)
     rows = _flat_hierarchy_rows(nodes, links)
+
+    # Normalize and validate clergy IDs on rows so that template usage of
+    # node.row.id (for URLs, data attributes, and deceased markers) is safe
+    # and consistent. Coerce string IDs like "5" to integers and drop any
+    # rows that cannot provide a usable integer ID to avoid broken links.
+    normalized_rows = []
+    for row in rows:
+        raw_id = row.get('id')
+        coerced_id = None
+        if raw_id is not None:
+            try:
+                coerced_id = int(raw_id)
+            except (TypeError, ValueError):
+                coerced_id = None
+        if coerced_id is None:
+            continue
+        normalized_row = dict(row)
+        normalized_row['id'] = coerced_id
+        normalized_rows.append(normalized_row)
+
+    rows = normalized_rows
+
     unique_ids = {row['id'] for row in rows}
     if unique_ids:
         deceased = Clergy.query.filter(

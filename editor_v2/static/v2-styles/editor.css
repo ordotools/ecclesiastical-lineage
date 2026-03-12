@@ -178,6 +178,11 @@ body {
   border-bottom: 1px solid #ccc;
 }
 
+.panel-left-clergy-item--selected .panel-left-link {
+  font-weight: 600;
+  background: #f2f2f2;
+}
+
 .panel-left-clergy-item.panel-left-row {
   padding-left: calc(var(--depth, 0) * 1em);
 }

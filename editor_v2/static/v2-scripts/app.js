@@ -28,6 +28,33 @@
         }));
     }
 
+    function updateLeftPanelSelection(clergyId) {
+        if (typeof document === 'undefined') {
+            return;
+        }
+        const normalized = clergyId != null && clergyId !== ''
+            ? parseInt(clergyId, 10)
+            : null;
+        const numericId = Number.isFinite(normalized) ? normalized : null;
+
+        const root = document.getElementById('editor-panel-left') || document;
+        const items = root.querySelectorAll('.panel-left-clergy-item[data-clergy-id]');
+        if (!items || items.length === 0) {
+            return;
+        }
+
+        items.forEach(function (el) {
+            const raw = el.getAttribute('data-clergy-id');
+            const value = raw != null && raw !== '' ? parseInt(raw, 10) : NaN;
+            const isMatch = numericId != null && Number.isFinite(value) && value === numericId;
+            if (isMatch) {
+                el.classList.add('panel-left-clergy-item--selected');
+            } else {
+                el.classList.remove('panel-left-clergy-item--selected');
+            }
+        });
+    }
+
     function extractClergyIdFromUrl(url) {
         if (!url || typeof url !== 'string') {
             return null;
@@ -101,6 +128,32 @@
                 setCurrentClergyId(idFromPath);
             } else {
                 setCurrentClergyId(null);
+            }
+        });
+    }
+
+    function initLeftPanelSelectionSync() {
+        if (typeof document === 'undefined' || !document.body) {
+            return;
+        }
+
+        document.body.addEventListener('clergySelected', function (event) {
+            const detail = event.detail || {};
+            const id = detail.clergyId != null ? detail.clergyId : null;
+            updateLeftPanelSelection(id);
+        });
+
+        document.body.addEventListener('htmx:afterSwap', function (event) {
+            const detail = event.detail || {};
+            const target = detail.target || event.target;
+            const panelLeft = document.getElementById('editor-panel-left');
+            const affectedLeft = panelLeft && (target === panelLeft || panelLeft.contains(target));
+            if (!affectedLeft) {
+                return;
+            }
+
+            if (typeof window !== 'undefined') {
+                updateLeftPanelSelection(window.currentSelectedClergyId);
             }
         });
     }
@@ -522,11 +575,13 @@
                 initSelectionWiring();
                 initClergyFormInterceptor();
                 initUpdateDescendantsButtonLogic();
+                initLeftPanelSelectionSync();
             });
         } else {
             initSelectionWiring();
             initClergyFormInterceptor();
             initUpdateDescendantsButtonLogic();
+            initLeftPanelSelectionSync();
         }
     }
 

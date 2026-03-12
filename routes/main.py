@@ -83,8 +83,8 @@ def _get_ancestors_of_roots(root_clergy_ids, all_links):
     return exclude_ids
 
 
-def _lineage_nodes_links():
-    """Load clergy, build nodes/links, apply lineage-root filter. Returns (nodes, links, user)."""
+def _lineage_nodes_links(apply_root_filter=True):
+    """Load clergy, build nodes/links, optionally apply lineage-root filter. Returns (nodes, links, user)."""
     from sqlalchemy.orm import joinedload, selectinload
 
     def _event_sort_key(date, year):
@@ -222,7 +222,7 @@ def _lineage_nodes_links():
     root_clergy_ids = {lr.clergy_id for lr in LineageRoot.query.all()}
     for n in nodes:
         n['is_lineage_root'] = n['id'] in root_clergy_ids
-    if root_clergy_ids:
+    if apply_root_filter and root_clergy_ids:
         exclude_ids = _get_ancestors_of_roots(root_clergy_ids, links)
         visible_ids = {c.id for c in all_clergy} - exclude_ids
         nodes = [n for n in nodes if n['id'] in visible_ids]

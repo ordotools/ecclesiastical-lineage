@@ -29,11 +29,17 @@ function setOverlayVisible(visible) {
       inp.focus();
     }
     renderResults([]);
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('editor-v2:searchOverlayOpened'));
+    }
   } else {
     const inp = inputEl();
     if (inp) inp.blur();
     el.classList.add('search-overlay--hidden');
     el.setAttribute('inert', '');
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('editor-v2:searchOverlayClosed'));
+    }
   }
 }
 
@@ -72,6 +78,13 @@ function renderResults(items) {
     node.textContent = [name, rank, org].filter(Boolean).join(' · ');
     el.appendChild(node);
   });
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(
+      new CustomEvent('editor-v2:searchResultsUpdated', {
+        detail: { items: Array.isArray(items) ? items : [] },
+      }),
+    );
+  }
 }
 
 function selectClergy(id) {
@@ -145,6 +158,58 @@ function init() {
     setOverlayVisible(true);
   }
 
+  function moveActiveSelection(delta) {
+    const container = resultsEl();
+    if (!container) return;
+    const items = Array.from(container.querySelectorAll('.search-overlay-result-item'));
+    if (!items.length) return;
+
+    const current = container.querySelector('.search-overlay-result-item.is-active');
+    let nextIndex = -1;
+
+    if (!current) {
+      nextIndex = delta > 0 ? 0 : items.length - 1;
+    } else {
+      const currentIndex = items.indexOf(current);
+      current.classList.remove('is-active');
+      nextIndex = (currentIndex + delta + items.length) % items.length;
+    }
+
+    const next = items[nextIndex];
+    if (next) {
+      next.classList.add('is-active');
+      if (typeof next.scrollIntoView === 'function') {
+        next.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }
+
+  function handleInputKeydown(e) {
+    if (!isSearchOverlayVisible()) {
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      moveActiveSelection(1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      moveActiveSelection(-1);
+    } else if (e.key === 'Enter') {
+      const container = resultsEl();
+      if (!container) {
+        return;
+      }
+      const active =
+        container.querySelector('.search-overlay-result-item.is-active') ||
+        container.querySelector('.search-overlay-result-item');
+      if (active) {
+        e.preventDefault();
+        active.click();
+      }
+    }
+  }
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && isSearchOverlayVisible()) {
       e.preventDefault();
@@ -159,7 +224,10 @@ function init() {
   });
 
   const inp = inputEl();
-  if (inp) inp.addEventListener('input', onInput);
+  if (inp) {
+    inp.addEventListener('input', onInput);
+    inp.addEventListener('keydown', handleInputKeydown);
+  }
 
   resultsEl()?.addEventListener('click', (e) => {
     const item = e.target?.closest?.('.search-overlay-result-item');

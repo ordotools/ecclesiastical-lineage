@@ -21,12 +21,24 @@
          hx-trigger="load"
          hx-swap="innerHTML"></div>
   </div>
-  <div id="search-overlay" class="search-overlay search-overlay--hidden" inert>
-    <input type="text"
-           id="search-overlay-input"
-           class="search-overlay-input"
-           placeholder="Search clergy..."
-           autocomplete="off" />
-    <div id="search-overlay-results" class="search-overlay-results"></div>
+  <div id="search-overlay"
+       class="search-overlay search-overlay--hidden"
+       inert
+       x-data="{ searchOverlayOpen: false, query: '', suggestions: [] }"
+       x-on:editor-v2:searchOverlayOpened.window="searchOverlayOpen = true"
+       x-on:editor-v2:searchOverlayClosed.window="searchOverlayOpen = false"
+       x-on:editor-v2:searchResultsUpdated.window="suggestions = $event.detail && Array.isArray($event.detail.items) ? $event.detail.items : []">
+    <div class="search-overlay-backdrop"></div>
+    <div class="search-overlay-container">
+      <div class="search-overlay-box">
+        <input type="text"
+               id="search-overlay-input"
+               class="search-overlay-input"
+               placeholder="Search clergy..."
+               autocomplete="off"
+               x-model="query" />
+        <div id="search-overlay-results" class="search-overlay-results"></div>
+      </div>
+    </div>
   </div>
 {% endblock %}

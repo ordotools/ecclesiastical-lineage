@@ -12,7 +12,6 @@ from models import (
     Status,
     Ordination,
     Consecration,
-    LineageRoot,
     co_consecrators,
     db,
 )
@@ -114,7 +113,7 @@ def panel_left():
     - ``deceased_ids``: ``set[int]`` of clergy IDs that have a non-null
       ``date_of_death``; used exclusively for template-level deceased markers.
     """
-    nodes, links, _ = _lineage_nodes_links(apply_root_filter=False)
+    nodes, links, _ = _lineage_nodes_links()
     rows = _flat_hierarchy_rows(nodes, links)
 
     # Normalize and validate clergy IDs on rows so that template usage of
@@ -156,12 +155,6 @@ def panel_left():
         deceased_ids=deceased_ids,
         user=user,
     )
-
-
-def _get_lineage_roots():
-    """Return list of Clergy that are lineage roots."""
-    return list(Clergy.query.filter(Clergy.id.in_(db.session.query(LineageRoot.clergy_id))).all())
-
 
 @editor_v2_bp.route('/panel/center')
 @require_permission('edit_clergy')
@@ -212,7 +205,6 @@ def panel_center():
             pass
 
     edit_mode = bool(clergy)
-    lineage_roots = _get_lineage_roots()
     has_descendants = bool(_get_direct_dependents(clergy.id)) if clergy else False
 
     return render_template(
@@ -221,7 +213,6 @@ def panel_center():
         clergy=clergy,
         edit_mode=edit_mode,
         user=user,
-        lineage_roots=lineage_roots,
         has_descendants=has_descendants,
         all_bishops_suggested=all_bishops_suggested,
         all_clergy_suggested=all_clergy_suggested,

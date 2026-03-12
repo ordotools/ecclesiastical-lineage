@@ -562,9 +562,6 @@
     <div class="form-field">
       <label><input type="checkbox" id="mark_deleted" name="mark_deleted" value="1" {% if clergy.is_deleted %}checked{% endif %}> Mark this record as deleted</label>
     </div>
-    <div class="form-field">
-      <label><input type="checkbox" id="is_lineage_root" name="is_lineage_root" value="1" {% if edit_mode and clergy and clergy in (lineage_roots|default([])) %}checked{% endif %}> Lineage root</label>
-    </div>
   </div>
   {% endif %}
 

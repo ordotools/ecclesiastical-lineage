@@ -226,14 +226,7 @@
                         <span>Mark this record as deleted</span>
                     </label>
                 </div>
-                <div style="margin-bottom: 0.5em;">
-                    <label style="display: flex; align-items: center; gap: 0.5em; cursor: pointer; color: rgba(255, 255, 255, 0.8); font-size: 0.85em;">
-                        <input type="checkbox" id="is_lineage_root" name="is_lineage_root" value="1"
-                               {% if edit_mode and clergy and clergy in (lineage_roots|default([])) %}checked{% endif %}
-                               style="margin: 0;">
-                        <span>Lineage root</span>
-                    </label>
-                </div>
+                {# Lineage-root checkbox removed: lineage roots are now derived structurally, not edited via forms. #}
                 <small style="color: rgba(255, 255, 255, 0.6); font-size: 0.75em; display: block; margin-bottom: 0.5em; line-height: 1.4;">
                     This will hide the record from normal views but keep it in the database for audit purposes. 
                     You can uncheck this to restore the record.

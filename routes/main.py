@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, session, jsonify, current_app, g
-from models import Clergy, User, db, Organization, Rank, Ordination, Consecration, LineageRoot
+from models import Clergy, User, db, Organization, Rank, Ordination, Consecration
 from constants import GREEN_COLOR, BLACK_COLOR
 import json
 import base64
@@ -63,28 +63,8 @@ def chapel_view():
                                error_message=f"Error loading chapel view visualization: {str(e)}", user=None)
 
 
-def _get_ancestors_of_roots(root_clergy_ids, all_links):
-    """Given root IDs and link list with source/target, return set of ancestor IDs to exclude."""
-    from collections import defaultdict
-    ancestor_of = defaultdict(set)
-    for link in all_links:
-        ancestor_of[link['target']].add(link['source'])
-    exclude_ids = set()
-    for root_id in root_clergy_ids:
-        queue = [root_id]
-        visited = {root_id}
-        while queue:
-            node = queue.pop(0)
-            for anc in ancestor_of.get(node, set()):
-                if anc not in visited:
-                    visited.add(anc)
-                    exclude_ids.add(anc)
-                    queue.append(anc)
-    return exclude_ids
-
-
-def _lineage_nodes_links(apply_root_filter=True):
-    """Load clergy, build nodes/links, optionally apply lineage-root filter. Returns (nodes, links, user)."""
+def _lineage_nodes_links():
+    """Load clergy, build nodes/links. Returns (nodes, links, user)."""
     from sqlalchemy.orm import joinedload, selectinload
 
     def _event_sort_key(date, year):
@@ -219,14 +199,13 @@ def _lineage_nodes_links(apply_root_filter=True):
                     'is_invalid': consecration.is_invalid, 'is_doubtfully_valid': consecration.is_doubtfully_valid,
                     'is_doubtful_event': consecration.is_doubtful_event, 'is_sub_conditione': consecration.is_sub_conditione
                 })
-    root_clergy_ids = {lr.clergy_id for lr in LineageRoot.query.all()}
+
+    # Derive structural roots based solely on incoming ordination/consecration links.
+    event_links = [l for l in links if l.get('type') in ('ordination', 'consecration')]
+    targets = {l['target'] for l in event_links}
+    root_ids = {n['id'] for n in nodes if n['id'] not in targets}
     for n in nodes:
-        n['is_lineage_root'] = n['id'] in root_clergy_ids
-    if apply_root_filter and root_clergy_ids:
-        exclude_ids = _get_ancestors_of_roots(root_clergy_ids, links)
-        visible_ids = {c.id for c in all_clergy} - exclude_ids
-        nodes = [n for n in nodes if n['id'] in visible_ids]
-        links = [l for l in links if l['source'] in visible_ids and l['target'] in visible_ids]
+        n['is_lineage_root'] = n['id'] in root_ids
     user = None
     if 'user_id' in session:
         user = User.query.get(session['user_id'])
@@ -338,9 +317,9 @@ def _flat_hierarchy_rows(nodes, links):
         )
         return children
 
-    # roots: lineage roots or nodes with no incoming ordination/consecration
+    # roots: nodes with no incoming ordination/consecration
     targets = {link['target'] for link in event_links}
-    roots = [n for n in nodes if n.get('is_lineage_root') or n['id'] not in targets]
+    roots = [n for n in nodes if n['id'] not in targets]
 
     # Consecration-lineage size per root (Fix 1)
     consecration_lineage_size = {}
@@ -436,10 +415,6 @@ def _flat_hierarchy_rows(nodes, links):
                     child_window_idx = _child_window_idx(target_id, ord_link, cons_link)
                     if (target_id, child_window_idx) in path_set:
                         continue
-                    if incoming_ord is not None:
-                        allow_child = bool(cons_link is not None and cons_link.get('consecrator_was_bishop') is False)
-                        if not allow_child:
-                            continue
                     out.extend(
                         dfs(
                             target_node,
@@ -468,10 +443,6 @@ def _flat_hierarchy_rows(nodes, links):
                 child_window_idx = _child_window_idx(target_id, ord_link, cons_link)
                 if (target_id, child_window_idx) in path_set:
                     continue
-                if incoming_ord is not None:
-                    allow_child = bool(cons_link is not None and cons_link.get('consecrator_was_bishop') is False)
-                    if not allow_child:
-                        continue
                 out.extend(
                     dfs(
                         target_node,
@@ -498,10 +469,6 @@ def _flat_hierarchy_rows(nodes, links):
             child_window_idx = _child_window_idx(target_id, ord_link, cons_link)
             if (target_id, child_window_idx) in path_set:
                 continue
-            if incoming_ord is not None:
-                allow_child = bool(cons_link is not None and cons_link.get('consecrator_was_bishop') is False)
-                if not allow_child:
-                    continue
             out.extend(
                 dfs(
                     target_node,
@@ -522,6 +489,29 @@ def _flat_hierarchy_rows(nodes, links):
         # Roots start without a consecration window; their own children are
         # windowed based on the roots' own consecrations when applicable.
         flat.extend(dfs(root, 0, None, None, set(), None, root_id=root['id'], consecration_window_idx=None))
+
+    # Ensure coverage: any clergy present in nodes but not yet emitted in flat
+    # (for example due to cycles or unusual data) are added as additional roots.
+    if nodes:
+        emitted_ids = {row.get('id') for row in flat if row.get('id') is not None}
+        all_ids = {n.get('id') for n in nodes if n.get('id') is not None}
+        missing_ids = all_ids - emitted_ids
+        for cid in sorted(missing_ids):
+            node = node_by_id.get(cid)
+            if not node:
+                continue
+            flat.extend(
+                dfs(
+                    node,
+                    0,
+                    None,
+                    None,
+                    set(),
+                    None,
+                    root_id=node['id'],
+                    consecration_window_idx=None,
+                )
+            )
 
     if not flat:
         return flat
@@ -588,6 +578,129 @@ def lineage_table():
 @main_bp.route('/lineage_visualization')
 def lineage_visualization_alias():
     return lineage_visualization()
+
+
+@main_bp.route('/debug/lineage-coverage')
+def debug_lineage_coverage():
+    """
+    Temporary diagnostic endpoint to compare all non-deleted clergy IDs against
+    those emitted by _flat_hierarchy_rows, and to inspect the \"James Marshall\"
+    case in particular.
+
+    Returns JSON with:
+      - summary counts
+      - list of missing clergy (present in DB, absent from flat rows)
+      - detailed diagnostics for any non-deleted clergy whose name matches
+        '%James Marshall%'.
+    """
+    try:
+        # All non-deleted clergy in the database.
+        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()  # noqa: E712
+        all_ids = {c.id for c in all_clergy}
+
+        # Lineage nodes/links and flat rows built using structural roots only.
+        nodes, links, _ = _lineage_nodes_links()
+        rows = _flat_hierarchy_rows(nodes, links)
+
+        row_ids = {r.get('id') for r in rows if r.get('id') is not None}
+        node_ids = {n.get('id') for n in nodes if n.get('id') is not None}
+        missing_ids = sorted(all_ids - row_ids)
+
+        id_to_clergy = {c.id: c for c in all_clergy}
+        missing_clergy = []
+        for cid in missing_ids:
+            clergy = id_to_clergy.get(cid)
+            if not clergy:
+                continue
+            missing_clergy.append(
+                {
+                    'id': clergy.id,
+                    'name': getattr(clergy, 'display_name', clergy.name),
+                    'rank': clergy.rank,
+                    'organization': clergy.organization,
+                    'is_deleted': bool(clergy.is_deleted),
+                    'ordinations_count': len(clergy.ordinations),
+                    'consecrations_count': len(clergy.consecrations),
+                    'ordinations_performed_count': len(clergy.ordinations_performed),
+                    'consecrations_performed_count': len(clergy.consecrations_performed),
+                }
+            )
+
+        # Focused diagnostics for any non-deleted clergy matching \"James Marshall\".
+        james_matches = (
+            Clergy.query.filter(
+                Clergy.is_deleted != True,  # noqa: E712
+                Clergy.name.ilike('%James Marshall%'),
+            ).all()
+        )
+
+        james_diagnostics = []
+        for c in james_matches:
+            cid = c.id
+            in_nodes = cid in node_ids
+            in_rows = cid in row_ids
+            in_links_as_source = any(l.get('source') == cid for l in links)
+            in_links_as_target = any(l.get('target') == cid for l in links)
+
+            ordinations_summary = [
+                {
+                    'id': o.id,
+                    'ordaining_bishop_id': o.ordaining_bishop_id,
+                    'display_date': o.display_date,
+                    'is_invalid': o.is_invalid,
+                    'is_doubtfully_valid': o.is_doubtfully_valid,
+                    'is_doubtful_event': o.is_doubtful_event,
+                    'is_sub_conditione': o.is_sub_conditione,
+                }
+                for o in c.ordinations
+            ]
+            consecrations_summary = [
+                {
+                    'id': cc.id,
+                    'consecrator_id': cc.consecrator_id,
+                    'display_date': cc.display_date,
+                    'is_invalid': cc.is_invalid,
+                    'is_doubtfully_valid': cc.is_doubtfully_valid,
+                    'is_doubtful_event': cc.is_doubtful_event,
+                    'is_sub_conditione': cc.is_sub_conditione,
+                }
+                for cc in c.consecrations
+            ]
+
+            james_diagnostics.append(
+                {
+                    'id': cid,
+                    'name': getattr(c, 'display_name', c.name),
+                    'rank': c.rank,
+                    'organization': c.organization,
+                    'is_deleted': bool(c.is_deleted),
+                    'in_nodes': in_nodes,
+                    'in_rows': in_rows,
+                    'in_links_as_source': in_links_as_source,
+                    'in_links_as_target': in_links_as_target,
+                    'in_missing_ids': cid in missing_ids,
+                    'ordinations': ordinations_summary,
+                    'consecrations': consecrations_summary,
+                }
+            )
+
+        payload = {
+            'summary': {
+                'total_non_deleted_clergy': len(all_ids),
+                'total_nodes': len(nodes),
+                'total_links': len(links),
+                'total_rows': len(rows),
+                'missing_clergy_count': len(missing_ids),
+            },
+            'missing_clergy': missing_clergy,
+            'james_marshall': james_diagnostics,
+        }
+
+        current_app.logger.info('Lineage coverage diagnostics: %s', payload)
+        return jsonify(payload)
+    except Exception as e:
+        current_app.logger.error('Error in /debug/lineage-coverage: %s', e, exc_info=True)
+        return jsonify({'error': 'failed', 'message': str(e)}), 500
 
 
 @main_bp.route('/favicon.ico')

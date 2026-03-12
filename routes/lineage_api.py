@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app, make_response, g
 from sqlalchemy.orm import joinedload
 from utils import audit_log, require_permission
-from models import Clergy, User, db, Organization, Rank, Ordination, Consecration, Status, LineageRoot
+from models import Clergy, User, db, Organization, Rank, Ordination, Consecration, Status
 from constants import GREEN_COLOR, BLACK_COLOR
 import json
 import base64
@@ -171,12 +171,7 @@ def clergy_modal_add():
     user = User.query.get(session.get('user_id'))
     return render_template('_clergy_modal.html', clergy=None, action='add', all_clergy_data=all_clergy_data,
                            all_bishops_suggested=all_bishops_suggested, ranks=ranks, organizations=organizations, user=user,
-                           lineage_roots=_get_lineage_roots())
-
-
-def _get_lineage_roots():
-    """Return list of Clergy that are lineage roots."""
-    return list(Clergy.query.filter(Clergy.id.in_(db.session.query(LineageRoot.clergy_id))).all())
+                           )
 
 
 @lineage_api_bp.route('/clergy/modal/<int:clergy_id>/edit')
@@ -195,8 +190,7 @@ def clergy_modal_edit(clergy_id):
     all_bishops = db.session.query(Clergy).join(Rank, Clergy.rank == Rank.name).filter(Rank.is_bishop == True, Clergy.is_deleted != True).all()
     all_bishops_suggested = [{'id': b.id, 'name': getattr(b, 'display_name', b.name), 'rank': b.rank, 'organization': b.organization} for b in all_bishops]
     return render_template('_clergy_modal.html', clergy=clergy, action='edit', all_clergy_data=all_clergy_data,
-                           all_bishops_suggested=all_bishops_suggested, ranks=ranks, organizations=organizations, user=user,
-                           lineage_roots=_get_lineage_roots())
+                           all_bishops_suggested=all_bishops_suggested, ranks=ranks, organizations=organizations, user=user)
 
 
 @lineage_api_bp.route('/clergy/edit_from_lineage/<int:clergy_id>')
@@ -217,8 +211,7 @@ def edit_clergy_from_lineage(clergy_id):
     return render_template('_clergy_form_modal.html', fields={
         'form_action': url_for('clergy.edit_clergy', clergy_id=clergy_id),
         'ranks': ranks, 'organizations': organizations, 'cancel_url': '#'
-    }, clergy=clergy, edit_mode=True, user=user, all_clergy_data=all_clergy_data, all_bishops_suggested=all_bishops_suggested,
-    lineage_roots=_get_lineage_roots())
+    }, clergy=clergy, edit_mode=True, user=user, all_clergy_data=all_clergy_data, all_bishops_suggested=all_bishops_suggested)
 
 
 @lineage_api_bp.route('/clergy/modal/<int:clergy_id>/comment')

@@ -702,3 +702,61 @@ body {
 #clergyForm .specify-date-link:focus {
   color: #000;
 }
+
+/* Search overlay (Cmd/Ctrl+F) */
+.search-overlay.search-overlay--hidden {
+  display: none;
+}
+
+.search-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: #fff;
+  border: 1px solid #000;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-overlay-input {
+  flex: 0 0 auto;
+  padding: 1em;
+  border: none;
+  border-bottom: 1px solid #000;
+  font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.search-overlay-results {
+  flex: 1 1 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.search-overlay-results::-webkit-scrollbar {
+  display: none;
+}
+
+.search-overlay-result-item {
+  margin: 0;
+  padding: 0.5em 1em;
+  border-bottom: 1px solid #ccc;
+  cursor: pointer;
+  color: #000;
+  text-decoration: none;
+  display: block;
+}
+
+.search-overlay-result-item:last-child {
+  border-bottom: 0;
+}

@@ -56,6 +56,31 @@ def shell():
     return render_template('editor_v2/shell.html')
 
 
+def _all_clergy_list():
+    """Return list of { id, name, rank, organization } for non-deleted clergy, ordered by name."""
+    all_clergy = (
+        Clergy.query.filter(Clergy.is_deleted != True)  # noqa: E712
+        .order_by(Clergy.name)
+        .all()
+    )
+    return [
+        {
+            'id': c.id,
+            'name': getattr(c, 'display_name', c.name),
+            'rank': c.rank,
+            'organization': c.organization,
+        }
+        for c in all_clergy
+    ]
+
+
+@editor_v2_bp.route('/api/clergy-list')
+@require_permission('edit_clergy')
+def api_clergy_list():
+    """JSON API: full clergy list for search overlay when center panel has not loaded yet."""
+    return jsonify(_all_clergy_list())
+
+
 @editor_v2_bp.route('/panel/left')
 @require_permission('edit_clergy')
 def panel_left():
@@ -117,20 +142,7 @@ def panel_center():
         for bishop in all_bishops
     ]
 
-    all_clergy = (
-        Clergy.query.filter(Clergy.is_deleted != True)  # noqa: E712
-        .order_by(Clergy.name)
-        .all()
-    )
-    all_clergy_suggested = [
-        {
-            'id': c.id,
-            'name': getattr(c, 'display_name', c.name),
-            'rank': c.rank,
-            'organization': c.organization,
-        }
-        for c in all_clergy
-    ]
+    all_clergy_suggested = _all_clergy_list()
 
     clergy = None
     if clergy_id_raw is not None:

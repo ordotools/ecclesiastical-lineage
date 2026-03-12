@@ -1,6 +1,8 @@
 """Editor v2: SPA shell with HTMX-loaded panels. Blueprint uses editor_v2/ templates and static."""
 from flask import Blueprint, render_template, request, session, jsonify, current_app
 from sqlalchemy.orm import joinedload
+from sqlalchemy import text
+from datetime import datetime
 
 from models import (
     Clergy,
@@ -551,7 +553,58 @@ def panel_right():
 @require_permission('edit_clergy')
 def panel_statusbar():
     """Statusbar snippet for HTMX swap."""
-    return render_template('editor_v2/snippets/statusbar.html')
+    user = User.query.get(session['user_id']) if 'user_id' in session else None
+
+    db_status = {
+        'status': 'unknown',
+        'response_time_ms': None,
+        'clergy_count': None,
+        'events_count': None,
+        'details': None,
+    }
+
+    try:
+        start_time = datetime.now()
+        db.session.execute(text('SELECT 1'))
+        db.session.commit()
+        response_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+
+        clergy_count = Clergy.query.filter(Clergy.is_deleted != True).count()  # noqa: E712
+        ordination_count = Ordination.query.count()
+        consecration_count = Consecration.query.count()
+        events_count = ordination_count + consecration_count
+
+        db_status.update(
+            {
+                'status': 'connected',
+                'response_time_ms': response_time_ms,
+                'clergy_count': clergy_count,
+                'events_count': events_count,
+                'details': f'{clergy_count} clergy, {events_count} events',
+            }
+        )
+    except Exception as e:
+        current_app.logger.error("Editor v2 statusbar DB check failed: %s", e)
+        error_str = str(e).lower()
+        if any(k in error_str for k in ('connection', 'timeout', 'refused')):
+            db_status['status'] = 'error'
+        else:
+            db_status['status'] = 'warning'
+
+    env_label = None
+    try:
+        env = current_app.config.get('FLASK_ENV') or current_app.config.get('ENV')
+        if env and env.lower() != 'production':
+            env_label = env.title()
+    except Exception:
+        env_label = None
+
+    return render_template(
+        'editor_v2/snippets/statusbar.html',
+        user=user,
+        db_status=db_status,
+        env_label=env_label,
+    )
 
 
 @editor_v2_bp.route('/clergy/add', methods=['POST'])

@@ -54,6 +54,114 @@ body {
   font-size: 10px;
 }
 
+.editor-statusbar {
+  display: flex;
+  align-items: center;
+}
+
+.statusbar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 1em;
+}
+
+.statusbar-left,
+.statusbar-center,
+.statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+}
+
+.statusbar-left {
+  min-width: 0;
+}
+
+.statusbar-app-title {
+  font-weight: 600;
+}
+
+.statusbar-user {
+  color: #444;
+}
+
+.statusbar-logout {
+  color: #000;
+  text-decoration: underline;
+}
+
+.statusbar-logout:hover,
+.statusbar-logout:focus {
+  text-decoration: none;
+}
+
+.statusbar-center {
+  flex: 1 1 auto;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.statusbar-db {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.status-dot {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  border: 1px solid #000;
+  background: transparent;
+}
+
+.status-dot--connected {
+  background: #0a0;
+}
+
+.status-dot--warning {
+  background: #e6a700;
+}
+
+.status-dot--error {
+  background: #c00;
+}
+
+.status-dot--unknown {
+  background: #ccc;
+}
+
+.statusbar-db-label {
+  font-weight: 500;
+}
+
+.statusbar-db-meta {
+  color: #555;
+}
+
+.statusbar-right {
+  justify-content: flex-end;
+}
+
+.statusbar-env-badge {
+  display: inline-block;
+  padding: 0.05em 0.4em;
+  border: 1px solid #000;
+  border-radius: 999px;
+  font-size: 0.85em;
+  text-transform: uppercase;
+}
+
+.statusbar-current-record,
+.statusbar-save-state {
+  min-width: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
 .panel-left-content {
   padding: 0;
 }

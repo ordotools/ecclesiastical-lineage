@@ -1,1 +1,49 @@
-<div class="statusbar-content">Status</div>
+<div class="statusbar-content">
+  <div class="statusbar-left">
+    <span class="statusbar-app-title">Episcopal Lineage Editor</span>
+    {% if user %}
+      <span class="statusbar-user">
+        {{ user.username }}{% if user.role %} ({{ user.role }}){% endif %}
+      </span>
+      <a href="{{ url_for('auth.logout') }}" class="statusbar-logout">Logout</a>
+    {% endif %}
+  </div>
+
+  <div class="statusbar-center">
+    {% if db_status %}
+      <div class="statusbar-db">
+        <span class="status-dot status-dot--{{ db_status.status|default('unknown') }}"></span>
+        <span class="statusbar-db-label">
+          {% if db_status.status == 'connected' %}
+            DB OK
+          {% elif db_status.status == 'warning' %}
+            DB warning
+          {% elif db_status.status == 'error' %}
+            DB error
+          {% else %}
+            DB unknown
+          {% endif %}
+        </span>
+        <span class="statusbar-db-meta">
+          {% if db_status.response_time_ms %}
+            {{ '%.1f'|format(db_status.response_time_ms) }}ms
+          {% endif %}
+          {% if db_status.clergy_count is not none %}
+            · {{ db_status.clergy_count }} clergy
+          {% endif %}
+          {% if db_status.events_count is not none %}
+            · {{ db_status.events_count }} events
+          {% endif %}
+        </span>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="statusbar-right">
+    {% if env_label %}
+      <span class="statusbar-env-badge">{{ env_label }}</span>
+    {% endif %}
+    <span class="statusbar-current-record" id="editor-status-current-record"></span>
+    <span class="statusbar-save-state" id="editor-status-save-state"></span>
+  </div>
+</div>

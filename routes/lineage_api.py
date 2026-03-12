@@ -22,7 +22,10 @@ def get_lineage_data():
                 joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
                 joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
                 joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
-            ).filter(Clergy.is_deleted != True).all()
+            ).filter(
+                Clergy.is_deleted != True,
+                Clergy.exclude_from_visualization != True,
+            ).all()
             bishops = [c for c in all_clergy if c.rank and 'bishop' in c.rank.lower()]
             priests = [c for c in all_clergy if c.rank and 'priest' in c.rank.lower()]
             for priest in priests[:10]:
@@ -63,7 +66,10 @@ def get_lineage_data():
             joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
             joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators),
             joinedload(Clergy.statuses)
-        ).filter(Clergy.is_deleted != True).all()
+        ).filter(
+            Clergy.is_deleted != True,
+            Clergy.exclude_from_visualization != True,
+        ).all()
         if not hasattr(g, 'organizations'):
             g.organizations = {org.name: org.color for org in Organization.query.all()}
         if not hasattr(g, 'ranks'):
@@ -284,7 +290,10 @@ def debug_lineage():
             joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
             joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
             joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
-        ).filter(Clergy.is_deleted != True).all()
+        ).filter(
+            Clergy.is_deleted != True,
+            Clergy.exclude_from_visualization != True,
+        ).all()
         organizations = {org.name: org.color for org in Organization.query.all()}
         ranks = {rank.name: rank.color for rank in Rank.query.all()}
         nodes = []

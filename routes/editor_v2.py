@@ -286,6 +286,7 @@ def _get_direct_dependents(clergy_id):
         .filter(
             Ordination.ordaining_bishop_id == clergy_id,
             Clergy.is_deleted == False,  # noqa: E712
+            Clergy.exclude_from_visualization != True,  # noqa: E712
         )
         .all()
     )
@@ -297,6 +298,7 @@ def _get_direct_dependents(clergy_id):
         .filter(
             Consecration.consecrator_id == clergy_id,
             Clergy.is_deleted == False,  # noqa: E712
+            Clergy.exclude_from_visualization != True,  # noqa: E712
         )
         .all()
     )
@@ -309,6 +311,7 @@ def _get_direct_dependents(clergy_id):
         .filter(
             co_consecrators.c.co_consecrator_id == clergy_id,
             Clergy.is_deleted == False,  # noqa: E712
+            Clergy.exclude_from_visualization != True,  # noqa: E712
         )
         .all()
     )
@@ -472,6 +475,7 @@ def ordained_consecrated_data():
         .filter(
             Ordination.ordaining_bishop_id == cid,
             Clergy.is_deleted == False,  # noqa: E712
+            Clergy.exclude_from_visualization != True,  # noqa: E712
         )
         .all()
     )
@@ -485,6 +489,7 @@ def ordained_consecrated_data():
         .filter(
             Consecration.consecrator_id == cid,
             Clergy.is_deleted == False,  # noqa: E712
+            Clergy.exclude_from_visualization != True,  # noqa: E712
         )
         .all()
     )
@@ -497,7 +502,7 @@ def ordained_consecrated_data():
     co_consecrated = []
     for consecration in clergy.consecrations:
         for co in consecration.co_consecrators:
-            if not co.is_deleted:
+            if not co.is_deleted and not getattr(co, 'exclude_from_visualization', False):
                 co_consecrated.append(
                     {
                         'clergy': _serialize_clergy_basic(co),

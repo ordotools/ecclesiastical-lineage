@@ -24,12 +24,13 @@ Reference for all clergy, ordination, consecration, status, and admin fields use
 
 ## 2. Ordinations (repeating: `ordinations[i][...]`)
 
-Backend: rows are **created only when** `date` is non-empty **or** `date_unknown` is truthy; otherwise the row is skipped. There is **no** server requirement that any ordination row exist.
+Backend: rows are **created when** `date` is non-empty, `date_unknown` is truthy, **or** `details_unknown` is truthy; otherwise the row is skipped. There is **no** server requirement that any ordination row exist.
 
 | Field | HTML | Backend | Notes |
 |-------|------|---------|--------|
 | **ordinations[i][date]** | No `required` in template. Inline JS may set `required` when “specify date” is active (`toggleDateUnknown(..., false)`). | Row included only if `date` or `date_unknown` present. | If row is to be saved: either **date** or **date_unknown** (+ optional year) required. Per-row, not globally. |
 | **ordinations[i][date_unknown]** | Hidden; value `'1'` or `''`. | Truthy value means “year-only / unknown date” path. | Optional per row; affects whether row is created. |
+| **ordinations[i][details_unknown]** | Checkbox; value `'on'` when checked. | Truthy value means “ordination event exists but detailed date/bishop information is unknown”; row is still created even if date and bishop fields are empty. | Optional per row; does **not** change default validity (still defaults to `'valid'`). |
 | **ordinations[i][year]** | — | Optional; used when `date_unknown` and no `date`. Parsed as int. | Optional. |
 | **ordinations[i][validity]** | — | Optional; defaults to `'valid'`. Sets `is_doubtfully_valid` / `is_invalid`. | Optional. |
 | **ordinations[i][is_sub_conditione]** | Checkbox | Optional; `'on'` → true. | Optional. |
@@ -45,12 +46,13 @@ Backend: rows are **created only when** `date` is non-empty **or** `date_unknown
 
 ## 3. Consecrations (repeating: `consecrations[i][...]`)
 
-Backend: same as ordinations — rows **created only when** `date` is non-empty **or** `date_unknown` is truthy. No server requirement for any consecration row.
+Backend: same as ordinations — rows are **created when** `date` is non-empty, `date_unknown` is truthy, **or** `details_unknown` is truthy. No server requirement for any consecration row.
 
 | Field | HTML | Backend | Notes |
 |-------|------|---------|--------|
 | **consecrations[i][date]** | No `required` in template. Inline JS may set `required` when “specify date” is active. | Row included only if `date` or `date_unknown` present. | If row is to be saved: either **date** or **date_unknown** (+ optional year) required. Per-row. |
 | **consecrations[i][date_unknown]** | Hidden; value `'1'` or `''`. | Truthy value means “year-only / unknown date” path. | Optional per row. |
+| **consecrations[i][details_unknown]** | Checkbox; value `'on'` when checked. | Truthy value means “consecration event exists but detailed date/bishop information is unknown”; row is still created even if date and consecrator/co-consecrator fields are empty. | Optional per row; does **not** change default validity (still defaults to `'valid'`). |
 | **consecrations[i][year]** | — | Optional; used when `date_unknown` and no `date`. | Optional. |
 | **consecrations[i][validity]** | — | Optional; defaults to `'valid'`. | Optional. |
 | **consecrations[i][is_sub_conditione]** | Checkbox | Optional. | Optional. |
@@ -79,12 +81,12 @@ Backend: same as ordinations — rows **created only when** `date` is non-empty 
 | Field | HTML | Backend | Notes |
 |-------|------|---------|--------|
 | **mark_deleted** | Checkbox `value="1"`. | Optional; only when present and `'1'`: sets `is_deleted = True`, `deleted_at = now`. Uncheck clears. | Optional. |
-| **is_lineage_root** | Checkbox `value="1"`. | Optional; if truthy and no existing root → create `LineageRoot`; if falsy and root exists → remove. | Optional. |
+| **exclude_from_visualization** | Checkbox `value="1"`. | Optional; truthy value sets `clergy.exclude_from_visualization = True` (hides the clergy from lineage visualizations and related trees); falsy/absent value leaves it `False`. | Optional. |
 
 ---
 
 ## Summary
 
 - **Required in UI (HTML):** `name`, `rank`.
-- **Required by backend for a saved ordination/consecration row:** that row must have either non-empty `date` or truthy `date_unknown` (with optional `year`). No row is required to exist.
-- **Everything else** (papal_name, organization, dates, notes, image fields, ordination/consecration sub-fields, validity, flags, ordaining bishop/consecrator, status_ids, mark_deleted, is_lineage_root) is **optional** per backend and/or HTML.
+- **Required by backend for a saved ordination/consecration row:** that row must have either non-empty `date`, truthy `date_unknown` (with optional `year`), or truthy `details_unknown`. No row is required to exist.
+- **Everything else** (papal_name, organization, dates, notes, image fields, ordination/consecration sub-fields, validity, flags including `details_unknown`, ordaining bishop/consecrator, status_ids, `mark_deleted`, `exclude_from_visualization`) is **optional** per backend and/or HTML.

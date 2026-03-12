@@ -265,7 +265,11 @@ def _get_lineage_subset(clergy_id):
     clergy = Clergy.query.options(
         joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
         joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
-    ).filter_by(id=clergy_id, is_deleted=False).first()
+    ).filter(
+        Clergy.id == clergy_id,
+        Clergy.is_deleted == False,
+        Clergy.exclude_from_visualization != True,
+    ).first()
     if not clergy:
         return set(), []
 
@@ -283,7 +287,11 @@ def _get_lineage_subset(clergy_id):
         visited.add(cid)
         c = Clergy.query.options(
             joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
-        ).filter_by(id=cid, is_deleted=False).first()
+        ).filter(
+            Clergy.id == cid,
+            Clergy.is_deleted == False,
+            Clergy.exclude_from_visualization != True,
+        ).first()
         if not c:
             return
         pc = c.get_primary_consecration()
@@ -343,6 +351,7 @@ def _clergy_to_lineage_node(clergy, organizations, ranks):
         'image_url': image_url,
         'ordination_date': ord_date,
         'consecration_date': cons_date,
+        'exclude_from_visualization': getattr(clergy, 'exclude_from_visualization', False),
     }
 
 
@@ -473,7 +482,11 @@ def get_lineage_subset_table_rows(clergy_id):
     """
     from routes.main import _flat_hierarchy_rows
 
-    clergy = Clergy.query.filter_by(id=clergy_id, is_deleted=False).first()
+    clergy = Clergy.query.filter(
+        Clergy.id == clergy_id,
+        Clergy.is_deleted == False,
+        Clergy.exclude_from_visualization != True,
+    ).first()
     if not clergy:
         return jsonify({'error': 'Not found'}), 404
 
@@ -481,7 +494,11 @@ def get_lineage_subset_table_rows(clergy_id):
     clergy_list = Clergy.query.options(
         joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
         joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
-    ).filter(Clergy.id.in_(node_ids), Clergy.is_deleted == False).all()
+    ).filter(
+        Clergy.id.in_(node_ids),
+        Clergy.is_deleted == False,
+        Clergy.exclude_from_visualization != True,
+    ).all()
 
     organizations = {o.name: o.color for o in Organization.query.all()}
     ranks = {r.name: r.color for r in Rank.query.all()}
@@ -504,9 +521,17 @@ def get_lineage_subset(identifier):
     clergy = None
     try:
         cid = int(identifier)
-        clergy = Clergy.query.filter_by(id=cid, is_deleted=False).first()
+        clergy = Clergy.query.filter(
+            Clergy.id == cid,
+            Clergy.is_deleted == False,
+            Clergy.exclude_from_visualization != True,
+        ).first()
     except ValueError:
-        clergy = Clergy.query.filter(Clergy.name.ilike(identifier), Clergy.is_deleted == False).first()
+        clergy = Clergy.query.filter(
+            Clergy.name.ilike(identifier),
+            Clergy.is_deleted == False,
+            Clergy.exclude_from_visualization != True,
+        ).first()
     if not clergy:
         return jsonify({'error': 'Not found'}), 404
 
@@ -514,7 +539,11 @@ def get_lineage_subset(identifier):
     clergy_list = Clergy.query.options(
         joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
         joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
-    ).filter(Clergy.id.in_(node_ids), Clergy.is_deleted == False).all()
+    ).filter(
+        Clergy.id.in_(node_ids),
+        Clergy.is_deleted == False,
+        Clergy.exclude_from_visualization != True,
+    ).all()
 
     organizations = {o.name: o.color for o in Organization.query.all()}
     ranks = {r.name: r.color for r in Rank.query.all()}

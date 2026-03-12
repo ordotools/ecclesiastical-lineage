@@ -10,7 +10,7 @@ Confirmed mapping from template → JS interceptor → routes → services.
 - **Action (line 1):**
   - Edit: `url_for('editor_v2_bp.clergy_edit_v2', clergy_id=clergy.id)` → `POST /editor-v2/clergy/<id>/edit`
   - Add: `url_for('editor_v2_bp.clergy_add_v2')` → `POST /editor-v2/clergy/add`
-- Fields: identity (name, papal_name, organization), rank, photo (clergy_image), dates, notes, ordinations`[i][...]`, consecrations`[i][...]`, status_ids[], mark_deleted, is_lineage_root (see plan for full list).
+- Fields: identity (name, papal_name, organization), rank, photo (clergy_image), dates, notes, ordinations`[i][...]`, consecrations`[i][...]`, status_ids[], mark_deleted, `exclude_from_visualization`, and per-event flags such as `date_unknown` / `details_unknown` (see plan for full list).
 - Inline script: `initClergyFormV2()` for rank visibility, date-unknown toggles, ordination/consecration add/remove, bishop autocomplete.
 
 Included by: `editor_v2/templates/editor_v2/snippets/panel_center.html`.
@@ -39,8 +39,8 @@ Return: `_normalize_clergy_save_result(clergy, response, status_code)` → JSON 
 
 **File:** `services/clergy.py`
 
-- **Add:** `add_clergy_handler()` (POST): builds `form_data = request.form.copy(); form_data.update(request.files)`; calls `create_clergy_from_form(form_data)`. That uses `create_ordinations_from_form(clergy, form)`, `create_consecrations_from_form(clergy, form)`, status_ids, is_lineage_root; commits. Returns `(clergy, jsonify(...))` for AJAX (X-Requested-With / multipart).
-- **Edit:** `edit_clergy_handler(clergy_id)` (POST): if AJAX, updates clergy from `request.form` (name, rank, papal_name, organization, dates, notes, image_removed / image upload), then `update_ordinations_from_form(clergy, request.form)`, `update_consecrations_from_form(clergy, request.form)`, statuses, mark_deleted, is_lineage_root; commit. Returns `jsonify({ success, message, clergy_id })`.
-- **Ordinations/consecrations:** `create_ordinations_from_form` / `create_consecrations_from_form` parse `ordinations[i][...]` / `consecrations[i][...]`; rows with neither date nor date_unknown are skipped. Edit path uses `update_ordinations_from_form` / `update_consecrations_from_form` (delete existing, then create from form).
+- **Add:** `add_clergy_handler()` (POST): builds `form_data = request.form.copy(); form_data.update(request.files)`; calls `create_clergy_from_form(form_data)`. That uses `create_ordinations_from_form(clergy, form)`, `create_consecrations_from_form(clergy, form)`, sets `clergy.exclude_from_visualization` from the admin checkbox, applies status_ids, and commits. Returns `(clergy, jsonify(...))` for AJAX (X-Requested-With / multipart).
+- **Edit:** `edit_clergy_handler(clergy_id)` (POST): if AJAX, updates clergy from `request.form` (name, rank, papal_name, organization, dates, notes, `exclude_from_visualization`, image_removed / image upload), then `update_ordinations_from_form(clergy, request.form)` and `update_consecrations_from_form(clergy, request.form)` (including `date_unknown` / `details_unknown` semantics), updates statuses, applies `mark_deleted`, and commits. Returns `jsonify({ success, message, clergy_id })`.
+- **Ordinations/consecrations:** `create_ordinations_from_form` / `create_consecrations_from_form` parse `ordinations[i][...]` / `consecrations[i][...]`; rows with neither `date`, `date_unknown`, nor `details_unknown` are skipped. Edit path uses `update_ordinations_from_form` / `update_consecrations_from_form` (delete existing, then create from form).
 
 Flow is consistent end-to-end: template action → interceptor POST with FormData → editor_v2 routes → clergy service add/edit handlers → JSON response → interceptor handles success/error and panel refresh.

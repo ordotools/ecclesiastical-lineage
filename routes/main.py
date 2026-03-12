@@ -85,7 +85,10 @@ def _lineage_nodes_links():
         joinedload(Clergy.statuses),
         selectinload(Clergy.ordinations_performed),
         selectinload(Clergy.consecrations_performed),
-    ).filter(Clergy.is_deleted != True).all()
+    ).filter(
+        Clergy.is_deleted != True,
+        Clergy.exclude_from_visualization != True,
+    ).all()
     if not hasattr(g, 'organizations'):
         g.organizations = {org.name: org.color for org in Organization.query.all()}
     if not hasattr(g, 'ranks'):

@@ -117,6 +117,10 @@ def create_clergy_from_form(form):
     date_of_birth = form.get('date_of_birth')
     date_of_death = form.get('date_of_death')
     clergy.notes = form.get('notes')
+    # Admin exclude-from-visualization flag
+    exclude_raw = form.get('exclude_from_visualization') or form.get('exclude')
+    clergy.exclude_from_visualization = bool(exclude_raw) and str(exclude_raw).lower() in ('1', 'true', 'on', 'yes')
+
     if date_of_birth:
         clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
     if date_of_death:
@@ -231,11 +235,13 @@ def create_ordinations_from_form(clergy, form):
     for index, data in ordinations_data.items():
         date_val = (data.get('date') or '').strip()
         date_unknown = data.get('date_unknown') in ('1', 'true', 'on')
+        details_unknown = data.get('details_unknown') in ('1', 'true', 'on')
         year_val = (data.get('year') or '').strip()
-        if not date_val and not date_unknown:
+        if not date_val and not date_unknown and not details_unknown:
             continue
         ordination = Ordination()
         ordination.clergy_id = clergy.id
+        ordination.details_unknown = details_unknown
         if date_val:
             ordination.date = datetime.strptime(date_val, '%Y-%m-%d').date()
             ordination.year = None
@@ -318,11 +324,13 @@ def create_consecrations_from_form(clergy, form):
     for index, data in consecrations_data.items():
         date_val = (data.get('date') or '').strip()
         date_unknown = data.get('date_unknown') in ('1', 'true', 'on')
+        details_unknown = data.get('details_unknown') in ('1', 'true', 'on')
         year_val = (data.get('year') or '').strip()
-        if not date_val and not date_unknown:
+        if not date_val and not date_unknown and not details_unknown:
             continue
         consecration = Consecration()
         consecration.clergy_id = clergy.id
+        consecration.details_unknown = details_unknown
         if date_val:
             consecration.date = datetime.strptime(date_val, '%Y-%m-%d').date()
             consecration.year = None
@@ -635,6 +643,9 @@ def edit_clergy_handler(clergy_id):
                 date_of_birth = request.form.get('date_of_birth')
                 date_of_death = request.form.get('date_of_death')
                 clergy.notes = request.form.get('notes')
+                # Admin exclude-from-visualization flag
+                exclude_raw = request.form.get('exclude_from_visualization') or request.form.get('exclude')
+                clergy.exclude_from_visualization = bool(exclude_raw) and str(exclude_raw).lower() in ('1', 'true', 'on', 'yes')
                 
                 # Handle image upload or removal using Backblaze B2
                 image_removed = request.form.get('image_removed') == 'true'
@@ -799,6 +810,9 @@ def edit_clergy_handler(clergy_id):
         date_of_birth = request.form.get('date_of_birth')
         date_of_death = request.form.get('date_of_death')
         clergy.notes = request.form.get('notes')
+        # Admin exclude-from-visualization flag
+        exclude_raw = request.form.get('exclude_from_visualization') or request.form.get('exclude')
+        clergy.exclude_from_visualization = bool(exclude_raw) and str(exclude_raw).lower() in ('1', 'true', 'on', 'yes')
         if date_of_birth:
             clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
         else:

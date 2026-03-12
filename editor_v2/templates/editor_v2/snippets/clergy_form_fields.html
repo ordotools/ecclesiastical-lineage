@@ -134,6 +134,15 @@
           </div>
           <div class="ordination-entry__checkbox-row">
             <div class="form-field">
+              <label>
+                <input
+                  type="checkbox"
+                  name="ordinations[{{ idx }}][details_unknown]"
+                  {% if ordination and ordination.details_unknown %}checked{% endif %}>
+                Details unknown
+              </label>
+            </div>
+            <div class="form-field">
               <label><input type="checkbox" name="ordinations[{{ idx }}][is_sub_conditione]" {% if ordination and ordination.is_sub_conditione %}checked{% endif %}> Sub conditione</label>
             </div>
             <div class="form-field">
@@ -225,6 +234,14 @@
             </div>
           </div>
           <div class="ordination-entry__checkbox-row">
+            <div class="form-field">
+              <label>
+                <input
+                  type="checkbox"
+                  name="ordinations[0][details_unknown]">
+                Details unknown
+              </label>
+            </div>
             <div class="form-field">
               <label><input type="checkbox" name="ordinations[0][is_sub_conditione]"> Sub conditione</label>
             </div>
@@ -384,6 +401,15 @@
           </div>
           <div class="consecration-entry__checkbox-row">
             <div class="form-field">
+              <label>
+                <input
+                  type="checkbox"
+                  name="consecrations[{{ idx }}][details_unknown]"
+                  {% if consecration and consecration.details_unknown %}checked{% endif %}>
+                Details unknown
+              </label>
+            </div>
+            <div class="form-field">
               <label><input type="checkbox" name="consecrations[{{ idx }}][is_sub_conditione]" {% if consecration and consecration.is_sub_conditione %}checked{% endif %}> Sub conditione</label>
             </div>
             <div class="form-field">
@@ -508,6 +534,14 @@
           </div>
           <div class="consecration-entry__checkbox-row">
             <div class="form-field">
+              <label>
+                <input
+                  type="checkbox"
+                  name="consecrations[0][details_unknown]">
+                Details unknown
+              </label>
+            </div>
+            <div class="form-field">
               <label><input type="checkbox" name="consecrations[0][is_sub_conditione]"> Sub conditione</label>
             </div>
             <div class="form-field">
@@ -562,6 +596,17 @@
     <div class="form-field">
       <label><input type="checkbox" id="mark_deleted" name="mark_deleted" value="1" {% if clergy.is_deleted %}checked{% endif %}> Mark this record as deleted</label>
     </div>
+    <div class="form-field">
+      <label>
+        <input
+          type="checkbox"
+          id="exclude_from_visualization"
+          name="exclude_from_visualization"
+          value="1"
+          {% if clergy.exclude_from_visualization %}checked{% endif %}>
+        Exclude from visualization
+      </label>
+    </div>
   </div>
   {% endif %}
 
@@ -609,12 +654,52 @@
     });
   }
 
+  function setDetailsUnknownForEntry(entry, isUnknown) {
+    if (!entry) return;
+    var flag = !!isUnknown;
+    entry.classList.toggle('is-details-unknown', flag);
+
+    var dateBlock = entry.querySelector('.ordination-date-block, .consecration-date-block');
+    var bishopField = entry.querySelector('.ordination-entry__compact-row .bishop-autocomplete-field, .consecration-entry__compact-row .bishop-autocomplete-field');
+    var coRow = entry.querySelector('.consecration-entry__co-consecrators-row');
+
+    var inputs = [];
+    if (dateBlock) {
+      dateBlock.style.display = flag ? 'none' : '';
+      inputs = inputs.concat(Array.prototype.slice.call(dateBlock.querySelectorAll('input')));
+    }
+    if (bishopField) {
+      bishopField.style.display = flag ? 'none' : '';
+      inputs = inputs.concat(Array.prototype.slice.call(bishopField.querySelectorAll('input')));
+    }
+    if (coRow) {
+      coRow.style.display = flag ? 'none' : '';
+      inputs = inputs.concat(Array.prototype.slice.call(coRow.querySelectorAll('input')));
+    }
+
+    inputs.forEach(function(input) {
+      var name = input.getAttribute('name') || '';
+      if (name.indexOf('[details_unknown]') !== -1) {
+        return;
+      }
+      if (flag) {
+        input.value = '';
+        input.setAttribute('disabled', 'disabled');
+      } else {
+        input.removeAttribute('disabled');
+      }
+    });
+  }
+
   function addOrdination(form) {
     var container = form.querySelector('#ordinationsContainer');
     var first = container && container.querySelector('.ordination-entry');
     if (!container || !first) return;
     var clone = first.cloneNode(true);
-    clone.querySelectorAll('input:not([type="hidden"])').forEach(function(el) { el.value = ''; });
+    clone.querySelectorAll('input:not([type="hidden"])').forEach(function(el) {
+      el.value = '';
+      el.removeAttribute('disabled');
+    });
     clone.querySelectorAll('input[type="checkbox"]').forEach(function(el) { el.checked = false; });
     clone.querySelectorAll('textarea').forEach(function(el) { el.value = ''; });
     clone.querySelectorAll('select').forEach(function(el) {
@@ -626,6 +711,7 @@
     if (ordinationDateBlock) {
       toggleDateUnknown(ordinationDateBlock, false);
     }
+    setDetailsUnknownForEntry(clone, false);
     var dropdown = clone.querySelector('.autocomplete-dropdown');
     if (dropdown) dropdown.remove();
     container.appendChild(clone);
@@ -896,7 +982,10 @@
     var first = container && container.querySelector('.consecration-entry');
     if (!container || !first) return;
     var clone = first.cloneNode(true);
-    clone.querySelectorAll('input:not([type="hidden"])').forEach(function(el) { el.value = ''; });
+    clone.querySelectorAll('input:not([type="hidden"])').forEach(function(el) {
+      el.value = '';
+      el.removeAttribute('disabled');
+    });
     clone.querySelectorAll('input[type="checkbox"]').forEach(function(el) { el.checked = false; });
     clone.querySelectorAll('textarea').forEach(function(el) { el.value = ''; });
     clone.querySelectorAll('select').forEach(function(el) {
@@ -927,6 +1016,7 @@
     if (consecrationDateBlock) {
       toggleDateUnknown(consecrationDateBlock, false);
     }
+    setDetailsUnknownForEntry(clone, false);
     var dropdowns = clone.querySelectorAll('.autocomplete-dropdown');
     dropdowns.forEach(function(dd) { dd.remove(); });
     container.appendChild(clone);
@@ -1041,6 +1131,12 @@
 
     form.querySelectorAll('.ordination-entry, .consecration-entry').forEach(function(entry) {
       syncValidityExtraForEntry(entry);
+      var detailsCheckbox = entry.querySelector('input[type="checkbox"][name*="[details_unknown]"]');
+      if (detailsCheckbox && detailsCheckbox.checked) {
+        setDetailsUnknownForEntry(entry, true);
+      } else {
+        setDetailsUnknownForEntry(entry, false);
+      }
     });
 
     form.querySelectorAll('.ordination-date-block, .consecration-date-block').forEach(function(block) {
@@ -1056,9 +1152,15 @@
       var target = e.target;
       if (!target || !target.getAttribute || !target.getAttribute('name')) return;
       var name = target.getAttribute('name');
-      if (name.indexOf('[validity]') === -1 && name.indexOf('[is_other]') === -1) return;
       var entry = target.closest('.ordination-entry') || target.closest('.consecration-entry');
-      if (entry) syncValidityExtraForEntry(entry);
+
+      if (name.indexOf('[validity]') !== -1 || name.indexOf('[is_other]') !== -1) {
+        if (entry) syncValidityExtraForEntry(entry);
+      }
+
+      if (name.indexOf('[details_unknown]') !== -1 && entry) {
+        setDetailsUnknownForEntry(entry, !!target.checked);
+      }
     });
 
     var cancelLink = form.querySelector('a.editor-v2-cancel');

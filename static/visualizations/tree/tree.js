@@ -162,7 +162,7 @@ export async function initializeTreeVisualization(nodesData, linksData) {
   if (roots.length === 0) {
     const container = document.getElementById('graph-container');
     if (container) {
-      container.innerHTML = '<div class="text-center p-4"><p class="text-muted">No lineage roots; mark roots in the editor to see the tree.</p></div>';
+      container.innerHTML = '<div class="text-center p-4"><p class="text-muted">No visible lineage roots. Try including more clergy in the visualization (for example by unchecking “Exclude from visualization” in the editor) or adjusting filters.</p></div>';
     }
     return;
   }

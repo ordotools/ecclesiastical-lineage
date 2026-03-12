@@ -109,6 +109,7 @@ class Clergy(db.Model):
     image_data = db.Column(db.Text)  # Store JSON with multiple image sizes
     is_deleted = db.Column(db.Boolean, default=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
+    exclude_from_visualization = db.Column(db.Boolean, default=False, nullable=False)
 
     # Relationships
     statuses = db.relationship('Status', secondary='clergy_statuses', backref='clergy_members')
@@ -284,6 +285,7 @@ class Ordination(db.Model):
     is_doubtfully_valid = db.Column(db.Boolean, default=False, nullable=False)
     is_doubtful_event = db.Column(db.Boolean, default=False, nullable=False)
     is_invalid = db.Column(db.Boolean, default=False, nullable=False)
+    details_unknown = db.Column(db.Boolean, default=False, nullable=False)
     notes = db.Column(db.Text, nullable=True)
     is_inherited = db.Column(db.Boolean, default=False, nullable=False)
     is_other = db.Column(db.Boolean, default=False, nullable=False)
@@ -317,6 +319,7 @@ class Consecration(db.Model):
     is_doubtfully_valid = db.Column(db.Boolean, default=False, nullable=False)
     is_doubtful_event = db.Column(db.Boolean, default=False, nullable=False)
     is_invalid = db.Column(db.Boolean, default=False, nullable=False)
+    details_unknown = db.Column(db.Boolean, default=False, nullable=False)
     notes = db.Column(db.Text, nullable=True)
     is_inherited = db.Column(db.Boolean, default=False, nullable=False)
     is_other = db.Column(db.Boolean, default=False, nullable=False)

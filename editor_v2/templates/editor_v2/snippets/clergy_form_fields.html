@@ -72,168 +72,413 @@
   <div class="form-section">
     <h5>Ordinations</h5>
     <div id="ordinationsContainer">
-      <div class="ordination-entry">
-        <div class="ordination-entry__compact-row">
-          {% set first_ordination = clergy.ordinations[0] if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else None %}
-          {% set first_ordination_date = first_ordination.date if first_ordination and first_ordination.date else None %}
-          {% set first_ordination_year = first_ordination.year if first_ordination and first_ordination.year else None %}
-          {% set first_ordination_unknown = (first_ordination_date is none and first_ordination_year is not none) %}
-          <div class="form-field ordination-date-block{% if first_ordination_unknown %} is-unknown-date{% endif %}">
-            <label class="form-label">Date</label>
-            <div class="date-input-wrapper">
-              <input
-                type="date"
-                name="ordinations[0][date]"
-                value="{{ first_ordination_date.strftime('%Y-%m-%d') if first_ordination_date else '' }}">
+      {% set existing_ordinations = clergy.ordinations if edit_mode and clergy and clergy.ordinations else [] %}
+      {% if existing_ordinations %}
+        {% for ordination in existing_ordinations %}
+        {% set idx = loop.index0 %}
+        {% set ordination_date = ordination.date if ordination and ordination.date else None %}
+        {% set ordination_year = ordination.year if ordination and ordination.year else None %}
+        {% set ordination_unknown = (ordination_date is none and ordination_year is not none) %}
+        <div class="ordination-entry">
+          <div class="ordination-entry__compact-row">
+            <div class="form-field ordination-date-block{% if ordination_unknown %} is-unknown-date{% endif %}">
+              <label class="form-label">Date</label>
+              <div class="date-input-wrapper">
+                <input
+                  type="date"
+                  name="ordinations[{{ idx }}][date]"
+                  value="{{ ordination_date.strftime('%Y-%m-%d') if ordination_date else '' }}">
+              </div>
+              <div class="date-unknown-wrapper">
+                <input
+                  type="hidden"
+                  name="ordinations[{{ idx }}][date_unknown]"
+                  value="{{ '1' if ordination_unknown else '' }}">
+                <input
+                  type="number"
+                  name="ordinations[{{ idx }}][year]"
+                  min="1"
+                  max="9999"
+                  placeholder="Year"
+                  value="{{ ordination_year if ordination_year is not none else '' }}">
+              </div>
+              <a
+                href="#"
+                class="date-unknown-link">date unknown</a>
+              <a
+                href="#"
+                class="specify-date-link">specify date</a>
             </div>
-            <div class="date-unknown-wrapper">
+            <div class="form-field bishop-autocomplete-field">
+              <label class="form-label">Ordaining bishop</label>
+              <input
+                type="text"
+                name="ordinations[{{ idx }}][ordaining_bishop_input]"
+                placeholder="Search for bishop..."
+                autocomplete="off"
+                value="{{ ordination.ordaining_bishop.name if ordination and ordination.ordaining_bishop else '' }}">
               <input
                 type="hidden"
-                name="ordinations[0][date_unknown]"
-                value="{{ '1' if first_ordination_unknown else '' }}">
-              <input
-                type="number"
-                name="ordinations[0][year]"
-                min="1"
-                max="9999"
-                placeholder="Year"
-                value="{{ first_ordination_year if first_ordination_year is not none else '' }}">
+                name="ordinations[{{ idx }}][ordaining_bishop_id]"
+                value="{{ ordination.ordaining_bishop_id if ordination else '' }}">
+              <div class="autocomplete-dropdown"></div>
             </div>
-            <a
-              href="#"
-              class="date-unknown-link">date unknown</a>
-            <a
-              href="#"
-              class="specify-date-link">specify date</a>
+            <div class="form-field">
+              <label class="form-label">Validity</label>
+              <select name="ordinations[{{ idx }}][validity]">
+                <option value="valid" {% if ordination and not ordination.is_invalid and not ordination.is_doubtfully_valid %}selected{% endif %}>Valid</option>
+                <option value="doubtfully_valid" {% if ordination and ordination.is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
+                <option value="invalid" {% if ordination and ordination.is_invalid %}selected{% endif %}>Invalid</option>
+              </select>
+            </div>
           </div>
-          <div class="form-field bishop-autocomplete-field">
-            <label class="form-label">Ordaining bishop</label>
-            <input type="text" name="ordinations[0][ordaining_bishop_input]" placeholder="Search for bishop..." autocomplete="off" value="{{ clergy.ordinations[0].ordaining_bishop.name if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0].ordaining_bishop else '' }}">
-            <input type="hidden" name="ordinations[0][ordaining_bishop_id]" value="{{ clergy.ordinations[0].ordaining_bishop_id if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else '' }}">
-            <div class="autocomplete-dropdown"></div>
-          </div>
-          <div class="form-field">
-            <label class="form-label">Validity</label>
-            <select name="ordinations[0][validity]">
-              <option value="valid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and not clergy.ordinations[0].is_invalid and not clergy.ordinations[0].is_doubtfully_valid %}selected{% endif %}>Valid</option>
-              <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
-              <option value="invalid" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_invalid %}selected{% endif %}>Invalid</option>
-            </select>
-          </div>
-        </div>
-        <div class="ordination-entry__checkbox-row">
-          <div class="form-field">
-            <label><input type="checkbox" name="ordinations[0][is_sub_conditione]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_sub_conditione %}checked{% endif %}> Sub conditione</label>
-          </div>
-          <div class="form-field">
-            <label><input type="checkbox" name="ordinations[0][is_doubtful_event]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_doubtful_event %}checked{% endif %}> Doubtful event</label>
-          </div>
-        </div>
-        <div class="validity-extra-block" style="display: none;">
           <div class="ordination-entry__checkbox-row">
             <div class="form-field">
-              <label><input type="checkbox" name="ordinations[0][is_inherited]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_inherited %}checked{% endif %}> Inherited</label>
+              <label><input type="checkbox" name="ordinations[{{ idx }}][is_sub_conditione]" {% if ordination and ordination.is_sub_conditione %}checked{% endif %}> Sub conditione</label>
             </div>
             <div class="form-field">
-              <label><input type="checkbox" name="ordinations[0][is_other]" {% if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].is_other %}checked{% endif %}> Other</label>
+              <label><input type="checkbox" name="ordinations[{{ idx }}][is_doubtful_event]" {% if ordination and ordination.is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+            </div>
+          </div>
+          <div class="validity-extra-block" style="display: none;">
+            <div class="ordination-entry__checkbox-row">
+              <div class="form-field">
+                <label><input type="checkbox" name="ordinations[{{ idx }}][is_inherited]" {% if ordination and ordination.is_inherited %}checked{% endif %}> Inherited</label>
+              </div>
+              <div class="form-field">
+                <label><input type="checkbox" name="ordinations[{{ idx }}][is_other]" {% if ordination and ordination.is_other %}checked{% endif %}> Other</label>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Optional notes</label>
+              <input
+                type="text"
+                name="ordinations[{{ idx }}][optional_notes]"
+                placeholder="optional notes"
+                disabled
+                value="{{ ordination.optional_notes if ordination and ordination.optional_notes else '' }}">
             </div>
           </div>
           <div class="form-field">
-            <label class="form-label">Optional notes</label>
-            <input type="text" name="ordinations[0][optional_notes]" placeholder="optional notes" disabled value="{{ clergy.ordinations[0].optional_notes if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] and clergy.ordinations[0].optional_notes else '' }}">
+            <label class="form-label">Notes</label>
+            <textarea name="ordinations[{{ idx }}][notes]" rows="2">{{ ordination.notes if ordination and ordination.notes else '' }}</textarea>
           </div>
+          <button type="button" class="editor-button editor-button--danger remove-ordination">Remove</button>
         </div>
-        <div class="form-field">
-          <label class="form-label">Notes</label>
-          <textarea name="ordinations[0][notes]" rows="2">{{ clergy.ordinations[0].notes if edit_mode and clergy and clergy.ordinations and clergy.ordinations[0] else '' }}</textarea>
+        {% endfor %}
+      {% else %}
+        {% set ordination = None %}
+        {% set ordination_date = None %}
+        {% set ordination_year = None %}
+        {% set ordination_unknown = False %}
+        <div class="ordination-entry">
+          <div class="ordination-entry__compact-row">
+            <div class="form-field ordination-date-block{% if ordination_unknown %} is-unknown-date{% endif %}">
+              <label class="form-label">Date</label>
+              <div class="date-input-wrapper">
+                <input
+                  type="date"
+                  name="ordinations[0][date]"
+                  value="">
+              </div>
+              <div class="date-unknown-wrapper">
+                <input
+                  type="hidden"
+                  name="ordinations[0][date_unknown]"
+                  value="">
+                <input
+                  type="number"
+                  name="ordinations[0][year]"
+                  min="1"
+                  max="9999"
+                  placeholder="Year"
+                  value="">
+              </div>
+              <a
+                href="#"
+                class="date-unknown-link">date unknown</a>
+              <a
+                href="#"
+                class="specify-date-link">specify date</a>
+            </div>
+            <div class="form-field bishop-autocomplete-field">
+              <label class="form-label">Ordaining bishop</label>
+              <input
+                type="text"
+                name="ordinations[0][ordaining_bishop_input]"
+                placeholder="Search for bishop..."
+                autocomplete="off"
+                value="">
+              <input
+                type="hidden"
+                name="ordinations[0][ordaining_bishop_id]"
+                value="">
+              <div class="autocomplete-dropdown"></div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Validity</label>
+              <select name="ordinations[0][validity]">
+                <option value="valid" selected>Valid</option>
+                <option value="doubtfully_valid">Doubtfully Valid</option>
+                <option value="invalid">Invalid</option>
+              </select>
+            </div>
+          </div>
+          <div class="ordination-entry__checkbox-row">
+            <div class="form-field">
+              <label><input type="checkbox" name="ordinations[0][is_sub_conditione]"> Sub conditione</label>
+            </div>
+            <div class="form-field">
+              <label><input type="checkbox" name="ordinations[0][is_doubtful_event]"> Doubtful event</label>
+            </div>
+          </div>
+          <div class="validity-extra-block" style="display: none;">
+            <div class="ordination-entry__checkbox-row">
+              <div class="form-field">
+                <label><input type="checkbox" name="ordinations[0][is_inherited]"> Inherited</label>
+              </div>
+              <div class="form-field">
+                <label><input type="checkbox" name="ordinations[0][is_other]"> Other</label>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Optional notes</label>
+              <input
+                type="text"
+                name="ordinations[0][optional_notes]"
+                placeholder="optional notes"
+                disabled
+                value="">
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Notes</label>
+            <textarea name="ordinations[0][notes]" rows="2"></textarea>
+          </div>
+          <button type="button" class="editor-button editor-button--danger remove-ordination">Remove</button>
         </div>
-        <button type="button" class="editor-button editor-button--danger remove-ordination">Remove</button>
-      </div>
+      {% endif %}
     </div>
     <button type="button" id="addOrdinationBtn" class="editor-button editor-button--action">Add Ordination</button>
   </div>
 
-  <div class="form-section consecrations-section" {% if edit_mode and clergy and clergy.rank and clergy.rank.lower() not in ['bishop', 'archbishop', 'cardinal', 'pope'] %}hidden{% endif %}>
+  <div class="form-section consecrations-section" {% if edit_mode and clergy and (clergy.rank is not none and clergy.rank.lower() not in ['bishop', 'archbishop', 'cardinal', 'pope']) and not (clergy.consecrations and clergy.consecrations|length > 0) %}hidden{% endif %}>
     <h5>Consecrations</h5>
     <div id="consecrationsContainer">
-      <div class="consecration-entry">
-        <div class="consecration-entry__compact-row">
-          {% set first_consecration = clergy.consecrations[0] if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else None %}
-          {% set first_consecration_date = first_consecration.date if first_consecration and first_consecration.date else None %}
-          {% set first_consecration_year = first_consecration.year if first_consecration and first_consecration.year else None %}
-          {% set first_consecration_unknown = (first_consecration_date is none and first_consecration_year is not none) %}
-          {% set first_consecration_co_consecrators = first_consecration.co_consecrators if first_consecration and first_consecration.co_consecrators else [] %}
-          <div class="form-field consecration-date-block{% if first_consecration_unknown %} is-unknown-date{% endif %}">
-            <label class="form-label">Date</label>
-            <div class="date-input-wrapper">
-              <input
-                type="date"
-                name="consecrations[0][date]"
-                value="{{ first_consecration_date.strftime('%Y-%m-%d') if first_consecration_date else '' }}">
+      {% set existing_consecrations = clergy.consecrations if edit_mode and clergy and clergy.consecrations else [] %}
+      {% if existing_consecrations %}
+        {% for consecration in existing_consecrations %}
+        {% set idx = loop.index0 %}
+        {% set consecration_date = consecration.date if consecration and consecration.date else None %}
+        {% set consecration_year = consecration.year if consecration and consecration.year else None %}
+        {% set consecration_unknown = (consecration_date is none and consecration_year is not none) %}
+        {% set consecration_co_consecrators = consecration.co_consecrators if consecration and consecration.co_consecrators else [] %}
+        <div class="consecration-entry">
+          <div class="consecration-entry__compact-row">
+            <div class="form-field consecration-date-block{% if consecration_unknown %} is-unknown-date{% endif %}">
+              <label class="form-label">Date</label>
+              <div class="date-input-wrapper">
+                <input
+                  type="date"
+                  name="consecrations[{{ idx }}][date]"
+                  value="{{ consecration_date.strftime('%Y-%m-%d') if consecration_date else '' }}">
+              </div>
+              <div class="date-unknown-wrapper">
+                <input
+                  type="hidden"
+                  name="consecrations[{{ idx }}][date_unknown]"
+                  value="{{ '1' if consecration_unknown else '' }}">
+                <input
+                  type="number"
+                  name="consecrations[{{ idx }}][year]"
+                  min="1"
+                  max="9999"
+                  placeholder="Year"
+                  value="{{ consecration_year if consecration_year is not none else '' }}">
+              </div>
+              <a
+                href="#"
+                class="date-unknown-link">date unknown</a>
+              <a
+                href="#"
+                class="specify-date-link">specify date</a>
             </div>
-            <div class="date-unknown-wrapper">
+            <div class="form-field bishop-autocomplete-field">
+              <label class="form-label">Consecrator</label>
+              <input
+                type="text"
+                name="consecrations[{{ idx }}][consecrator_input]"
+                placeholder="Search for consecrator..."
+                autocomplete="off"
+                value="{{ consecration.consecrator.name if consecration and consecration.consecrator else '' }}">
               <input
                 type="hidden"
-                name="consecrations[0][date_unknown]"
-                value="{{ '1' if first_consecration_unknown else '' }}">
-              <input
-                type="number"
-                name="consecrations[0][year]"
-                min="1"
-                max="9999"
-                placeholder="Year"
-                value="{{ first_consecration_year if first_consecration_year is not none else '' }}">
+                name="consecrations[{{ idx }}][consecrator_id]"
+                value="{{ consecration.consecrator_id if consecration else '' }}">
+              <div class="autocomplete-dropdown"></div>
             </div>
-            <a
-              href="#"
-              class="date-unknown-link">date unknown</a>
-            <a
-              href="#"
-              class="specify-date-link">specify date</a>
+            <div class="form-field">
+              <label class="form-label">Validity</label>
+              <select name="consecrations[{{ idx }}][validity]">
+                <option value="valid" {% if consecration and not consecration.is_invalid and not consecration.is_doubtfully_valid %}selected{% endif %}>Valid</option>
+                <option value="doubtfully_valid" {% if consecration and consecration.is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
+                <option value="invalid" {% if consecration and consecration.is_invalid %}selected{% endif %}>Invalid</option>
+              </select>
+            </div>
           </div>
-          <div class="form-field bishop-autocomplete-field">
-            <label class="form-label">Consecrator</label>
-            <input type="text" name="consecrations[0][consecrator_input]" placeholder="Search for consecrator..." autocomplete="off" value="{{ clergy.consecrations[0].consecrator.name if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0].consecrator else '' }}">
-            <input type="hidden" name="consecrations[0][consecrator_id]" value="{{ clergy.consecrations[0].consecrator_id if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else '' }}">
-            <div class="autocomplete-dropdown"></div>
-          </div>
-          <div class="form-field">
-            <label class="form-label">Validity</label>
-            <select name="consecrations[0][validity]">
-              <option value="valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and not clergy.consecrations[0].is_invalid and not clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Valid</option>
-              <option value="doubtfully_valid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
-              <option value="invalid" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_invalid %}selected{% endif %}>Invalid</option>
-            </select>
-          </div>
-        </div>
-        <div class="consecration-entry__co-consecrators-row">
-          <div class="form-field">
-            <label class="form-label">Co-consecrators</label>
-            <div class="co-consecrators-list">
-              {% if edit_mode and clergy and first_consecration_co_consecrators %}
-                {% for co_consecrator in first_consecration_co_consecrators %}
-                <div class="co-consecrator-item">
-                  <div class="form-field bishop-autocomplete-field">
-                    <input
-                      type="text"
-                      name="consecrations[0][co_consecrators][{{ loop.index0 }}][input]"
-                      placeholder="Search for clergy..."
-                      autocomplete="off"
-                      value="{{ co_consecrator.name if co_consecrator and co_consecrator.name else '' }}">
-                    <input
-                      type="hidden"
-                      name="consecrations[0][co_consecrators][{{ loop.index0 }}][id]"
-                      value="{{ co_consecrator.id if co_consecrator and co_consecrator.id else '' }}">
-                    <div class="autocomplete-dropdown"></div>
+          <div class="consecration-entry__co-consecrators-row">
+            <div class="form-field">
+              <label class="form-label">Co-consecrators</label>
+              <div class="co-consecrators-list">
+                {% if consecration_co_consecrators %}
+                  {% for co_consecrator in consecration_co_consecrators %}
+                  <div class="co-consecrator-item">
+                    <div class="form-field bishop-autocomplete-field">
+                      <input
+                        type="text"
+                        name="consecrations[{{ idx }}][co_consecrators][{{ loop.index0 }}][input]"
+                        placeholder="Search for clergy..."
+                        autocomplete="off"
+                        value="{{ co_consecrator.name if co_consecrator and co_consecrator.name else '' }}">
+                      <input
+                        type="hidden"
+                        name="consecrations[{{ idx }}][co_consecrators][{{ loop.index0 }}][id]"
+                        value="{{ co_consecrator.id if co_consecrator and co_consecrator.id else '' }}">
+                      <div class="autocomplete-dropdown"></div>
+                    </div>
+                    <button
+                      type="button"
+                      class="editor-button editor-button--danger remove-co-consecrator">
+                      Remove
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    class="editor-button editor-button--danger remove-co-consecrator">
-                    Remove
-                  </button>
-                </div>
-                {% endfor %}
-              {% else %}
+                  {% endfor %}
+                {% else %}
+                  <div class="co-consecrator-item">
+                    <div class="form-field bishop-autocomplete-field">
+                      <input
+                        type="text"
+                        name="consecrations[{{ idx }}][co_consecrators][0][input]"
+                        placeholder="Search for clergy..."
+                        autocomplete="off">
+                      <input
+                        type="hidden"
+                        name="consecrations[{{ idx }}][co_consecrators][0][id]"
+                        value="">
+                      <div class="autocomplete-dropdown"></div>
+                    </div>
+                    <button
+                      type="button"
+                      class="editor-button editor-button--danger remove-co-consecrator">
+                      Remove
+                    </button>
+                  </div>
+                {% endif %}
+              </div>
+              <button
+                type="button"
+                class="editor-button editor-button--action add-co-consecrator">
+                Add co-consecrator
+              </button>
+            </div>
+          </div>
+          <div class="consecration-entry__checkbox-row">
+            <div class="form-field">
+              <label><input type="checkbox" name="consecrations[{{ idx }}][is_sub_conditione]" {% if consecration and consecration.is_sub_conditione %}checked{% endif %}> Sub conditione</label>
+            </div>
+            <div class="form-field">
+              <label><input type="checkbox" name="consecrations[{{ idx }}][is_doubtful_event]" {% if consecration and consecration.is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+            </div>
+          </div>
+          <div class="validity-extra-block" style="display: none;">
+            <div class="consecration-entry__checkbox-row">
+              <div class="form-field">
+                <label><input type="checkbox" name="consecrations[{{ idx }}][is_inherited]" {% if consecration and consecration.is_inherited %}checked{% endif %}> Inherited</label>
+              </div>
+              <div class="form-field">
+                <label><input type="checkbox" name="consecrations[{{ idx }}][is_other]" {% if consecration and consecration.is_other %}checked{% endif %}> Other</label>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Optional notes</label>
+              <input
+                type="text"
+                name="consecrations[{{ idx }}][optional_notes]"
+                placeholder="optional notes"
+                disabled
+                value="{{ consecration.optional_notes if consecration and consecration.optional_notes else '' }}">
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Notes</label>
+            <textarea name="consecrations[{{ idx }}][notes]" rows="2">{{ consecration.notes if consecration and consecration.notes else '' }}</textarea>
+          </div>
+          <button type="button" class="editor-button editor-button--danger remove-consecration">Remove</button>
+        </div>
+        {% endfor %}
+      {% else %}
+        {% set consecration = None %}
+        {% set consecration_date = None %}
+        {% set consecration_year = None %}
+        {% set consecration_unknown = False %}
+        {% set consecration_co_consecrators = [] %}
+        <div class="consecration-entry">
+          <div class="consecration-entry__compact-row">
+            <div class="form-field consecration-date-block{% if consecration_unknown %} is-unknown-date{% endif %}">
+              <label class="form-label">Date</label>
+              <div class="date-input-wrapper">
+                <input
+                  type="date"
+                  name="consecrations[0][date]"
+                  value="">
+              </div>
+              <div class="date-unknown-wrapper">
+                <input
+                  type="hidden"
+                  name="consecrations[0][date_unknown]"
+                  value="">
+                <input
+                  type="number"
+                  name="consecrations[0][year]"
+                  min="1"
+                  max="9999"
+                  placeholder="Year"
+                  value="">
+              </div>
+              <a
+                href="#"
+                class="date-unknown-link">date unknown</a>
+              <a
+                href="#"
+                class="specify-date-link">specify date</a>
+            </div>
+            <div class="form-field bishop-autocomplete-field">
+              <label class="form-label">Consecrator</label>
+              <input
+                type="text"
+                name="consecrations[0][consecrator_input]"
+                placeholder="Search for consecrator..."
+                autocomplete="off"
+                value="">
+              <input
+                type="hidden"
+                name="consecrations[0][consecrator_id]"
+                value="">
+              <div class="autocomplete-dropdown"></div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Validity</label>
+              <select name="consecrations[0][validity]">
+                <option value="valid" selected>Valid</option>
+                <option value="doubtfully_valid">Doubtfully Valid</option>
+                <option value="invalid">Invalid</option>
+              </select>
+            </div>
+          </div>
+          <div class="consecration-entry__co-consecrators-row">
+            <div class="form-field">
+              <label class="form-label">Co-consecrators</label>
+              <div class="co-consecrators-list">
                 <div class="co-consecrator-item">
                   <div class="form-field bishop-autocomplete-field">
                     <input
@@ -253,43 +498,48 @@
                     Remove
                   </button>
                 </div>
-              {% endif %}
+              </div>
+              <button
+                type="button"
+                class="editor-button editor-button--action add-co-consecrator">
+                Add co-consecrator
+              </button>
             </div>
-            <button
-              type="button"
-              class="editor-button editor-button--action add-co-consecrator">
-              Add co-consecrator
-            </button>
           </div>
-        </div>
-        <div class="consecration-entry__checkbox-row">
-          <div class="form-field">
-            <label><input type="checkbox" name="consecrations[0][is_sub_conditione]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_sub_conditione %}checked{% endif %}> Sub conditione</label>
-          </div>
-          <div class="form-field">
-            <label><input type="checkbox" name="consecrations[0][is_doubtful_event]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_doubtful_event %}checked{% endif %}> Doubtful event</label>
-          </div>
-        </div>
-        <div class="validity-extra-block" style="display: none;">
           <div class="consecration-entry__checkbox-row">
             <div class="form-field">
-              <label><input type="checkbox" name="consecrations[0][is_inherited]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_inherited %}checked{% endif %}> Inherited</label>
+              <label><input type="checkbox" name="consecrations[0][is_sub_conditione]"> Sub conditione</label>
             </div>
             <div class="form-field">
-              <label><input type="checkbox" name="consecrations[0][is_other]" {% if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].is_other %}checked{% endif %}> Other</label>
+              <label><input type="checkbox" name="consecrations[0][is_doubtful_event]"> Doubtful event</label>
+            </div>
+          </div>
+          <div class="validity-extra-block" style="display: none;">
+            <div class="consecration-entry__checkbox-row">
+              <div class="form-field">
+                <label><input type="checkbox" name="consecrations[0][is_inherited]"> Inherited</label>
+              </div>
+              <div class="form-field">
+                <label><input type="checkbox" name="consecrations[0][is_other]"> Other</label>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Optional notes</label>
+              <input
+                type="text"
+                name="consecrations[0][optional_notes]"
+                placeholder="optional notes"
+                disabled
+                value="">
             </div>
           </div>
           <div class="form-field">
-            <label class="form-label">Optional notes</label>
-            <input type="text" name="consecrations[0][optional_notes]" placeholder="optional notes" disabled value="{{ clergy.consecrations[0].optional_notes if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] and clergy.consecrations[0].optional_notes else '' }}">
+            <label class="form-label">Notes</label>
+            <textarea name="consecrations[0][notes]" rows="2"></textarea>
           </div>
+          <button type="button" class="editor-button editor-button--danger remove-consecration">Remove</button>
         </div>
-        <div class="form-field">
-          <label class="form-label">Notes</label>
-          <textarea name="consecrations[0][notes]" rows="2">{{ clergy.consecrations[0].notes if edit_mode and clergy and clergy.consecrations and clergy.consecrations[0] else '' }}</textarea>
-        </div>
-        <button type="button" class="editor-button editor-button--danger remove-consecration">Remove</button>
-      </div>
+      {% endif %}
     </div>
     <button type="button" id="addConsecrationBtn" class="editor-button editor-button--action">Add Consecration</button>
   </div>

@@ -1,3 +1,20 @@
+{% macro render_tree(nodes, deceased_ids) %}
+  {% for node in nodes %}
+  <li class="panel-left-clergy-item panel-left-row">
+    <a href="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ node.row.id }}"
+       class="panel-left-link"
+       hx-get="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ node.row.id }}"
+       hx-target="#editor-panel-center"
+       hx-swap="innerHTML"
+       hx-push-url="false">{% if node.row.id in deceased_ids %}†{% endif %}{{ node.row.name or '—' }}</a>
+    {% if node.children %}
+    <ul>
+      {{ render_tree(node.children, deceased_ids) }}
+    </ul>
+    {% endif %}
+  </li>
+  {% endfor %}
+{% endmacro %}
 <div class="panel-left-content">
   <ul class="panel-left-clergy-list">
     {% if user and user.can_edit_clergy() %}
@@ -10,18 +27,13 @@
          hx-push-url="false">Add clergy</a>
     </li>
     {% endif %}
-    {% for clergy in clergy_list %}
-    <li class="panel-left-clergy-item">
-      <a href="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ clergy.id }}"
-         class="panel-left-link"
-         hx-get="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ clergy.id }}"
-         hx-target="#editor-panel-center"
-         hx-swap="innerHTML"
-         hx-push-url="false">{{ clergy.name }}{% if clergy.rank %} ({{ clergy.rank }}){% endif %}</a>
-    </li>
-    {% endfor %}
   </ul>
-  {% if not clergy_list %}
-  <p class="panel-left-empty">No clergy.</p>
+  <div class="file-tree">
+    <ul>
+      {{ render_tree(rows_tree, deceased_ids) }}
+    </ul>
+  </div>
+  {% if not rows_tree %}
+  <p class="panel-left-empty">No clergy in lineage.</p>
   {% endif %}
 </div>

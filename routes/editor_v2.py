@@ -17,6 +17,27 @@ from models import (
 from services import clergy as clergy_service
 from routes.editor import FormFields
 from utils import require_permission
+from routes.main import _lineage_nodes_links, _flat_hierarchy_rows
+
+
+def _rows_to_tree(rows):
+    """Convert flat DFS-ordered rows (with depth) into a nested tree.
+    Returns a root list of nodes: { 'row': row, 'children': [ ... ] }.
+    """
+    stack = []
+    root_list = []
+    for row in rows:
+        depth = row['depth']
+        while stack and stack[-1]['row']['depth'] >= depth:
+            stack.pop()
+        node = {'row': row, 'children': []}
+        if stack:
+            stack[-1]['children'].append(node)
+        else:
+            root_list.append(node)
+        stack.append(node)
+    return root_list
+
 
 editor_v2_bp = Blueprint(
     'editor_v2_bp',
@@ -38,12 +59,25 @@ def shell():
 @editor_v2_bp.route('/panel/left')
 @require_permission('edit_clergy')
 def panel_left():
-    """Left panel snippet for HTMX swap (clergy list)."""
-    clergy_list = Clergy.query.order_by(Clergy.name).all()
+    """Left panel snippet for HTMX swap (tiered clergy list, same as lineage menu)."""
+    nodes, links, _ = _lineage_nodes_links()
+    rows = _flat_hierarchy_rows(nodes, links)
+    unique_ids = {row['id'] for row in rows}
+    if unique_ids:
+        deceased = Clergy.query.filter(
+            Clergy.id.in_(unique_ids),
+            Clergy.date_of_death.isnot(None),
+        ).all()
+        deceased_ids = {c.id for c in deceased}
+    else:
+        deceased_ids = set()
     user = User.query.get(session['user_id']) if 'user_id' in session else None
+    rows_tree = _rows_to_tree(rows)
     return render_template(
         'editor_v2/snippets/panel_left.html',
-        clergy_list=clergy_list,
+        rows=rows,
+        rows_tree=rows_tree,
+        deceased_ids=deceased_ids,
         user=user,
     )
 

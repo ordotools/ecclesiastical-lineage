@@ -70,6 +70,10 @@ body {
   border-bottom: 1px solid #ccc;
 }
 
+.panel-left-clergy-item.panel-left-row {
+  padding-left: calc(var(--depth, 0) * 1em);
+}
+
 .panel-left-clergy-item:last-child {
   border-bottom: 0;
 }
@@ -89,6 +93,62 @@ body {
   margin: 0;
   padding: 0.5em 0;
   color: #666;
+}
+
+/* Left panel: ASCII tree (├──, └──, │) */
+.panel-left-content .file-tree {
+  font-family: ui-monospace, monospace;
+}
+
+.panel-left-content .file-tree > ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-left-content .file-tree ul {
+  list-style: none;
+  padding-left: 2em;
+  position: relative;
+  overflow: hidden;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.panel-left-content .file-tree li {
+  position: relative;
+  padding-left: 15px;
+}
+
+.panel-left-content .file-tree li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.75em;
+  width: 10px;
+  border-top: 1px solid currentColor;
+}
+
+.panel-left-content .file-tree li::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid currentColor;
+  opacity: 0.5;
+}
+
+.panel-left-content .file-tree li:last-child::after {
+  height: 15px;
+  bottom: auto;
+}
+
+.panel-left-content .file-tree .panel-left-clergy-item,
+.panel-left-content .file-tree .panel-left-clergy-item.panel-left-row {
+  padding-left: 15px;
+  border-bottom: none;
 }
 
 /* Right panel: ordained / consecrated ranges and clergy */

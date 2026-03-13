@@ -328,6 +328,21 @@
     }
 
     /**
+     * Whether the parent (form) clergy has any ordination or consecration with details_unknown.
+     * @param {{ ordinations?: Array<object>, consecrations?: Array<object> }} formEvents
+     * @returns {boolean}
+     */
+    function parentHasDetailsUnknown(formEvents) {
+        if (!formEvents) {
+            return false;
+        }
+        const check = (r) => r && (r.details_unknown === true || r.details_unknown === 1 || r.details_unknown === '1' || r.details_unknown === 'on');
+        const ord = toArray(formEvents.ordinations).some(check);
+        const cons = toArray(formEvents.consecrations).some(check);
+        return ord || cons;
+    }
+
+    /**
      * Render an empty or initial state into the right panel.
      */
     function renderEmpty() {
@@ -354,7 +369,8 @@
      * @param {{
      *   clergy: object|null,
      *   ranges: Array<object>,
-     *   groups: Array<object>
+     *   groups: Array<object>,
+     *   parentHasDetailsUnknown?: boolean
      * }} state
      * @param {{
      *   previousSnapshot?: Map<number, { rangeIndex: number, isValidForOrders: boolean }>
@@ -388,6 +404,12 @@
             : 'Ordained / consecrated by this bishop';
 
         header.appendChild(title);
+        if (state.parentHasDetailsUnknown) {
+            const note = document.createElement('div');
+            note.className = 'right-panel-details-unknown-note';
+            note.textContent = 'This bishop has at least one ordination or consecration marked “details unknown”; those events are treated as earliest for validity.';
+            header.appendChild(note);
+        }
         root.appendChild(header);
 
         const summary = computeSummaryFromGroups(state.groups, prevSnapshot);
@@ -642,7 +664,8 @@
                 {
                     clergy: clergy,
                     ranges: grouped.ranges,
-                    groups: grouped.groups
+                    groups: grouped.groups,
+                    parentHasDetailsUnknown: parentHasDetailsUnknown(formEvents)
                 },
                 {
                     previousSnapshot: lastSnapshotByClergyId
@@ -716,7 +739,8 @@
             {
                 clergy: cached.clergy || null,
                 ranges: grouped.ranges,
-                groups: grouped.groups
+                groups: grouped.groups,
+                parentHasDetailsUnknown: parentHasDetailsUnknown(formEvents)
             },
             {
                 previousSnapshot: lastSnapshotByClergyId

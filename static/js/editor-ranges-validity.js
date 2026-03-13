@@ -22,35 +22,39 @@
     }
 
     /**
-     * Get date info from a clergy-list ordination/consecration record (date, date_unknown, year).
+     * Get date info from a clergy-list ordination/consecration record (date, date_unknown, year, details_unknown).
      *
      * @param {object} record Ordination or consecration record from clergyListData
-     * @returns {{ date: string|null, year: number|null, dateUnknown: boolean }}
+     * @returns {{ date: string|null, year: number|null, dateUnknown: boolean, detailsUnknownNoDate: boolean }}
      */
     function getDateFromRecord(record) {
         if (!record) {
-            return { date: null, year: null, dateUnknown: true };
+            return { date: null, year: null, dateUnknown: true, detailsUnknownNoDate: false };
         }
+        const detailsUnknown = record.details_unknown === true || record.details_unknown === 1 || record.details_unknown === '1' || record.details_unknown === 'on';
         const dateVal = record.date && String(record.date).trim();
         if (dateVal) {
-            return { date: dateVal, year: null, dateUnknown: false };
+            return { date: dateVal, year: null, dateUnknown: false, detailsUnknownNoDate: false };
         }
         const isUnknown = record.date_unknown === true || record.date_unknown === 1 || record.date_unknown === '1' || record.date_unknown === 'on';
         if (isUnknown) {
             const y = record.year != null ? parseInt(record.year, 10) : NaN;
+            const year = Number.isFinite(y) ? y : null;
             return {
                 date: null,
-                year: Number.isFinite(y) ? y : null,
-                dateUnknown: true
+                year,
+                dateUnknown: true,
+                detailsUnknownNoDate: !!detailsUnknown && year == null
             };
         }
-        return { date: null, year: null, dateUnknown: true };
+        return { date: null, year: null, dateUnknown: true, detailsUnknownNoDate: !!detailsUnknown };
     }
 
     /**
-     * Sortable value for an event date for range comparison. Unknown dates map to Infinity.
+     * Sortable value for an event date for range comparison.
+     * Unknown dates map to Infinity. Details-unknown with no date/year map to -Infinity (earliest; ordination before consecration).
      *
-     * @param {object} record Ordination/consecration record with date, date_unknown, year
+     * @param {object} record Ordination/consecration record with date, date_unknown, year, details_unknown
      * @returns {{ t: number, unknown: boolean }}
      */
     function getEventDateSortValue(record) {
@@ -61,6 +65,9 @@
         }
         if (dateInfo.dateUnknown && dateInfo.year != null) {
             return { t: new Date(dateInfo.year, 0, 1).getTime(), unknown: false };
+        }
+        if (dateInfo.detailsUnknownNoDate) {
+            return { t: -Infinity, unknown: false };
         }
         return { t: Infinity, unknown: true };
     }
@@ -94,8 +101,10 @@
      * Place a descendant event (by date) into a bishop's timeline; return the range index and line type.
      * Events with unknown date are placed in the last range. When a range boundary is 'unknown', only
      * unknown-dated events are placed in that range; known-dated events skip to the next range.
+     * Details-unknown with no date/year: placed in the last range so canValidlyOrdain/Consecrate
+     * match backend (bishop's details-unknown events count as "before" any child event).
      *
-     * @param {object} record Ordination or consecration record (with date, date_unknown, year)
+     * @param {object} record Ordination or consecration record (with date, date_unknown, year, details_unknown)
      * @param {Array<{ index: number, start: string|null, end: string|null }>} ranges
      * @param {'ordination'|'consecration'} lineType
      * @param {boolean} [eventUnknown] True when the event has unknown date (from getEventDateSortValue(record).unknown)
@@ -105,6 +114,10 @@
         const rangeList = toArray(ranges || []);
         if (rangeList.length === 0) {
             return { rangeIndex: 0, lineType: lineType };
+        }
+        const dateInfo = getDateFromRecord(record);
+        if (dateInfo.detailsUnknownNoDate) {
+            return { rangeIndex: rangeList[rangeList.length - 1].index, lineType: lineType };
         }
         const { t: eventT, unknown: evtUnknown } = getEventDateSortValue(record);
         const isUnknown = eventUnknown !== undefined ? !!eventUnknown : !!evtUnknown;
@@ -125,8 +138,9 @@
     }
 
     /**
-     * Sort key for ordering bishop orders by date. Unknown dates sort last; same date uses type order.
-     * @param {{ date: string|null, year: number|null, dateUnknown: boolean }} dateInfo
+     * Sort key for ordering bishop orders by date.
+     * Unknown dates sort last; details-unknown with no date/year sort earliest (ordination before consecration); same date uses type order.
+     * @param {{ date: string|null, year: number|null, dateUnknown: boolean, detailsUnknownNoDate?: boolean }} dateInfo
      * @param {'ordination'|'consecration'} type
      * @returns {{ t: number, typeOrder: number }}
      */
@@ -136,6 +150,9 @@
             if (dateInfo.year != null) {
                 const t = new Date(dateInfo.year, 0, 1).getTime();
                 return { t, typeOrder };
+            }
+            if (dateInfo.detailsUnknownNoDate) {
+                return { t: -Infinity, typeOrder };
             }
             return { t: Infinity, typeOrder };
         }

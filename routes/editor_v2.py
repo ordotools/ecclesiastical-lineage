@@ -252,6 +252,7 @@ def _serialize_event(event, kind):
         'is_inherited': getattr(event, 'is_inherited', False),
         'is_other': getattr(event, 'is_other', False),
         'optional_notes': getattr(event, 'optional_notes', None),
+        'details_unknown': getattr(event, 'details_unknown', False),
     }
 
 

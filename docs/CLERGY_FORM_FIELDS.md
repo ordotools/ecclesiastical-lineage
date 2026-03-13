@@ -90,3 +90,4 @@ Backend: same as ordinations — rows are **created when** `date` is non-empty, 
 - **Required in UI (HTML):** `name`, `rank`.
 - **Required by backend for a saved ordination/consecration row:** that row must have either non-empty `date`, truthy `date_unknown` (with optional `year`), or truthy `details_unknown`. No row is required to exist.
 - **Everything else** (papal_name, organization, dates, notes, image fields, ordination/consecration sub-fields, validity, flags including `details_unknown`, ordaining bishop/consecrator, status_ids, `mark_deleted`, `exclude_from_visualization`) is **optional** per backend and/or HTML.
+- **Cascade/validity:** For how `details_unknown` events are ordered and treated in validation (e.g. as “before” child events when date is missing), see [VALIDITY_RULES.md](VALIDITY_RULES.md).

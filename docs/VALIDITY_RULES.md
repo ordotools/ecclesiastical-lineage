@@ -61,6 +61,21 @@ If the bishop does **not** have at least one valid ordination and one valid cons
 
 ---
 
+### Details unknown (reliable data presumption)
+
+When a record has `details_unknown=True` and no date/year for an ordination or consecration, the system applies a **reliable-data presumption** so that lineage and validity are not unduly downgraded. The following semantics apply:
+
+| # | Semantics | Meaning |
+|---|-----------|--------|
+| 1 | **Valid unless stated otherwise** | Events with `details_unknown=True` keep default effective status (valid when no invalid/doubtful flags set). |
+| 2 | **Ordination before consecration** | When dates are unknown, assume the bishop received ordination before consecration (Rule 2). |
+| 3 | **Children always valid unless stated otherwise** | When the bishop has only details-unknown events (or they count as "before" the child), descendant events get `new_validity='valid'` unless explicitly marked otherwise. |
+| 4 | **Children's orders after parent's unknown consecration** | Treat a bishop's details-unknown event as occurring "before" any child event in cascade logic. |
+
+Implementation: backend (`services/validation_cascade.py`) and frontend (`static/js/editor-ranges-validity.js`) treat details-unknown with no date/year as earliest in sort order so ordination is considered before consecration and before any child event.
+
+---
+
 ## Tables for implementation (single reference)
 
 ### A. Effective status (from record / dropdown)

@@ -295,6 +295,12 @@ body {
   margin: 0 0 0.5em 0;
 }
 
+.right-panel-details-unknown-note {
+  font-size: 0.9em;
+  color: #555;
+  margin: 0 0 0.5em 0;
+}
+
 .right-panel-ranges {
   display: flex;
   flex-direction: column;

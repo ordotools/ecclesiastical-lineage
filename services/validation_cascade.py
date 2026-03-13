@@ -2,6 +2,13 @@
 Cascade impact computation for validity rules (Rule 6/8).
 After root clergy validity changes, compute which descendant ordination/consecration
 records should be updated. Matches docs/VALIDITY_RULES.md and Table C.
+
+Details-unknown presumption (reliable-data presumption):
+- Events with details_unknown=True are treated as valid unless explicitly marked
+  invalid/doubtful.
+- When date/year are unknown, ordination is presumed before consecration (Rule 2).
+- Children of bishops with only details-unknown events are valid unless stated
+  otherwise; such events count as "before" any child event for cascade logic.
 """
 from datetime import date
 from models import Clergy, Ordination, Consecration, db
@@ -56,6 +63,8 @@ def _event_sort_key(record):
             return (date(int(y), 1, 1), True)
         except (TypeError, ValueError):
             pass
+    if getattr(record, 'details_unknown', False):
+        return (date.min, True)
     return (None, False)
 
 

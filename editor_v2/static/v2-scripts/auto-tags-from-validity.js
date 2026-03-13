@@ -1,9 +1,13 @@
 /**
  * Auto-tags from validity for Editor v2.
  *
- * Keeps the tags input in sync with validity-related fields on the clergy form.
- * Depends on window.EditorV2Validity (from validity-rules.js) and the presence
- * of #clergyForm with optional data-initial-tags and data-clergy-id attributes.
+ * Keeps the **tag picker selection** in sync with validity-related fields on the
+ * clergy form.
+ *
+ * Depends on:
+ * - window.EditorV2Validity (from validity-rules.js)
+ * - window.EDITOR_V2_TAGS (from tag-picker.js)
+ * - #clergyForm with optional data-clergy-id attribute.
  */
 (() => {
     'use strict';
@@ -29,28 +33,16 @@
         return Array.isArray(value) ? value : Array.from(value);
     }
 
-    function parseTags(raw) {
-        if (!raw) {
-            return [];
-        }
-        return raw.split(',')
-            .map(tag => tag.trim())
-            .filter(tag => tag.length > 0);
-    }
-
-    function mergeTagLists(current, required) {
-        const result = toArray(current);
-        const lowerSet = new Set(result.map(t => t.toLowerCase()));
-        toArray(required).forEach(tag => {
-            const lower = String(tag).toLowerCase();
-            if (!lowerSet.has(lower)) {
-                lowerSet.add(lower);
-                result.push(tag);
-            }
-        });
-        return result;
-    }
-
+    /**
+     * Computes the list of **system tag names** that should be applied based on
+     * the ordinations / consecrations validity fields on the form.
+     *
+     * Returns an array of strings drawn from TAG_ORDER:
+     *   - 'invalid'
+     *   - 'doubtful'
+     *   - 'sub_cond'
+     *   - 'valid'
+     */
     function computeTagsFromForm(form) {
         const validityApi = window.EditorV2Validity;
         if (!validityApi || typeof validityApi.getEffectiveStatus !== 'function' || typeof validityApi.getWorstStatus !== 'function') {
@@ -129,48 +121,37 @@
         return normalized;
     }
 
-    function getTagsInput(form) {
-        const inputInForm = form.querySelector && form.querySelector('#tags_input');
-        if (inputInForm) {
-            return inputInForm;
-        }
-        return document.querySelector('#tags_input');
-    }
-
     function syncTagsToForm(form) {
         if (!form) {
             return;
         }
-        const tagsInput = getTagsInput(form);
-        if (!tagsInput) {
+        const tagApi = window.EDITOR_V2_TAGS;
+        if (!tagApi || typeof tagApi.setSelectedByNames !== 'function') {
             return;
         }
 
-        const initialAttr = (form.getAttribute('data-initial-tags') || '').trim();
-        const currentValue = tagsInput.value || '';
-
-        if (initialAttr) {
-            const requiredTags = parseTags(initialAttr);
-            if (requiredTags.length === 0) {
-                return;
-            }
-            const currentTags = parseTags(currentValue);
-            const lowerCurrent = new Set(currentTags.map(t => t.toLowerCase()));
-            const allPresent = requiredTags.every(t => lowerCurrent.has(t.toLowerCase()));
-            if (allPresent) {
-                return;
-            }
-            const merged = mergeTagLists(currentTags, requiredTags);
-            tagsInput.value = merged.join(', ');
-            return;
-        }
-
+        // Only auto-apply validity-based tags for existing clergy records,
+        // matching the previous behaviour that gated on data-clergy-id.
         if (!form.hasAttribute('data-clergy-id')) {
             return;
         }
 
         const computedTags = computeTagsFromForm(form);
-        tagsInput.value = computedTags.join(', ');
+        if (!computedTags || computedTags.length === 0) {
+            return;
+        }
+
+        // Merge validity-based **system tags** into whatever the user has
+        // already selected. This keeps user-chosen tags while force-selecting
+        // the system ones whenever the validity state requires them.
+        //
+        // tag-picker.js implements setSelectedByNames using both tag.label and
+        // tag.name so we can safely pass the system tag names here.
+        try {
+            tagApi.setSelectedByNames(computedTags, { append: true });
+        } catch (e) {
+            // Fail silently; auto-tagging is a progressive enhancement.
+        }
     }
 
     function handleValidityChange(event) {

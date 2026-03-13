@@ -276,18 +276,6 @@ body {
   gap: 0.2em;
   vertical-align: middle;
 }
-
-.clergy-tag {
-  display: inline-block;
-  padding: 0.05em 0.35em;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.45);
-  font-size: 0.9em;
-  line-height: 1.2;
-  white-space: nowrap;
-  color: #000;
-}
-
 /* Right panel: ordained / consecrated ranges and clergy */
 
 .panel-right-content {

@@ -69,6 +69,43 @@ def _ensure_user_tags(labels):
     return tags
 
 
+def _apply_tags_for_clergy_from_selected_ids(clergy, raw_value):
+    """
+    Attach Tag records based on a comma-separated list of tag IDs and merge system tags.
+
+    This is the ID-based variant used by Editor v2. It intentionally ignores any
+    invalid IDs and de-duplicates input.
+    """
+    if not clergy:
+        return
+
+    if not raw_value:
+        system_tags = compute_system_tags_for_clergy(clergy)
+        clergy.tags = merge_user_and_system_tags(clergy, system_tags)
+        return
+
+    ids = []
+    seen = set()
+    for part in str(raw_value).split(','):
+        token = part.strip()
+        if not token:
+            continue
+        try:
+            tag_id = int(token)
+        except (ValueError, TypeError):
+            continue
+        if tag_id in seen:
+            continue
+        seen.add(tag_id)
+        ids.append(tag_id)
+
+    user_tags = Tag.query.filter(Tag.id.in_(ids)).all() if ids else []
+    clergy.tags = list(user_tags)
+
+    system_tags = compute_system_tags_for_clergy(clergy)
+    clergy.tags = merge_user_and_system_tags(clergy, system_tags)
+
+
 def _apply_tags_for_clergy_from_raw_input(clergy, raw_value):
     """
     Parse user-entered tags, attach Tag records, and merge in validity-based tags.
@@ -287,9 +324,14 @@ def create_clergy_from_form(form):
                 except (ValueError, TypeError):
                     pass  # Skip invalid status IDs
 
-    # Apply user-entered tags and validity-based system tags.
-    raw_tags = form.get('tags_input')
-    _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
+    # Apply tags from Editor v2 ID-based picker when present, otherwise fall back
+    # to legacy comma-separated label input.
+    raw_selected_ids = form.get('tags_selected')
+    if raw_selected_ids is not None:
+        _apply_tags_for_clergy_from_selected_ids(clergy, raw_selected_ids)
+    else:
+        raw_tags = form.get('tags_input')
+        _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
 
     db.session.commit()
 
@@ -849,9 +891,14 @@ def edit_clergy_handler(clergy_id):
                     clergy.is_deleted = False
                     clergy.deleted_at = None
 
-                # Apply user-entered tags and validity-based system tags.
-                raw_tags = request.form.get('tags_input')
-                _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
+                # Apply tags from Editor v2 ID-based picker when present, otherwise
+                # fall back to legacy comma-separated label input.
+                raw_selected_ids = request.form.get('tags_selected')
+                if raw_selected_ids is not None:
+                    _apply_tags_for_clergy_from_selected_ids(clergy, raw_selected_ids)
+                else:
+                    raw_tags = request.form.get('tags_input')
+                    _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
 
                 db.session.commit()
                 
@@ -924,9 +971,14 @@ def edit_clergy_handler(clergy_id):
             clergy.is_deleted = False
             clergy.deleted_at = None
 
-        # Apply user-entered tags and validity-based system tags.
-        raw_tags = request.form.get('tags_input')
-        _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
+        # Apply tags from Editor v2 ID-based picker when present, otherwise
+        # fall back to legacy comma-separated label input.
+        raw_selected_ids = request.form.get('tags_selected')
+        if raw_selected_ids is not None:
+            _apply_tags_for_clergy_from_selected_ids(clergy, raw_selected_ids)
+        else:
+            raw_tags = request.form.get('tags_input')
+            _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
 
         db.session.commit()
         log_audit_event(

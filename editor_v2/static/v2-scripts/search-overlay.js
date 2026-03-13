@@ -8,6 +8,23 @@ import { createClergyFuseIndex, searchClergy } from '/static/js/fuzzySearchV2.js
 const DEBOUNCE_MS = 150;
 const SEARCH_LIMIT = 30;
 
+const COMMANDS = [
+  {
+    type: 'command',
+    id: 'tag-management',
+    name: 'Tag Management',
+    run() {
+      if (
+        typeof window !== 'undefined' &&
+        window.EDITOR_V2_TAGS &&
+        typeof window.EDITOR_V2_TAGS.openTagModal === 'function'
+      ) {
+        window.EDITOR_V2_TAGS.openTagModal();
+      }
+    },
+  },
+];
+
 const overlay = () => document.getElementById('search-overlay');
 const inputEl = () => document.getElementById('search-overlay-input');
 const resultsEl = () => document.getElementById('search-overlay-results');
@@ -28,7 +45,10 @@ function setOverlayVisible(visible) {
       inp.value = '';
       inp.focus();
     }
-    renderResults([]);
+    renderResults({
+      commands: getMatchingCommands(''),
+      items: [],
+    });
     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
       window.dispatchEvent(new CustomEvent('editor-v2:searchOverlayOpened'));
     }
@@ -41,6 +61,16 @@ function setOverlayVisible(visible) {
       window.dispatchEvent(new CustomEvent('editor-v2:searchOverlayClosed'));
     }
   }
+}
+
+function normalizeCommandQuery(str) {
+  return (str || '').toLowerCase().trim();
+}
+
+function getMatchingCommands(query) {
+  const q = normalizeCommandQuery(query);
+  if (!q) return COMMANDS.slice();
+  return COMMANDS.filter((cmd) => normalizeCommandQuery(cmd.name).includes(q));
 }
 
 function getClergyList() {
@@ -64,10 +94,21 @@ function fetchClergyList() {
     .catch(() => []);
 }
 
-function renderResults(items) {
+function renderResults(payload) {
   const el = resultsEl();
   if (!el) return;
   el.textContent = '';
+  const commands = (payload && Array.isArray(payload.commands) && payload.commands) || [];
+  const items = (payload && Array.isArray(payload.items) && payload.items) || [];
+
+  commands.forEach((cmd) => {
+    const node = document.createElement('div');
+    node.className = 'search-overlay-result-item search-overlay-result-item--command';
+    node.dataset.commandId = String(cmd.id);
+    node.textContent = `> ${cmd.name}`;
+    el.appendChild(node);
+  });
+
   items.forEach((item) => {
     const node = document.createElement('div');
     node.className = 'search-overlay-result-item';
@@ -81,7 +122,10 @@ function renderResults(items) {
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
     window.dispatchEvent(
       new CustomEvent('editor-v2:searchResultsUpdated', {
-        detail: { items: Array.isArray(items) ? items : [] },
+        detail: {
+          items: Array.isArray(items) ? items : [],
+          commands: Array.isArray(commands) ? commands : [],
+        },
       }),
     );
   }
@@ -98,7 +142,10 @@ function selectClergy(id) {
 
 function runSearch(fuse, query) {
   const items = searchClergy(fuse, query, SEARCH_LIMIT);
-  renderResults(items);
+  renderResults({
+    commands: getMatchingCommands(query),
+    items,
+  });
 }
 
 function init() {
@@ -119,9 +166,16 @@ function init() {
     const query = inp ? inp.value : '';
     if (debounceTimer) clearTimeout(debounceTimer);
     if (!query.trim()) {
-      renderResults([]);
+      renderResults({
+        commands: getMatchingCommands(''),
+        items: [],
+      });
       return;
     }
+    renderResults({
+      commands: getMatchingCommands(query),
+      items: [],
+    });
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
       if (!fuseIndex) {
@@ -133,7 +187,10 @@ function init() {
       if (fuseIndex) {
         runSearch(fuseIndex.fuse, query);
       } else {
-        renderResults([]);
+        renderResults({
+          commands: getMatchingCommands(query),
+          items: [],
+        });
       }
     }, DEBOUNCE_MS);
   }
@@ -156,6 +213,12 @@ function init() {
       });
     }
     setOverlayVisible(true);
+    const inp = inputEl();
+    const query = inp ? inp.value : '';
+    renderResults({
+      commands: getMatchingCommands(query),
+      items: [],
+    });
   }
 
   function moveActiveSelection(delta) {
@@ -217,7 +280,7 @@ function init() {
       return;
     }
     const isMod = e.metaKey || e.ctrlKey;
-    if (isMod && e.key === 'f') {
+    if (isMod && (e.key === 'f' || e.key === 's' || e.key === 'k')) {
       e.preventDefault();
       openOverlay();
     }
@@ -231,7 +294,16 @@ function init() {
 
   resultsEl()?.addEventListener('click', (e) => {
     const item = e.target?.closest?.('.search-overlay-result-item');
-    if (item && item.dataset.clergyId) {
+    if (!item) return;
+    if (item.dataset.commandId) {
+      const command = COMMANDS.find((cmd) => String(cmd.id) === String(item.dataset.commandId));
+      if (command && typeof command.run === 'function') {
+        command.run();
+      }
+      setOverlayVisible(false);
+      return;
+    }
+    if (item.dataset.clergyId) {
       selectClergy(item.dataset.clergyId);
     }
   });

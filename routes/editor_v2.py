@@ -12,10 +12,12 @@ from models import (
     Status,
     Ordination,
     Consecration,
+    Tag,
     co_consecrators,
     db,
 )
 from services import clergy as clergy_service
+from services.clergy import _slugify_tag_label, _RESERVED_SYSTEM_TAG_NAMES
 from routes.editor import FormFields
 from utils import require_permission
 from routes.main import _lineage_nodes_links, _flat_hierarchy_rows
@@ -96,6 +98,110 @@ def api_clergy_list():
     return jsonify(_all_clergy_list())
 
 
+def _serialize_tag(tag):
+    """Serialize Tag model to JSON-safe dict for Editor v2 APIs."""
+    if not tag:
+        return None
+    return {
+        'id': tag.id,
+        'name': tag.name,
+        'label': tag.label,
+        'color_hex': tag.color_hex,
+        'is_system': bool(tag.is_system),
+    }
+
+
+@editor_v2_bp.route('/api/tags', methods=['GET'])
+@require_permission('edit_clergy')
+def api_tags_list():
+    """JSON API: list all tags for Editor v2 tag picker/management."""
+    tags = Tag.query.order_by(Tag.label.asc()).all()
+    return jsonify([_serialize_tag(t) for t in tags])
+
+
+@editor_v2_bp.route('/api/tags', methods=['POST'])
+@require_permission('edit_clergy')
+def api_tags_create():
+    """JSON API: create or update a user tag for Editor v2."""
+    payload = request.get_json(silent=True) or {}
+    raw_label = (payload.get('label') or '').strip()
+    raw_color = (payload.get('color_hex') or '').strip() or '#cccccc'
+
+    if not raw_label:
+        return (
+            jsonify({'success': False, 'message': 'Tag label is required.'}),
+            400,
+        )
+
+    name = _slugify_tag_label(raw_label)
+    if not name:
+        return (
+            jsonify({'success': False, 'message': 'Tag label is not valid.'}),
+            400,
+        )
+
+    if name in _RESERVED_SYSTEM_TAG_NAMES:
+        return (
+            jsonify(
+                {
+                    'success': False,
+                    'message': 'This tag name is reserved for system tags.',
+                }
+            ),
+            400,
+        )
+
+    # Basic hex color validation; fall back to default if invalid.
+    if not (len(raw_color) == 7 and raw_color.startswith('#')):
+        raw_color = '#cccccc'
+
+    existing = Tag.query.filter_by(name=name).first()
+    if existing:
+        if existing.is_system:
+            return (
+                jsonify(
+                    {
+                        'success': False,
+                        'message': 'Cannot modify system tag via this API.',
+                    }
+                ),
+                400,
+            )
+        existing.label = raw_label
+        existing.color_hex = raw_color
+        db.session.commit()
+        return jsonify({'success': True, 'tag': _serialize_tag(existing)}), 200
+
+    tag = Tag(name=name, label=raw_label, color_hex=raw_color, is_system=False)
+    db.session.add(tag)
+    db.session.commit()
+    return jsonify({'success': True, 'tag': _serialize_tag(tag)}), 201
+
+
+@editor_v2_bp.route('/api/tags/<int:tag_id>', methods=['DELETE'])
+@require_permission('edit_clergy')
+def api_tags_delete(tag_id):
+    """JSON API: delete a user tag (system tags cannot be deleted)."""
+    tag = Tag.query.get(tag_id)
+    if not tag:
+        return jsonify({'success': False, 'message': 'Tag not found.'}), 404
+
+    if tag.is_system or (tag.name in _RESERVED_SYSTEM_TAG_NAMES):
+        return (
+            jsonify({'success': False, 'message': 'Cannot delete a system tag.'}),
+            400,
+        )
+
+    # Detach from associated clergy before deleting to keep relationships clean.
+    for clergy in list(tag.clergy or []):
+        if tag in clergy.tags:
+            clergy.tags.remove(tag)
+
+    db.session.delete(tag)
+    db.session.commit()
+    return jsonify({'success': True}), 200
+
+
 @editor_v2_bp.route('/panel/left')
 @require_permission('edit_clergy')
 def panel_left():
@@ -161,6 +267,26 @@ def panel_left():
 def panel_center():
     """Center panel snippet for HTMX swap."""
     clergy_id_raw = request.args.get('clergy_id')
+    clergy = None
+    if clergy_id_raw is not None:
+        try:
+            cid = int(clergy_id_raw)
+            clergy = (
+                Clergy.query.options(
+                    joinedload(Clergy.tags),
+                    joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+                    joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+                    joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators),
+                )
+                .filter(Clergy.id == cid)
+                .first()
+            )
+        except (ValueError, TypeError):
+            pass
+
+    edit_mode = bool(clergy)
+    has_descendants = bool(_get_direct_dependents(clergy.id)) if clergy else False
+
     ranks = Rank.query.all()
     organizations = Organization.query.all()
     statuses = Status.query.order_by(Status.badge_position, Status.name).all()
@@ -188,47 +314,8 @@ def panel_center():
 
     all_clergy_suggested = _all_clergy_list()
 
-    clergy = None
-    if clergy_id_raw is not None:
-        try:
-            cid = int(clergy_id_raw)
-            clergy = (
-                Clergy.query.options(
-                    joinedload(Clergy.tags),
-                    joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
-                    joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
-                    joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators),
-                )
-                .filter(Clergy.id == cid)
-                .first()
-            )
-        except (ValueError, TypeError):
-            pass
-
-    edit_mode = bool(clergy)
-    has_descendants = bool(_get_direct_dependents(clergy.id)) if clergy else False
-
-    clergy_user_tags = ''
-    clergy_initial_user_tags = ''
-    if clergy is not None:
-        user_tags = [
-            tag.label
-            for tag in getattr(clergy, 'tags', [])
-            if not getattr(tag, 'is_system', False)
-        ]
-        clergy_user_tags = ', '.join(user_tags)
-        clergy_initial_user_tags = clergy_user_tags
-
-        # If there are no user-assigned tags, pre-fill the input with
-        # validity-derived system tags based on the clergy's own orders.
-        if not clergy_user_tags:
-            from services.validation_cascade import compute_system_tags_for_clergy
-
-            system_tags = compute_system_tags_for_clergy(clergy) or []
-            if system_tags:
-                # Sort for a stable, predictable display order.
-                labels = [t.label for t in sorted(system_tags, key=lambda t: (t.label or '').lower())]
-                clergy_user_tags = ', '.join(labels)
+    all_tags = Tag.query.order_by(Tag.label.asc()).all()
+    clergy_tag_ids = [tag.id for tag in getattr(clergy, 'tags', [])] if clergy else []
 
     return render_template(
         'editor_v2/snippets/panel_center.html',
@@ -239,8 +326,8 @@ def panel_center():
         has_descendants=has_descendants,
         all_bishops_suggested=all_bishops_suggested,
         all_clergy_suggested=all_clergy_suggested,
-        clergy_user_tags=clergy_user_tags,
-        clergy_initial_user_tags=clergy_initial_user_tags,
+        all_tags=all_tags,
+        clergy_tag_ids=clergy_tag_ids,
     )
 
 

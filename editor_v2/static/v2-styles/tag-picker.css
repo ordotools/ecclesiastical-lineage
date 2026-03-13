@@ -1,0 +1,48 @@
+/* Tag picker — RULES.md: black/white minimal, 10px sans-serif, no animations */
+
+.tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  min-height: 2em;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 10px;
+}
+
+.tag-picker-empty {
+  color: #555;
+  font-size: 1em;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2em 0.5em;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 999px;
+  font: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.tag-pill:focus {
+  outline: none;
+}
+
+.tag-pill__label {
+  flex: 0 0 auto;
+}
+
+.tag-pill--selected {
+  border-color: #000;
+  border-width: 2px;
+  padding: calc(0.2em - 1px) calc(0.5em - 1px);
+}
+
+.tag-pill--system {
+  cursor: default;
+}
+
+.tag-pill--display {
+  cursor: default;
+}

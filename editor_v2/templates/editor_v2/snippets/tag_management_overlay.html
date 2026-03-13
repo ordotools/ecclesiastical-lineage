@@ -1,0 +1,77 @@
+<div id="editorV2TagOverlay"
+     class="editor-tag-overlay editor-tag-overlay--hidden"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="editor-v2-tag-overlay-title"
+     aria-hidden="true">
+  <div class="editor-tag-overlay-backdrop"></div>
+  <div class="editor-tag-overlay-container">
+    <div class="editor-tag-overlay-box">
+      <h2 id="editor-v2-tag-overlay-title" class="editor-tag-overlay-title">
+        Manage Tags
+      </h2>
+
+      <div class="editor-tag-overlay-section">
+        <h3 class="editor-tag-overlay-section-title">Existing tags</h3>
+        <div id="editorV2TagList"
+             class="editor-tag-overlay-tag-list"
+             aria-live="polite">
+          <!-- Tag pills rendered by JavaScript -->
+        </div>
+      </div>
+
+      <div class="editor-tag-overlay-section">
+        <h3 class="editor-tag-overlay-section-title">Add tag</h3>
+        <form id="editorV2TagForm" class="editor-tag-overlay-form">
+          <div class="editor-tag-overlay-field">
+            <label for="editorV2TagLabel" class="editor-tag-overlay-label">
+              Tag label
+            </label>
+            <input type="text"
+                   id="editorV2TagLabel"
+                   name="label"
+                   class="editor-tag-overlay-input"
+                  autocomplete="off">
+          </div>
+
+          <div class="editor-tag-overlay-field editor-tag-overlay-field-color">
+            <div class="editor-tag-overlay-field-color-input">
+              <label for="editorV2TagColor" class="editor-tag-overlay-label">
+                Color
+              </label>
+              <input type="color"
+                     id="editorV2TagColor"
+                     name="color_hex"
+                     class="editor-tag-overlay-color-input"
+                     value="#000000">
+            </div>
+            <div class="editor-tag-overlay-field-color-preview">
+              <span class="editor-tag-overlay-label">
+                Preview
+              </span>
+              <div id="editorV2TagPreview"
+                   class="editor-tag-overlay-preview"
+                   aria-label="Tag color preview">
+                Tag
+              </div>
+            </div>
+          </div>
+
+          <div class="editor-tag-overlay-actions">
+            <button type="button"
+                    id="editorV2TagCancel"
+                    class="editor-tag-overlay-button editor-tag-overlay-button-cancel">
+              Close
+            </button>
+            <button type="submit"
+                    id="editorV2TagAdd"
+                    class="editor-tag-overlay-button editor-tag-overlay-button-apply">
+              Add Tag
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+

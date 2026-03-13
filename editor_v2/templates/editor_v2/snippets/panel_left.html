@@ -15,7 +15,9 @@
       {% if node.row.tags %}
       <span class="panel-left-clergy-tags">
         {% for tag in node.row.tags %}
-        <span class="clergy-tag" style="background-color: {{ tag.color_hex }}">{{ tag.label }}</span>
+        <span class="tag-pill tag-pill--display" style="background-color: {{ tag.color_hex }}; color: {{ getContrastColor(tag.color_hex) }}">
+          <span class="tag-pill__label">{{ tag.label }}</span>
+        </span>
         {% endfor %}
       </span>
       {% endif %}

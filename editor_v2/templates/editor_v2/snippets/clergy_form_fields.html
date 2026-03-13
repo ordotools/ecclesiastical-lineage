@@ -90,11 +90,10 @@
       <label for="date_of_death" class="form-label">Date of Death</label>
       <input type="date" id="date_of_death" name="date_of_death" value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}">
     </div>
-  </div>
-
-  <div class="form-field">
-    <label for="notes" class="form-label">Notes</label>
-    <textarea id="notes" name="notes" rows="3" placeholder="Additional notes...">{{ clergy.notes if edit_mode and clergy else '' }}</textarea>
+    <div id="notesField" class="form-field notes-field">
+      <label for="notes" class="form-label">Notes</label>
+      <textarea id="notes" name="notes" rows="3" placeholder="Additional notes...">{{ clergy.notes if edit_mode and clergy else '' }}</textarea>
+    </div>
   </div>
 
   <div class="form-section">

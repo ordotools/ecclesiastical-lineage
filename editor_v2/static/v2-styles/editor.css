@@ -552,6 +552,11 @@ body {
   align-items: start;
 }
 
+/* Notes field inside photo grid spans full width below photo/rank/date rows to keep notes aligned with the photo block */
+#clergyForm .form-grid--photo-fields .notes-field {
+  grid-column: 1 / -1;
+}
+
 /* Photo section - left column, spans 3 rows, fills full height */
 #clergyForm .photo-section {
   display: flex;

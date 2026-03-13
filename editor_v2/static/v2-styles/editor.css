@@ -193,7 +193,7 @@ body {
 
 .panel-left-link {
   display: block;
-  padding: 0.5em 0;
+  padding: 0.75em 0;
   color: #000;
   text-decoration: none;
 }
@@ -276,6 +276,13 @@ body {
   gap: 0.2em;
   vertical-align: middle;
 }
+
+.panel-left-clergy-tags .tag-pill--display {
+  font-size: 0.85em;
+  padding: 0.15em 0.35em;
+  border-width: 1px;
+}
+
 /* Right panel: ordained / consecrated ranges and clergy */
 
 .panel-right-content {

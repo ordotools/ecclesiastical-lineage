@@ -12,7 +12,11 @@ _sprite_sheet_status = {}
 _sprite_sheet_lock = threading.Lock()
 
 
-_RESERVED_SYSTEM_TAG_NAMES = {'invalid', 'valid', 'doubtful', 'sub_cond', 'unlikely'}
+_RESERVED_SYSTEM_TAG_NAMES = {
+    'invalid_priest', 'invalid_bishop',
+    'doubtful_priest', 'doubtful_bishop',
+    'valid',
+}
 
 
 def _parse_user_tag_labels(raw_value):

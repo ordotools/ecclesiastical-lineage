@@ -24,7 +24,13 @@
         'input[name^="consecrations["][name*="is_doubtful_event"]'
     ].join(', ');
 
-    const TAG_ORDER = ['invalid', 'doubtful', 'sub_cond', 'valid'];
+    const TAG_ORDER = [
+        'invalid_priest',
+        'invalid_bishop',
+        'doubtful_priest',
+        'doubtful_bishop',
+        'valid'
+    ];
 
     function toArray(value) {
         if (!value) {
@@ -38,14 +44,15 @@
      * the ordinations / consecrations validity fields on the form.
      *
      * Returns an array of strings drawn from TAG_ORDER:
-     *   - 'invalid'
-     *   - 'doubtful'
-     *   - 'sub_cond'
+     *   - 'invalid_priest'
+     *   - 'invalid_bishop'
+     *   - 'doubtful_priest'
+     *   - 'doubtful_bishop'
      *   - 'valid'
      */
     function computeTagsFromForm(form) {
         const validityApi = window.EditorV2Validity;
-        if (!validityApi || typeof validityApi.getEffectiveStatus !== 'function' || typeof validityApi.getWorstStatus !== 'function') {
+        if (!validityApi || typeof validityApi.getEffectiveStatus !== 'function') {
             return [];
         }
 
@@ -57,10 +64,8 @@
         const consSubCond = toArray(form.querySelectorAll('input[name^="consecrations["][name*="is_sub_conditione"]'));
         const consDoubtEvt = toArray(form.querySelectorAll('input[name^="consecrations["][name*="is_doubtful_event"]'));
 
-        const effectiveStatuses = [];
-        let hasSubConditione = false;
-
-        const pushRecords = (validityNodes, subCondNodes, doubtEvtNodes) => {
+        const collectStatuses = (validityNodes, subCondNodes, doubtEvtNodes) => {
+            const statuses = [];
             validityNodes.forEach((selectEl, index) => {
                 if (!selectEl) {
                     return;
@@ -75,38 +80,49 @@
                     is_doubtful_event: !!(doubtEvtEl && doubtEvtEl.checked)
                 };
 
-                if (record.is_sub_conditione) {
-                    hasSubConditione = true;
-                }
-
                 const status = validityApi.getEffectiveStatus(record);
-                effectiveStatuses.push(status);
+                if (status) {
+                    statuses.push(status);
+                }
             });
+            return statuses;
         };
 
-        pushRecords(ordValidity, ordSubCond, ordDoubtEvt);
-        pushRecords(consValidity, consSubCond, consDoubtEvt);
+        const ordStatuses = collectStatuses(ordValidity, ordSubCond, ordDoubtEvt);
+        const consStatuses = collectStatuses(consValidity, consSubCond, consDoubtEvt);
 
-        if (effectiveStatuses.length === 0) {
+        if (ordStatuses.length === 0 && consStatuses.length === 0) {
             return [];
         }
 
-        const worstStatus = validityApi.getWorstStatus(effectiveStatuses);
+        const hasOrdInvalid = ordStatuses.some(s => s === 'invalid');
+        const hasOrdDoubtful = ordStatuses.some(s => s === 'doubtfully_valid' || s === 'doubtful_event');
+        const hasOrdValidLike = ordStatuses.some(s => s === 'valid' || s === 'sub_conditione');
 
-        const hasInvalid = effectiveStatuses.some(s => s === 'invalid');
-        const hasDoubtful = effectiveStatuses.some(s => s === 'doubtfully_valid' || s === 'doubtful_event');
+        const hasConsInvalid = consStatuses.some(s => s === 'invalid');
+        const hasConsDoubtful = consStatuses.some(s => s === 'doubtfully_valid' || s === 'doubtful_event');
+        const hasConsValidLike = consStatuses.some(s => s === 'valid' || s === 'sub_conditione');
 
         const tags = [];
-        if (hasInvalid) {
-            tags.push('invalid');
+
+        if (hasOrdInvalid) {
+            tags.push('invalid_priest');
         }
-        if (hasDoubtful) {
-            tags.push('doubtful');
+        if (consStatuses.length > 0 && hasConsInvalid) {
+            tags.push('invalid_bishop');
         }
-        if (hasSubConditione) {
-            tags.push('sub_cond');
+        if (hasOrdDoubtful) {
+            tags.push('doubtful_priest');
         }
-        if (worstStatus === 'valid' || worstStatus === 'sub_conditione') {
+        if (consStatuses.length > 0 && hasConsDoubtful) {
+            tags.push('doubtful_bishop');
+        }
+
+        const hasValid =
+            hasOrdValidLike &&
+            (consStatuses.length === 0 || hasConsValidLike);
+
+        if (hasValid) {
             tags.push('valid');
         }
 
@@ -189,7 +205,14 @@
 
     if (document.body && typeof document.body.addEventListener === 'function') {
         document.body.addEventListener('editor:validityChanged', handleEditorValidityChanged, false);
-        document.body.addEventListener('htmx:afterSwap', function (ev) {
+        document.body.addEventListener('editor:tagPickerReady', function () {
+            var form = document.getElementById('clergyForm');
+            if (form) {
+                syncTagsToForm(form);
+            }
+        }, false);
+
+    document.body.addEventListener('htmx:afterSwap', function (ev) {
             var detail = ev && ev.detail;
             var target = (detail && detail.target) || ev.target;
             if (!target) {
@@ -206,12 +229,7 @@
                 return;
             }
 
-            if (form.getAttribute('data-auto-tags-synced') === 'true') {
-                return;
-            }
-
             syncTagsToForm(form);
-            form.setAttribute('data-auto-tags-synced', 'true');
         }, false);
     }
 

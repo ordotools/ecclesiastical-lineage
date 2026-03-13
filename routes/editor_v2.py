@@ -817,9 +817,14 @@ def clergy_edit_v2(clergy_id):
         data = response.get_json(silent=True)
         if isinstance(data, dict) and data.get('success'):
             try:
-                from services.validation_cascade import compute_cascade_impact, apply_cascade_changes
+                from services.validation_cascade import (
+                    compute_cascade_impact,
+                    apply_cascade_changes,
+                    recompute_tags_for_descendants,
+                )
                 changes = compute_cascade_impact(clergy_id)
                 count = apply_cascade_changes(changes)
+                recompute_tags_for_descendants(changes)
                 data['updated_descendants_count'] = count
             except Exception as e:
                 current_app.logger.exception("Cascade apply failed: %s", e)

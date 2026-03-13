@@ -4,7 +4,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5em;
-  min-height: 2em;
+  min-height: 2.25em;
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 10px;
 }
@@ -34,9 +34,8 @@
 }
 
 .tag-pill--selected {
-  border-color: #000;
-  border-width: 2px;
-  padding: calc(0.2em - 1px) calc(0.5em - 1px);
+  border-color: #888;
+  box-shadow: 0 0 4px #39ff14;
 }
 
 .tag-pill--system {

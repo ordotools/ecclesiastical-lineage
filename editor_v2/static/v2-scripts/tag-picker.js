@@ -252,6 +252,7 @@
       preselectFromFormAttributes(form);
       renderTagPills();
       TAG_PICKER_STATE.initialized = true;
+      document.body.dispatchEvent(new CustomEvent('editor:tagPickerReady'));
     });
   }
 

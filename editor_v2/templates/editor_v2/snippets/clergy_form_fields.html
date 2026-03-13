@@ -43,7 +43,8 @@
       <div id="tagPicker" class="tag-picker">
         <!-- Rendered by JS: one pill per available tag, togglable -->
       </div>
-      <input type="hidden" id="tags_selected" name="tags_selected" value="">
+      <input type="hidden" id="tags_selected" name="tags_selected"
+       value="{{ clergy_tag_ids|join(',') if clergy_tag_ids else '' }}">
     </div>
   </div>
 

@@ -26,22 +26,11 @@ VALID_VALIDITY_VALUES = {'valid', 'doubtfully_valid', 'invalid'}
 
 
 _SYSTEM_TAG_SPECS = {
-    'invalid': {
-        'label': 'Invalid',
-        'color_hex': '#c0392b',
-    },
-    'doubtful': {
-        'label': 'Doubtful validity',
-        'color_hex': '#f39c12',
-    },
-    'sub_cond': {
-        'label': 'Sub conditione',
-        'color_hex': '#8e44ad',
-    },
-    'valid': {
-        'label': 'Valid',
-        'color_hex': '#27ae60',
-    },
+    'invalid_priest': {'label': 'Invalid Priest', 'color_hex': '#c0392b'},
+    'invalid_bishop': {'label': 'Invalid Bishop', 'color_hex': '#e74c3c'},
+    'doubtful_priest': {'label': 'Doubtful Priest', 'color_hex': '#e67e22'},
+    'doubtful_bishop': {'label': 'Doubtful Bishop', 'color_hex': '#f39c12'},
+    'valid': {'label': 'Valid', 'color_hex': '#27ae60'},
 }
 
 
@@ -190,63 +179,60 @@ def compute_system_tags_for_clergy(clergy):
     """
     Compute the set of validity-related system Tag objects for a clergy member.
 
-    This folds over the clergy's own ordinations and consecrations using the same
-    effective-status logic as the cascade (Table A), then maps those statuses into
-    high-level tags:
-      - 'invalid'   → any event whose effective status is 'invalid'
-      - 'doubtful'  → any event whose effective status is 'doubtfully_valid' or 'doubtful_event'
-      - 'sub_cond'  → any event flagged is_sub_conditione=True
-      - 'valid'     → at least one event exists and all effective statuses are in {'valid', 'sub_conditione'}
-
-    The 'unlikely' system tag is reserved for future heuristics and is not emitted
-    by this helper yet.
+    New semantics (see plan "Refine Tag System"):
+      - 'invalid_priest'   → at least one ordination with effective status 'invalid'
+      - 'doubtful_priest'  → at least one ordination with effective status in
+                             {'doubtfully_valid', 'doubtful_event'}
+      - 'invalid_bishop'   → at least one consecration with effective status 'invalid'
+      - 'doubtful_bishop'  → at least one consecration with effective status in
+                             {'doubtfully_valid', 'doubtful_event'}
+      - 'valid'            → at least one ordination with effective status in
+                             EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS and
+                             (no consecrations OR at least one consecration with
+                             effective status in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS)
     """
     if clergy is None:
         return []
 
-    effective_statuses = []
-    has_sub_conditione = False
+    ordinations = getattr(clergy, 'ordinations', []) or []
+    consecrations = getattr(clergy, 'consecrations', []) or []
 
-    for o in getattr(clergy, 'ordinations', []) or []:
-        status = _get_effective_status(o)
-        effective_statuses.append(status)
-        if getattr(o, 'is_sub_conditione', False):
-            has_sub_conditione = True
-
-    for c in getattr(clergy, 'consecrations', []) or []:
-        status = _get_effective_status(c)
-        effective_statuses.append(status)
-        if getattr(c, 'is_sub_conditione', False):
-            has_sub_conditione = True
+    ord_statuses = [_get_effective_status(o) for o in ordinations]
+    cons_statuses = [_get_effective_status(c) for c in consecrations]
 
     tags = set()
 
-    if not effective_statuses:
-        # No orders recorded; do not attach any validity-related system tags.
-        return []
-
-    worst_status = _get_worst_status(effective_statuses)
-
-    # Invalid: at least one event with effective 'invalid'.
-    if any(s == 'invalid' for s in effective_statuses):
-        tag = _get_system_tag('invalid')
+    # Priest validity tags (from ordinations).
+    if any(s == 'invalid' for s in ord_statuses):
+        tag = _get_system_tag('invalid_priest')
         if tag:
             tags.add(tag)
 
-    # Doubtful: at least one event with doubtfully_valid or doubtful_event.
-    if any(s in ('doubtfully_valid', 'doubtful_event') for s in effective_statuses):
-        tag = _get_system_tag('doubtful')
+    if any(s in ('doubtfully_valid', 'doubtful_event') for s in ord_statuses):
+        tag = _get_system_tag('doubtful_priest')
         if tag:
             tags.add(tag)
 
-    # Sub cond.: at least one event explicitly marked sub conditione.
-    if has_sub_conditione:
-        tag = _get_system_tag('sub_cond')
-        if tag:
-            tags.add(tag)
+    # Bishop validity tags (from consecrations).
+    if cons_statuses:
+        if any(s == 'invalid' for s in cons_statuses):
+            tag = _get_system_tag('invalid_bishop')
+            if tag:
+                tags.add(tag)
+        if any(s in ('doubtfully_valid', 'doubtful_event') for s in cons_statuses):
+            tag = _get_system_tag('doubtful_bishop')
+            if tag:
+                tags.add(tag)
 
-    # Valid overall: only valid / sub_conditione events and no worse statuses.
-    if worst_status in ('valid', 'sub_conditione'):
+    # Overall "Valid" tag per new definition.
+    has_valid_ordination = any(
+        s in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS for s in ord_statuses
+    )
+    has_valid_consecration = (
+        not cons_statuses
+        or any(s in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS for s in cons_statuses)
+    )
+    if has_valid_ordination and has_valid_consecration:
         tag = _get_system_tag('valid')
         if tag:
             tags.add(tag)
@@ -427,3 +413,37 @@ def apply_cascade_changes(changes):
     if updated:
         db.session.commit()
     return updated
+
+
+def recompute_tags_for_descendants(changes):
+    """
+    Given the list of changes from apply_cascade_changes, collect unique clergy_ids
+    affected and recompute system tags (and merge with user tags) for each.
+    """
+    if not changes:
+        return
+    clergy_ids = set()
+    for change in changes:
+        if not isinstance(change, dict):
+            continue
+        change_type = change.get('type')
+        change_id = change.get('id')
+        if change_type == 'ordination':
+            rec = Ordination.query.get(change_id)
+        elif change_type == 'consecration':
+            rec = Consecration.query.get(change_id)
+        else:
+            continue
+        if rec is not None and getattr(rec, 'clergy_id', None) is not None:
+            clergy_ids.add(rec.clergy_id)
+    if not clergy_ids:
+        return
+    from sqlalchemy.orm import joinedload
+    for clergy in Clergy.query.options(
+        joinedload(Clergy.ordinations),
+        joinedload(Clergy.consecrations),
+        joinedload(Clergy.tags),
+    ).filter(Clergy.id.in_(clergy_ids)).all():
+        system_tags = compute_system_tags_for_clergy(clergy)
+        clergy.tags = merge_user_and_system_tags(clergy, system_tags)
+    db.session.commit()

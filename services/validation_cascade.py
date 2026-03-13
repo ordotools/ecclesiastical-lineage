@@ -25,6 +25,26 @@ EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS = ('valid', 'sub_conditione')
 VALID_VALIDITY_VALUES = {'valid', 'doubtfully_valid', 'invalid'}
 
 
+_SYSTEM_TAG_SPECS = {
+    'invalid': {
+        'label': 'Invalid',
+        'color_hex': '#c0392b',
+    },
+    'doubtful': {
+        'label': 'Doubtful validity',
+        'color_hex': '#f39c12',
+    },
+    'sub_cond': {
+        'label': 'Sub conditione',
+        'color_hex': '#8e44ad',
+    },
+    'valid': {
+        'label': 'Valid',
+        'color_hex': '#27ae60',
+    },
+}
+
+
 _SYSTEM_TAG_CACHE = {}
 
 
@@ -134,11 +154,35 @@ def _get_system_tag(name):
     Returns None if the tag does not exist; callers must handle missing tags gracefully
     so that tag logic does not break editor flows if the migration has not been applied.
     """
-    tag = _SYSTEM_TAG_CACHE.get(name)
-    if tag is not None:
-        return tag
+    cached = _SYSTEM_TAG_CACHE.get(name)
+    tag = None
+    if isinstance(cached, int):
+        tag = Tag.query.get(cached)
+        if tag is None:
+            # Cached id is stale (tag deleted); clear and fall through to query/create path.
+            _SYSTEM_TAG_CACHE.pop(name, None)
+        else:
+            return tag
+    elif cached is not None:
+        # Backwards compatibility: old cache may contain Tag instances; drop and repopulate with id.
+        _SYSTEM_TAG_CACHE.pop(name, None)
     tag = Tag.query.filter_by(name=name, is_system=True).first()
-    _SYSTEM_TAG_CACHE[name] = tag
+    if tag is None and name in _SYSTEM_TAG_SPECS:
+        spec = _SYSTEM_TAG_SPECS[name]
+        tag = Tag(
+            name=name,
+            label=spec.get('label'),
+            color_hex=spec.get('color_hex'),
+            is_system=True,
+        )
+        db.session.add(tag)
+        try:
+            db.session.flush()
+        except Exception:
+            # If flush fails, drop the tag so callers can safely handle None.
+            tag = None
+    if tag is not None:
+        _SYSTEM_TAG_CACHE[name] = tag.id
     return tag
 
 

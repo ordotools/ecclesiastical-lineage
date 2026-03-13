@@ -85,6 +85,7 @@ def _lineage_nodes_links():
         joinedload(Clergy.statuses),
         selectinload(Clergy.ordinations_performed),
         selectinload(Clergy.consecrations_performed),
+        selectinload(Clergy.tags),
     ).filter(
         Clergy.is_deleted != True,
         Clergy.exclude_from_visualization != True,
@@ -117,6 +118,14 @@ def _lineage_nodes_links():
         statuses_data = [
             {'id': s.id, 'name': s.name, 'description': s.description, 'icon': s.icon, 'color': s.color, 'badge_position': s.badge_position}
             for s in clergy.statuses
+        ]
+        tags_data = [
+            {
+                'label': getattr(tag, 'label', None),
+                'color_hex': getattr(tag, 'color_hex', None),
+                'is_system': bool(getattr(tag, 'is_system', False)),
+            }
+            for tag in (getattr(clergy, 'tags', None) or [])
         ]
         ordination_date = None
         po = clergy.get_primary_ordination()
@@ -158,6 +167,7 @@ def _lineage_nodes_links():
             'statuses': statuses_data,
             # Used by lineage-table DFS to build consecration windows per parent
             'own_consecration_sort_keys': sorted(set(own_consecration_sort_keys)),
+            'tags': tags_data,
         })
     for clergy in all_clergy:
         for ordination in clergy.ordinations:
@@ -362,6 +372,8 @@ def _flat_hierarchy_rows(nodes, links):
             'ordinations_performed_count': node.get('ordinations_performed_count'),
             'sprite_key': node.get('id'),
         }
+        if 'tags' in node:
+            row['tags'] = node['tags']
         row['is_lineage_root'] = row['id'] == row['root_id']
         if root_id is None:
             root_key = row['id']

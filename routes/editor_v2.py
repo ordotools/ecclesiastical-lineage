@@ -209,6 +209,7 @@ def panel_center():
     has_descendants = bool(_get_direct_dependents(clergy.id)) if clergy else False
 
     clergy_user_tags = ''
+    clergy_initial_user_tags = ''
     if clergy is not None:
         user_tags = [
             tag.label
@@ -216,6 +217,18 @@ def panel_center():
             if not getattr(tag, 'is_system', False)
         ]
         clergy_user_tags = ', '.join(user_tags)
+        clergy_initial_user_tags = clergy_user_tags
+
+        # If there are no user-assigned tags, pre-fill the input with
+        # validity-derived system tags based on the clergy's own orders.
+        if not clergy_user_tags:
+            from services.validation_cascade import compute_system_tags_for_clergy
+
+            system_tags = compute_system_tags_for_clergy(clergy) or []
+            if system_tags:
+                # Sort for a stable, predictable display order.
+                labels = [t.label for t in sorted(system_tags, key=lambda t: (t.label or '').lower())]
+                clergy_user_tags = ', '.join(labels)
 
     return render_template(
         'editor_v2/snippets/panel_center.html',
@@ -227,6 +240,7 @@ def panel_center():
         all_bishops_suggested=all_bishops_suggested,
         all_clergy_suggested=all_clergy_suggested,
         clergy_user_tags=clergy_user_tags,
+        clergy_initial_user_tags=clergy_initial_user_tags,
     )
 
 

@@ -194,6 +194,7 @@ def panel_center():
             cid = int(clergy_id_raw)
             clergy = (
                 Clergy.query.options(
+                    joinedload(Clergy.tags),
                     joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
                     joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
                     joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators),
@@ -207,6 +208,15 @@ def panel_center():
     edit_mode = bool(clergy)
     has_descendants = bool(_get_direct_dependents(clergy.id)) if clergy else False
 
+    clergy_user_tags = ''
+    if clergy is not None:
+        user_tags = [
+            tag.label
+            for tag in getattr(clergy, 'tags', [])
+            if not getattr(tag, 'is_system', False)
+        ]
+        clergy_user_tags = ', '.join(user_tags)
+
     return render_template(
         'editor_v2/snippets/panel_center.html',
         fields=fields,
@@ -216,6 +226,7 @@ def panel_center():
         has_descendants=has_descendants,
         all_bishops_suggested=all_bishops_suggested,
         all_clergy_suggested=all_clergy_suggested,
+        clergy_user_tags=clergy_user_tags,
     )
 
 

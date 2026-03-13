@@ -1,14 +1,95 @@
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response, current_app
-from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordination, Consecration, Status, clergy_statuses
+from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordination, Consecration, Status, clergy_statuses, Tag
 from utils import log_audit_event
 from datetime import datetime
 import json
 import threading
 from .image_upload import get_image_upload_service
+from services.validation_cascade import compute_system_tags_for_clergy, merge_user_and_system_tags
 
 # Background task status tracking
 _sprite_sheet_status = {}
 _sprite_sheet_lock = threading.Lock()
+
+
+_RESERVED_SYSTEM_TAG_NAMES = {'invalid', 'valid', 'doubtful', 'sub_cond', 'unlikely'}
+
+
+def _parse_user_tag_labels(raw_value):
+    """Parse a comma-separated tag string into a list of unique, trimmed labels."""
+    if not raw_value:
+        return []
+    labels = []
+    seen = set()
+    for part in str(raw_value).split(','):
+        label = part.strip()
+        if not label:
+            continue
+        key = label.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        labels.append(label)
+    return labels
+
+
+def _slugify_tag_label(label):
+    """Slug-like machine name for a tag label (lowercase, alnum + hyphen)."""
+    import re
+
+    slug = (label or '').strip().lower()
+    # Replace whitespace with single hyphen
+    slug = re.sub(r'\s+', '-', slug)
+    # Drop anything that's not alphanumeric or hyphen
+    slug = re.sub(r'[^a-z0-9\-]', '', slug)
+    return slug or None
+
+
+def _ensure_user_tags(labels):
+    """
+    Ensure Tag rows exist for the given human-readable labels and return Tag objects.
+
+    System-reserved tag names are skipped here so that validity-based system tags
+    remain exclusively controlled by the validation logic.
+    """
+    tags = []
+    for label in labels or []:
+        slug = _slugify_tag_label(label)
+        if not slug:
+            continue
+        if slug in _RESERVED_SYSTEM_TAG_NAMES:
+            # Reserved for system/computed tags; user input should not create or
+            # override these records. Validity logic will attach them as needed.
+            continue
+        tag = Tag.query.filter_by(name=slug).first()
+        if not tag:
+            tag = Tag(name=slug, label=label, is_system=False)
+            db.session.add(tag)
+        tags.append(tag)
+    return tags
+
+
+def _apply_tags_for_clergy_from_raw_input(clergy, raw_value):
+    """
+    Parse user-entered tags, attach Tag records, and merge in validity-based tags.
+
+    This helper is used by both create and edit flows so that:
+    - user tags are derived from the comma-separated input field
+    - system tags are recomputed from current ordinations/consecrations
+    """
+    if not clergy:
+        return
+
+    user_labels = _parse_user_tag_labels(raw_value)
+    user_tags = _ensure_user_tags(user_labels)
+
+    # First attach only user tags to the clergy instance.
+    clergy.tags = list(user_tags)
+
+    # Then compute validity-based system tags from current events and merge.
+    system_tags = compute_system_tags_for_clergy(clergy)
+    clergy.tags = merge_user_and_system_tags(clergy, system_tags)
+
 
 def _regenerate_sprite_sheet():
     """Helper function to regenerate the sprite sheet after clergy changes"""
@@ -205,6 +286,10 @@ def create_clergy_from_form(form):
                         clergy.statuses.append(status)
                 except (ValueError, TypeError):
                     pass  # Skip invalid status IDs
+
+    # Apply user-entered tags and validity-based system tags.
+    raw_tags = form.get('tags_input')
+    _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
 
     db.session.commit()
 
@@ -764,6 +849,10 @@ def edit_clergy_handler(clergy_id):
                     clergy.is_deleted = False
                     clergy.deleted_at = None
 
+                # Apply user-entered tags and validity-based system tags.
+                raw_tags = request.form.get('tags_input')
+                _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
+
                 db.session.commit()
                 
                 # Generate sprite sheet in background (non-blocking)
@@ -834,6 +923,10 @@ def edit_clergy_handler(clergy_id):
         elif not mark_deleted and clergy.is_deleted:
             clergy.is_deleted = False
             clergy.deleted_at = None
+
+        # Apply user-entered tags and validity-based system tags.
+        raw_tags = request.form.get('tags_input')
+        _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
 
         db.session.commit()
         log_audit_event(

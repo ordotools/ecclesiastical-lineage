@@ -11,7 +11,7 @@ Details-unknown presumption (reliable-data presumption):
   otherwise; such events count as "before" any child event for cascade logic.
 """
 from datetime import date
-from models import Clergy, Ordination, Consecration, db
+from models import Clergy, Ordination, Consecration, Tag, db
 
 # Table A: effective status priority (worse = higher)
 STATUS_PRIORITY = {
@@ -23,6 +23,9 @@ STATUS_PRIORITY = {
 }
 EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS = ('valid', 'sub_conditione')
 VALID_VALIDITY_VALUES = {'valid', 'doubtfully_valid', 'invalid'}
+
+
+_SYSTEM_TAG_CACHE = {}
 
 
 def _get_effective_status(record):
@@ -122,6 +125,116 @@ def _get_bishop_worst_status(summary):
     o = summary.get('worst_ordination_status') or 'valid'
     c = summary.get('worst_consecration_status') or 'valid'
     return _get_worst_status([o, c])
+
+
+def _get_system_tag(name):
+    """
+    Return the system Tag with the given machine name, using a small in-process cache.
+
+    Returns None if the tag does not exist; callers must handle missing tags gracefully
+    so that tag logic does not break editor flows if the migration has not been applied.
+    """
+    tag = _SYSTEM_TAG_CACHE.get(name)
+    if tag is not None:
+        return tag
+    tag = Tag.query.filter_by(name=name, is_system=True).first()
+    _SYSTEM_TAG_CACHE[name] = tag
+    return tag
+
+
+def compute_system_tags_for_clergy(clergy):
+    """
+    Compute the set of validity-related system Tag objects for a clergy member.
+
+    This folds over the clergy's own ordinations and consecrations using the same
+    effective-status logic as the cascade (Table A), then maps those statuses into
+    high-level tags:
+      - 'invalid'   → any event whose effective status is 'invalid'
+      - 'doubtful'  → any event whose effective status is 'doubtfully_valid' or 'doubtful_event'
+      - 'sub_cond'  → any event flagged is_sub_conditione=True
+      - 'valid'     → at least one event exists and all effective statuses are in {'valid', 'sub_conditione'}
+
+    The 'unlikely' system tag is reserved for future heuristics and is not emitted
+    by this helper yet.
+    """
+    if clergy is None:
+        return []
+
+    effective_statuses = []
+    has_sub_conditione = False
+
+    for o in getattr(clergy, 'ordinations', []) or []:
+        status = _get_effective_status(o)
+        effective_statuses.append(status)
+        if getattr(o, 'is_sub_conditione', False):
+            has_sub_conditione = True
+
+    for c in getattr(clergy, 'consecrations', []) or []:
+        status = _get_effective_status(c)
+        effective_statuses.append(status)
+        if getattr(c, 'is_sub_conditione', False):
+            has_sub_conditione = True
+
+    tags = set()
+
+    if not effective_statuses:
+        # No orders recorded; do not attach any validity-related system tags.
+        return []
+
+    worst_status = _get_worst_status(effective_statuses)
+
+    # Invalid: at least one event with effective 'invalid'.
+    if any(s == 'invalid' for s in effective_statuses):
+        tag = _get_system_tag('invalid')
+        if tag:
+            tags.add(tag)
+
+    # Doubtful: at least one event with doubtfully_valid or doubtful_event.
+    if any(s in ('doubtfully_valid', 'doubtful_event') for s in effective_statuses):
+        tag = _get_system_tag('doubtful')
+        if tag:
+            tags.add(tag)
+
+    # Sub cond.: at least one event explicitly marked sub conditione.
+    if has_sub_conditione:
+        tag = _get_system_tag('sub_cond')
+        if tag:
+            tags.add(tag)
+
+    # Valid overall: only valid / sub_conditione events and no worse statuses.
+    if worst_status in ('valid', 'sub_conditione'):
+        tag = _get_system_tag('valid')
+        if tag:
+            tags.add(tag)
+
+    return list(tags)
+
+
+def merge_user_and_system_tags(clergy, system_tags):
+    """
+    Merge user-assigned tags already attached to a clergy instance with a collection
+    of system Tag objects, returning a de-duplicated list suitable for assignment to
+    clergy.tags.
+
+    User tags are preserved as-is; system tags are brought into sync with the provided
+    collection (existing system tags not in system_tags are implicitly dropped when
+    the caller assigns the returned list back to clergy.tags).
+    """
+    if clergy is None:
+        return list(system_tags or [])
+
+    system_tags = list(system_tags or [])
+
+    user_tags = [t for t in (clergy.tags or []) if not getattr(t, 'is_system', False)]
+
+    by_name = {t.name: t for t in user_tags if getattr(t, 'name', None)}
+    for tag in system_tags:
+        name = getattr(tag, 'name', None)
+        if not name:
+            continue
+        by_name[name] = tag
+
+    return list(by_name.values())
 
 
 def _descendant_clergy_ids(root_clergy_id):

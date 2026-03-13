@@ -10,6 +10,13 @@ role_permissions = db.Table('role_permissions',
     db.Column('permission_id', db.Integer, db.ForeignKey('permission.id'), primary_key=True)
 )
 
+# Association table for clergy-tag relationship
+clergy_tags = db.Table(
+    'clergy_tags',
+    db.Column('clergy_id', db.Integer, db.ForeignKey('clergy.id'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+)
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -113,6 +120,7 @@ class Clergy(db.Model):
 
     # Relationships
     statuses = db.relationship('Status', secondary='clergy_statuses', backref='clergy_members')
+    tags = db.relationship('Tag', secondary='clergy_tags', back_populates='clergy')
     events = db.relationship('ClergyEvent', backref='clergy', cascade='all, delete-orphan')
     lineage_root = db.relationship('LineageRoot', backref='clergy', uselist=False, cascade='all, delete-orphan')
 
@@ -274,6 +282,24 @@ class Status(db.Model):
 
     def __repr__(self):
         return f'<Status {self.name}>'
+
+
+class Tag(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    # Machine-readable identifier (e.g., "invalid", "valid", "sub_cond")
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    # Human-readable label (e.g., "Invalid", "Sub cond.")
+    label = db.Column(db.String(100), nullable=False)
+    # Background color for tag pills (hex format, e.g., "#e74c3c")
+    color_hex = db.Column(db.String(7), nullable=False, default="#cccccc")
+    # Distinguish system/computed tags from user-entered tags
+    is_system = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    clergy = db.relationship('Clergy', secondary='clergy_tags', back_populates='tags')
+
+    def __repr__(self):
+        return f'<Tag {self.name}>'
 
 class Ordination(db.Model):
     id = db.Column(db.Integer, primary_key=True)

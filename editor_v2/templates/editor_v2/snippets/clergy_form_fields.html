@@ -37,6 +37,15 @@
         <button type="button" class="editor-button editor-button--action">Add</button>
       </div>
     </div>
+    <div class="form-field full-width">
+      <label for="tags_input" class="form-label">Tags</label>
+      <input
+        type="text"
+        id="tags_input"
+        name="tags_input"
+        value="{{ clergy_user_tags if edit_mode and clergy else '' }}"
+        placeholder="Comma-separated, e.g., invalid, valid, sub cond.">
+    </div>
   </div>
 
   <div class="form-grid form-grid--photo-fields">

@@ -7,7 +7,19 @@
        hx-get="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ node.row.id }}"
        hx-target="#editor-panel-center"
        hx-swap="innerHTML"
-       hx-push-url="false">{% if node.row.id in deceased_ids %}†{% endif %}{{ node.row.name or '—' }}</a>
+       hx-push-url="false">
+      {% if node.row.id in deceased_ids %}†{% endif %}
+      <span class="panel-left-clergy-name">
+        {{ node.row.name or '—' }}
+      </span>
+      {% if node.row.tags %}
+      <span class="panel-left-clergy-tags">
+        {% for tag in node.row.tags %}
+        <span class="clergy-tag" style="background-color: {{ tag.color_hex }}">{{ tag.label }}</span>
+        {% endfor %}
+      </span>
+      {% endif %}
+    </a>
     {% if node.children %}
     <ul>
       {{ render_tree(node.children, deceased_ids) }}

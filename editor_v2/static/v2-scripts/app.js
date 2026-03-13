@@ -597,6 +597,16 @@
                 typeof window.EDITOR_V2_FORM.initClergyFormV2 === 'function') {
                 window.EDITOR_V2_FORM.initClergyFormV2();
             }
+
+            const clergyForm = typeof document !== 'undefined'
+                ? document.getElementById('clergyForm')
+                : null;
+            if (clergyForm &&
+                typeof window !== 'undefined' &&
+                window.EDITOR_V2_PHOTO &&
+                typeof window.EDITOR_V2_PHOTO.initEditorV2Photo === 'function') {
+                window.EDITOR_V2_PHOTO.initEditorV2Photo(document);
+            }
         }
     });
 })();

@@ -42,8 +42,36 @@
   <div class="form-grid form-grid--photo-fields">
     <div id="photoField" class="form-field photo-section">
       <label class="form-label">Photo</label>
-      <input type="file" name="clergy_image" accept="image/*">
-      <span>No photo</span>
+      <div id="photoContainer" class="photo-container">
+        <div id="imagePreview" class="image-preview">
+          {% if edit_mode and clergy and clergy.image_data %}
+            {% set image_data = clergy.image_data | from_json %}
+            {% if image_data %}
+              {% set preview_url = image_data.detail if image_data.detail else (image_data.lineage if image_data.lineage else image_data.original) %}
+              {% set original_url = image_data.original if image_data.original else (clergy.image_url if clergy.image_url else '') %}
+              <img src="{{ preview_url }}" alt="{{ clergy.name }}" id="previewImage" class="has-image"
+                   data-original-image="{{ original_url }}"
+                   data-clergy-id="{{ clergy.id }}"
+                   data-object-key="{{ image_data.metadata.object_key if image_data.metadata and image_data.metadata.object_key else '' }}">
+            {% else %}
+              <span class="image-preview-placeholder">No photo</span>
+            {% endif %}
+          {% elif edit_mode and clergy and clergy.image_url %}
+            <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage" class="has-image"
+                 data-original-image="{{ clergy.image_url }}"
+                 data-clergy-id="{{ clergy.id }}"
+                 data-object-key="">
+          {% else %}
+            <span class="image-preview-placeholder">No photo</span>
+          {% endif %}
+        </div>
+        <input type="file" id="clergyImage" name="clergy_image" accept="image/*" hidden>
+        <div class="photo-controls">
+          <button type="button" class="photo-upload">Upload</button>
+          <button type="button" class="photo-crop">Crop</button>
+          <button type="button" class="photo-remove">Remove</button>
+        </div>
+      </div>
     </div>
     <div id="rankField" class="form-field">
       <label for="rank" class="form-label">Rank</label>
@@ -1118,6 +1146,12 @@
     var form = document.getElementById('clergyForm');
     if (!form || form.getAttribute('data-clergy-form-v2-inited') === 'true') return;
     form.setAttribute('data-clergy-form-v2-inited', 'true');
+
+  if (typeof window !== 'undefined' &&
+      window.EDITOR_V2_PHOTO &&
+      typeof window.EDITOR_V2_PHOTO.initEditorV2Photo === 'function') {
+    window.EDITOR_V2_PHOTO.initEditorV2Photo(document);
+  }
 
     var rankSelect = form.querySelector('#rank');
     if (rankSelect) {

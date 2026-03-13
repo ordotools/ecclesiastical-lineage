@@ -556,19 +556,72 @@ body {
 #clergyForm .photo-section {
   display: flex;
   flex-direction: column;
-  min-height: 200px;
+  align-self: start;
 }
 
 #clergyForm #photoField {
   grid-column: 1;
   grid-row: 1 / 4;
-  align-self: stretch;
-  min-height: 200px;
+  align-self: start;
 }
 
 #clergyForm .photo-section > span {
   flex: 1;
   min-height: 0;
+}
+
+/* Photo container, preview, drag-over, has-image, image controls (10px, black/white, no transition/animation) */
+.photo-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid #000;
+  padding: 10px;
+  background: #fff;
+}
+
+.photo-container.drag-over {
+  border-color: #000;
+  background: #f5f5f5;
+}
+
+#imagePreview {
+  height: 180px;
+  border: 1px solid #ccc;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#imagePreview .image-preview-placeholder {
+  font-size: 10px;
+  color: #666;
+}
+
+#imagePreview.has-image img,
+#imagePreview .has-image {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.photo-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 10px;
+}
+
+.photo-controls button {
+  font-size: 10px;
+  padding: 0.25em 0.5em;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  cursor: pointer;
 }
 
 #clergyForm #rankField {
@@ -913,4 +966,93 @@ body {
 
 .search-overlay-result-item.is-active {
   background: #e0e0e0;
+}
+
+/* Photo crop overlay */
+.editor-photo-overlay.editor-photo-overlay--hidden {
+  display: none;
+}
+
+.editor-photo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4vh 1.5em;
+}
+
+.editor-photo-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.editor-photo-overlay-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 56em;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.editor-photo-overlay-box {
+  border: 1px solid #000;
+  background: #fff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#editorV2EditorImage {
+  display: block;
+  width: 100%;
+  max-height: 65vh;
+  border: 1px solid #ccc;
+  background: #fff;
+  object-fit: contain;
+}
+
+.editor-photo-overlay-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75em;
+  margin-top: 0.75em;
+}
+
+.editor-photo-overlay-button {
+  flex: 0 0 auto;
+  padding: 0.25em 0.75em;
+  font: inherit;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  cursor: pointer;
+}
+
+.editor-photo-overlay-button-reset {
+  border: none;
+  color: #555;
+  text-decoration: underline;
+}
+
+.editor-photo-overlay-button-cancel {
+  /* uses base black/white button styling */
+}
+
+.editor-photo-overlay-button-apply {
+  border-color: #005c1a;
+  color: #005c1a;
+}
+
+.editor-photo-overlay-button:hover,
+.editor-photo-overlay-button:focus {
+  text-decoration: underline;
 }

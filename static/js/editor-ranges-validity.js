@@ -84,7 +84,7 @@
             return asEnd ? Infinity : -Infinity;
         }
         if (boundary === 'unknown') {
-            return Infinity;
+            return asEnd ? Infinity : -Infinity;
         }
         const parsed = new Date(boundary);
         if (Number.isFinite(parsed.getTime())) {
@@ -100,9 +100,8 @@
     /**
      * Place a descendant event (by date) into a bishop's timeline; return the range index and line type.
      * Events with unknown date are placed in the last range. When a range boundary is 'unknown', only
-     * unknown-dated events are placed in that range; known-dated events skip to the next range.
-     * Details-unknown with no date/year: placed in the last range so canValidlyOrdain/Consecrate
-     * match backend (bishop's details-unknown events count as "before" any child event).
+     * unknown-dated events are placed in that range; known-dated events are compared numerically
+     * against boundaries (including legacy 'unknown' boundaries treated as -Infinity/+Infinity).
      *
      * @param {object} record Ordination or consecration record (with date, date_unknown, year, details_unknown)
      * @param {Array<{ index: number, start: string|null, end: string|null }>} ranges
@@ -115,19 +114,10 @@
         if (rangeList.length === 0) {
             return { rangeIndex: 0, lineType: lineType };
         }
-        const dateInfo = getDateFromRecord(record);
-        if (dateInfo.detailsUnknownNoDate) {
-            return { rangeIndex: rangeList[rangeList.length - 1].index, lineType: lineType };
-        }
         const { t: eventT, unknown: evtUnknown } = getEventDateSortValue(record);
         const isUnknown = eventUnknown !== undefined ? !!eventUnknown : !!evtUnknown;
         for (let i = 0; i < rangeList.length; i++) {
             const r = rangeList[i];
-            if (r.end === 'unknown' || r.start === 'unknown') {
-                if (!isUnknown) {
-                    continue;
-                }
-            }
             const startVal = getBoundarySortValue(r.start, false);
             const endVal = getBoundarySortValue(r.end, true);
             if (eventT >= startVal && eventT < endVal) {
@@ -161,41 +151,142 @@
     }
 
     /**
-     * Internal: build date-ordered orders array from a clergy record.
-     * @param {object} clergy
+     * Internal: apply canonical ordering for a bishop's orders history.
+     *
+     * - A details-unknown ordination with no date/year is pinned as the very first record.
+     * - A details-unknown consecration with no date/year is pinned as:
+     *   - The second record when there is at least one ordination in the history.
+     *   - The first record when there are no ordinations.
+     * - All remaining records follow the existing date/type sort order.
+     *
+     * When multiple details-unknown ordinations or consecrations exist, the first in input order
+     * is chosen for the pinned slot to keep behavior deterministic.
+     *
+     * @param {Array<{ type: 'ordination'|'consecration', record: object, dateInfo?: object }>} orders
      * @returns {Array<{ type: 'ordination'|'consecration', record: object, dateInfo: object, sortKey: object }>}
      */
-    function buildOrdersFromClergy(clergy) {
-        const orders = [];
-        if (!clergy) {
-            return orders;
-        }
-        toArray(clergy.ordinations || []).forEach(record => {
-            const dateInfo = getDateFromRecord(record);
-            orders.push({
-                type: 'ordination',
-                record,
+    function buildOrderedOrders(orders) {
+        const list = toArray(orders || []).map((o, index) => {
+            const dateInfo = o.dateInfo || getDateFromRecord(o.record);
+            return {
+                type: o.type,
+                record: o.record,
                 dateInfo,
-                sortKey: getOrderSortKey(dateInfo, 'ordination')
-            });
-        });
-        toArray(clergy.consecrations || []).forEach(record => {
-            const dateInfo = getDateFromRecord(record);
-            orders.push({
-                type: 'consecration',
-                record,
-                dateInfo,
-                sortKey: getOrderSortKey(dateInfo, 'consecration')
-            });
+                originalIndex: index
+            };
         });
 
-        orders.sort((a, b) => {
+        if (list.length === 0) {
+            return [];
+        }
+
+        const hasAnyOrdination = list.some(o => o.type === 'ordination');
+
+        const detailsUnknownOrdinations = list.filter(
+            o => o.type === 'ordination' && o.dateInfo && o.dateInfo.detailsUnknownNoDate
+        );
+        const detailsUnknownConsecrations = list.filter(
+            o => o.type === 'consecration' && o.dateInfo && o.dateInfo.detailsUnknownNoDate
+        );
+
+        const pinnedOrdination = detailsUnknownOrdinations.length ? detailsUnknownOrdinations[0] : null;
+        const pinnedConsecration = detailsUnknownConsecrations.length ? detailsUnknownConsecrations[0] : null;
+
+        const withSortKey = (order) => {
+            order.sortKey = getOrderSortKey(order.dateInfo, order.type);
+            return order;
+        };
+
+        // Baseline date/type ordering for all records.
+        const baselineSorted = list.map(withSortKey).slice().sort((a, b) => {
             if (a.sortKey.t !== b.sortKey.t) {
                 return a.sortKey.t - b.sortKey.t;
             }
             return a.sortKey.typeOrder - b.sortKey.typeOrder;
         });
-        return orders;
+
+        const removeByOriginalIndex = (items, target) => {
+            if (!target) {
+                return items;
+            }
+            return items.filter(o => o.originalIndex !== target.originalIndex);
+        };
+
+        // Start from the baseline ordering, then pull out any pinned records.
+        let tail = baselineSorted;
+        if (pinnedOrdination) {
+            tail = removeByOriginalIndex(tail, pinnedOrdination);
+        }
+        if (pinnedConsecration) {
+            tail = removeByOriginalIndex(tail, pinnedConsecration);
+        }
+
+        const result = [];
+
+        if (hasAnyOrdination) {
+            // First record: the details-unknown ordination if present, otherwise the earliest ordination.
+            let firstOrdination = pinnedOrdination;
+            if (!firstOrdination) {
+                firstOrdination = baselineSorted.find(o => o.type === 'ordination') || null;
+            }
+            if (firstOrdination) {
+                result.push(firstOrdination);
+                tail = removeByOriginalIndex(tail, firstOrdination);
+            }
+
+            // Second record: the details-unknown consecration when present.
+            if (pinnedConsecration) {
+                result.push(pinnedConsecration);
+            }
+        } else {
+            // No ordinations at all: details-unknown consecration (if any) becomes the first record.
+            if (pinnedConsecration) {
+                result.push(pinnedConsecration);
+            }
+        }
+
+        // Append the rest of the baseline ordering unchanged.
+        result.push(...tail);
+
+        // Strip internal fields and ensure sortKey is present for downstream callers.
+        return result.map(o => ({
+            type: o.type,
+            record: o.record,
+            dateInfo: o.dateInfo,
+            sortKey: getOrderSortKey(o.dateInfo, o.type)
+        }));
+    }
+
+    /**
+     * Internal: build date-ordered orders array from a clergy record.
+     * Applies canonical details-unknown ordering via buildOrderedOrders.
+     *
+     * @param {object} clergy
+     * @returns {Array<{ type: 'ordination'|'consecration', record: object, dateInfo: object, sortKey: object }>}
+     */
+    function buildOrdersFromClergy(clergy) {
+        if (!clergy) {
+            return [];
+        }
+        const unsorted = [];
+        toArray(clergy.ordinations || []).forEach(record => {
+            const dateInfo = getDateFromRecord(record);
+            unsorted.push({
+                type: 'ordination',
+                record,
+                dateInfo
+            });
+        });
+        toArray(clergy.consecrations || []).forEach(record => {
+            const dateInfo = getDateFromRecord(record);
+            unsorted.push({
+                type: 'consecration',
+                record,
+                dateInfo
+            });
+        });
+
+        return buildOrderedOrders(unsorted);
     }
 
     /**
@@ -214,10 +305,14 @@
         }
 
         const boundary = (order) => {
-            if (order.dateInfo.dateUnknown) {
-                return order.dateInfo.year != null ? String(order.dateInfo.year) : 'unknown';
+            const dateInfo = order.dateInfo || getDateFromRecord(order.record);
+            if (dateInfo.detailsUnknownNoDate) {
+                return null;
             }
-            return order.dateInfo.date;
+            if (dateInfo.dateUnknown) {
+                return dateInfo.year != null ? String(dateInfo.year) : 'unknown';
+            }
+            return dateInfo.date;
         };
 
         ranges.push({
@@ -322,21 +417,7 @@
         const explicitOrders = source && source.orders;
 
         if (explicitOrders && explicitOrders.length) {
-            const orders = explicitOrders.map(o => {
-                const dateInfo = o.dateInfo || getDateFromRecord(o.record);
-                return {
-                    type: o.type,
-                    record: o.record,
-                    dateInfo,
-                    sortKey: getOrderSortKey(dateInfo, o.type)
-                };
-            }).sort((a, b) => {
-                if (a.sortKey.t !== b.sortKey.t) {
-                    return a.sortKey.t - b.sortKey.t;
-                }
-                return a.sortKey.typeOrder - b.sortKey.typeOrder;
-            });
-
+            const orders = buildOrderedOrders(explicitOrders);
             if (orders.length === 0) {
                 return { orders: [], ranges: [{ index: 0, start: null, end: null, canValidlyOrdain: false, canValidlyConsecrate: false }] };
             }

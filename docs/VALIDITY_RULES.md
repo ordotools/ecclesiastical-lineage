@@ -71,8 +71,9 @@ When a record has `details_unknown=True` and no date/year for an ordination or c
 | 2 | **Ordination before consecration** | When dates are unknown, assume the bishop received ordination before consecration (Rule 2). |
 | 3 | **Children always valid unless stated otherwise** | When the bishop has only details-unknown events (or they count as "before" the child), descendant events get `new_validity='valid'` unless explicitly marked otherwise. |
 | 4 | **Children's orders after parent's unknown consecration** | Treat a bishop's details-unknown event as occurring "before" any child event in cascade logic. |
+| 5 | **Fixed positions in orders history** | In a clergy member's orders history, a details-unknown ordination with no date/year is treated as the **first** record; a details-unknown consecration with no date/year is treated as the **second** record **when at least one ordination exists**, and always before any other consecration. |
 
-Implementation: backend (`services/validation_cascade.py`) and frontend (`static/js/editor-ranges-validity.js`) treat details-unknown with no date/year as earliest in sort order so ordination is considered before consecration and before any child event.
+Implementation: backend (`services/validation_cascade.py`) and frontend (`static/js/editor-ranges-validity.js`) treat details-unknown with no date/year as earliest in sort order so ordination is considered before consecration and before any child event, and the orders history consistently places such an ordination in the first slot and such a consecration in the second slot (when an ordination exists) and before any other consecration.
 
 ---
 

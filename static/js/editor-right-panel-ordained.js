@@ -32,6 +32,21 @@
     }
 
     /**
+     * Whether the parent (form) clergy has any ordination or consecration with details_unknown.
+     * @param {{ ordinations?: Array<object>, consecrations?: Array<object> }} formEvents
+     * @returns {boolean}
+     */
+    function parentHasDetailsUnknown(formEvents) {
+        if (!formEvents) {
+            return false;
+        }
+        const check = (r) => r && (r.details_unknown === true || r.details_unknown === 1 || r.details_unknown === '1' || r.details_unknown === 'on');
+        const ord = toArray(formEvents.ordinations).some(check);
+        const cons = toArray(formEvents.consecrations).some(check);
+        return ord || cons;
+    }
+
+    /**
      * Compute ranges with validity for the form clergy and group ordained / consecrated
      * clergy into those ranges.
      *
@@ -61,6 +76,7 @@
 
         const ordinations = toArray(formEvents && formEvents.ordinations);
         const consecrations = toArray(formEvents && formEvents.consecrations);
+        const parentHasDU = parentHasDetailsUnknown({ ordinations, consecrations });
 
         const orders = [];
         ordinations.forEach(record => {
@@ -113,7 +129,7 @@
                 const isValid = !!range.canValidlyOrdain || !!range.canValidlyConsecrate;
                 group = {
                     rangeIndex: rangeIndex,
-                    rangeLabel: buildRangeLabel(range, isValid),
+                    rangeLabel: buildRangeLabel(range, isValid, parentHasDU),
                     isValidForOrders: isValid,
                     ordained: [],
                     consecrated: []
@@ -194,9 +210,10 @@
      *
      * @param {{ index: number, start: string|null, end: string|null }} range
      * @param {boolean} isValid
+     * @param {boolean} parentHasDetailsUnknown
      * @returns {string}
      */
-    function buildRangeLabel(range, isValid) {
+    function buildRangeLabel(range, isValid, parentHasDetailsUnknown) {
         const idx = range.index != null ? range.index : 0;
         const start = range.start;
         const end = range.end;
@@ -229,7 +246,7 @@
 
         let core;
         if (start == null && end == null) {
-            core = 'Entire timeline';
+            core = parentHasDetailsUnknown ? 'Around orders with unknown details' : 'Entire timeline';
         } else if (start == null) {
             if (end === 'unknown') {
                 core = 'Before first known order';
@@ -325,21 +342,6 @@
         });
 
         return summary;
-    }
-
-    /**
-     * Whether the parent (form) clergy has any ordination or consecration with details_unknown.
-     * @param {{ ordinations?: Array<object>, consecrations?: Array<object> }} formEvents
-     * @returns {boolean}
-     */
-    function parentHasDetailsUnknown(formEvents) {
-        if (!formEvents) {
-            return false;
-        }
-        const check = (r) => r && (r.details_unknown === true || r.details_unknown === 1 || r.details_unknown === '1' || r.details_unknown === 'on');
-        const ord = toArray(formEvents.ordinations).some(check);
-        const cons = toArray(formEvents.consecrations).some(check);
-        return ord || cons;
     }
 
     /**

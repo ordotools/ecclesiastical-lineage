@@ -92,10 +92,15 @@ def _lineage_nodes_links():
     ).all()
     if not hasattr(g, 'organizations'):
         g.organizations = {org.name: org.color for org in Organization.query.all()}
-    if not hasattr(g, 'ranks'):
-        g.ranks = {rank.name: rank.color for rank in Rank.query.all()}
+    if not hasattr(g, 'ranks') or not hasattr(g, 'rank_is_bishop'):
+        all_ranks = Rank.query.all()
+        if not hasattr(g, 'ranks'):
+            g.ranks = {r.name: r.color for r in all_ranks}
+        if not hasattr(g, 'rank_is_bishop'):
+            g.rank_is_bishop = {r.name: bool(r.is_bishop) for r in all_ranks}
     organizations = g.organizations
     ranks = g.ranks
+    rank_is_bishop = g.rank_is_bishop
     placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="24" r="14" fill="#bdc3c7"/><ellipse cx="32" cy="50" rx="20" ry="12" fill="#bdc3c7"/></svg>'''
     placeholder_data_url = 'data:image/svg+xml;base64,' + base64.b64encode(placeholder_svg.encode('utf-8')).decode('utf-8')
     nodes = []
@@ -151,6 +156,7 @@ def _lineage_nodes_links():
             'id': clergy.id,
             'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
             'rank': clergy.rank,
+            'is_bishop': rank_is_bishop.get(clergy.rank, False),
             'organization': clergy.organization,
             'org_color': org_color,
             'rank_color': rank_color,
@@ -325,9 +331,17 @@ def _flat_hierarchy_rows(nodes, links):
             (tid, bucket['ordination'], bucket['consecration'])
             for tid, bucket in by_target.items()
         ]
-        children.sort(
-            key=lambda child: _alpha_key_for_node(node_by_id.get(child[0]) or {'id': child[0]})
-        )
+
+        def _child_sort_key(child):
+            tid, ord_link, cons_link = child
+            sort_key = (cons_link.get('event_sort_key') if cons_link else None) or (
+                ord_link.get('event_sort_key') if ord_link else None
+            )
+            # Undated events sort last
+            date_key = (0, sort_key) if sort_key is not None else (1, 0)
+            return (date_key, _alpha_key_for_node(node_by_id.get(tid) or {'id': tid}))
+
+        children.sort(key=_child_sort_key)
         return children
 
     # roots: nodes with no incoming ordination/consecration
@@ -423,6 +437,39 @@ def _flat_hierarchy_rows(nodes, links):
                 row = _make_row(node, depth, incoming_ord, incoming_cons, parent_id, root_id)
                 out.append(row)
                 path_set.add((node['id'], w_idx))
+                if node.get('is_bishop', False):
+                    for target_id, ord_link, cons_link in _children_for_parent(node['id'], w_idx):
+                        if target_id not in node_by_id:
+                            continue
+                        target_node = node_by_id[target_id]
+                        child_window_idx = _child_window_idx(target_id, ord_link, cons_link)
+                        if (target_id, child_window_idx) in path_set:
+                            continue
+                        out.extend(
+                            dfs(
+                                target_node,
+                                depth + 1,
+                                ord_link,
+                                cons_link,
+                                path_set,
+                                node['id'],
+                                root_id,
+                                consecration_window_idx=child_window_idx,
+                            )
+                        )
+                path_set.discard((node['id'], w_idx))
+            return out
+
+        if multi_window and as_child:
+            # Child with multiple consecrations: emit single row for the link's window only.
+            w_idx = consecration_window_idx if 0 <= consecration_window_idx < len(node_windows) else (len(node_windows) - 1)
+            row = _make_row(node, depth, incoming_ord, incoming_cons, parent_id, root_id)
+            out = [row]
+            path_set.add((node['id'], w_idx))
+            if incoming_ord is not None and incoming_cons is None:
+                path_set.discard((node['id'], w_idx))
+                return out
+            if node.get('is_bishop', False):
                 for target_id, ord_link, cons_link in _children_for_parent(node['id'], w_idx):
                     if target_id not in node_by_id:
                         continue
@@ -442,16 +489,18 @@ def _flat_hierarchy_rows(nodes, links):
                             consecration_window_idx=child_window_idx,
                         )
                     )
-                path_set.discard((node['id'], w_idx))
+            path_set.discard((node['id'], w_idx))
             return out
 
-        if multi_window and as_child:
-            # Child with multiple consecrations: emit single row for the link's window only.
-            w_idx = consecration_window_idx if 0 <= consecration_window_idx < len(node_windows) else (len(node_windows) - 1)
-            row = _make_row(node, depth, incoming_ord, incoming_cons, parent_id, root_id)
-            out = [row]
-            path_set.add((node['id'], w_idx))
-            for target_id, ord_link, cons_link in _children_for_parent(node['id'], w_idx):
+        row = _make_row(node, depth, incoming_ord, incoming_cons, parent_id, root_id)
+        out = [row]
+        node_key = (node['id'], consecration_window_idx)
+        path_set.add(node_key)
+        if as_child and incoming_ord is not None and incoming_cons is None:
+            path_set.discard(node_key)
+            return out
+        if node.get('is_bishop', False):
+            for target_id, ord_link, cons_link in _children_for_parent(node['id'], consecration_window_idx):
                 if target_id not in node_by_id:
                     continue
                 target_node = node_by_id[target_id]
@@ -470,32 +519,6 @@ def _flat_hierarchy_rows(nodes, links):
                         consecration_window_idx=child_window_idx,
                     )
                 )
-            path_set.discard((node['id'], w_idx))
-            return out
-
-        row = _make_row(node, depth, incoming_ord, incoming_cons, parent_id, root_id)
-        out = [row]
-        node_key = (node['id'], consecration_window_idx)
-        path_set.add(node_key)
-        for target_id, ord_link, cons_link in _children_for_parent(node['id'], consecration_window_idx):
-            if target_id not in node_by_id:
-                continue
-            target_node = node_by_id[target_id]
-            child_window_idx = _child_window_idx(target_id, ord_link, cons_link)
-            if (target_id, child_window_idx) in path_set:
-                continue
-            out.extend(
-                dfs(
-                    target_node,
-                    depth + 1,
-                    ord_link,
-                    cons_link,
-                    path_set,
-                    node['id'],
-                    root_id,
-                    consecration_window_idx=child_window_idx,
-                )
-            )
         path_set.discard(node_key)
         return out
 

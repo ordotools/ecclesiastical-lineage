@@ -1,36 +1,29 @@
-{% macro render_tree(nodes, deceased_ids) %}
-  {% for node in nodes %}
-  <li class="panel-left-clergy-item panel-left-clergy-item--clergy panel-left-row"
-      data-clergy-id="{{ node.row.id }}">
-    <a href="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ node.row.id }}"
-       class="panel-left-link"
-       hx-get="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ node.row.id }}"
-       hx-target="#editor-panel-center"
-       hx-swap="innerHTML"
-       hx-push-url="false">
-      {% if node.row.id in deceased_ids %}†{% endif %}
-      <span class="panel-left-clergy-name">
-        {{ node.row.name or '—' }}
-      </span>
-      {% if node.row.tags %}
-      <span class="panel-left-clergy-tags">
-        {% for tag in node.row.tags %}
-        <span class="tag-pill tag-pill--display" style="background-color: {{ tag.color_hex }}; color: {{ getContrastColor(tag.color_hex) }}">
-          <span class="tag-pill__label">{{ tag.label }}</span>
-        </span>
-        {% endfor %}
-      </span>
-      {% endif %}
-    </a>
-    {% if node.children %}
-    <ul>
-      {{ render_tree(node.children, deceased_ids) }}
-    </ul>
-    {% endif %}
-  </li>
-  {% endfor %}
-{% endmacro %}
 <div class="panel-left-content">
+  <form class="panel-left-filters panel-left-filters-form"
+        method="get"
+        action="{{ url_for('editor_v2_bp.panel_left') }}"
+        hx-get="{{ url_for('editor_v2_bp.panel_left') }}"
+        hx-target="#editor-panel-left"
+        hx-swap="innerHTML"
+        hx-trigger="submit">
+      <label class="panel-left-filters-label">Rank</label>
+      <select name="rank" multiple class="panel-left-filters-select">
+        {% for r in all_ranks %}
+        <option value="{{ r.name }}" {% if r.name in selected_ranks %}selected{% endif %}>{{ r.name }}</option>
+        {% endfor %}
+      </select>
+      <label class="panel-left-filters-label">Tag</label>
+      <select name="tag_ids" multiple class="panel-left-filters-select">
+        {% for t in all_tags %}
+        <option value="{{ t.id }}" {% if (t.id | string) in selected_tag_ids %}selected{% endif %}>{{ t.label }}</option>
+        {% endfor %}
+      </select>
+      <label class="panel-left-filters-label">Year from</label>
+      <input type="number" name="year_min" value="{{ year_min or '' }}" placeholder="Year" class="panel-left-filters-input" min="1" max="9999" />
+      <label class="panel-left-filters-label">Year to</label>
+      <input type="number" name="year_max" value="{{ year_max or '' }}" placeholder="Year" class="panel-left-filters-input" min="1" max="9999" />
+    <button type="submit" class="panel-left-filters-apply">Apply</button>
+  </form>
   <ul class="panel-left-clergy-list">
     {% if user and user.can_edit_clergy() %}
     <li class="panel-left-clergy-item panel-left-add">
@@ -42,18 +35,35 @@
          hx-push-url="false">Add clergy</a>
     </li>
     {% endif %}
+    {% for row in clergy_list %}
+    <li class="panel-left-clergy-item panel-left-clergy-item--clergy"
+        data-clergy-id="{{ row.id }}">
+      <a href="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ row.id }}"
+         class="panel-left-link"
+         hx-get="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ row.id }}"
+         hx-target="#editor-panel-center"
+         hx-swap="innerHTML"
+         hx-push-url="false">
+        {% if row.id in deceased_ids %}†{% endif %}
+        <span class="panel-left-clergy-name">
+          {{ row.name or '—' }}
+        </span>
+        {% if row.tags %}
+        <span class="panel-left-clergy-tags">
+          {% for tag in row.tags %}
+          <span class="tag-pill tag-pill--display" style="background-color: {{ tag.color_hex }}; color: {{ getContrastColor(tag.color_hex) }}">
+            <span class="tag-pill__label">{{ tag.label }}</span>
+          </span>
+          {% endfor %}
+        </span>
+        {% endif %}
+      </a>
+    </li>
+    {% endfor %}
   </ul>
-  {% if rows_tree %}
-  <div class="file-tree">
-    <ul>
-      {{ render_tree(rows_tree, deceased_ids) }}
-    </ul>
-  </div>
-  {% else %}
-  <div class="file-tree">
-    {% if not (user and user.can_edit_clergy()) %}
-    <p class="panel-left-empty">No clergy in lineage.</p>
-    {% endif %}
-  </div>
+  {% if not clergy_list %}
+  <p class="panel-left-empty">
+    {% if selected_ranks or selected_tag_ids or year_min or year_max %}No clergy match the current filters.{% else %}No clergy in lineage.{% endif %}
+  </p>
   {% endif %}
 </div>

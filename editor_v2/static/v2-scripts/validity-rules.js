@@ -271,7 +271,7 @@
     }
 
     /**
-     * Sort key for ordering bishop orders by date. Unknown dates sort last; same date uses type order.
+     * Sort key for ordering bishop orders by date. Unknown dates (no year) sort first; same date uses type order.
      * @param {{ date: string|null, year: number|null, dateUnknown: boolean }} dateInfo
      * @param {'ordination'|'consecration'} type
      * @returns {{ t: number, typeOrder: number }}
@@ -283,7 +283,7 @@
                 const t = new Date(dateInfo.year, 0, 1).getTime();
                 return { t, typeOrder };
             }
-            return { t: Infinity, typeOrder };
+            return { t: -Infinity, typeOrder };
         }
         const t = new Date(dateInfo.date).getTime();
         return { t: Number.isFinite(t) ? t : Infinity, typeOrder };
@@ -322,6 +322,7 @@
             if (a.sortKey.t !== b.sortKey.t) {
                 return a.sortKey.t - b.sortKey.t;
             }
+            /* typeOrder: ordination 0, consecration 1 — same-t events sort ordination before consecration */
             return a.sortKey.typeOrder - b.sortKey.typeOrder;
         });
         return orders;
@@ -423,6 +424,7 @@
                 if (a.sortKey.t !== b.sortKey.t) {
                     return a.sortKey.t - b.sortKey.t;
                 }
+                /* typeOrder: ordination 0, consecration 1 — same-t events sort ordination before consecration */
                 return a.sortKey.typeOrder - b.sortKey.typeOrder;
             });
 

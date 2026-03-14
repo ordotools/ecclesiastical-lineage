@@ -20,7 +20,105 @@ from services import clergy as clergy_service
 from services.clergy import _slugify_tag_label, _RESERVED_SYSTEM_TAG_NAMES
 from routes.editor import FormFields
 from utils import require_permission
-from routes.main import _lineage_nodes_links, _flat_hierarchy_rows
+from routes.main import _lineage_nodes_links
+
+
+def _year_from_display_date(display_date):
+    """Extract year from display_date (YYYY-MM-DD, YYYY, or 'Date unknown'). Return int or None."""
+    if not display_date or display_date == 'Date unknown':
+        return None
+    s = str(display_date).strip()
+    if len(s) >= 4 and s[:4].isdigit():
+        return int(s[:4])
+    if s.isdigit() and len(s) == 4:
+        return int(s)
+    return None
+
+
+def _sort_key_from_display_date(display_date):
+    """Comparable int for ordering (earlier = smaller). None for unknown."""
+    if not display_date or display_date == 'Date unknown':
+        return None
+    s = str(display_date).strip()
+    # YYYY-MM-DD
+    if len(s) >= 10 and s[4] == '-' and s[7] == '-' and s[:4].isdigit() and s[5:7].isdigit() and s[8:10].isdigit():
+        return int(s[:4]) * 10000 + int(s[5:7]) * 100 + int(s[8:10])
+    # YYYY only
+    if len(s) >= 4 and s[:4].isdigit():
+        return int(s[:4]) * 10000
+    if s.isdigit() and len(s) == 4:
+        return int(s) * 10000
+    return None
+
+
+def _flat_clergy_list_for_panel_left(nodes, request_args, clergy_tag_ids):
+    """Build a flat list of clergy rows (one per clergy), sorted by earliest consecration then ordination then name, and filtered by request_args (rank, tag_ids, year_min, year_max)."""
+    # Build one row per node with sort keys and earliest_year
+    _SENTINEL = 99999999
+    rows = []
+    for node in nodes:
+        cons_date = node.get('consecration_date')
+        ord_date = node.get('ordination_date')
+        sort_cons = _sort_key_from_display_date(cons_date)
+        sort_ord = _sort_key_from_display_date(ord_date)
+        earliest_year = _year_from_display_date(cons_date) or _year_from_display_date(ord_date)
+        row = {
+            'id': node['id'],
+            'name': node.get('name'),
+            'rank': node.get('rank'),
+            'organization': node.get('organization'),
+            'tags': node.get('tags') or [],
+            'consecration_date': cons_date,
+            'ordination_date': ord_date,
+            '_sort_cons': sort_cons,
+            '_sort_ord': sort_ord,
+            'earliest_year': earliest_year,
+        }
+        rows.append(row)
+
+    # Filters
+    selected_ranks = request_args.getlist('rank')
+    selected_tag_ids = [int(x) for x in request_args.getlist('tag_ids') if x.isdigit()]
+    try:
+        year_min = request_args.get('year_min', type=int)
+    except (TypeError, ValueError):
+        year_min = None
+    try:
+        year_max = request_args.get('year_max', type=int)
+    except (TypeError, ValueError):
+        year_max = None
+
+    filtered = []
+    for row in rows:
+        if selected_ranks and (row.get('rank') not in selected_ranks):
+            continue
+        if selected_tag_ids:
+            tag_ids = clergy_tag_ids.get(row['id'], [])
+            if not any(tid in tag_ids for tid in selected_tag_ids):
+                continue
+        ey = row.get('earliest_year')
+        if year_min is not None and (ey is None or ey < year_min):
+            continue
+        if year_max is not None and (ey is None or ey > year_max):
+            continue
+        filtered.append(row)
+
+    # Sort: earliest consecration, then ordination, then name. Nulls last.
+    def sort_key(r):
+        sc = r.get('_sort_cons')
+        so = r.get('_sort_ord')
+        return (
+            (sc if sc is not None else _SENTINEL),
+            (so if so is not None else _SENTINEL),
+            (r.get('name') or '', r['id']),
+        )
+
+    filtered.sort(key=sort_key)
+    # Drop internal keys used only for sorting/filtering
+    for r in filtered:
+        r.pop('_sort_cons', None)
+        r.pop('_sort_ord', None)
+    return filtered
 
 
 def _rows_to_tree(rows):
@@ -205,45 +303,23 @@ def api_tags_delete(tag_id):
 @editor_v2_bp.route('/panel/left')
 @require_permission('edit_clergy')
 def panel_left():
-    """Left panel snippet for HTMX swap (tiered clergy list, same as lineage menu).
+    """Left panel snippet for HTMX swap: flat clergy list ordered by earliest consecration, with filters (rank, tag, year range)."""
+    nodes, _, _ = _lineage_nodes_links()
+    node_ids = [n['id'] for n in nodes]
 
-    Context variables/contracts passed to the template:
-    - ``rows``: list of flat row dicts, DFS-ordered, where each row has at
-      minimum:
-        - ``id``: ``int`` clergy ID (normalized here before tree building)
-        - ``depth``: ``int`` depth used by ``_rows_to_tree``
-        - display fields such as ``name``, ``rank``, ``organization``.
-    - ``rows_tree``: list of nested tree nodes produced by ``_rows_to_tree``,
-      where each node is a dict: ``{'row': row_dict, 'children': [node, ...]}``.
-      The ``children`` key is always present and is always a list.
-    - ``deceased_ids``: ``set[int]`` of clergy IDs that have a non-null
-      ``date_of_death``; used exclusively for template-level deceased markers.
-    """
-    nodes, links, _ = _lineage_nodes_links()
-    rows = _flat_hierarchy_rows(nodes, links)
+    # clergy_id -> [tag_id] for tag filtering (nodes have tags with label/color but not id)
+    clergy_tag_ids = {}
+    if node_ids:
+        clergy_with_tags = (
+            Clergy.query.options(joinedload(Clergy.tags))
+            .filter(Clergy.id.in_(node_ids))
+            .all()
+        )
+        for c in clergy_with_tags:
+            clergy_tag_ids[c.id] = [t.id for t in (c.tags or [])]
 
-    # Normalize and validate clergy IDs on rows so that template usage of
-    # node.row.id (for URLs, data attributes, and deceased markers) is safe
-    # and consistent. Coerce string IDs like "5" to integers and drop any
-    # rows that cannot provide a usable integer ID to avoid broken links.
-    normalized_rows = []
-    for row in rows:
-        raw_id = row.get('id')
-        coerced_id = None
-        if raw_id is not None:
-            try:
-                coerced_id = int(raw_id)
-            except (TypeError, ValueError):
-                coerced_id = None
-        if coerced_id is None:
-            continue
-        normalized_row = dict(row)
-        normalized_row['id'] = coerced_id
-        normalized_rows.append(normalized_row)
-
-    rows = normalized_rows
-
-    unique_ids = {row['id'] for row in rows}
+    clergy_list = _flat_clergy_list_for_panel_left(nodes, request.args, clergy_tag_ids)
+    unique_ids = {row['id'] for row in clergy_list}
     if unique_ids:
         deceased = Clergy.query.filter(
             Clergy.id.in_(unique_ids),
@@ -253,13 +329,33 @@ def panel_left():
     else:
         deceased_ids = set()
     user = User.query.get(session['user_id']) if 'user_id' in session else None
-    rows_tree = _rows_to_tree(rows)
+    all_ranks = Rank.query.order_by(Rank.name).all()
+    all_tags = Tag.query.order_by(Tag.label).all()
+    selected_ranks = request.args.getlist('rank')
+    selected_tag_ids = [x for x in request.args.getlist('tag_ids') if x.isdigit()]
+    year_min = request.args.get('year_min', type=int)
+    year_max = request.args.get('year_max', type=int)
+    if year_min is None and request.args.get('year_min') is not None:
+        try:
+            year_min = int(request.args.get('year_min'))
+        except (TypeError, ValueError):
+            year_min = None
+    if year_max is None and request.args.get('year_max') is not None:
+        try:
+            year_max = int(request.args.get('year_max'))
+        except (TypeError, ValueError):
+            year_max = None
     return render_template(
         'editor_v2/snippets/panel_left.html',
-        rows=rows,
-        rows_tree=rows_tree,
+        clergy_list=clergy_list,
         deceased_ids=deceased_ids,
         user=user,
+        all_ranks=all_ranks,
+        all_tags=all_tags,
+        selected_ranks=selected_ranks,
+        selected_tag_ids=selected_tag_ids,
+        year_min=year_min,
+        year_max=year_max,
     )
 
 @editor_v2_bp.route('/panel/center')

@@ -4,10 +4,9 @@
  * Responsibilities here:
  *  - Keep window.currentSelectedClergyId in sync for Editor v2.
  *  - Dispatch the shared `clergySelected` event that other modules listen to
- *    (ValidationImpactPanel, EditorRightPanelOrdained, eventsPanel, etc.).
+ *    (ValidationImpactPanel, EditorRightPanelOrdained, tag picker, etc.).
  *
- * This mirrors the behaviour of the legacy editor's selection wiring in
- * `static/js/editor-init.js`, but is scoped to the v2 shell and routes.
+ * Scoped to the v2 shell and routes.
  */
 
 (() => {
@@ -92,7 +91,7 @@
                 return;
             }
 
-            const link = target.closest('a[hx-get*="/editor-v2/panel/center"]');
+            const link = target.closest('a[hx-get*="/editor/panel/center"]');
             if (!link) {
                 return;
             }
@@ -160,7 +159,7 @@
 
     /**
      * Intercept clergy form submissions in the v2 shell so that saves happen
-     * via fetch + JSON, keeping the user on /editor-v2 while refreshing the
+     * via fetch + JSON, keeping the user on /editor while refreshing the
      * relevant panels.
      */
     function initClergyFormInterceptor() {
@@ -229,7 +228,7 @@
         }
 
         function loadWikiForClergy(clergyId) {
-            return fetch('/editor-v2/api/wiki/' + encodeURIComponent(clergyId), {
+            return fetch('/editor/api/wiki/' + encodeURIComponent(clergyId), {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
@@ -265,7 +264,7 @@
                     message: ''
                 });
             }
-            return fetch('/editor-v2/api/wiki/save', {
+            return fetch('/editor/api/wiki/save', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -478,12 +477,12 @@
 
                         if (typeof window !== 'undefined' && typeof window.htmx !== 'undefined' && typeof window.htmx.ajax === 'function') {
                             if (clergyId != null) {
-                                window.htmx.ajax('GET', `/editor-v2/panel/center?clergy_id=${clergyId}`, {
+                                window.htmx.ajax('GET', `/editor/panel/center?clergy_id=${clergyId}`, {
                                     target: '#editor-panel-center',
                                     swap: 'innerHTML'
                                 });
                             }
-                            window.htmx.ajax('GET', '/editor-v2/panel/left', {
+                            window.htmx.ajax('GET', '/editor/panel/left', {
                                 target: '#editor-panel-left',
                                 swap: 'innerHTML'
                             });

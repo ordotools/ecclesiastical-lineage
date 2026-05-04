@@ -6,8 +6,8 @@
      *
      * This module is intentionally DOM-agnostic and operates on plain records
      * and clergy-list data so it can be reused by:
-     *  - The Validation Impact panel (`editor-validation-impact.js`)
      *  - The Editor v2 right panel (ordained / consecrated view)
+     *  - Node tests (see tests/test_editor_ranges_validity_details_unknown.js)
      *
      * Canonical rules: `docs/VALIDITY_RULES.md` and `static/js/validity-rules.js`.
      */

@@ -1,6 +1,6 @@
 /**
  * Editor v2: Cmd/Ctrl+F clergy search overlay.
- * Uses window.EDITOR_V2_FORM.all_clergy (or GET /editor-v2/api/clergy-list),
+ * Uses window.EDITOR_V2_FORM.all_clergy (or GET /editor/api/clergy-list),
  * fuzzySearchV2.js for Fuse-based search, and HTMX to load selected clergy.
  */
 import { createClergyFuseIndex, searchClergy } from '/static/js/fuzzySearchV2.js';
@@ -85,7 +85,7 @@ let cachedList = null;
 
 function fetchClergyList() {
   if (cachedList) return Promise.resolve(cachedList);
-  return fetch('/editor-v2/api/clergy-list')
+  return fetch('/editor/api/clergy-list')
     .then((r) => (r.ok ? r.json() : []))
     .then((list) => {
       cachedList = list;
@@ -133,7 +133,7 @@ function renderResults(payload) {
 
 function selectClergy(id) {
   if (!window.htmx) return;
-  window.htmx.ajax('GET', '/editor-v2/panel/center?clergy_id=' + encodeURIComponent(id), {
+  window.htmx.ajax('GET', '/editor/panel/center?clergy_id=' + encodeURIComponent(id), {
     target: '#editor-panel-center',
     swap: 'innerHTML',
   });

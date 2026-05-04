@@ -258,7 +258,7 @@
     {% if session.user_id %}
     <div class="admin-nav-container">
         {% if user and user.has_permission('add_clergy') %}
-        <a href="{{ url_for('editor.editor') }}#clergy-form" class="main-ui-btn main-ui-btn-primary" title="Add New Clergy">
+        <a href="{{ url_for('editor.editor') }}" class="main-ui-btn main-ui-btn-primary" title="Add New Clergy">
             <i class="fas fa-plus" aria-hidden="true"></i> Add Clergy
         </a>
         {% endif %}

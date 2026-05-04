@@ -10,7 +10,7 @@ clergy_bp = Blueprint('clergy', __name__)
 def clergy_list():
     # Redirect to editor clergy list panel
     if 'user_id' in session:
-        return redirect(url_for('editor.editor') + '#clergy-list')
+        return redirect(url_for('editor.editor'))
     else:
         flash('Please log in to access clergy management.', 'error')
         return redirect(url_for('auth.login'))
@@ -45,16 +45,16 @@ def add_clergy():
                 return jsonify({'success': False, 'message': str(e)}), 400
             
             flash(f'Error adding clergy record: {str(e)}', 'error')
-            return redirect(url_for('editor.editor') + '#clergy-form')
+            return redirect(url_for('editor.editor'))
     else:
-        # GET request - redirect to editor clergy form panel
-        return redirect(url_for('editor.editor') + '#clergy-form')
+        # GET request - redirect to editor (new clergy form in center panel)
+        return redirect(url_for('editor.editor'))
 
 @clergy_bp.route('/clergy/<int:clergy_id>')
 def view_clergy(clergy_id):
     # Redirect to editor clergy form panel with specific clergy
     if 'user_id' in session:
-        return redirect(url_for('editor.editor') + f'#clergy-form/{clergy_id}')
+        return redirect(url_for('editor.editor', clergy_id=clergy_id))
     else:
         flash('Please log in to access clergy management.', 'error')
         return redirect(url_for('auth.login'))
@@ -87,10 +87,10 @@ def edit_clergy(clergy_id):
                 return jsonify({'success': False, 'message': str(e)}), 400
             
             flash(f'Error updating clergy record: {str(e)}', 'error')
-            return redirect(url_for('editor.editor') + f'#clergy-form/{clergy_id}')
+            return redirect(url_for('editor.editor', clergy_id=clergy_id))
     else:
         # GET request - redirect to editor clergy form panel with specific clergy
-        return redirect(url_for('editor.editor') + f'#clergy-form/{clergy_id}')
+        return redirect(url_for('editor.editor', clergy_id=clergy_id))
 
 @clergy_bp.route('/clergy/<int:clergy_id>/json')
 def clergy_json(clergy_id):

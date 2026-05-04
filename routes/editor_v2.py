@@ -1,4 +1,4 @@
-"""Editor v2: SPA shell with HTMX-loaded panels. Blueprint uses editor_v2/ templates and static."""
+"""Editor SPA: HTMX panels. Blueprint `editor` at /editor; templates/static under editor_v2/."""
 from flask import Blueprint, render_template, request, session, jsonify, current_app
 from sqlalchemy.orm import joinedload
 from sqlalchemy import text
@@ -19,7 +19,7 @@ from models import (
 )
 from services import clergy as clergy_service
 from services.clergy import _slugify_tag_label, _RESERVED_SYSTEM_TAG_NAMES
-from routes.editor import FormFields
+from routes.editor_form_fields import FormFields
 from utils import require_permission
 from routes.main import _lineage_nodes_links
 
@@ -155,21 +155,21 @@ def _rows_to_tree(rows):
     return root_list
 
 
-editor_v2_bp = Blueprint(
-    'editor_v2_bp',
+editor = Blueprint(
+    'editor',
     __name__,
-    url_prefix='/editor-v2',
+    url_prefix='/editor',
     template_folder='../editor_v2/templates',
     static_folder='../editor_v2/static',
-    static_url_path='/editor-v2/static',
 )
 
 
-@editor_v2_bp.route('/')
+@editor.route('/', endpoint='editor')
 @require_permission('edit_clergy')
 def shell():
-    """Full-page shell (three panels + statusbar)."""
-    return render_template('editor_v2/shell.html')
+    """Full-page shell (three panels + statusbar). url_for('editor.editor')."""
+    clergy_id = request.args.get('clergy_id')
+    return render_template('editor_v2/shell.html', clergy_id=clergy_id)
 
 
 def _all_clergy_list():
@@ -190,7 +190,7 @@ def _all_clergy_list():
     ]
 
 
-@editor_v2_bp.route('/api/clergy-list')
+@editor.route('/api/clergy-list')
 @require_permission('edit_clergy')
 def api_clergy_list():
     """JSON API: full clergy list for search overlay when center panel has not loaded yet."""
@@ -210,7 +210,7 @@ def _serialize_tag(tag):
     }
 
 
-@editor_v2_bp.route('/api/tags', methods=['GET'])
+@editor.route('/api/tags', methods=['GET'])
 @require_permission('edit_clergy')
 def api_tags_list():
     """JSON API: list all tags for Editor v2 tag picker/management."""
@@ -218,7 +218,7 @@ def api_tags_list():
     return jsonify([_serialize_tag(t) for t in tags])
 
 
-@editor_v2_bp.route('/api/tags', methods=['POST'])
+@editor.route('/api/tags', methods=['POST'])
 @require_permission('edit_clergy')
 def api_tags_create():
     """JSON API: create or update a user tag for Editor v2."""
@@ -277,7 +277,7 @@ def api_tags_create():
     return jsonify({'success': True, 'tag': _serialize_tag(tag)}), 201
 
 
-@editor_v2_bp.route('/api/tags/<int:tag_id>', methods=['DELETE'])
+@editor.route('/api/tags/<int:tag_id>', methods=['DELETE'])
 @require_permission('edit_clergy')
 def api_tags_delete(tag_id):
     """JSON API: delete a user tag (system tags cannot be deleted)."""
@@ -301,7 +301,7 @@ def api_tags_delete(tag_id):
     return jsonify({'success': True}), 200
 
 
-@editor_v2_bp.route('/panel/left')
+@editor.route('/panel/left')
 @require_permission('edit_clergy')
 def panel_left():
     """Left panel snippet for HTMX swap: flat clergy list ordered by earliest consecration, with filters (rank, tag, year range)."""
@@ -359,7 +359,7 @@ def panel_left():
         year_max=year_max,
     )
 
-@editor_v2_bp.route('/panel/center')
+@editor.route('/panel/center')
 @require_permission('edit_clergy')
 def panel_center():
     """Center panel snippet for HTMX swap."""
@@ -651,7 +651,7 @@ def _normalize_clergy_save_result(clergy, response, status_code=None):
     )
 
 
-@editor_v2_bp.route('/panel/ordained-consecrated-data')
+@editor.route('/panel/ordained-consecrated-data')
 @require_permission('edit_clergy')
 def ordained_consecrated_data():
     """JSON API: raw ordination/consecration data for center clergy and dependents.
@@ -808,14 +808,14 @@ def ordained_consecrated_data():
     )
 
 
-@editor_v2_bp.route('/panel/right')
+@editor.route('/panel/right')
 @require_permission('edit_clergy')
 def panel_right():
     """Right panel snippet for HTMX swap."""
     return render_template('editor_v2/snippets/panel_right.html')
 
 
-@editor_v2_bp.route('/panel/statusbar')
+@editor.route('/panel/statusbar')
 @require_permission('edit_clergy')
 def panel_statusbar():
     """Statusbar snippet for HTMX swap."""
@@ -873,7 +873,7 @@ def panel_statusbar():
     )
 
 
-@editor_v2_bp.route('/api/wiki/<int:clergy_id>', methods=['GET'])
+@editor.route('/api/wiki/<int:clergy_id>', methods=['GET'])
 @require_permission('edit_clergy')
 def api_wiki_get_for_clergy(clergy_id):
     """JSON API: fetch clergy-linked wiki payload for Editor v2 form."""
@@ -888,7 +888,7 @@ def api_wiki_get_for_clergy(clergy_id):
     return jsonify({'success': True, 'wiki': _serialize_wiki_payload(clergy, page)})
 
 
-@editor_v2_bp.route('/api/wiki/save', methods=['POST'])
+@editor.route('/api/wiki/save', methods=['POST'])
 @require_permission('edit_clergy')
 def api_wiki_save_for_clergy():
     """JSON API: create/update clergy-linked wiki payload for Editor v2 form."""
@@ -942,7 +942,7 @@ def api_wiki_save_for_clergy():
     return jsonify({'success': True, 'wiki_saved': wiki_saved, 'page_id': page.id})
 
 
-@editor_v2_bp.route('/clergy/add', methods=['POST'])
+@editor.route('/clergy/add', methods=['POST'])
 @require_permission('edit_clergy')
 def clergy_add_v2():
     """Editor v2: add clergy via JSON API, reusing core service logic."""
@@ -967,7 +967,7 @@ def clergy_add_v2():
     return _normalize_clergy_save_result(clergy, response, status_code)
 
 
-@editor_v2_bp.route('/clergy/<int:clergy_id>/edit', methods=['POST'])
+@editor.route('/clergy/<int:clergy_id>/edit', methods=['POST'])
 @require_permission('edit_clergy')
 def clergy_edit_v2(clergy_id):
     """Editor v2: edit clergy via JSON API, reusing core service logic."""

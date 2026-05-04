@@ -4,20 +4,20 @@
   <div class="editor-shell">
     <div class="editor-panels-row">
       <div id="editor-panel-left" class="editor-panel editor-panel-left"
-           hx-get="{{ url_for('editor_v2_bp.panel_left') }}"
+           hx-get="{{ url_for('editor.panel_left') }}"
            hx-trigger="load"
            hx-swap="innerHTML"></div>
       <div id="editor-panel-center" class="editor-panel editor-panel-center"
-           hx-get="{{ url_for('editor_v2_bp.panel_center') }}"
+           hx-get="{{ url_for('editor.panel_center', clergy_id=clergy_id) if clergy_id else url_for('editor.panel_center') }}"
            hx-trigger="load"
            hx-swap="innerHTML"></div>
       <div id="editor-panel-right" class="editor-panel editor-panel-right"
-           hx-get="{{ url_for('editor_v2_bp.panel_right') }}"
+           hx-get="{{ url_for('editor.panel_right') }}"
            hx-trigger="load"
            hx-swap="innerHTML"></div>
     </div>
     <div class="editor-statusbar"
-         hx-get="{{ url_for('editor_v2_bp.panel_statusbar') }}"
+         hx-get="{{ url_for('editor.panel_statusbar') }}"
          hx-trigger="load"
          hx-swap="innerHTML"></div>
   </div>

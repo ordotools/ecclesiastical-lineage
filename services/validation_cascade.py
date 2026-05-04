@@ -372,8 +372,8 @@ def compute_cascade_impact(root_clergy_id):
 def apply_cascade_changes(changes):
     """
     Apply a list of validity changes to ordination/consecration records.
-    Same logic as routes/editor.validation_impact_bulk_update (is_invalid,
-    is_doubtfully_valid, is_inherited). Returns the number of records updated.
+    Applies is_invalid, is_doubtfully_valid, is_inherited per record (same rules
+    the legacy editor bulk-update used). Returns the number of records updated.
     """
     if not changes:
         return 0

@@ -4,13 +4,13 @@
   window.EDITOR_V2_FORM.all_clergy = {{ all_clergy_suggested | tojson | safe if all_clergy_suggested is defined else '[]' }};
 </script>
 
-{% set form_action = url_for('editor_v2_bp.clergy_edit_v2', clergy_id=clergy.id) if edit_mode and clergy else url_for('editor_v2_bp.clergy_add_v2') %}
+{% set form_action = url_for('editor.clergy_edit_v2', clergy_id=clergy.id) if edit_mode and clergy else url_for('editor.clergy_add_v2') %}
 <form id="clergyForm"
       method="POST"
       action="{{ form_action }}"
       enctype="multipart/form-data"
       data-editor-v2-clergy-form="true"
-      data-panel-center-url="{{ url_for('editor_v2_bp.panel_center') }}"
+      data-panel-center-url="{{ url_for('editor.panel_center') }}"
       data-initial-tags="{{ clergy_initial_user_tags | default('', true) }}"
       {% if edit_mode and clergy %}data-clergy-id="{{ clergy.id }}"{% endif %}
       {% if edit_mode and clergy and has_descendants %}data-has-descendants="true"{% endif %}>

@@ -140,7 +140,7 @@
 
   function fetchTags() {
     TAG_STATE.isLoading = true;
-    return fetch('/editor-v2/api/tags', {
+    return fetch('/editor/api/tags', {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -204,7 +204,7 @@
       color_hex: hex
     };
 
-    return fetch('/editor-v2/api/tags', {
+    return fetch('/editor/api/tags', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -234,7 +234,7 @@
     }
     TAG_STATE.isSubmitting = true;
 
-    return fetch('/editor-v2/api/tags/' + encodeURIComponent(String(id)), {
+    return fetch('/editor/api/tags/' + encodeURIComponent(String(id)), {
       method: 'DELETE',
       headers: {
         'X-Requested-With': 'XMLHttpRequest'

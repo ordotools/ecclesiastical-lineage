@@ -1,7 +1,7 @@
 (() => {
     'use strict';
 
-    const API_PATH = '/editor-v2/panel/ordained-consecrated-data';
+    const API_PATH = '/editor/panel/ordained-consecrated-data';
 
     /**
      * Lightweight util: normalize possibly-null/array-like to array.
@@ -525,7 +525,7 @@
                 const labelText = entry.clergy && (entry.clergy.name || entry.clergy.display_name) || `Clergy #${cid || ''}`;
                 name.textContent = labelText;
                 name.setAttribute('data-clergy-id', cid != null ? String(cid) : '');
-                name.setAttribute('hx-get', `/editor-v2/panel/center?clergy_id=${cid}`);
+                name.setAttribute('hx-get', `/editor/panel/center?clergy_id=${cid}`);
                 name.setAttribute('hx-target', '#editor-panel-center');
                 name.setAttribute('hx-swap', 'innerHTML');
 

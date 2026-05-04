@@ -44,7 +44,7 @@
   }
 
   function fetchTagsForPicker() {
-    return fetch('/editor-v2/api/tags', {
+    return fetch('/editor/api/tags', {
       method: 'GET',
       headers: {
         'Accept': 'application/json',

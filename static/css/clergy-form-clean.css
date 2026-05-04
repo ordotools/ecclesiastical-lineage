@@ -812,7 +812,7 @@ button:hover,
     z-index: 10;
 }
 
-/* Editor right panel: form-actions match panel; canonical background in editor-styles.css */
+/* Editor v2 right panel: form-actions match panel */
 .right-panel .form-actions {
     margin-top: 1em;
     padding-top: 0.75em;

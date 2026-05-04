@@ -1,8 +1,8 @@
 <div class="panel-left-content">
   <form class="panel-left-filters panel-left-filters-form"
         method="get"
-        action="{{ url_for('editor_v2_bp.panel_left') }}"
-        hx-get="{{ url_for('editor_v2_bp.panel_left') }}"
+        action="{{ url_for('editor.panel_left') }}"
+        hx-get="{{ url_for('editor.panel_left') }}"
         hx-target="#editor-panel-left"
         hx-swap="innerHTML"
         hx-trigger="submit">
@@ -27,9 +27,9 @@
   <ul class="panel-left-clergy-list">
     {% if user and user.can_edit_clergy() %}
     <li class="panel-left-clergy-item panel-left-add">
-      <a href="{{ url_for('editor_v2_bp.panel_center') }}"
+      <a href="{{ url_for('editor.panel_center') }}"
          class="panel-left-link"
-         hx-get="{{ url_for('editor_v2_bp.panel_center') }}"
+         hx-get="{{ url_for('editor.panel_center') }}"
          hx-target="#editor-panel-center"
          hx-swap="innerHTML"
          hx-push-url="false">Add clergy</a>
@@ -38,9 +38,9 @@
     {% for row in clergy_list %}
     <li class="panel-left-clergy-item panel-left-clergy-item--clergy"
         data-clergy-id="{{ row.id }}">
-      <a href="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ row.id }}"
+      <a href="{{ url_for('editor.panel_center') }}?clergy_id={{ row.id }}"
          class="panel-left-link"
-         hx-get="{{ url_for('editor_v2_bp.panel_center') }}?clergy_id={{ row.id }}"
+         hx-get="{{ url_for('editor.panel_center') }}?clergy_id={{ row.id }}"
          hx-target="#editor-panel-center"
          hx-swap="innerHTML"
          hx-push-url="false">

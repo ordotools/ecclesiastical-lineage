@@ -2,7 +2,7 @@
 from flask import request, jsonify, current_app
 from routes.editor_bp import editor_bp
 from utils import require_permission_api
-from models import Clergy, Organization, Rank, Ordination, Consecration, VisualizationSettings, SpriteSheet, ClergySpritePosition, LineageRoot, db
+from models import Clergy, Organization, Rank, Ordination, Consecration, VisualizationSettings, SpriteSheet, ClergySpritePosition, db
 from constants import GREEN_COLOR, BLACK_COLOR
 from datetime import datetime
 import json
@@ -14,8 +14,6 @@ def get_visualization_data():
     """API endpoint for soft refresh - returns JSON data without HTML template"""
     try:
         from sqlalchemy.orm import joinedload
-        from services.lineage import get_ancestors_of_roots
-
         all_clergy = Clergy.query.options(
             joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
             joinedload(Clergy.consecrations).joinedload(Consecration.consecrator)
@@ -90,13 +88,6 @@ def get_visualization_data():
                         'is_doubtful_event': consecration.is_doubtful_event,
                         'is_invalid': consecration.is_invalid
                     })
-
-        root_clergy_ids = [lr.clergy_id for lr in LineageRoot.query.all()]
-        if root_clergy_ids:
-            exclude_ids = get_ancestors_of_roots(root_clergy_ids, links)
-            visible_ids = {c.id for c in all_clergy} - exclude_ids
-            nodes = [n for n in nodes if n['id'] in visible_ids]
-            links = [l for l in links if l['source'] in visible_ids and l['target'] in visible_ids]
 
         return jsonify({
             'success': True,

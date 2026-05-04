@@ -1,0 +1,211 @@
+/* Tag management overlay — RULES.md: black/white minimal, 10px sans-serif, no animations */
+
+.editor-tag-overlay.editor-tag-overlay--hidden {
+  display: none;
+}
+
+.editor-tag-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.editor-tag-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.editor-tag-overlay-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 28em;
+  padding: 1em;
+}
+
+.editor-tag-overlay-box {
+  border: 1px solid #000;
+  background: #fff;
+  padding: 10px;
+}
+
+.editor-tag-overlay-title {
+  margin: 0 0 0.75em 0;
+  font-size: 1.2em;
+  font-weight: 600;
+  color: #000;
+}
+
+.editor-tag-overlay-section {
+  margin-bottom: 1em;
+}
+
+.editor-tag-overlay-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.editor-tag-overlay-section-title {
+  margin: 0 0 0.5em 0;
+  font-size: 1em;
+  font-weight: 600;
+  color: #000;
+}
+
+.editor-tag-overlay-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  min-height: 2em;
+}
+
+.editor-tag-overlay-empty {
+  color: #555;
+  font-size: 1em;
+}
+
+.editor-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.2em 0.5em;
+  border: 1px solid #000;
+  font: inherit;
+}
+
+.editor-tag-pill-label {
+  flex: 0 0 auto;
+}
+
+.editor-tag-pill-badge {
+  font-size: 0.9em;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.editor-tag-pill-delete {
+  padding: 0 0.25em;
+  font: inherit;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.editor-tag-overlay-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+}
+
+.editor-tag-overlay-form--submitting .editor-tag-overlay-input,
+.editor-tag-overlay-form--submitting .editor-tag-overlay-color-input {
+  opacity: 0.7;
+}
+
+.editor-tag-overlay-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+.editor-tag-overlay-field-color {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75em;
+}
+
+.editor-tag-overlay-field-color-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+.editor-tag-overlay-field-color-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+.editor-tag-overlay-label {
+  font-size: 1em;
+  color: #000;
+}
+
+.editor-tag-overlay-input {
+  padding: 0.4em 0.5em;
+  border: 1px solid #000;
+  background: #fff;
+  font: inherit;
+  color: #000;
+  width: 100%;
+  max-width: 16em;
+  box-sizing: border-box;
+}
+
+.editor-tag-overlay-input:focus {
+  outline: none;
+}
+
+.editor-tag-overlay-color-input {
+  width: 3em;
+  height: 2em;
+  padding: 0;
+  border: 1px solid #000;
+  background: #fff;
+  cursor: pointer;
+}
+
+.editor-tag-overlay-preview {
+  padding: 0.25em 0.5em;
+  border: 1px solid #000;
+  font: inherit;
+  min-width: 4em;
+  text-align: center;
+}
+
+.editor-tag-overlay-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75em;
+  margin-top: 0.25em;
+}
+
+.editor-tag-overlay-button {
+  flex: 0 0 auto;
+  padding: 0.25em 0.75em;
+  font: inherit;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  cursor: pointer;
+}
+
+.editor-tag-overlay-button:focus {
+  outline: none;
+}
+
+.editor-tag-overlay-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.editor-tag-overlay-button-cancel {
+  /* uses base black/white button styling */
+}
+
+.editor-tag-overlay-button-apply {
+  border-color: #000;
+  background: #000;
+  color: #fff;
+}
+
+.editor-tag-overlay-button-apply:disabled {
+  background: #555;
+  border-color: #555;
+}

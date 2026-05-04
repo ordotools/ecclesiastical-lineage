@@ -4,7 +4,7 @@ from routes.editor_bp import editor_bp
 from utils import require_permission
 from models import (
     Clergy, User, db, Organization, Rank, Ordination, Consecration,
-    Location, Status, SpriteSheet, ClergySpritePosition, LineageRoot
+    Location, Status, SpriteSheet, ClergySpritePosition
 )
 from constants import GREEN_COLOR, BLACK_COLOR
 import json
@@ -375,8 +375,6 @@ def visualization_panel():
     """HTMX endpoint for the center panel visualization"""
     try:
         from sqlalchemy.orm import joinedload
-        from services.lineage import get_ancestors_of_roots
-
         all_clergy = Clergy.query.options(
             joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
             joinedload(Clergy.consecrations).joinedload(Consecration.consecrator)
@@ -449,13 +447,6 @@ def visualization_panel():
                         'is_invalid': consecration.is_invalid
                     })
 
-        root_clergy_ids = [lr.clergy_id for lr in LineageRoot.query.all()]
-        if root_clergy_ids:
-            exclude_ids = get_ancestors_of_roots(root_clergy_ids, links)
-            visible_ids = {c.id for c in all_clergy} - exclude_ids
-            nodes = [n for n in nodes if n['id'] in visible_ids]
-            links = [l for l in links if l['source'] in visible_ids and l['target'] in visible_ids]
-
         nodes_json = json.dumps(nodes)
         links_json = json.dumps(links)
 
@@ -516,13 +507,6 @@ def globe_view_panel():
                              error_message=f"Error loading globe view: {str(e)}",
                              nodes_json='[]',
                              links_json='[]')
-
-
-def _get_lineage_roots():
-    """Return list of Clergy that are lineage roots."""
-    return list(Clergy.query.filter(Clergy.id.in_(db.session.query(LineageRoot.clergy_id))).all())
-
-
 @editor_bp.route('/editor/clergy-form')
 @editor_bp.route('/editor/clergy-form/<int:clergy_id>')
 @require_permission('edit_clergy')
@@ -546,8 +530,7 @@ def clergy_form_panel(clergy_id=None):
                              fields=fields,
                              clergy=clergy,
                              edit_mode=True,
-                             user=user,
-                             lineage_roots=_get_lineage_roots())
+                             user=user)
     else:
         return render_template('editor_panels/clergy_form.html',
                              fields=fields,
@@ -582,8 +565,7 @@ def clergy_form_content(clergy_id=None):
                              edit_mode=True,
                              user=user,
                              context_type=None,
-                             context_clergy_id=None,
-                             lineage_roots=_get_lineage_roots())
+                             context_clergy_id=None)
     else:
         return render_template('clergy_form_content.html',
                              fields=fields,
@@ -591,8 +573,7 @@ def clergy_form_content(clergy_id=None):
                              edit_mode=False,
                              user=user,
                              context_type=None,
-                             context_clergy_id=None,
-                             lineage_roots=_get_lineage_roots())
+                             context_clergy_id=None)
 
 
 @editor_bp.route('/editor/lineage-menu')

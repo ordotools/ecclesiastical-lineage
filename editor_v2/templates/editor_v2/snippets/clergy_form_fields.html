@@ -1,0 +1,1333 @@
+<script>
+  window.EDITOR_V2_FORM = window.EDITOR_V2_FORM || {};
+  window.EDITOR_V2_FORM.bishops = {{ all_bishops_suggested | tojson | safe if all_bishops_suggested is defined else '[]' }};
+  window.EDITOR_V2_FORM.all_clergy = {{ all_clergy_suggested | tojson | safe if all_clergy_suggested is defined else '[]' }};
+</script>
+
+{% set form_action = url_for('editor_v2_bp.clergy_edit_v2', clergy_id=clergy.id) if edit_mode and clergy else url_for('editor_v2_bp.clergy_add_v2') %}
+<form id="clergyForm"
+      method="POST"
+      action="{{ form_action }}"
+      enctype="multipart/form-data"
+      data-editor-v2-clergy-form="true"
+      data-panel-center-url="{{ url_for('editor_v2_bp.panel_center') }}"
+      data-initial-tags="{{ clergy_initial_user_tags | default('', true) }}"
+      {% if edit_mode and clergy %}data-clergy-id="{{ clergy.id }}"{% endif %}
+      {% if edit_mode and clergy and has_descendants %}data-has-descendants="true"{% endif %}>
+
+  <div class="form-grid form-grid--identity">
+    <div class="form-field full-width">
+      <label for="name" class="form-label required">Full Name</label>
+      <input type="text" id="name" name="name" value="{{ clergy.name if edit_mode and clergy else '' }}" required>
+    </div>
+
+    <div id="papalNameField" class="form-field full-width">
+      <label for="papal_name" class="form-label">Papal Name</label>
+      <input type="text" id="papal_name" name="papal_name" value="{{ clergy.papal_name if (edit_mode and clergy and clergy.papal_name is not none and clergy.papal_name != 'None') else '' }}" placeholder="e.g., Pope Francis">
+    </div>
+
+    <div class="form-field full-width">
+      <label for="organization" class="form-label">Organization</label>
+      <div class="organization-input-group">
+        <select id="organization" name="organization">
+          <option value="">Select Organization</option>
+          {% for org in fields.organizations %}
+          <option value="{{ org.name }}" {% if clergy and clergy.organization == org.name %}selected{% endif %}>{{ org.name }}{% if org.abbreviation %} ({{ org.abbreviation }}){% endif %}</option>
+          {% endfor %}
+        </select>
+        <button type="button" class="editor-button editor-button--action">Add</button>
+      </div>
+    </div>
+    <div class="form-field full-width">
+      <label class="form-label">Tags</label>
+      <div id="tagPicker" class="tag-picker">
+        <!-- Rendered by JS: one pill per available tag, togglable -->
+      </div>
+      <input type="hidden" id="tags_selected" name="tags_selected"
+       value="{{ clergy_tag_ids|join(',') if clergy_tag_ids else '' }}">
+    </div>
+  </div>
+
+  <div class="form-grid form-grid--photo-fields">
+    <div id="photoField" class="form-field photo-section">
+      <label class="form-label">Photo</label>
+      <div id="photoContainer" class="photo-container">
+        <div id="imagePreview" class="image-preview">
+          {% if edit_mode and clergy and clergy.image_data %}
+            {% set image_data = clergy.image_data | from_json %}
+            {% if image_data %}
+              {% set preview_url = image_data.detail if image_data.detail else (image_data.lineage if image_data.lineage else image_data.original) %}
+              {% set original_url = image_data.original if image_data.original else (clergy.image_url if clergy.image_url else '') %}
+              <img src="{{ preview_url }}" alt="{{ clergy.name }}" id="previewImage" class="has-image"
+                   data-original-image="{{ original_url }}"
+                   data-clergy-id="{{ clergy.id }}"
+                   data-object-key="{{ image_data.metadata.object_key if image_data.metadata and image_data.metadata.object_key else '' }}">
+            {% else %}
+              <span class="image-preview-placeholder">No photo</span>
+            {% endif %}
+          {% elif edit_mode and clergy and clergy.image_url %}
+            <img src="{{ clergy.image_url }}" alt="{{ clergy.name }}" id="previewImage" class="has-image"
+                 data-original-image="{{ clergy.image_url }}"
+                 data-clergy-id="{{ clergy.id }}"
+                 data-object-key="">
+          {% else %}
+            <span class="image-preview-placeholder">No photo</span>
+          {% endif %}
+        </div>
+        <input type="file" id="clergyImage" name="clergy_image" accept="image/*" hidden>
+        <div class="photo-controls">
+          <button type="button" class="photo-upload">Upload</button>
+          <button type="button" class="photo-crop">Crop</button>
+          <button type="button" class="photo-remove">Remove</button>
+        </div>
+      </div>
+    </div>
+    <div id="rankField" class="form-field">
+      <label for="rank" class="form-label">Rank</label>
+      <select id="rank" name="rank" required>
+      <option value="">Select Rank</option>
+      {% for rank in fields.ranks %}
+      <option value="{{ rank.name }}" data-is-bishop="{{ 'true' if rank.is_bishop else 'false' }}" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>{{ rank.name }}</option>
+      {% endfor %}
+    </select>
+    </div>
+    <div id="birthField" class="form-field">
+      <label for="date_of_birth" class="form-label">Date of Birth</label>
+      <input type="date" id="date_of_birth" name="date_of_birth" value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}">
+    </div>
+    <div id="deathField" class="form-field">
+      <label for="date_of_death" class="form-label">Date of Death</label>
+      <input type="date" id="date_of_death" name="date_of_death" value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}">
+    </div>
+    <div id="notesField" class="form-field notes-field">
+      <label for="notes" class="form-label">Notes</label>
+      <textarea id="notes" name="notes" rows="3" placeholder="Additional notes...">{{ clergy.notes if edit_mode and clergy else '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h5>Ordinations</h5>
+    <div id="ordinationsContainer">
+      {% set existing_ordinations = clergy.ordinations if edit_mode and clergy and clergy.ordinations else [] %}
+      {% if existing_ordinations %}
+        {% for ordination in existing_ordinations %}
+        {% set idx = loop.index0 %}
+        {% set ordination_date = ordination.date if ordination and ordination.date else None %}
+        {% set ordination_year = ordination.year if ordination and ordination.year else None %}
+        {% set ordination_unknown = (ordination_date is none and ordination_year is not none) %}
+        <div class="ordination-entry">
+          <div class="ordination-entry__compact-row">
+            <div class="form-field ordination-date-block{% if ordination_unknown %} is-unknown-date{% endif %}">
+              <label class="form-label">Date</label>
+              <div class="date-input-wrapper">
+                <input
+                  type="date"
+                  name="ordinations[{{ idx }}][date]"
+                  value="{{ ordination_date.strftime('%Y-%m-%d') if ordination_date else '' }}">
+              </div>
+              <div class="date-unknown-wrapper">
+                <input
+                  type="hidden"
+                  name="ordinations[{{ idx }}][date_unknown]"
+                  value="{{ '1' if ordination_unknown else '' }}">
+                <input
+                  type="number"
+                  name="ordinations[{{ idx }}][year]"
+                  min="1"
+                  max="9999"
+                  placeholder="Year"
+                  value="{{ ordination_year if ordination_year is not none else '' }}">
+              </div>
+              <a
+                href="#"
+                class="date-unknown-link">date unknown</a>
+              <a
+                href="#"
+                class="specify-date-link">specify date</a>
+            </div>
+            <div class="form-field bishop-autocomplete-field">
+              <label class="form-label">Ordaining bishop</label>
+              <input
+                type="text"
+                name="ordinations[{{ idx }}][ordaining_bishop_input]"
+                placeholder="Search for bishop..."
+                autocomplete="off"
+                value="{{ ordination.ordaining_bishop.name if ordination and ordination.ordaining_bishop else '' }}">
+              <input
+                type="hidden"
+                name="ordinations[{{ idx }}][ordaining_bishop_id]"
+                value="{{ ordination.ordaining_bishop_id if ordination else '' }}">
+              <div class="autocomplete-dropdown"></div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Validity</label>
+              <select name="ordinations[{{ idx }}][validity]">
+                <option value="valid" {% if ordination and not ordination.is_invalid and not ordination.is_doubtfully_valid %}selected{% endif %}>Valid</option>
+                <option value="doubtfully_valid" {% if ordination and ordination.is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
+                <option value="invalid" {% if ordination and ordination.is_invalid %}selected{% endif %}>Invalid</option>
+              </select>
+            </div>
+          </div>
+          <div class="ordination-entry__checkbox-row">
+            <div class="form-field">
+              <label>
+                <input
+                  type="checkbox"
+                  name="ordinations[{{ idx }}][details_unknown]"
+                  {% if ordination and ordination.details_unknown %}checked{% endif %}>
+                Details unknown
+              </label>
+            </div>
+            <div class="form-field">
+              <label><input type="checkbox" name="ordinations[{{ idx }}][is_sub_conditione]" {% if ordination and ordination.is_sub_conditione %}checked{% endif %}> Sub conditione</label>
+            </div>
+            <div class="form-field">
+              <label><input type="checkbox" name="ordinations[{{ idx }}][is_doubtful_event]" {% if ordination and ordination.is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+            </div>
+          </div>
+          <div class="validity-extra-block" style="display: none;">
+            <div class="ordination-entry__checkbox-row">
+              <div class="form-field">
+                <label><input type="checkbox" name="ordinations[{{ idx }}][is_inherited]" {% if ordination and ordination.is_inherited %}checked{% endif %}> Inherited</label>
+              </div>
+              <div class="form-field">
+                <label><input type="checkbox" name="ordinations[{{ idx }}][is_other]" {% if ordination and ordination.is_other %}checked{% endif %}> Other</label>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Optional notes</label>
+              <input
+                type="text"
+                name="ordinations[{{ idx }}][optional_notes]"
+                placeholder="optional notes"
+                disabled
+                value="{{ ordination.optional_notes if ordination and ordination.optional_notes else '' }}">
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Notes</label>
+            <textarea name="ordinations[{{ idx }}][notes]" rows="2">{{ ordination.notes if ordination and ordination.notes else '' }}</textarea>
+          </div>
+          <button type="button" class="editor-button editor-button--danger remove-ordination">Remove</button>
+        </div>
+        {% endfor %}
+      {% else %}
+        {% set ordination = None %}
+        {% set ordination_date = None %}
+        {% set ordination_year = None %}
+        {% set ordination_unknown = False %}
+        <div class="ordination-entry">
+          <div class="ordination-entry__compact-row">
+            <div class="form-field ordination-date-block{% if ordination_unknown %} is-unknown-date{% endif %}">
+              <label class="form-label">Date</label>
+              <div class="date-input-wrapper">
+                <input
+                  type="date"
+                  name="ordinations[0][date]"
+                  value="">
+              </div>
+              <div class="date-unknown-wrapper">
+                <input
+                  type="hidden"
+                  name="ordinations[0][date_unknown]"
+                  value="">
+                <input
+                  type="number"
+                  name="ordinations[0][year]"
+                  min="1"
+                  max="9999"
+                  placeholder="Year"
+                  value="">
+              </div>
+              <a
+                href="#"
+                class="date-unknown-link">date unknown</a>
+              <a
+                href="#"
+                class="specify-date-link">specify date</a>
+            </div>
+            <div class="form-field bishop-autocomplete-field">
+              <label class="form-label">Ordaining bishop</label>
+              <input
+                type="text"
+                name="ordinations[0][ordaining_bishop_input]"
+                placeholder="Search for bishop..."
+                autocomplete="off"
+                value="">
+              <input
+                type="hidden"
+                name="ordinations[0][ordaining_bishop_id]"
+                value="">
+              <div class="autocomplete-dropdown"></div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Validity</label>
+              <select name="ordinations[0][validity]">
+                <option value="valid" selected>Valid</option>
+                <option value="doubtfully_valid">Doubtfully Valid</option>
+                <option value="invalid">Invalid</option>
+              </select>
+            </div>
+          </div>
+          <div class="ordination-entry__checkbox-row">
+            <div class="form-field">
+              <label>
+                <input
+                  type="checkbox"
+                  name="ordinations[0][details_unknown]">
+                Details unknown
+              </label>
+            </div>
+            <div class="form-field">
+              <label><input type="checkbox" name="ordinations[0][is_sub_conditione]"> Sub conditione</label>
+            </div>
+            <div class="form-field">
+              <label><input type="checkbox" name="ordinations[0][is_doubtful_event]"> Doubtful event</label>
+            </div>
+          </div>
+          <div class="validity-extra-block" style="display: none;">
+            <div class="ordination-entry__checkbox-row">
+              <div class="form-field">
+                <label><input type="checkbox" name="ordinations[0][is_inherited]"> Inherited</label>
+              </div>
+              <div class="form-field">
+                <label><input type="checkbox" name="ordinations[0][is_other]"> Other</label>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Optional notes</label>
+              <input
+                type="text"
+                name="ordinations[0][optional_notes]"
+                placeholder="optional notes"
+                disabled
+                value="">
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Notes</label>
+            <textarea name="ordinations[0][notes]" rows="2"></textarea>
+          </div>
+          <button type="button" class="editor-button editor-button--danger remove-ordination">Remove</button>
+        </div>
+      {% endif %}
+    </div>
+    <button type="button" id="addOrdinationBtn" class="editor-button editor-button--action">Add Ordination</button>
+  </div>
+
+  <div class="form-section consecrations-section" {% if edit_mode and clergy and (clergy.rank is not none and clergy.rank.lower() not in ['bishop', 'archbishop', 'cardinal', 'pope']) and not (clergy.consecrations and clergy.consecrations|length > 0) %}hidden{% endif %}>
+    <h5>Consecrations</h5>
+    <div id="consecrationsContainer">
+      {% set existing_consecrations = clergy.consecrations if edit_mode and clergy and clergy.consecrations else [] %}
+      {% if existing_consecrations %}
+        {% for consecration in existing_consecrations %}
+        {% set idx = loop.index0 %}
+        {% set consecration_date = consecration.date if consecration and consecration.date else None %}
+        {% set consecration_year = consecration.year if consecration and consecration.year else None %}
+        {% set consecration_unknown = (consecration_date is none and consecration_year is not none) %}
+        {% set consecration_co_consecrators = consecration.co_consecrators if consecration and consecration.co_consecrators else [] %}
+        <div class="consecration-entry">
+          <div class="consecration-entry__compact-row">
+            <div class="form-field consecration-date-block{% if consecration_unknown %} is-unknown-date{% endif %}">
+              <label class="form-label">Date</label>
+              <div class="date-input-wrapper">
+                <input
+                  type="date"
+                  name="consecrations[{{ idx }}][date]"
+                  value="{{ consecration_date.strftime('%Y-%m-%d') if consecration_date else '' }}">
+              </div>
+              <div class="date-unknown-wrapper">
+                <input
+                  type="hidden"
+                  name="consecrations[{{ idx }}][date_unknown]"
+                  value="{{ '1' if consecration_unknown else '' }}">
+                <input
+                  type="number"
+                  name="consecrations[{{ idx }}][year]"
+                  min="1"
+                  max="9999"
+                  placeholder="Year"
+                  value="{{ consecration_year if consecration_year is not none else '' }}">
+              </div>
+              <a
+                href="#"
+                class="date-unknown-link">date unknown</a>
+              <a
+                href="#"
+                class="specify-date-link">specify date</a>
+            </div>
+            <div class="form-field bishop-autocomplete-field">
+              <label class="form-label">Consecrator</label>
+              <input
+                type="text"
+                name="consecrations[{{ idx }}][consecrator_input]"
+                placeholder="Search for consecrator..."
+                autocomplete="off"
+                value="{{ consecration.consecrator.name if consecration and consecration.consecrator else '' }}">
+              <input
+                type="hidden"
+                name="consecrations[{{ idx }}][consecrator_id]"
+                value="{{ consecration.consecrator_id if consecration else '' }}">
+              <div class="autocomplete-dropdown"></div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Validity</label>
+              <select name="consecrations[{{ idx }}][validity]">
+                <option value="valid" {% if consecration and not consecration.is_invalid and not consecration.is_doubtfully_valid %}selected{% endif %}>Valid</option>
+                <option value="doubtfully_valid" {% if consecration and consecration.is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
+                <option value="invalid" {% if consecration and consecration.is_invalid %}selected{% endif %}>Invalid</option>
+              </select>
+            </div>
+          </div>
+          <div class="consecration-entry__co-consecrators-row">
+            <div class="form-field">
+              <label class="form-label">Co-consecrators</label>
+              <div class="co-consecrators-list">
+                {% if consecration_co_consecrators %}
+                  {% for co_consecrator in consecration_co_consecrators %}
+                  <div class="co-consecrator-item">
+                    <div class="form-field bishop-autocomplete-field">
+                      <input
+                        type="text"
+                        name="consecrations[{{ idx }}][co_consecrators][{{ loop.index0 }}][input]"
+                        placeholder="Search for clergy..."
+                        autocomplete="off"
+                        value="{{ co_consecrator.name if co_consecrator and co_consecrator.name else '' }}">
+                      <input
+                        type="hidden"
+                        name="consecrations[{{ idx }}][co_consecrators][{{ loop.index0 }}][id]"
+                        value="{{ co_consecrator.id if co_consecrator and co_consecrator.id else '' }}">
+                      <div class="autocomplete-dropdown"></div>
+                    </div>
+                    <button
+                      type="button"
+                      class="editor-button editor-button--danger remove-co-consecrator">
+                      Remove
+                    </button>
+                  </div>
+                  {% endfor %}
+                {% else %}
+                  <div class="co-consecrator-item">
+                    <div class="form-field bishop-autocomplete-field">
+                      <input
+                        type="text"
+                        name="consecrations[{{ idx }}][co_consecrators][0][input]"
+                        placeholder="Search for clergy..."
+                        autocomplete="off">
+                      <input
+                        type="hidden"
+                        name="consecrations[{{ idx }}][co_consecrators][0][id]"
+                        value="">
+                      <div class="autocomplete-dropdown"></div>
+                    </div>
+                    <button
+                      type="button"
+                      class="editor-button editor-button--danger remove-co-consecrator">
+                      Remove
+                    </button>
+                  </div>
+                {% endif %}
+              </div>
+              <button
+                type="button"
+                class="editor-button editor-button--action add-co-consecrator">
+                Add co-consecrator
+              </button>
+            </div>
+          </div>
+          <div class="consecration-entry__checkbox-row">
+            <div class="form-field">
+              <label>
+                <input
+                  type="checkbox"
+                  name="consecrations[{{ idx }}][details_unknown]"
+                  {% if consecration and consecration.details_unknown %}checked{% endif %}>
+                Details unknown
+              </label>
+            </div>
+            <div class="form-field">
+              <label><input type="checkbox" name="consecrations[{{ idx }}][is_sub_conditione]" {% if consecration and consecration.is_sub_conditione %}checked{% endif %}> Sub conditione</label>
+            </div>
+            <div class="form-field">
+              <label><input type="checkbox" name="consecrations[{{ idx }}][is_doubtful_event]" {% if consecration and consecration.is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+            </div>
+          </div>
+          <div class="validity-extra-block" style="display: none;">
+            <div class="consecration-entry__checkbox-row">
+              <div class="form-field">
+                <label><input type="checkbox" name="consecrations[{{ idx }}][is_inherited]" {% if consecration and consecration.is_inherited %}checked{% endif %}> Inherited</label>
+              </div>
+              <div class="form-field">
+                <label><input type="checkbox" name="consecrations[{{ idx }}][is_other]" {% if consecration and consecration.is_other %}checked{% endif %}> Other</label>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Optional notes</label>
+              <input
+                type="text"
+                name="consecrations[{{ idx }}][optional_notes]"
+                placeholder="optional notes"
+                disabled
+                value="{{ consecration.optional_notes if consecration and consecration.optional_notes else '' }}">
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Notes</label>
+            <textarea name="consecrations[{{ idx }}][notes]" rows="2">{{ consecration.notes if consecration and consecration.notes else '' }}</textarea>
+          </div>
+          <button type="button" class="editor-button editor-button--danger remove-consecration">Remove</button>
+        </div>
+        {% endfor %}
+      {% else %}
+        {% set consecration = None %}
+        {% set consecration_date = None %}
+        {% set consecration_year = None %}
+        {% set consecration_unknown = False %}
+        {% set consecration_co_consecrators = [] %}
+        <div class="consecration-entry">
+          <div class="consecration-entry__compact-row">
+            <div class="form-field consecration-date-block{% if consecration_unknown %} is-unknown-date{% endif %}">
+              <label class="form-label">Date</label>
+              <div class="date-input-wrapper">
+                <input
+                  type="date"
+                  name="consecrations[0][date]"
+                  value="">
+              </div>
+              <div class="date-unknown-wrapper">
+                <input
+                  type="hidden"
+                  name="consecrations[0][date_unknown]"
+                  value="">
+                <input
+                  type="number"
+                  name="consecrations[0][year]"
+                  min="1"
+                  max="9999"
+                  placeholder="Year"
+                  value="">
+              </div>
+              <a
+                href="#"
+                class="date-unknown-link">date unknown</a>
+              <a
+                href="#"
+                class="specify-date-link">specify date</a>
+            </div>
+            <div class="form-field bishop-autocomplete-field">
+              <label class="form-label">Consecrator</label>
+              <input
+                type="text"
+                name="consecrations[0][consecrator_input]"
+                placeholder="Search for consecrator..."
+                autocomplete="off"
+                value="">
+              <input
+                type="hidden"
+                name="consecrations[0][consecrator_id]"
+                value="">
+              <div class="autocomplete-dropdown"></div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Validity</label>
+              <select name="consecrations[0][validity]">
+                <option value="valid" selected>Valid</option>
+                <option value="doubtfully_valid">Doubtfully Valid</option>
+                <option value="invalid">Invalid</option>
+              </select>
+            </div>
+          </div>
+          <div class="consecration-entry__co-consecrators-row">
+            <div class="form-field">
+              <label class="form-label">Co-consecrators</label>
+              <div class="co-consecrators-list">
+                <div class="co-consecrator-item">
+                  <div class="form-field bishop-autocomplete-field">
+                    <input
+                      type="text"
+                      name="consecrations[0][co_consecrators][0][input]"
+                      placeholder="Search for clergy..."
+                      autocomplete="off">
+                    <input
+                      type="hidden"
+                      name="consecrations[0][co_consecrators][0][id]"
+                      value="">
+                    <div class="autocomplete-dropdown"></div>
+                  </div>
+                  <button
+                    type="button"
+                    class="editor-button editor-button--danger remove-co-consecrator">
+                    Remove
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="editor-button editor-button--action add-co-consecrator">
+                Add co-consecrator
+              </button>
+            </div>
+          </div>
+          <div class="consecration-entry__checkbox-row">
+            <div class="form-field">
+              <label>
+                <input
+                  type="checkbox"
+                  name="consecrations[0][details_unknown]">
+                Details unknown
+              </label>
+            </div>
+            <div class="form-field">
+              <label><input type="checkbox" name="consecrations[0][is_sub_conditione]"> Sub conditione</label>
+            </div>
+            <div class="form-field">
+              <label><input type="checkbox" name="consecrations[0][is_doubtful_event]"> Doubtful event</label>
+            </div>
+          </div>
+          <div class="validity-extra-block" style="display: none;">
+            <div class="consecration-entry__checkbox-row">
+              <div class="form-field">
+                <label><input type="checkbox" name="consecrations[0][is_inherited]"> Inherited</label>
+              </div>
+              <div class="form-field">
+                <label><input type="checkbox" name="consecrations[0][is_other]"> Other</label>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Optional notes</label>
+              <input
+                type="text"
+                name="consecrations[0][optional_notes]"
+                placeholder="optional notes"
+                disabled
+                value="">
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Notes</label>
+            <textarea name="consecrations[0][notes]" rows="2"></textarea>
+          </div>
+          <button type="button" class="editor-button editor-button--danger remove-consecration">Remove</button>
+        </div>
+      {% endif %}
+    </div>
+    <button type="button" id="addConsecrationBtn" class="editor-button editor-button--action">Add Consecration</button>
+  </div>
+
+  <div class="form-section wiki-section">
+    <h5>Wiki</h5>
+    <div class="form-field">
+      <label>
+        <input
+          type="checkbox"
+          id="wiki_is_visible"
+          data-wiki-visibility-toggle="true"
+          checked>
+        Visible on wiki page
+      </label>
+    </div>
+    <div class="form-field">
+      <label for="wiki_markdown" class="form-label">Markdown</label>
+      <textarea
+        id="wiki_markdown"
+        rows="8"
+        data-wiki-markdown="true"
+        placeholder="Write wiki content in markdown..."></textarea>
+    </div>
+    <div class="form-field">
+      <p
+        class="wiki-save-status"
+        data-wiki-save-status="true"
+        hidden></p>
+    </div>
+  </div>
+
+  {% if fields.statuses %}
+  <div class="form-section">
+    <h5>Status Indicators</h5>
+    {% for status in fields.statuses %}
+    <div class="form-field">
+      <input type="checkbox" id="status_{{ status.id }}" name="status_ids[]" value="{{ status.id }}" {% if edit_mode and clergy and status in clergy.statuses %}checked{% endif %}>
+      <label for="status_{{ status.id }}">{{ status.name|title }}</label>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if edit_mode and clergy and user and user.can_edit_clergy() %}
+  <div class="form-section admin-controls">
+    <h5>Administrative Controls</h5>
+    <div class="form-field">
+      <label><input type="checkbox" id="mark_deleted" name="mark_deleted" value="1" {% if clergy.is_deleted %}checked{% endif %}> Mark this record as deleted</label>
+    </div>
+    <div class="form-field">
+      <label>
+        <input
+          type="checkbox"
+          id="exclude_from_visualization"
+          name="exclude_from_visualization"
+          value="1"
+          {% if clergy.exclude_from_visualization %}checked{% endif %}>
+        Exclude from visualization
+      </label>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="form-actions">
+    <a href="#" class="editor-button editor-button--danger editor-v2-cancel">Cancel</a>
+    <button type="submit" class="editor-button editor-button--save">{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}</button>
+    {% if edit_mode and clergy %}
+    <button type="submit" name="update_descendants" value="1" class="editor-button editor-button--save editor-button--update-descendants" disabled>Save and update descendants</button>
+    {% endif %}
+  </div>
+</form>
+<script>
+(function() {
+  function updateRankVisibility(form) {
+    var rankSelect = form.querySelector('#rank');
+    var papalField = form.querySelector('#papalNameField');
+    var consecrationsSection = form.querySelector('.consecrations-section');
+    if (!rankSelect) return;
+    var selected = rankSelect.options[rankSelect.selectedIndex];
+    var rankValue = selected ? selected.value : '';
+    var normalizedRank = (rankValue || '').toLowerCase();
+    var isBishop = selected && selected.getAttribute('data-is-bishop') === 'true';
+    if (papalField) papalField.style.display = (normalizedRank === 'pope') ? 'flex' : 'none';
+    if (consecrationsSection) {
+      consecrationsSection.hidden = !isBishop;
+      if (consecrationsSection.hidden) {
+        consecrationsSection.querySelectorAll('input, select, textarea').forEach(function(el) {
+          el.removeAttribute('required');
+        });
+      }
+    }
+  }
+
+  function reindexOrdinationEntries(form) {
+    var container = form.querySelector('#ordinationsContainer');
+    if (!container) return;
+    var entries = container.querySelectorAll('.ordination-entry');
+    entries.forEach(function(entry, i) {
+      entry.querySelectorAll('input, select, textarea').forEach(function(el) {
+        var name = el.getAttribute('name');
+        if (name && name.indexOf('ordinations[') === 0) {
+          el.setAttribute('name', name.replace(/^ordinations\[\d+\]/, 'ordinations[' + i + ']'));
+        }
+      });
+    });
+  }
+
+  function setDetailsUnknownForEntry(entry, isUnknown) {
+    if (!entry) return;
+    var flag = !!isUnknown;
+    entry.classList.toggle('is-details-unknown', flag);
+
+    var dateBlock = entry.querySelector('.ordination-date-block, .consecration-date-block');
+    var bishopField = entry.querySelector('.ordination-entry__compact-row .bishop-autocomplete-field, .consecration-entry__compact-row .bishop-autocomplete-field');
+    var coRow = entry.querySelector('.consecration-entry__co-consecrators-row');
+
+    var inputs = [];
+    if (dateBlock) {
+      dateBlock.style.display = flag ? 'none' : '';
+      inputs = inputs.concat(Array.prototype.slice.call(dateBlock.querySelectorAll('input')));
+    }
+    if (bishopField) {
+      bishopField.style.display = flag ? 'none' : '';
+      inputs = inputs.concat(Array.prototype.slice.call(bishopField.querySelectorAll('input')));
+    }
+    if (coRow) {
+      coRow.style.display = flag ? 'none' : '';
+      inputs = inputs.concat(Array.prototype.slice.call(coRow.querySelectorAll('input')));
+    }
+
+    inputs.forEach(function(input) {
+      var name = input.getAttribute('name') || '';
+      if (name.indexOf('[details_unknown]') !== -1) {
+        return;
+      }
+      if (flag) {
+        input.value = '';
+        input.setAttribute('disabled', 'disabled');
+      } else {
+        input.removeAttribute('disabled');
+      }
+    });
+  }
+
+  function addOrdination(form) {
+    var container = form.querySelector('#ordinationsContainer');
+    var first = container && container.querySelector('.ordination-entry');
+    if (!container || !first) return;
+    var clone = first.cloneNode(true);
+    clone.querySelectorAll('input:not([type="hidden"])').forEach(function(el) {
+      el.value = '';
+      el.removeAttribute('disabled');
+    });
+    clone.querySelectorAll('input[type="checkbox"]').forEach(function(el) { el.checked = false; });
+    clone.querySelectorAll('textarea').forEach(function(el) { el.value = ''; });
+    clone.querySelectorAll('select').forEach(function(el) {
+      var firstOpt = el.querySelector('option');
+      if (firstOpt) el.selectedIndex = 0;
+    });
+    clone.querySelector('input[name*="ordaining_bishop_id"]').value = '';
+    var ordinationDateBlock = clone.querySelector('.ordination-date-block');
+    if (ordinationDateBlock) {
+      toggleDateUnknown(ordinationDateBlock, false);
+    }
+    setDetailsUnknownForEntry(clone, false);
+    var dropdown = clone.querySelector('.autocomplete-dropdown');
+    if (dropdown) dropdown.remove();
+    container.appendChild(clone);
+    reindexOrdinationEntries(form);
+    setupOrdinationBishopAutocomplete(form);
+    syncValidityExtraForEntry(clone);
+  }
+
+  function removeOrdination(form, entry) {
+    var container = form.querySelector('#ordinationsContainer');
+    var entries = container && container.querySelectorAll('.ordination-entry');
+    if (!entries || entries.length <= 1) return;
+    entry.remove();
+    reindexOrdinationEntries(form);
+  }
+
+  function ensureBishopDropdown(parentEl) {
+    var dropdown = parentEl.querySelector('.autocomplete-dropdown');
+    if (!dropdown) {
+      dropdown = document.createElement('div');
+      dropdown.className = 'autocomplete-dropdown';
+      parentEl.appendChild(dropdown);
+    }
+    return dropdown;
+  }
+
+  // Lightweight normalization mirroring the Fuse-based v2 search.
+  function normalizeForSearchLocal(str) {
+    if (!str) return '';
+    var deAccented = str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[đĐ]/g, 'd')
+      .replace(/[^\w\s\-'.]/g, '')
+      .toLowerCase()
+      .trim();
+    var noPunct = deAccented.replace(/['\-.]/g, '');
+    if (!noPunct || noPunct === deAccented.replace(/\s+/g, ' ')) {
+      return deAccented;
+    }
+    return deAccented + ' ' + noPunct;
+  }
+
+  var bishopFuse = null;
+  var bishopFuseItems = null;
+
+  function ensureBishopIndex() {
+    if (bishopFuse || typeof Fuse === 'undefined') return;
+    var bishops = (window.EDITOR_V2_FORM && Array.isArray(window.EDITOR_V2_FORM.bishops))
+      ? window.EDITOR_V2_FORM.bishops
+      : [];
+    if (!bishops.length) return;
+    bishopFuseItems = bishops.map(function(bishop) {
+      var name = bishop.name || '';
+      var rank = bishop.rank || '';
+      var organization = bishop.organization || '';
+      var combined = (name + ' ' + rank + ' ' + organization).trim();
+      return {
+        source: bishop,
+        searchTextNormalized: normalizeForSearchLocal(combined)
+      };
+    });
+    bishopFuse = new Fuse(bishopFuseItems, {
+      keys: ['searchTextNormalized'],
+      includeScore: true,
+      shouldSort: true,
+      ignoreLocation: true,
+      threshold: 0.35,
+      minMatchCharLength: 2
+    });
+  }
+
+  function searchBishopsClient(query, limit) {
+    if (!query || !query.trim()) return [];
+    ensureBishopIndex();
+    if (!bishopFuse) return [];
+    var normalizedQuery = normalizeForSearchLocal(query.trim());
+    if (!normalizedQuery) return [];
+    var results = bishopFuse.search(normalizedQuery);
+    return results.slice(0, (typeof limit === 'number' ? limit : 10)).map(function(res) {
+      return res.item.source;
+    });
+  }
+
+  var clergyFuse = null;
+  var clergyFuseItems = null;
+
+  function ensureClergyIndex() {
+    if (clergyFuse || typeof Fuse === 'undefined') return;
+    var clergy = (window.EDITOR_V2_FORM && Array.isArray(window.EDITOR_V2_FORM.all_clergy))
+      ? window.EDITOR_V2_FORM.all_clergy
+      : [];
+    if (!clergy.length) return;
+    clergyFuseItems = clergy.map(function(c) {
+      var name = c.name || '';
+      var rank = c.rank || '';
+      var organization = c.organization || '';
+      var combined = (name + ' ' + rank + ' ' + organization).trim();
+      return {
+        source: c,
+        searchTextNormalized: normalizeForSearchLocal(combined)
+      };
+    });
+    clergyFuse = new Fuse(clergyFuseItems, {
+      keys: ['searchTextNormalized'],
+      includeScore: true,
+      shouldSort: true,
+      ignoreLocation: true,
+      threshold: 0.35,
+      minMatchCharLength: 2
+    });
+  }
+
+  function searchClergyClient(query, limit) {
+    if (!query || !query.trim()) return [];
+    ensureClergyIndex();
+    if (!clergyFuse) return [];
+    var normalizedQuery = normalizeForSearchLocal(query.trim());
+    if (!normalizedQuery) return [];
+    var results = clergyFuse.search(normalizedQuery);
+    return results.slice(0, (typeof limit === 'number' ? limit : 10)).map(function(res) {
+      return res.item.source;
+    });
+  }
+
+  function attachClergyAutocomplete(textInput, hiddenInput, dropdown) {
+    if (textInput.getAttribute('data-clergy-autocomplete-inited') === 'true') return;
+    textInput.setAttribute('data-clergy-autocomplete-inited', 'true');
+
+    textInput.addEventListener('input', function() {
+      var query = textInput.value.trim();
+      if (query.length < 2) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      var results = searchClergyClient(query, 10);
+      if (!results.length) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      dropdown.innerHTML = '';
+      results.forEach(function(clergy) {
+        var el = document.createElement('div');
+        el.className = 'bishop-search-result';
+        el.setAttribute('data-id', clergy.id);
+        el.setAttribute('data-display-name', clergy.name || '');
+        var display = clergy.name + (clergy.organization ? ' — ' + clergy.organization : '');
+        if (clergy.rank) display += ' (' + clergy.rank + ')';
+        el.textContent = display;
+        el.addEventListener('click', function() {
+          var id = el.getAttribute('data-id');
+          var name = el.getAttribute('data-display-name') || '';
+          textInput.value = name;
+          if (hiddenInput) hiddenInput.value = id || '';
+          dropdown.style.display = 'none';
+        });
+        dropdown.appendChild(el);
+      });
+      dropdown.style.display = 'block';
+    });
+
+    textInput.addEventListener('blur', function() {
+      setTimeout(function() { dropdown.style.display = 'none'; }, 200);
+    });
+  }
+
+  function attachBishopAutocomplete(textInput, hiddenInput, dropdown) {
+    if (textInput.getAttribute('data-bishop-autocomplete-inited') === 'true') return;
+    textInput.setAttribute('data-bishop-autocomplete-inited', 'true');
+
+    textInput.addEventListener('input', function() {
+      var query = textInput.value.trim();
+      if (query.length < 2) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      var results = searchBishopsClient(query, 10);
+      if (!results.length) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      dropdown.innerHTML = '';
+      results.forEach(function(bishop) {
+        var el = document.createElement('div');
+        el.className = 'bishop-search-result';
+        el.setAttribute('data-id', bishop.id);
+        el.setAttribute('data-display-name', bishop.name || '');
+        el.textContent = bishop.name + (bishop.organization ? ' — ' + bishop.organization : '');
+        el.addEventListener('click', function() {
+          var id = el.getAttribute('data-id');
+          var name = el.getAttribute('data-display-name') || '';
+          textInput.value = name;
+          if (hiddenInput) hiddenInput.value = id || '';
+          dropdown.style.display = 'none';
+        });
+        dropdown.appendChild(el);
+      });
+      dropdown.style.display = 'block';
+    });
+
+    textInput.addEventListener('blur', function() {
+      setTimeout(function() { dropdown.style.display = 'none'; }, 200);
+    });
+  }
+
+  function setupOrdinationBishopAutocomplete(form) {
+    var inputs = form.querySelectorAll('input[name*="ordaining_bishop_input"]');
+    inputs.forEach(function(input) {
+      var parent = input.closest('.form-field');
+      if (!parent) return;
+      var dropdown = ensureBishopDropdown(parent);
+      var hidden = parent.querySelector('input[name*="ordaining_bishop_id"]');
+      attachBishopAutocomplete(input, hidden, dropdown);
+    });
+  }
+
+  function reindexConsecrationEntries(form) {
+    var container = form.querySelector('#consecrationsContainer');
+    if (!container) return;
+    var entries = container.querySelectorAll('.consecration-entry');
+    entries.forEach(function(entry, i) {
+      entry.querySelectorAll('input, select, textarea').forEach(function(el) {
+        var name = el.getAttribute('name');
+        if (name && name.indexOf('consecrations[') === 0) {
+          el.setAttribute('name', name.replace(/^consecrations\[\d+\]/, 'consecrations[' + i + ']'));
+        }
+      });
+      reindexCoConsecratorsForEntry(entry);
+    });
+  }
+
+  function reindexCoConsecratorsForEntry(entry) {
+    if (!entry) return;
+    var list = entry.querySelector('.co-consecrators-list');
+    if (!list) return;
+    var items = list.querySelectorAll('.co-consecrator-item');
+    items.forEach(function(item, j) {
+      item.querySelectorAll('input').forEach(function(el) {
+        var name = el.getAttribute('name');
+        if (!name) return;
+        var marker = '[co_consecrators][';
+        var markerIndex = name.indexOf(marker);
+        if (markerIndex === -1) return;
+        var prefix = name.substring(0, markerIndex + marker.length);
+        var rest = name.substring(prefix.length);
+        var closingIndex = rest.indexOf(']');
+        if (closingIndex === -1) return;
+        var suffix = rest.substring(closingIndex);
+        el.setAttribute('name', prefix + j + suffix);
+      });
+    });
+  }
+
+  function setupCoConsecratorAutocomplete(form) {
+    if (!form) return;
+    var inputs = form.querySelectorAll('input[name*="co_consecrators"][name*="[input]"]');
+    inputs.forEach(function(input) {
+      var parent = input.closest('.bishop-autocomplete-field') || input.closest('.form-field');
+      if (!parent) return;
+      var dropdown = ensureBishopDropdown(parent);
+      var hidden = parent.querySelector('input[name*="co_consecrators"][name*="[id]"]');
+      attachClergyAutocomplete(input, hidden, dropdown);
+    });
+  }
+
+  function addConsecration(form) {
+    var container = form.querySelector('#consecrationsContainer');
+    var first = container && container.querySelector('.consecration-entry');
+    if (!container || !first) return;
+    var clone = first.cloneNode(true);
+    clone.querySelectorAll('input:not([type="hidden"])').forEach(function(el) {
+      el.value = '';
+      el.removeAttribute('disabled');
+    });
+    clone.querySelectorAll('input[type="checkbox"]').forEach(function(el) { el.checked = false; });
+    clone.querySelectorAll('textarea').forEach(function(el) { el.value = ''; });
+    clone.querySelectorAll('select').forEach(function(el) {
+      var firstOpt = el.querySelector('option');
+      if (firstOpt) el.selectedIndex = 0;
+    });
+    clone.querySelector('input[name*="consecrator_id"]').value = '';
+    var coList = clone.querySelector('.co-consecrators-list');
+    if (coList) {
+      var items = Array.prototype.slice.call(coList.querySelectorAll('.co-consecrator-item'));
+      items.forEach(function(item, idx) {
+        if (idx === 0) {
+          item.querySelectorAll('input').forEach(function(el) {
+            el.value = '';
+            el.removeAttribute('data-bishop-autocomplete-inited');
+            el.removeAttribute('data-clergy-autocomplete-inited');
+          });
+          var itemDropdown = item.querySelector('.autocomplete-dropdown');
+          if (itemDropdown) {
+            itemDropdown.innerHTML = '';
+          }
+        } else {
+          item.remove();
+        }
+      });
+    }
+    var consecrationDateBlock = clone.querySelector('.consecration-date-block');
+    if (consecrationDateBlock) {
+      toggleDateUnknown(consecrationDateBlock, false);
+    }
+    setDetailsUnknownForEntry(clone, false);
+    var dropdowns = clone.querySelectorAll('.autocomplete-dropdown');
+    dropdowns.forEach(function(dd) { dd.remove(); });
+    container.appendChild(clone);
+    reindexConsecrationEntries(form);
+    setupConsecrationBishopAutocomplete(form);
+    setupCoConsecratorAutocomplete(form);
+    syncValidityExtraForEntry(clone);
+  }
+
+  function removeConsecration(form, entry) {
+    var container = form.querySelector('#consecrationsContainer');
+    var entries = container && container.querySelectorAll('.consecration-entry');
+    if (!entries || entries.length <= 1) return;
+    entry.remove();
+    reindexConsecrationEntries(form);
+  }
+
+  function setupConsecrationBishopAutocomplete(form) {
+    var inputs = form.querySelectorAll('input[name*="consecrator_input"]');
+    inputs.forEach(function(input) {
+      var parent = input.closest('.form-field');
+      if (!parent) return;
+      var dropdown = ensureBishopDropdown(parent);
+      var hidden = parent.querySelector('input[name*="consecrator_id"]');
+      attachBishopAutocomplete(input, hidden, dropdown);
+    });
+  }
+
+  function addCoConsecrator(form, entry) {
+    if (!form || !entry) return;
+    var list = entry.querySelector('.co-consecrators-list');
+    if (!list) return;
+    var templateItem = list.querySelector('.co-consecrator-item');
+    if (!templateItem) return;
+    var clone = templateItem.cloneNode(true);
+    clone.querySelectorAll('input').forEach(function(el) {
+      el.value = '';
+      el.removeAttribute('data-bishop-autocomplete-inited');
+      el.removeAttribute('data-clergy-autocomplete-inited');
+    });
+    var dropdown = clone.querySelector('.autocomplete-dropdown');
+    if (dropdown) {
+      dropdown.innerHTML = '';
+    }
+    list.appendChild(clone);
+    reindexCoConsecratorsForEntry(entry);
+    var form = entry.closest('form');
+    if (form) {
+      setupCoConsecratorAutocomplete(form);
+    }
+  }
+
+  function removeCoConsecrator(entry, item) {
+    if (!entry || !item) return;
+    item.remove();
+    reindexCoConsecratorsForEntry(entry);
+  }
+
+  function syncValidityExtraForEntry(entry) {
+    if (!entry) return;
+    var block = entry.querySelector('.validity-extra-block');
+    var validitySelect = entry.querySelector('select[name*="[validity]"]');
+    var isOther = entry.querySelector('input[name*="[is_other]"]');
+    var optionalNotes = entry.querySelector('input[name*="[optional_notes]"]');
+    if (!block || !validitySelect) return;
+    var validity = (validitySelect.value || '').toLowerCase();
+    block.style.display = (validity !== 'valid') ? '' : 'none';
+    if (optionalNotes) {
+      var otherChecked = isOther && isOther.checked;
+      optionalNotes.disabled = !otherChecked;
+      if (!otherChecked) optionalNotes.value = '';
+    }
+  }
+
+  function toggleDateUnknown(block, isUnknown) {
+    if (!block) return;
+    var dateWrapper = block.querySelector('.date-input-wrapper');
+    var unknownWrapper = block.querySelector('.date-unknown-wrapper');
+    var dateInput = dateWrapper && dateWrapper.querySelector('input[type="date"]');
+    var unknownInput = unknownWrapper && unknownWrapper.querySelector('input[name*="[date_unknown]"]');
+    var yearInput = unknownWrapper && unknownWrapper.querySelector('input[name*="[year]"]');
+
+    if (isUnknown) {
+      block.classList.add('is-unknown-date');
+      if (dateInput) {
+        dateInput.value = '';
+        dateInput.removeAttribute('required');
+      }
+      if (unknownInput) unknownInput.value = '1';
+    } else {
+      block.classList.remove('is-unknown-date');
+      if (dateInput) dateInput.removeAttribute('required');
+      if (unknownInput) unknownInput.value = '';
+      if (yearInput) yearInput.value = '';
+    }
+  }
+
+  function initClergyFormV2() {
+    var form = document.getElementById('clergyForm');
+    if (!form || form.getAttribute('data-clergy-form-v2-inited') === 'true') return;
+    form.setAttribute('data-clergy-form-v2-inited', 'true');
+
+  if (typeof window !== 'undefined' &&
+      window.EDITOR_V2_PHOTO &&
+      typeof window.EDITOR_V2_PHOTO.initEditorV2Photo === 'function') {
+    window.EDITOR_V2_PHOTO.initEditorV2Photo(document);
+  }
+
+    var rankSelect = form.querySelector('#rank');
+    if (rankSelect) {
+      rankSelect.addEventListener('change', function() { updateRankVisibility(form); });
+      updateRankVisibility(form);
+    }
+
+    setupOrdinationBishopAutocomplete(form);
+    setupConsecrationBishopAutocomplete(form);
+    setupCoConsecratorAutocomplete(form);
+
+    form.querySelectorAll('.ordination-entry, .consecration-entry').forEach(function(entry) {
+      syncValidityExtraForEntry(entry);
+      var detailsCheckbox = entry.querySelector('input[type="checkbox"][name*="[details_unknown]"]');
+      if (detailsCheckbox && detailsCheckbox.checked) {
+        setDetailsUnknownForEntry(entry, true);
+      } else {
+        setDetailsUnknownForEntry(entry, false);
+      }
+    });
+
+    form.querySelectorAll('.ordination-date-block, .consecration-date-block').forEach(function(block) {
+      var dateInput = block.querySelector('.date-input-wrapper input[type="date"]');
+      var unknownInput = block.querySelector('.date-unknown-wrapper input[name*="[date_unknown]"]');
+      var yearInput = block.querySelector('.date-unknown-wrapper input[name*="[year]"]');
+      var hasUnknownFlag = unknownInput && unknownInput.value === '1';
+      var hasYearOnly = yearInput && yearInput.value && (!dateInput || !dateInput.value);
+      toggleDateUnknown(block, !!(hasUnknownFlag || hasYearOnly));
+    });
+
+    form.addEventListener('change', function(e) {
+      var target = e.target;
+      if (!target || !target.getAttribute || !target.getAttribute('name')) return;
+      var name = target.getAttribute('name');
+      var entry = target.closest('.ordination-entry') || target.closest('.consecration-entry');
+
+      if (name.indexOf('[validity]') !== -1 || name.indexOf('[is_other]') !== -1) {
+        if (entry) syncValidityExtraForEntry(entry);
+      }
+
+      if (name.indexOf('[details_unknown]') !== -1 && entry) {
+        setDetailsUnknownForEntry(entry, !!target.checked);
+      }
+    });
+
+    var cancelLink = form.querySelector('a.editor-v2-cancel');
+    if (cancelLink) {
+      cancelLink.addEventListener('click', function(e) {
+        e.preventDefault();
+
+        if (typeof window !== 'undefined') {
+          window.currentSelectedClergyId = null;
+        }
+        if (typeof document !== 'undefined' && document.body && typeof CustomEvent !== 'undefined') {
+          document.body.dispatchEvent(new CustomEvent('clergySelected', {
+            detail: { clergyId: null }
+          }));
+        }
+
+        var url = form.getAttribute('data-panel-center-url');
+        if (url && typeof htmx !== 'undefined') {
+          htmx.ajax('GET', url, { target: '#editor-panel-center', swap: 'innerHTML' });
+        }
+      });
+    }
+
+    form.addEventListener('click', function(e) {
+      var target = e.target;
+      if (!target) return;
+
+      if (target.classList && target.classList.contains('date-unknown-link')) {
+        e.preventDefault();
+        var entryUnknown = target.closest('.ordination-entry') || target.closest('.consecration-entry');
+        if (entryUnknown) {
+          var blockUnknown = entryUnknown.querySelector('.ordination-date-block') || entryUnknown.querySelector('.consecration-date-block');
+          if (blockUnknown) toggleDateUnknown(blockUnknown, true);
+        }
+        return;
+      }
+
+      if (target.classList && target.classList.contains('specify-date-link')) {
+        e.preventDefault();
+        var entrySpecify = target.closest('.ordination-entry') || target.closest('.consecration-entry');
+        if (entrySpecify) {
+          var blockSpecify = entrySpecify.querySelector('.ordination-date-block') || entrySpecify.querySelector('.consecration-date-block');
+          if (blockSpecify) toggleDateUnknown(blockSpecify, false);
+        }
+        return;
+      }
+
+      if (target && target.id === 'addOrdinationBtn') {
+        e.preventDefault();
+        addOrdination(form);
+        return;
+      }
+      if (target && target.classList && target.classList.contains('remove-ordination')) {
+        e.preventDefault();
+        var entry = target.closest('.ordination-entry');
+        if (entry) removeOrdination(form, entry);
+        return;
+      }
+      if (target && target.id === 'addConsecrationBtn') {
+        e.preventDefault();
+        addConsecration(form);
+        return;
+      }
+      if (target && target.classList && target.classList.contains('remove-consecration')) {
+        e.preventDefault();
+        var entry = target.closest('.consecration-entry');
+        if (entry) removeConsecration(form, entry);
+        return;
+      }
+      if (target && target.classList && target.classList.contains('add-co-consecrator')) {
+        e.preventDefault();
+        var addEntry = target.closest('.consecration-entry');
+        if (addEntry) addCoConsecrator(form, addEntry);
+        return;
+      }
+      if (target && target.classList && target.classList.contains('remove-co-consecrator')) {
+        e.preventDefault();
+        var removeEntry = target.closest('.consecration-entry');
+        var item = target.closest('.co-consecrator-item');
+        if (removeEntry && item) removeCoConsecrator(removeEntry, item);
+      }
+    });
+  }
+
+  // Expose initializer for v2 shell HTMX handlers.
+  if (typeof window !== 'undefined') {
+    window.EDITOR_V2_FORM = window.EDITOR_V2_FORM || {};
+    window.EDITOR_V2_FORM.initClergyFormV2 = initClergyFormV2;
+  }
+
+  initClergyFormV2();
+
+  document.body.addEventListener('htmx:afterSwap', function(ev) {
+    var target = ev.detail && ev.detail.target;
+    if (target && (target.id === 'editor-panel-center' || (target.querySelector && target.querySelector('#clergyForm')))) {
+      initClergyFormV2();
+    }
+  });
+})();
+</script>

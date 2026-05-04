@@ -1,14 +1,136 @@
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response, current_app
-from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordination, Consecration, Status, clergy_statuses, LineageRoot
+from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordination, Consecration, Status, clergy_statuses, Tag
 from utils import log_audit_event
 from datetime import datetime
 import json
 import threading
 from .image_upload import get_image_upload_service
+from services.validation_cascade import compute_system_tags_for_clergy, merge_user_and_system_tags
 
 # Background task status tracking
 _sprite_sheet_status = {}
 _sprite_sheet_lock = threading.Lock()
+
+
+_RESERVED_SYSTEM_TAG_NAMES = {
+    'invalid_priest', 'invalid_bishop',
+    'doubtful_priest', 'doubtful_bishop',
+    'valid',
+}
+
+
+def _parse_user_tag_labels(raw_value):
+    """Parse a comma-separated tag string into a list of unique, trimmed labels."""
+    if not raw_value:
+        return []
+    labels = []
+    seen = set()
+    for part in str(raw_value).split(','):
+        label = part.strip()
+        if not label:
+            continue
+        key = label.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        labels.append(label)
+    return labels
+
+
+def _slugify_tag_label(label):
+    """Slug-like machine name for a tag label (lowercase, alnum + hyphen)."""
+    import re
+
+    slug = (label or '').strip().lower()
+    # Replace whitespace with single hyphen
+    slug = re.sub(r'\s+', '-', slug)
+    # Drop anything that's not alphanumeric or hyphen
+    slug = re.sub(r'[^a-z0-9\-]', '', slug)
+    return slug or None
+
+
+def _ensure_user_tags(labels):
+    """
+    Ensure Tag rows exist for the given human-readable labels and return Tag objects.
+
+    System-reserved tag names are skipped here so that validity-based system tags
+    remain exclusively controlled by the validation logic.
+    """
+    tags = []
+    for label in labels or []:
+        slug = _slugify_tag_label(label)
+        if not slug:
+            continue
+        if slug in _RESERVED_SYSTEM_TAG_NAMES:
+            # Reserved for system/computed tags; user input should not create or
+            # override these records. Validity logic will attach them as needed.
+            continue
+        tag = Tag.query.filter_by(name=slug).first()
+        if not tag:
+            tag = Tag(name=slug, label=label, is_system=False)
+            db.session.add(tag)
+        tags.append(tag)
+    return tags
+
+
+def _apply_tags_for_clergy_from_selected_ids(clergy, raw_value):
+    """
+    Attach Tag records based on a comma-separated list of tag IDs and merge system tags.
+
+    This is the ID-based variant used by Editor v2. It intentionally ignores any
+    invalid IDs and de-duplicates input.
+    """
+    if not clergy:
+        return
+
+    if not raw_value:
+        system_tags = compute_system_tags_for_clergy(clergy)
+        clergy.tags = merge_user_and_system_tags(clergy, system_tags)
+        return
+
+    ids = []
+    seen = set()
+    for part in str(raw_value).split(','):
+        token = part.strip()
+        if not token:
+            continue
+        try:
+            tag_id = int(token)
+        except (ValueError, TypeError):
+            continue
+        if tag_id in seen:
+            continue
+        seen.add(tag_id)
+        ids.append(tag_id)
+
+    user_tags = Tag.query.filter(Tag.id.in_(ids)).all() if ids else []
+    clergy.tags = list(user_tags)
+
+    system_tags = compute_system_tags_for_clergy(clergy)
+    clergy.tags = merge_user_and_system_tags(clergy, system_tags)
+
+
+def _apply_tags_for_clergy_from_raw_input(clergy, raw_value):
+    """
+    Parse user-entered tags, attach Tag records, and merge in validity-based tags.
+
+    This helper is used by both create and edit flows so that:
+    - user tags are derived from the comma-separated input field
+    - system tags are recomputed from current ordinations/consecrations
+    """
+    if not clergy:
+        return
+
+    user_labels = _parse_user_tag_labels(raw_value)
+    user_tags = _ensure_user_tags(user_labels)
+
+    # First attach only user tags to the clergy instance.
+    clergy.tags = list(user_tags)
+
+    # Then compute validity-based system tags from current events and merge.
+    system_tags = compute_system_tags_for_clergy(clergy)
+    clergy.tags = merge_user_and_system_tags(clergy, system_tags)
+
 
 def _regenerate_sprite_sheet():
     """Helper function to regenerate the sprite sheet after clergy changes"""
@@ -117,6 +239,10 @@ def create_clergy_from_form(form):
     date_of_birth = form.get('date_of_birth')
     date_of_death = form.get('date_of_death')
     clergy.notes = form.get('notes')
+    # Admin exclude-from-visualization flag
+    exclude_raw = form.get('exclude_from_visualization') or form.get('exclude')
+    clergy.exclude_from_visualization = bool(exclude_raw) and str(exclude_raw).lower() in ('1', 'true', 'on', 'yes')
+
     if date_of_birth:
         clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
     if date_of_death:
@@ -202,10 +328,15 @@ def create_clergy_from_form(form):
                 except (ValueError, TypeError):
                     pass  # Skip invalid status IDs
 
-    is_lineage_root = form.get('is_lineage_root') in ('1', 'on', 'true')
-    if is_lineage_root:
-        db.session.add(LineageRoot(clergy_id=clergy.id))
-    
+    # Apply tags from Editor v2 ID-based picker when present, otherwise fall back
+    # to legacy comma-separated label input.
+    raw_selected_ids = form.get('tags_selected')
+    if raw_selected_ids is not None:
+        _apply_tags_for_clergy_from_selected_ids(clergy, raw_selected_ids)
+    else:
+        raw_tags = form.get('tags_input')
+        _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
+
     db.session.commit()
 
     try:
@@ -235,11 +366,13 @@ def create_ordinations_from_form(clergy, form):
     for index, data in ordinations_data.items():
         date_val = (data.get('date') or '').strip()
         date_unknown = data.get('date_unknown') in ('1', 'true', 'on')
+        details_unknown = data.get('details_unknown') in ('1', 'true', 'on')
         year_val = (data.get('year') or '').strip()
-        if not date_val and not date_unknown:
+        if not date_val and not date_unknown and not details_unknown:
             continue
         ordination = Ordination()
         ordination.clergy_id = clergy.id
+        ordination.details_unknown = details_unknown
         if date_val:
             ordination.date = datetime.strptime(date_val, '%Y-%m-%d').date()
             ordination.year = None
@@ -322,11 +455,13 @@ def create_consecrations_from_form(clergy, form):
     for index, data in consecrations_data.items():
         date_val = (data.get('date') or '').strip()
         date_unknown = data.get('date_unknown') in ('1', 'true', 'on')
+        details_unknown = data.get('details_unknown') in ('1', 'true', 'on')
         year_val = (data.get('year') or '').strip()
-        if not date_val and not date_unknown:
+        if not date_val and not date_unknown and not details_unknown:
             continue
         consecration = Consecration()
         consecration.clergy_id = clergy.id
+        consecration.details_unknown = details_unknown
         if date_val:
             consecration.date = datetime.strptime(date_val, '%Y-%m-%d').date()
             consecration.year = None
@@ -564,14 +699,12 @@ def add_clergy_handler():
     
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
-    lineage_roots = list(Clergy.query.filter(Clergy.id.in_(db.session.query(LineageRoot.clergy_id))).all())
     return None, render_template('add_clergy.html', 
                          all_clergy=all_clergy, 
                          all_clergy_data=all_clergy_data,
                          all_bishops_suggested=all_bishops_suggested,
                          ranks=ranks,
-                         organizations=organizations,
-                         lineage_roots=lineage_roots) 
+                         organizations=organizations) 
 
 def view_clergy_handler(clergy_id):
     if 'user_id' not in session:
@@ -641,6 +774,9 @@ def edit_clergy_handler(clergy_id):
                 date_of_birth = request.form.get('date_of_birth')
                 date_of_death = request.form.get('date_of_death')
                 clergy.notes = request.form.get('notes')
+                # Admin exclude-from-visualization flag
+                exclude_raw = request.form.get('exclude_from_visualization') or request.form.get('exclude')
+                clergy.exclude_from_visualization = bool(exclude_raw) and str(exclude_raw).lower() in ('1', 'true', 'on', 'yes')
                 
                 # Handle image upload or removal using Backblaze B2
                 image_removed = request.form.get('image_removed') == 'true'
@@ -759,13 +895,15 @@ def edit_clergy_handler(clergy_id):
                     clergy.is_deleted = False
                     clergy.deleted_at = None
 
-                # Handle lineage root
-                is_lineage_root = request.form.get('is_lineage_root') in ('1', 'on', 'true')
-                if is_lineage_root and not clergy.lineage_root:
-                    db.session.add(LineageRoot(clergy_id=clergy.id))
-                elif not is_lineage_root and clergy.lineage_root:
-                    db.session.delete(clergy.lineage_root)
-                
+                # Apply tags from Editor v2 ID-based picker when present, otherwise
+                # fall back to legacy comma-separated label input.
+                raw_selected_ids = request.form.get('tags_selected')
+                if raw_selected_ids is not None:
+                    _apply_tags_for_clergy_from_selected_ids(clergy, raw_selected_ids)
+                else:
+                    raw_tags = request.form.get('tags_input')
+                    _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
+
                 db.session.commit()
                 
                 # Generate sprite sheet in background (non-blocking)
@@ -812,6 +950,9 @@ def edit_clergy_handler(clergy_id):
         date_of_birth = request.form.get('date_of_birth')
         date_of_death = request.form.get('date_of_death')
         clergy.notes = request.form.get('notes')
+        # Admin exclude-from-visualization flag
+        exclude_raw = request.form.get('exclude_from_visualization') or request.form.get('exclude')
+        clergy.exclude_from_visualization = bool(exclude_raw) and str(exclude_raw).lower() in ('1', 'true', 'on', 'yes')
         if date_of_birth:
             clergy.date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
         else:
@@ -834,13 +975,15 @@ def edit_clergy_handler(clergy_id):
             clergy.is_deleted = False
             clergy.deleted_at = None
 
-        # Handle lineage root
-        is_lineage_root = request.form.get('is_lineage_root') in ('1', 'on', 'true')
-        if is_lineage_root and not clergy.lineage_root:
-            db.session.add(LineageRoot(clergy_id=clergy.id))
-        elif not is_lineage_root and clergy.lineage_root:
-            db.session.delete(clergy.lineage_root)
-        
+        # Apply tags from Editor v2 ID-based picker when present, otherwise
+        # fall back to legacy comma-separated label input.
+        raw_selected_ids = request.form.get('tags_selected')
+        if raw_selected_ids is not None:
+            _apply_tags_for_clergy_from_selected_ids(clergy, raw_selected_ids)
+        else:
+            raw_tags = request.form.get('tags_input')
+            _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
+
         db.session.commit()
         log_audit_event(
             action='update',
@@ -937,7 +1080,6 @@ def edit_clergy_handler(clergy_id):
     
     ranks = Rank.query.order_by(Rank.name).all()
     organizations = Organization.query.order_by(Organization.name).all()
-    lineage_roots = list(Clergy.query.filter(Clergy.id.in_(db.session.query(LineageRoot.clergy_id))).all())
     return render_template('edit_clergy_with_comments.html',
                          clergy=clergy,
                          user=user,
@@ -949,8 +1091,7 @@ def edit_clergy_handler(clergy_id):
                          organizations=organizations,
                          org_abbreviation_map=org_abbreviation_map,
                          org_color_map=org_color_map,
-                         edit_mode=True,
-                         lineage_roots=lineage_roots)
+                         edit_mode=True)
 
 def clergy_json_handler(clergy_id):
     if 'user_id' not in session:

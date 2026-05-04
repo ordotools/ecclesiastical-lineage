@@ -1,0 +1,1098 @@
+/* Editor v2: 3 columns + statusbar, 10px sans-serif, black/white, no animation */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 10px;
+  color: #000;
+  background: #fff;
+}
+
+.editor-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.editor-panels-row {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+}
+
+.editor-shell .editor-panel {
+  min-width: 0;
+  border: 1px solid #000;
+  padding: 1em;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.editor-shell .editor-panel::-webkit-scrollbar {
+  display: none;
+}
+
+.editor-panels-row .editor-panel-left,
+.editor-panels-row .editor-panel-center,
+.editor-panels-row .editor-panel-right {
+  flex: 1 1 0;
+}
+
+.editor-shell .editor-statusbar {
+  flex: 0 0 auto;
+  border: 1px solid #000;
+  border-top: 1px solid #000;
+  height: 2em;
+  padding: .5em 1em;
+  background: #fff;
+  color: #000;
+  font-size: 10px;
+}
+
+.editor-statusbar {
+  display: flex;
+  align-items: center;
+}
+
+.statusbar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 1em;
+}
+
+.statusbar-left,
+.statusbar-center,
+.statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+}
+
+.statusbar-left {
+  min-width: 0;
+}
+
+.statusbar-app-title {
+  font-weight: 600;
+}
+
+.statusbar-user {
+  color: #444;
+}
+
+.statusbar-logout {
+  color: #000;
+  text-decoration: underline;
+}
+
+.statusbar-logout:hover,
+.statusbar-logout:focus {
+  text-decoration: none;
+}
+
+.statusbar-center {
+  flex: 1 1 auto;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.statusbar-db {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.status-dot {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  border: 1px solid #000;
+  background: transparent;
+}
+
+.status-dot--connected {
+  background: #0a0;
+}
+
+.status-dot--warning {
+  background: #e6a700;
+}
+
+.status-dot--error {
+  background: #c00;
+}
+
+.status-dot--unknown {
+  background: #ccc;
+}
+
+.statusbar-db-label {
+  font-weight: 500;
+}
+
+.statusbar-db-meta {
+  color: #555;
+}
+
+.statusbar-right {
+  justify-content: flex-end;
+}
+
+.statusbar-env-badge {
+  display: inline-block;
+  padding: 0.05em 0.4em;
+  border: 1px solid #000;
+  border-radius: 999px;
+  font-size: 0.85em;
+  text-transform: uppercase;
+}
+
+.statusbar-current-record,
+.statusbar-save-state {
+  min-width: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.panel-left-content {
+  padding: 0;
+}
+
+.panel-left-clergy-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.panel-left-clergy-item {
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid #ccc;
+}
+
+.panel-left-clergy-item--selected .panel-left-link {
+  font-weight: 600;
+  background: #f2f2f2;
+}
+
+.panel-left-clergy-item:last-child {
+  border-bottom: 0;
+}
+
+.panel-left-link {
+  display: block;
+  padding: 0.75em 0;
+  color: #000;
+  text-decoration: none;
+}
+
+.panel-left-add .panel-left-link {
+  font-weight: bold;
+}
+
+.panel-left-empty {
+  margin: 0;
+  padding: 0.5em 0;
+  color: #666;
+}
+
+/* Left panel: filters */
+.panel-left-filters {
+  margin-bottom: 0.75em;
+  padding-bottom: 0.75em;
+  border-bottom: 1px solid #ccc;
+}
+
+.panel-left-filters-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.panel-left-filters-label {
+  font-weight: 600;
+  margin-right: 0.25em;
+}
+
+.panel-left-filters-select {
+  min-width: 6em;
+  max-width: 12em;
+}
+
+.panel-left-filters-input {
+  width: 4em;
+}
+
+.panel-left-filters-apply {
+  margin-left: 0.25em;
+}
+
+/* Left panel: clergy tags */
+.panel-left-clergy-name {
+  display: inline-block;
+  margin-right: 0.25em;
+}
+
+.panel-left-clergy-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.2em;
+  vertical-align: middle;
+}
+
+.panel-left-clergy-tags .tag-pill--display {
+  font-size: 0.85em;
+  padding: 0.15em 0.35em;
+  border-width: 1px;
+}
+
+/* Right panel: ordained / consecrated ranges and clergy */
+
+.panel-right-content {
+  padding: 0;
+}
+
+.right-panel-section {
+  margin: 0 0 1em 0;
+}
+
+.right-panel-section--empty {
+  border: 1px dashed #ccc;
+  padding: 0.75em;
+  background: #fafafa;
+}
+
+.right-panel-empty-message {
+  margin: 0;
+  color: #666;
+}
+
+.right-panel-section--ordained {
+  border: 1px solid #000;
+  padding: 0.75em;
+}
+
+.right-panel-title {
+  font-weight: bold;
+  margin: 0 0 0.5em 0;
+}
+
+.right-panel-details-unknown-note {
+  font-size: 0.9em;
+  color: #555;
+  margin: 0 0 0.5em 0;
+}
+
+.right-panel-ranges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.right-panel-range {
+  border: 1px solid #ccc;
+  padding: 0.5em 0.75em;
+}
+
+.right-panel-range-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5em;
+  margin-bottom: 0.25em;
+}
+
+.right-panel-range-label {
+  font-weight: 600;
+}
+
+.right-panel-range-badge {
+  padding: 0.1em 0.4em;
+  border-radius: 999px;
+  border: 1px solid #000;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.right-panel-range-badge--valid {
+  background: #e6f8e6;
+}
+
+.right-panel-range-badge--invalid {
+  background: #ffecec;
+}
+
+.right-panel-clergy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+.right-panel-clergy-item {
+  padding: 0.25em 0;
+  border-top: 1px solid #eee;
+}
+
+.right-panel-clergy-item:first-child {
+  border-top: none;
+}
+
+.right-panel-clergy-item--ordination {
+  /* subtle marker for ordinations */
+}
+
+.right-panel-clergy-item--consecration {
+  /* subtle marker for consecrations */
+}
+
+/* Lineage tree: one wrapper per node; indent by depth */
+.right-panel-lineage-node {
+  margin: 0;
+  padding: 0;
+}
+
+.right-panel-lineage-depth-0 {
+  padding-left: 0;
+}
+
+.right-panel-lineage-depth-1 {
+  padding-left: 1.25em;
+}
+
+.right-panel-lineage-depth-2 {
+  padding-left: 2.5em;
+}
+
+.right-panel-lineage-depth-3 {
+  padding-left: 3.75em;
+}
+
+.right-panel-lineage-depth-4 {
+  padding-left: 5em;
+}
+
+.right-panel-lineage-depth-5 {
+  padding-left: 6.25em;
+}
+
+.right-panel-clergy-name {
+  display: inline-block;
+  font-weight: 600;
+  color: #000;
+  text-decoration: none;
+}
+
+.right-panel-clergy-name:hover,
+.right-panel-clergy-name:focus {
+  text-decoration: underline;
+}
+
+.right-panel-clergy-meta {
+  font-size: 0.9em;
+  color: #555;
+}
+
+/* Range-level valid / invalid state */
+
+.range-valid {
+  border-left: 3px solid #0a0;
+}
+
+.range-invalid {
+  border-left: 3px solid #c00;
+}
+
+/* Highlight clergy whose range / validity changed */
+
+.clergy-needs-update {
+  background: #fff9d6;
+  border-radius: 2px;
+}
+
+.clergy-needs-update .right-panel-clergy-name {
+  text-decoration: underline;
+}
+
+/* Bishop autocomplete (ordaining bishop / consecrator) */
+
+.bishop-autocomplete-field {
+  position: relative;
+}
+
+.bishop-autocomplete-field .autocomplete-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  z-index: 20;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result,
+.bishop-autocomplete-field .autocomplete-dropdown .dropdown-item {
+  padding: 0.4em 0.6em;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9em;
+  color: #333;
+}
+
+.bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result:last-child,
+.bishop-autocomplete-field .autocomplete-dropdown .dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result:hover {
+  background: rgba(0, 123, 255, 0.1);
+}
+
+.bishop-autocomplete-field .autocomplete-dropdown .dropdown-item.text-muted {
+  color: #666;
+  cursor: default;
+}
+
+/* Clergy form */
+
+#clergyForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+}
+
+#clergyForm .form-field {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+#clergyForm .form-field .form-label {
+  display: block;
+  text-align: left;
+  margin-bottom: 0.25em;
+}
+
+#clergyForm input:not([type="checkbox"]):not([type="hidden"]),
+#clergyForm select,
+#clergyForm textarea {
+  padding: 0.25em;
+  border: 1px solid #d3d3d3;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#clergyForm input[type="text"],
+#clergyForm input[type="date"],
+#clergyForm input[type="number"],
+#clergyForm select {
+  height: 2.25em;
+}
+
+#clergyForm textarea {
+  resize: vertical;
+}
+
+/* Form grid - base */
+#clergyForm .form-grid {
+  display: grid;
+  gap: 0.75em;
+}
+
+/* Identity section form grid */
+#clergyForm .form-grid--identity {
+  grid-template-columns: 1fr;
+}
+
+#clergyForm .form-field.full-width {
+  grid-column: 1 / -1;
+}
+
+#clergyForm #papalNameField {
+  display: none;
+}
+
+#clergyForm .organization-input-group {
+  display: flex;
+  gap: 0.5em;
+  align-items: center;
+}
+
+#clergyForm .organization-input-group select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Photo + Rank/DoB/DoD two-column grid */
+#clergyForm .form-grid--photo-fields {
+  grid-template-columns: 200px 1fr;
+  grid-template-rows: auto auto auto;
+  align-items: start;
+}
+
+/* Notes field inside photo grid spans full width below photo/rank/date rows to keep notes aligned with the photo block */
+#clergyForm .form-grid--photo-fields .notes-field {
+  grid-column: 1 / -1;
+}
+
+/* Photo section - left column, spans 3 rows, fills full height */
+#clergyForm .photo-section {
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+}
+
+#clergyForm #photoField {
+  grid-column: 1;
+  grid-row: 1 / 4;
+  align-self: start;
+}
+
+#clergyForm .photo-section > span {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Photo container, preview, drag-over, has-image, image controls (10px, black/white, no transition/animation) */
+.photo-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid #000;
+  padding: 10px;
+  background: #fff;
+}
+
+.photo-container.drag-over {
+  border-color: #000;
+  background: #f5f5f5;
+}
+
+#imagePreview {
+  height: 180px;
+  border: 1px solid #ccc;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#imagePreview .image-preview-placeholder {
+  font-size: 10px;
+  color: #666;
+}
+
+#imagePreview.has-image img,
+#imagePreview .has-image {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.photo-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 10px;
+}
+
+.photo-controls button {
+  font-size: 10px;
+  padding: 0.25em 0.5em;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  cursor: pointer;
+}
+
+#clergyForm #rankField {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+#clergyForm #birthField {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+#clergyForm #deathField {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+#clergyForm button,
+#clergyForm .editor-v2-cancel {
+  padding: 0.25em 0.5em;
+  cursor: pointer;
+}
+
+#clergyForm .form-actions {
+  display: flex;
+  gap: 1em;
+  margin-top: 0.5em;
+}
+
+/* Editor v2 button roles */
+
+.editor-button {
+  display: inline-block;
+  padding: 0.25em 0.75em;
+  font: inherit;
+  background: none;
+  border: none;
+  color: #000;
+  text-decoration: none;
+}
+
+.editor-button--save {
+  color: #005c1a;            /* muted green text */
+  border: 1px solid #005c1a; /* green outline on white */
+  background: #fff;
+}
+
+.editor-button--danger {
+  color: #a00000;            /* muted red text */
+  border: 1px solid #a00000; /* red outline on white */
+  background: #fff;
+}
+
+.editor-button--action {
+  color: #004c99;            /* muted blue text */
+  text-decoration: underline;
+  border: none;
+  background: none;
+}
+
+.editor-button--save:hover,
+.editor-button--save:focus,
+.editor-button--danger:hover,
+.editor-button--danger:focus,
+.editor-button--action:hover,
+.editor-button--action:focus {
+  outline: none;
+  text-decoration: underline;
+}
+
+.editor-button--update-descendants:disabled,
+.editor-button--update-descendants[disabled] {
+  color: #999;
+  border-color: #ccc;
+  background: #f5f5f5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Form sections (Ordinations, Consecrations, Status Indicators, Admin) */
+
+#clergyForm .form-section {
+  margin-top: 1.25em;
+  padding-top: 1em;
+  border-top: 1px solid #e0e0e0;
+}
+
+#clergyForm .form-section:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+#clergyForm .form-section h5 {
+  margin: 0 0 0.5em 0;
+  font-weight: 600;
+}
+
+/* Wiki section */
+#clergyForm .wiki-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+#clergyForm .wiki-section .wiki-visibility-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  width: fit-content;
+}
+
+#clergyForm .wiki-section .wiki-visibility-row .form-label {
+  margin: 0;
+}
+
+#clergyForm #wiki_markdown {
+  min-height: 8em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  line-height: 1.35;
+  border: 1px solid #000;
+  background: #fff;
+}
+
+#clergyForm .wiki-status {
+  margin: 0;
+  font-size: 0.9em;
+  color: #555;
+}
+
+#clergyForm .wiki-status--ok {
+  color: #1f4d1f;
+}
+
+#clergyForm .wiki-status--warning {
+  color: #7a5c00;
+}
+
+#clergyForm .wiki-status--error {
+  color: #8b0000;
+}
+
+#clergyForm #ordinationsContainer,
+#clergyForm #consecrationsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+}
+
+#clergyForm .ordination-entry,
+#clergyForm .consecration-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  padding: 0.75em;
+  border: 1px solid #e8e8e8;
+  background: #fafafa;
+}
+
+#clergyForm .ordination-entry .form-field,
+#clergyForm .consecration-entry .form-field {
+  width: 100%;
+}
+
+/* Compact row: Date | Bishop | Validity */
+#clergyForm .ordination-entry__compact-row,
+#clergyForm .consecration-entry__compact-row {
+  display: flex;
+  gap: 0.75em;
+  flex-wrap: wrap;
+}
+
+#clergyForm .ordination-entry__compact-row .form-field:first-child,
+#clergyForm .consecration-entry__compact-row .form-field:first-child {
+  flex: 0 0 10em;
+}
+
+#clergyForm .ordination-entry__compact-row .form-field:nth-child(2),
+#clergyForm .consecration-entry__compact-row .form-field:nth-child(2) {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+
+#clergyForm .ordination-entry__compact-row .form-field:nth-child(3),
+#clergyForm .consecration-entry__compact-row .form-field:nth-child(3) {
+  flex: 0 0 9em;
+}
+
+/* Checkbox row: Sub conditione and Doubtful event side-by-side */
+#clergyForm .ordination-entry__checkbox-row,
+#clergyForm .consecration-entry__checkbox-row {
+  display: flex;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+
+#clergyForm .ordination-entry__checkbox-row .form-field,
+#clergyForm .consecration-entry__checkbox-row .form-field {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+/* Co-consecrators row: list of bishop autocomplete + remove button */
+
+#clergyForm .consecration-entry__co-consecrators-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+#clergyForm .co-consecrators-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  margin-top: 0.25em;
+}
+
+#clergyForm .co-consecrator-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  align-items: flex-end;
+}
+
+#clergyForm .co-consecrator-item .bishop-autocomplete-field {
+  flex: 1 1 16em;
+  min-width: 0;
+}
+
+#clergyForm .co-consecrator-item .editor-button {
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+
+#clergyForm .ordination-entry > button,
+#clergyForm .consecration-entry > button {
+  align-self: flex-start;
+}
+
+#clergyForm .form-section > button {
+  margin-top: 0.5em;
+}
+
+/* Unknown-date blocks (ordinations / consecrations) */
+
+#clergyForm .ordination-date-block,
+#clergyForm .consecration-date-block {
+  display: flex;
+  flex-direction: column;
+}
+
+#clergyForm .ordination-date-block .date-input-wrapper,
+#clergyForm .consecration-date-block .date-input-wrapper,
+#clergyForm .ordination-date-block .date-unknown-wrapper,
+#clergyForm .consecration-date-block .date-unknown-wrapper {
+  width: 100%;
+}
+
+/* Default: precise date mode */
+#clergyForm .ordination-date-block .date-unknown-wrapper,
+#clergyForm .consecration-date-block .date-unknown-wrapper,
+#clergyForm .ordination-date-block .specify-date-link,
+#clergyForm .consecration-date-block .specify-date-link {
+  display: none;
+}
+
+/* Year-only unknown-date mode */
+#clergyForm .ordination-date-block.is-unknown-date .date-input-wrapper,
+#clergyForm .consecration-date-block.is-unknown-date .date-input-wrapper,
+#clergyForm .ordination-date-block.is-unknown-date .date-unknown-link,
+#clergyForm .consecration-date-block.is-unknown-date .date-unknown-link {
+  display: none;
+}
+
+#clergyForm .ordination-date-block.is-unknown-date .date-unknown-wrapper,
+#clergyForm .consecration-date-block.is-unknown-date .date-unknown-wrapper,
+#clergyForm .ordination-date-block.is-unknown-date .specify-date-link,
+#clergyForm .consecration-date-block.is-unknown-date .specify-date-link {
+  display: inline-block;
+}
+
+#clergyForm .date-unknown-link,
+#clergyForm .specify-date-link {
+  margin-top: 0.25em;
+  font-size: 0.9em;
+  color: #555;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#clergyForm .date-unknown-link:hover,
+#clergyForm .date-unknown-link:focus,
+#clergyForm .specify-date-link:hover,
+#clergyForm .specify-date-link:focus {
+  color: #000;
+}
+
+/* Search overlay (Cmd/Ctrl+F) */
+.search-overlay.search-overlay--hidden {
+  display: none;
+}
+
+.search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh 1.5em 1.5em;
+}
+
+.search-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.search-overlay-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.search-overlay-box {
+  width: 100%;
+  max-width: 26em; /* narrower than any single panel */
+  background: #fff;
+  border: 1px solid #000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.search-overlay-input {
+  padding: 1em;
+  border: none;
+  border-bottom: 1px solid #000;
+  font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.search-overlay-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.search-overlay-results {
+  max-height: 50vh;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.search-overlay-results::-webkit-scrollbar {
+  display: none;
+}
+
+.search-overlay-result-item {
+  margin: 0;
+  padding: 0.5em 1em;
+  border-bottom: 1px solid #ccc;
+  cursor: pointer;
+  color: #000;
+  text-decoration: none;
+  display: block;
+}
+
+.search-overlay-result-item:last-child {
+  border-bottom: 0;
+}
+
+.search-overlay-result-item:hover,
+.search-overlay-result-item:focus {
+  background: #f2f2f2;
+}
+
+.search-overlay-result-item.is-active {
+  background: #e0e0e0;
+}
+
+/* Photo crop overlay */
+.editor-photo-overlay.editor-photo-overlay--hidden {
+  display: none;
+}
+
+.editor-photo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4vh 1.5em;
+}
+
+.editor-photo-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.editor-photo-overlay-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 56em;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.editor-photo-overlay-box {
+  border: 1px solid #000;
+  background: #fff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#editorV2EditorImage {
+  display: block;
+  width: 100%;
+  max-height: 65vh;
+  border: 1px solid #ccc;
+  background: #fff;
+  object-fit: contain;
+}
+
+.editor-photo-overlay-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75em;
+  margin-top: 0.75em;
+}
+
+.editor-photo-overlay-button {
+  flex: 0 0 auto;
+  padding: 0.25em 0.75em;
+  font: inherit;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  cursor: pointer;
+}
+
+.editor-photo-overlay-button-reset {
+  border: none;
+  color: #555;
+  text-decoration: underline;
+}
+
+.editor-photo-overlay-button-cancel {
+  /* uses base black/white button styling */
+}
+
+.editor-photo-overlay-button-apply {
+  border-color: #005c1a;
+  color: #005c1a;
+}
+
+.editor-photo-overlay-button:hover,
+.editor-photo-overlay-button:focus {
+  text-decoration: underline;
+}

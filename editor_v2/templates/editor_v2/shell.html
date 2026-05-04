@@ -1,0 +1,46 @@
+{% extends "editor_v2/base.html" %}
+{% block title %}Editor v2{% endblock %}
+{% block content %}
+  <div class="editor-shell">
+    <div class="editor-panels-row">
+      <div id="editor-panel-left" class="editor-panel editor-panel-left"
+           hx-get="{{ url_for('editor_v2_bp.panel_left') }}"
+           hx-trigger="load"
+           hx-swap="innerHTML"></div>
+      <div id="editor-panel-center" class="editor-panel editor-panel-center"
+           hx-get="{{ url_for('editor_v2_bp.panel_center') }}"
+           hx-trigger="load"
+           hx-swap="innerHTML"></div>
+      <div id="editor-panel-right" class="editor-panel editor-panel-right"
+           hx-get="{{ url_for('editor_v2_bp.panel_right') }}"
+           hx-trigger="load"
+           hx-swap="innerHTML"></div>
+    </div>
+    <div class="editor-statusbar"
+         hx-get="{{ url_for('editor_v2_bp.panel_statusbar') }}"
+         hx-trigger="load"
+         hx-swap="innerHTML"></div>
+  </div>
+  <div id="search-overlay"
+       class="search-overlay search-overlay--hidden"
+       inert
+       x-data="{ searchOverlayOpen: false, query: '', suggestions: [] }"
+       x-on:editor-v2:searchOverlayOpened.window="searchOverlayOpen = true"
+       x-on:editor-v2:searchOverlayClosed.window="searchOverlayOpen = false"
+       x-on:editor-v2:searchResultsUpdated.window="suggestions = $event.detail && Array.isArray($event.detail.items) ? $event.detail.items : []">
+    <div class="search-overlay-backdrop"></div>
+    <div class="search-overlay-container">
+      <div class="search-overlay-box">
+        <input type="text"
+               id="search-overlay-input"
+               class="search-overlay-input"
+               placeholder="Search clergy..."
+               autocomplete="off"
+               x-model="query" />
+        <div id="search-overlay-results" class="search-overlay-results"></div>
+      </div>
+    </div>
+  </div>
+  {% include "editor_v2/snippets/photo_crop_overlay.html" %}
+  {% include "editor_v2/snippets/tag_management_overlay.html" %}
+{% endblock %}

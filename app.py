@@ -8,6 +8,7 @@ from routes.locations import locations_bp
 from routes.lineage_api import lineage_api_bp
 from routes.main_api import main_api_bp
 from routes.editor import editor_bp
+from routes.editor_v2 import editor_v2_bp
 from migrations import run_database_migration, initialize_roles_and_permissions
 import os
 from dotenv import load_dotenv
@@ -159,6 +160,7 @@ app.register_blueprint(locations_bp)
 app.register_blueprint(lineage_api_bp)
 app.register_blueprint(main_api_bp)
 app.register_blueprint(editor_bp)
+app.register_blueprint(editor_v2_bp)
 app.register_blueprint(wiki_bp)
 app.register_blueprint(comments_bp)
 

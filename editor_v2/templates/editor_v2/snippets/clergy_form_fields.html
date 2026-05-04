@@ -614,6 +614,34 @@
     <button type="button" id="addConsecrationBtn" class="editor-button editor-button--action">Add Consecration</button>
   </div>
 
+  <div class="form-section wiki-section">
+    <h5>Wiki</h5>
+    <div class="form-field">
+      <label>
+        <input
+          type="checkbox"
+          id="wiki_is_visible"
+          data-wiki-visibility-toggle="true"
+          checked>
+        Visible on wiki page
+      </label>
+    </div>
+    <div class="form-field">
+      <label for="wiki_markdown" class="form-label">Markdown</label>
+      <textarea
+        id="wiki_markdown"
+        rows="8"
+        data-wiki-markdown="true"
+        placeholder="Write wiki content in markdown..."></textarea>
+    </div>
+    <div class="form-field">
+      <p
+        class="wiki-save-status"
+        data-wiki-save-status="true"
+        hidden></p>
+    </div>
+  </div>
+
   {% if fields.statuses %}
   <div class="form-section">
     <h5>Status Indicators</h5>

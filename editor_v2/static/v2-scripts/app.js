@@ -167,6 +167,194 @@
         if (typeof document === 'undefined' || !document.body) {
             return;
         }
+        const interceptorInited = document.body.getAttribute('data-editor-v2-clergy-interceptor-inited') === 'true';
+        if (!interceptorInited) {
+            document.body.setAttribute('data-editor-v2-clergy-interceptor-inited', 'true');
+        }
+
+        function getWikiFieldRefs(form) {
+            if (!form || !form.querySelector) {
+                return null;
+            }
+            const markdown = form.querySelector('#wiki_markdown,[data-role="wiki-markdown"]');
+            const visibility = form.querySelector('#wiki_is_visible,[data-role="wiki-visible"]');
+            if (!markdown && !visibility) {
+                return null;
+            }
+            return {
+                markdown: markdown,
+                visibility: visibility
+            };
+        }
+
+        function parseClergyId(rawValue) {
+            const parsed = rawValue != null && rawValue !== ''
+                ? parseInt(rawValue, 10)
+                : NaN;
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function resolveClergyId(data, form) {
+            let clergyId = null;
+            if (data && data.clergy_id != null) {
+                clergyId = parseClergyId(data.clergy_id);
+            }
+            if (clergyId == null) {
+                const fromAttr = form.getAttribute('data-clergy-id');
+                const fromWindow = typeof window !== 'undefined' ? window.currentSelectedClergyId : null;
+                const fallback = fromAttr != null ? fromAttr : fromWindow;
+                clergyId = parseClergyId(fallback);
+            }
+            return clergyId;
+        }
+
+        function renderWikiStatus(form, kind, message) {
+            if (!form) {
+                return;
+            }
+            let statusEl = form.querySelector('[data-role="wiki-form-status"]');
+            if (!statusEl) {
+                statusEl = document.createElement('div');
+                statusEl.setAttribute('data-role', 'wiki-form-status');
+                statusEl.className = 'wiki-form-status';
+                const wikiFields = getWikiFieldRefs(form);
+                if (wikiFields && wikiFields.markdown && wikiFields.markdown.parentNode) {
+                    wikiFields.markdown.parentNode.insertBefore(statusEl, wikiFields.markdown.nextSibling);
+                } else {
+                    form.appendChild(statusEl);
+                }
+            }
+            statusEl.textContent = message;
+            statusEl.setAttribute('data-status', kind);
+        }
+
+        function loadWikiForClergy(clergyId) {
+            return fetch('/editor-v2/api/wiki/' + encodeURIComponent(clergyId), {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Failed to load wiki page.');
+                    }
+                    return response.json();
+                });
+        }
+
+        function collectWikiPayload(form, clergyId) {
+            const wikiFields = getWikiFieldRefs(form);
+            if (!wikiFields || clergyId == null) {
+                return null;
+            }
+            const content = wikiFields.markdown ? String(wikiFields.markdown.value || '') : '';
+            const isVisible = wikiFields.visibility ? !!wikiFields.visibility.checked : true;
+            return {
+                clergy_id: clergyId,
+                content: content,
+                is_visible: isVisible
+            };
+        }
+
+        function saveWikiPayload(payload) {
+            if (!payload) {
+                return Promise.resolve({
+                    success: true,
+                    message: ''
+                });
+            }
+            return fetch('/editor-v2/api/wiki/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+                .then(function (response) {
+                    return response.json()
+                        .then(function (body) {
+                            const success = !!(response.ok && body && body.success === true);
+                            return {
+                                success: success,
+                                message: body && typeof body.message === 'string'
+                                    ? body.message
+                                    : (success ? '' : 'Wiki failed to save.')
+                            };
+                        })
+                        .catch(function () {
+                            return {
+                                success: false,
+                                message: 'Wiki failed to save.'
+                            };
+                        });
+                })
+                .catch(function () {
+                    return {
+                        success: false,
+                        message: 'Wiki failed to save.'
+                    };
+                });
+        }
+
+        function initWikiSection(form) {
+            if (!form || form.getAttribute('data-editor-v2-wiki-inited') === 'true') {
+                return;
+            }
+            form.setAttribute('data-editor-v2-wiki-inited', 'true');
+
+            const wikiFields = getWikiFieldRefs(form);
+            if (!wikiFields) {
+                return;
+            }
+
+            const clergyId = parseClergyId(form.getAttribute('data-clergy-id'));
+            if (clergyId == null) {
+                if (wikiFields.markdown) {
+                    wikiFields.markdown.value = wikiFields.markdown.value || '';
+                }
+                if (wikiFields.visibility) {
+                    wikiFields.visibility.checked = true;
+                }
+                return;
+            }
+
+            loadWikiForClergy(clergyId)
+                .then(function (data) {
+                    const wikiPayload = data != null && typeof data === 'object' ? (data.wiki ?? data) : data;
+                    if (wikiFields.markdown) {
+                        wikiFields.markdown.value = wikiPayload && typeof wikiPayload.content === 'string'
+                            ? wikiPayload.content
+                            : '';
+                    }
+                    if (wikiFields.visibility) {
+                        wikiFields.visibility.checked = wikiPayload && typeof wikiPayload.is_visible === 'boolean'
+                            ? wikiPayload.is_visible
+                            : true;
+                    }
+                    renderWikiStatus(form, 'success', 'Wiki loaded.');
+                })
+                .catch(function () {
+                    if (wikiFields.markdown) {
+                        wikiFields.markdown.value = '';
+                    }
+                    if (wikiFields.visibility) {
+                        wikiFields.visibility.checked = true;
+                    }
+                    renderWikiStatus(form, 'error', 'Wiki failed to load. Saving clergy still works.');
+                });
+        }
+
+        function initWikiSectionFromDom() {
+            const form = document.getElementById('clergyForm');
+            if (!form || !form.matches('[data-editor-v2-clergy-form="true"]')) {
+                return;
+            }
+            initWikiSection(form);
+        }
 
         /**
          * Lightweight helper to render a status message at the top of the form.
@@ -189,16 +377,17 @@
             statusEl.setAttribute('data-status', kind);
         }
 
-        document.body.addEventListener('submit', function (event) {
-            const form = event.target;
-            if (!form || !(form instanceof HTMLFormElement)) {
-                return;
-            }
-            if (!form.matches('#clergyForm[data-editor-v2-clergy-form="true"]')) {
-                return;
-            }
+        if (!interceptorInited) {
+            document.body.addEventListener('submit', function (event) {
+                const form = event.target;
+                if (!form || !(form instanceof HTMLFormElement)) {
+                    return;
+                }
+                if (!form.matches('#clergyForm[data-editor-v2-clergy-form="true"]')) {
+                    return;
+                }
 
-            event.preventDefault();
+                event.preventDefault();
 
             // Prevent accidental double-submits.
             if (form.dataset.submitting === 'true') {
@@ -277,42 +466,52 @@
                         return;
                     }
 
-                    let clergyId = null;
-                    if (data && data.clergy_id != null) {
-                        clergyId = parseInt(data.clergy_id, 10);
-                    }
-                    if (!Number.isFinite(clergyId)) {
-                        const fromAttr = form.getAttribute('data-clergy-id');
-                        const fromWindow = typeof window !== 'undefined' ? window.currentSelectedClergyId : null;
-                        const fallback = fromAttr != null ? fromAttr : fromWindow;
-                        const parsedFallback = fallback != null ? parseInt(fallback, 10) : NaN;
-                        clergyId = Number.isFinite(parsedFallback) ? parsedFallback : null;
-                    }
+                    const clergyId = resolveClergyId(data, form);
 
                     if (clergyId != null) {
                         setCurrentClergyId(clergyId);
+                        form.setAttribute('data-clergy-id', String(clergyId));
                     }
 
-                    renderFormStatus(form, 'success', message);
+                    const finalizeSuccessUi = function (finalMessage) {
+                        renderFormStatus(form, 'success', finalMessage);
 
-                    if (typeof window !== 'undefined' && typeof window.htmx !== 'undefined' && typeof window.htmx.ajax === 'function') {
-                        if (clergyId != null) {
-                            window.htmx.ajax('GET', `/editor-v2/panel/center?clergy_id=${clergyId}`, {
-                                target: '#editor-panel-center',
+                        if (typeof window !== 'undefined' && typeof window.htmx !== 'undefined' && typeof window.htmx.ajax === 'function') {
+                            if (clergyId != null) {
+                                window.htmx.ajax('GET', `/editor-v2/panel/center?clergy_id=${clergyId}`, {
+                                    target: '#editor-panel-center',
+                                    swap: 'innerHTML'
+                                });
+                            }
+                            window.htmx.ajax('GET', '/editor-v2/panel/left', {
+                                target: '#editor-panel-left',
                                 swap: 'innerHTML'
                             });
                         }
-                        window.htmx.ajax('GET', '/editor-v2/panel/left', {
-                            target: '#editor-panel-left',
-                            swap: 'innerHTML'
-                        });
+
+                        if (typeof document !== 'undefined' && document.body && clergyId != null) {
+                            document.body.dispatchEvent(new CustomEvent('editor:validityChanged', {
+                                detail: { clergyId: clergyId }
+                            }));
+                        }
+                    };
+
+                    const wikiPayload = collectWikiPayload(form, clergyId);
+                    if (!wikiPayload) {
+                        finalizeSuccessUi(message);
+                        return;
                     }
 
-                    if (typeof document !== 'undefined' && document.body && clergyId != null) {
-                        document.body.dispatchEvent(new CustomEvent('editor:validityChanged', {
-                            detail: { clergyId: clergyId }
-                        }));
-                    }
+                    saveWikiPayload(wikiPayload)
+                        .then(function (wikiResult) {
+                            if (wikiResult.success) {
+                                renderWikiStatus(form, 'success', 'Wiki saved.');
+                                finalizeSuccessUi(message);
+                                return;
+                            }
+                            renderWikiStatus(form, 'error', wikiResult.message || 'Wiki failed to save.');
+                            finalizeSuccessUi(message + ' Wiki not saved.');
+                        });
                 })
                 .catch(function (error) {
                     if (typeof window !== 'undefined' && window.EDITOR_DEBUG && typeof console !== 'undefined' && console.error) {
@@ -323,7 +522,10 @@
                 .finally(function () {
                     form.dataset.submitting = 'false';
                 });
-        });
+            });
+        }
+
+        initWikiSectionFromDom();
     }
 
     /**
@@ -591,6 +793,7 @@
         const panelCenter = document.getElementById('editor-panel-center');
         const affectedCenter = panelCenter && (target === panelCenter || panelCenter.contains(target));
         if (affectedCenter) {
+            initClergyFormInterceptor();
             initUpdateDescendantsButtonLogic();
             if (typeof window !== 'undefined' &&
                 window.EDITOR_V2_FORM &&

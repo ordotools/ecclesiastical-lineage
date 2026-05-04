@@ -716,6 +716,50 @@ body {
   font-weight: 600;
 }
 
+/* Wiki section */
+#clergyForm .wiki-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+#clergyForm .wiki-section .wiki-visibility-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  width: fit-content;
+}
+
+#clergyForm .wiki-section .wiki-visibility-row .form-label {
+  margin: 0;
+}
+
+#clergyForm #wiki_markdown {
+  min-height: 8em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  line-height: 1.35;
+  border: 1px solid #000;
+  background: #fff;
+}
+
+#clergyForm .wiki-status {
+  margin: 0;
+  font-size: 0.9em;
+  color: #555;
+}
+
+#clergyForm .wiki-status--ok {
+  color: #1f4d1f;
+}
+
+#clergyForm .wiki-status--warning {
+  color: #7a5c00;
+}
+
+#clergyForm .wiki-status--error {
+  color: #8b0000;
+}
+
 #clergyForm #ordinationsContainer,
 #clergyForm #consecrationsContainer {
   display: flex;

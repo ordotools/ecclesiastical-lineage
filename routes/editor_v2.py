@@ -13,6 +13,7 @@ from models import (
     Ordination,
     Consecration,
     Tag,
+    WikiPage,
     co_consecrators,
     db,
 )
@@ -481,6 +482,17 @@ def _serialize_clergy_basic(clergy):
     }
 
 
+def _serialize_wiki_payload(clergy, page):
+    """Normalize clergy-linked wiki payload for Editor v2."""
+    return {
+        'exists': bool(page),
+        'clergy_id': clergy.id,
+        'content': (page.markdown if page and page.markdown is not None else ''),
+        'is_visible': bool(page.is_visible) if page else True,
+        'title': (page.title if page and page.title else clergy.name),
+    }
+
+
 # Lineage tree caps to avoid huge payloads
 MAX_LINEAGE_DEPTH = 10
 MAX_LINEAGE_NODES = 500
@@ -859,6 +871,75 @@ def panel_statusbar():
         db_status=db_status,
         env_label=env_label,
     )
+
+
+@editor_v2_bp.route('/api/wiki/<int:clergy_id>', methods=['GET'])
+@require_permission('edit_clergy')
+def api_wiki_get_for_clergy(clergy_id):
+    """JSON API: fetch clergy-linked wiki payload for Editor v2 form."""
+    clergy = Clergy.query.filter(
+        Clergy.id == clergy_id,
+        Clergy.is_deleted != True,  # noqa: E712
+    ).first()
+    if not clergy:
+        return jsonify({'success': False, 'message': 'Clergy not found.'}), 404
+
+    page = WikiPage.query.filter_by(clergy_id=clergy.id).first()
+    return jsonify({'success': True, 'wiki': _serialize_wiki_payload(clergy, page)})
+
+
+@editor_v2_bp.route('/api/wiki/save', methods=['POST'])
+@require_permission('edit_clergy')
+def api_wiki_save_for_clergy():
+    """JSON API: create/update clergy-linked wiki payload for Editor v2 form."""
+    payload = request.get_json(silent=True) or {}
+
+    clergy_id = payload.get('clergy_id')
+    try:
+        clergy_id = int(clergy_id)
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Invalid clergy_id.'}), 400
+
+    clergy = Clergy.query.filter(
+        Clergy.id == clergy_id,
+        Clergy.is_deleted != True,  # noqa: E712
+    ).first()
+    if not clergy:
+        return jsonify({'success': False, 'message': 'Clergy not found.'}), 404
+
+    content = payload.get('content')
+    if content is None:
+        content = ''
+    content = str(content)
+
+    is_visible_raw = payload.get('is_visible', True)
+    if isinstance(is_visible_raw, bool):
+        is_visible = is_visible_raw
+    else:
+        is_visible = str(is_visible_raw).strip().lower() in ('1', 'true', 'yes', 'on')
+
+    page = WikiPage.query.filter_by(clergy_id=clergy.id).first()
+    if page:
+        page.title = clergy.name
+        page.markdown = content
+        page.is_visible = is_visible
+        page.last_editor_id = session.get('user_id')
+        page.edit_count = (page.edit_count or 0) + 1
+        wiki_saved = 'updated'
+    else:
+        page = WikiPage(
+            title=clergy.name,
+            clergy_id=clergy.id,
+            markdown=content,
+            is_visible=is_visible,
+            edit_count=1,
+            last_editor_id=session.get('user_id'),
+        )
+        db.session.add(page)
+        wiki_saved = 'created'
+
+    db.session.commit()
+    return jsonify({'success': True, 'wiki_saved': wiki_saved, 'page_id': page.id})
 
 
 @editor_v2_bp.route('/clergy/add', methods=['POST'])

@@ -402,6 +402,14 @@ def _clergy_to_profile(clergy, clergy_id_to_wiki_slug):
         'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
         'rank': clergy.rank or '',
         'organization': clergy.organization or '',
+        'tags': [
+            {
+                'label': getattr(tag, 'label', None),
+                'color_hex': getattr(tag, 'color_hex', None),
+                'is_system': bool(getattr(tag, 'is_system', False)),
+            }
+            for tag in (getattr(clergy, 'tags', None) or [])
+        ],
         'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
         'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
         'ordinations': ords_data,
@@ -448,6 +456,7 @@ def get_clergy_profile(clergy_id):
         joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
         joinedload(Clergy.ordinations_performed).joinedload(Ordination.clergy),
         joinedload(Clergy.consecrations_performed).joinedload(Consecration.clergy),
+        joinedload(Clergy.tags),
     ).filter_by(id=clergy_id, is_deleted=False).first()
     if not clergy:
         return jsonify({'error': 'Not found'}), 404

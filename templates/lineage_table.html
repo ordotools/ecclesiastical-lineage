@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Episcopal Lineage & ClergyWiki{% endblock %}
+{% block title %}Episcopal Lineage{% endblock %}
 
 {% block extra_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-table.css') }}">
@@ -35,9 +35,9 @@
             role="listbox"
             aria-label="Search suggestions"
             aria-hidden="true"></div>
-        <div class="lineage-search-hint">
+        <!-- <div class="lineage-search-hint">
             Press Enter to open top result.
-        </div>
+        </div> -->
     </section>
 
     <section class="lineage-wiki-panel" aria-label="Clergy wiki content">
@@ -49,7 +49,7 @@
                         {{ wiki_html|safe }}
                         {% else %}
                         <div class="lineage-wiki-empty">
-                            <p>No wiki article is available for this clergy yet.</p>
+                            <p>No article available for this clergy yet.</p>
                             <button type="button" class="lineage-wiki-request-btn" disabled>
                                 Request article
                             </button>
@@ -64,7 +64,7 @@
                     {{ wiki_aside_html|safe }}
                     {% else %}
                     <div class="lineage-wiki-aside-placeholder">
-                        Search for a clergy member to begin.
+                        <!-- Search for a clergy member to begin. -->
                     </div>
                     {% endif %}
                 </aside>

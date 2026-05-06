@@ -159,6 +159,8 @@
 
         let activeClergyId = null;
         let activeClergyName = null;
+        let activeClergyProfile = null;
+        let activeWikiState = { kind: 'empty' };
 
         function openSelectedClergy(item) {
             if (!item) return;
@@ -309,14 +311,47 @@
             msgEl.textContent = formatRequestStatusMessage(fallbackDemand, undefined);
         }
 
-        function renderEmptyWiki() {
+        function renderHeadingAndTags() {
+            const headingName = (activeClergyProfile && activeClergyProfile.name) || activeClergyName || '';
+            if (!headingName) return '';
+
+            const tags = Array.isArray(activeClergyProfile?.tags) ? activeClergyProfile.tags : [];
+            const tagsHtml = tags.length
+                ? `<div class="lineage-wiki-heading-tags">${tags.map((tag) => {
+                    if (!tag || !tag.label) return '';
+                    const style = tag.color_hex ? ` style="--lineage-tag-color:${esc(tag.color_hex)}"` : '';
+                    const systemClass = tag.is_system ? ' lineage-wiki-tag-system' : '';
+                    return `<span class="lineage-wiki-tag${systemClass}"${style}>${esc(tag.label)}</span>`;
+                }).join('')}</div>`
+                : '';
+
+            return '' +
+                '<header class="lineage-wiki-heading-block">' +
+                `  <h1>${esc(headingName)}</h1>` +
+                `  ${tagsHtml}` +
+                '</header>';
+        }
+
+        function renderBodyFromState() {
+            const headingHtml = renderHeadingAndTags();
+            if (activeWikiState.kind === 'content') {
+                bodyEl.innerHTML = `${headingHtml}<div class="wiki-article fade-in">${activeWikiState.html}</div>`;
+                return;
+            }
+
             bodyEl.innerHTML = '' +
+                headingHtml +
                 '<div class="lineage-wiki-empty">' +
                 '  <p>No wiki article is available for this clergy yet.</p>' +
                 '  <button type="button" class="lineage-wiki-request-btn" disabled>Request article</button>' +
                 '  <div class="lineage-wiki-request-message" aria-live="polite"></div>' +
                 '</div>';
             wireRequestButton();
+        }
+
+        function renderEmptyWiki() {
+            activeWikiState = { kind: 'empty' };
+            renderBodyFromState();
         }
 
         function wireRequestButton() {
@@ -397,11 +432,13 @@
                 const renderer = window.wikiRenderer || (RendererCtor ? new RendererCtor() : null);
                 if (!renderer) {
                     // Fallback: plain preformatted block
-                    bodyEl.innerHTML = '<pre class="lineage-wiki-fallback">' + String(markdown || '') + '</pre>';
+                    activeWikiState = { kind: 'content', html: '<pre class="lineage-wiki-fallback">' + String(markdown || '') + '</pre>' };
+                    renderBodyFromState();
                     return;
                 }
                 const html = renderer.render(markdown, { pages: {} });
-                bodyEl.innerHTML = '<div class="wiki-article fade-in">' + html + '</div>';
+                activeWikiState = { kind: 'content', html };
+                renderBodyFromState();
             } catch (err) {
                 console.error('Failed to render wiki content', err);
                 renderEmptyWiki();
@@ -451,6 +488,8 @@
                 }
 
                 const data = await res.json();
+                activeClergyId = data && data.clergy_id ? String(data.clergy_id) : null;
+                activeClergyName = data && data.title ? String(data.title) : (target ? String(target) : null);
                 if (!data || !data.content) {
                     renderEmptyWiki();
                 } else {
@@ -498,22 +537,27 @@
 
         async function loadClergyAside(clergyId) {
             if (!clergyId) {
+                activeClergyProfile = null;
+                renderBodyFromState();
                 asideEl.innerHTML = '<div class="lineage-wiki-aside-placeholder">Wiki aside content will appear here.</div>';
                 return;
             }
             try {
                 const res = await fetch(`/api/wiki/clergy/${clergyId}/profile`);
                 if (!res.ok) {
+                    activeClergyProfile = null;
+                    renderBodyFromState();
                     asideEl.innerHTML = '<div class="lineage-wiki-aside-placeholder">Profile unavailable.</div>';
                     return;
                 }
                 const p = await res.json();
+                activeClergyProfile = p;
+                renderBodyFromState();
                 const yob = p.date_of_birth ? p.date_of_birth.split('-')[0] : null;
                 const yod = p.date_of_death ? p.date_of_death.split('-')[0] : null;
                 const datesStr = yob ? `b. ${yob} - ${yod ? 'd. ' + yod : 'present'}` : (yod ? 'd. ' + yod : '');
 
                 let html = `
-                    <div class="wiki-profile-name">${esc(p.name)}</div>
                     ${p.image_url ? `<img class="wiki-profile-image" src="${esc(p.image_url)}" alt="${esc(p.name)}" />` : ''}
                     ${(p.rank || p.organization) ? `<div class="wiki-profile-rank-org">${p.rank ? `<span class="wiki-profile-rank">${esc(p.rank)}</span>` : ''}${p.rank && p.organization ? ' · ' : ''}${p.organization ? `<span class="wiki-profile-org">${esc(p.organization)}</span>` : ''}</div>` : ''}
                     ${datesStr ? `<div class="wiki-profile-dates">${esc(datesStr)}</div>` : ''}
@@ -566,6 +610,8 @@
                 });
             } catch (err) {
                 console.error('Failed to fetch clergy profile', err);
+                activeClergyProfile = null;
+                renderBodyFromState();
                 asideEl.innerHTML = '<div class="lineage-wiki-aside-placeholder">Profile unavailable.</div>';
             }
         }

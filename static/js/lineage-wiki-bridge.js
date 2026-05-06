@@ -9,6 +9,7 @@
         const asideEl = document.getElementById('lineage-wiki-aside');
         const searchInput = document.getElementById('lineage-search-input');
         const suggestionsEl = document.getElementById('lineage-search-suggestions');
+        const searchShellEl = searchInput.closest('.lineage-search-shell') || suggestionsEl.closest('.lineage-search-shell');
         const backBtn = document.getElementById('lineage-back-to-menu-btn');
 
         if (!bodyEl || !asideEl || !searchInput || !suggestionsEl) return;
@@ -30,6 +31,11 @@
         let activeSuggestionIndex = -1;
         const suggestionLimit = 8;
 
+        function setSearchShellOpen(isOpen) {
+            if (!searchShellEl) return;
+            searchShellEl.classList.toggle('is-open', !!isOpen);
+        }
+
         function clearSuggestions() {
             currentSuggestions = [];
             activeSuggestionIndex = -1;
@@ -37,6 +43,7 @@
             suggestionsEl.setAttribute('aria-hidden', 'true');
             searchInput.setAttribute('aria-expanded', 'false');
             searchInput.removeAttribute('aria-activedescendant');
+            setSearchShellOpen(false);
         }
 
         function setActiveSuggestionIndex(index) {
@@ -77,6 +84,7 @@
             )).join('');
             suggestionsEl.setAttribute('aria-hidden', 'false');
             searchInput.setAttribute('aria-expanded', 'true');
+            setSearchShellOpen(true);
             setActiveSuggestionIndex(0);
         }
 
@@ -173,6 +181,7 @@
                 searchInput.value = clergyName;
             }
             clearSuggestions();
+            searchInput.blur();
             if (mobileQuery.matches) showContentView();
             loadClergyContext(clergyId, clergyName);
         }

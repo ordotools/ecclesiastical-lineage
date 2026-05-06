@@ -17,24 +17,26 @@
         {% endif %}
 
         <div class="lineage-search-wrap">
-            <input
-                type="search"
-                id="lineage-search-input"
-                class="lineage-search-input"
-                placeholder="Search clergy…"
-                aria-label="Search clergy"
-                role="combobox"
-                aria-autocomplete="list"
-                aria-controls="lineage-search-suggestions"
-                aria-expanded="false"
-                autocomplete="off">
+            <div class="lineage-search-shell">
+                <input
+                    type="search"
+                    id="lineage-search-input"
+                    class="lineage-search-input"
+                    placeholder="Search clergy…"
+                    aria-label="Search clergy"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-controls="lineage-search-suggestions"
+                    aria-expanded="false"
+                    autocomplete="off">
+                <div
+                    id="lineage-search-suggestions"
+                    class="lineage-search-suggestions"
+                    role="listbox"
+                    aria-label="Search suggestions"
+                    aria-hidden="true"></div>
+            </div>
         </div>
-        <div
-            id="lineage-search-suggestions"
-            class="lineage-search-suggestions"
-            role="listbox"
-            aria-label="Search suggestions"
-            aria-hidden="true"></div>
         <!-- <div class="lineage-search-hint">
             Press Enter to open top result.
         </div> -->

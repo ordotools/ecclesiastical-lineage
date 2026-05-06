@@ -49,27 +49,36 @@
 /* Search shell stays centered above content column */
 .lineage-search-wrap {
   width: 100%;
-  border: 1px solid #d9dde5;
-  border-radius: 999px;
-  background-color: #ffffff;
-  padding: 0.35rem;
-  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.06);
   position: relative;
-  z-index: 2;
+  z-index: 30;
+  height: var(--lineage-search-shell-height);
 }
 
-.lineage-search-hero:has(.lineage-search-suggestions:not(:empty)) .lineage-search-wrap {
+.lineage-search-shell {
+  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border: 1px solid #d9dde5;
   border-radius: var(--lineage-search-radius);
-  box-shadow: none;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.06);
+  overflow: hidden;
+}
+
+.lineage-search-shell.is-open {
+  box-shadow: 0 16px 34px rgba(17, 24, 39, 0.14);
 }
 
 .lineage-search-wrap .lineage-search-input {
   width: 100%;
   border: none;
+  border-radius: 12px;
   background: transparent;
   font-size: 1.06rem;
   line-height: 1.35;
-  padding: 0.7rem 1rem;
+  padding: 0.92rem 1rem;
   color: var(--lineage-text);
 }
 
@@ -87,17 +96,9 @@
   flex-direction: column;
   gap: 0;
   text-align: left;
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(var(--lineage-search-shell-height) - 1px);
-  border: 1px solid #d9dde5;
-  border-top: none;
-  border-bottom-left-radius: var(--lineage-search-radius);
-  border-bottom-right-radius: var(--lineage-search-radius);
+  position: static;
+  border-top: 1px solid #e5e7eb;
   background: #ffffff;
-  box-shadow: 0 16px 34px rgba(17, 24, 39, 0.14);
-  z-index: 60;
   max-height: min(46vh, 21rem);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -458,7 +459,7 @@
 
   .lineage-search-wrap .lineage-search-input {
     font-size: 1rem;
-    padding: 0.62rem 0.9rem;
+    padding: 0.78rem 0.9rem;
   }
 
   .lineage-wiki-panel {

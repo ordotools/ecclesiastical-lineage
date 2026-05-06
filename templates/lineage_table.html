@@ -47,11 +47,12 @@
             <div class="wiki-content-flex">
                 <div class="wiki-article fade-in">
                     <div id="lineage-wiki-body">
+                        {% set has_selected_clergy = request.args.get('clergy_id') or request.args.get('id') %}
                         {% if wiki_html %}
                         {{ wiki_html|safe }}
-                        {% else %}
+                        {% elif has_selected_clergy %}
                         <div class="lineage-wiki-empty">
-                            <p>No article available for this clergy yet.</p>
+                            <p>No article available.</p>
                             <button type="button" class="lineage-wiki-request-btn" disabled>
                                 Request article
                             </button>

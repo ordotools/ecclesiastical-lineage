@@ -272,19 +272,19 @@
 
             if (hasDemand && hasPosition) {
                 const timesLabel = demand === 1 ? 'time' : 'times';
-                return `This wiki page has been requested ${demand} ${timesLabel} and is ${formatOrdinal(queuePosition)} in the queue.`;
+                return `This article has been requested ${demand} ${timesLabel} and is ${formatOrdinal(queuePosition)} in the queue.`;
             }
 
             if (hasDemand) {
                 const timesLabel = demand === 1 ? 'time' : 'times';
-                return `This wiki page has been requested ${demand} ${timesLabel}.`;
+                return `This article has been requested ${demand} ${timesLabel}.`;
             }
 
             if (hasPosition) {
-                return `This wiki page is currently ${formatOrdinal(queuePosition)} in the request queue.`;
+                return `This article is currently ${formatOrdinal(queuePosition)} in the request queue.`;
             }
 
-            return 'You have requested this wiki page; status is temporarily unavailable.';
+            return 'You have requested this article; status is temporarily unavailable.';
         }
 
         async function populateRequestStatus(helper, clergyId, msgEl, options) {
@@ -351,7 +351,7 @@
             bodyEl.innerHTML = '' +
                 headingHtml +
                 '<div class="lineage-wiki-empty">' +
-                '  <p>No wiki article is available for this clergy yet.</p>' +
+                '  <p>No article available.</p>' +
                 '  <button type="button" class="lineage-wiki-request-btn" disabled>Request article</button>' +
                 '  <div class="lineage-wiki-request-message" aria-live="polite"></div>' +
                 '</div>';

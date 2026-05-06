@@ -191,6 +191,18 @@
   font-family: "Merriweather", Georgia, serif;
   font-size: 1.03rem;
   line-height: 1.82;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.lineage-wiki-panel #lineage-wiki-body table,
+.lineage-wiki-panel #lineage-wiki-body pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.lineage-wiki-panel #lineage-wiki-body pre {
+  display: block;
 }
 
 #lineage-wiki-body > *:first-child {
@@ -475,7 +487,9 @@
   .lineage-wiki-panel #lineage-wiki-aside {
     position: static;
     max-width: none;
-    padding-top: 0;
+    border-left: none;
+    border-top: 1px solid #e5e7eb;
+    padding: 1.25rem 0 0;
   }
 
   #lineage-wiki-body {

@@ -112,7 +112,7 @@
             const fns = await loadSearchFns();
             if (!fns) return null;
             try {
-                const res = await fetch('/editor/api/clergy-list');
+                const res = await fetch('/api/wiki/all-clergy');
                 if (!res.ok) return null;
                 const payload = await res.json();
                 const clergyList = Array.isArray(payload) ? payload : [];

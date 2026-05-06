@@ -85,7 +85,13 @@ def get_page(slug):
 def get_all_clergy():
     """Get all clergy for client-side fuzzy search."""
     # Return lightweight objects including name and rank
-    all_clergy = Clergy.query.with_entities(Clergy.id, Clergy.name, Clergy.rank, Clergy.organization).all()
+    all_clergy = (
+        Clergy.query
+        .filter(Clergy.is_deleted != True)  # noqa: E712
+        .order_by(Clergy.name)
+        .with_entities(Clergy.id, Clergy.name, Clergy.rank, Clergy.organization)
+        .all()
+    )
     
     return jsonify([{
         'id': c.id,

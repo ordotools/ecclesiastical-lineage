@@ -5,13 +5,13 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         const layout = document.querySelector('.lineage-wiki-layout');
-        const tableWrap = document.querySelector('.lineage-table-wrap');
         const bodyEl = document.getElementById('lineage-wiki-body');
         const asideEl = document.getElementById('lineage-wiki-aside');
         const searchInput = document.getElementById('lineage-search-input');
+        const suggestionsEl = document.getElementById('lineage-search-suggestions');
         const backBtn = document.getElementById('lineage-back-to-menu-btn');
 
-        if (!tableWrap || !bodyEl || !asideEl) return;
+        if (!bodyEl || !asideEl || !searchInput || !suggestionsEl) return;
 
         const mobileQuery = window.matchMedia('(max-width: 768px)');
         function showContentView() {
@@ -24,82 +24,203 @@
             backBtn.addEventListener('click', () => showMenuView());
         }
 
-        const tbody = tableWrap.querySelector('.lineage-table tbody');
-        const lineageRowList = [];
-        if (tbody) {
-            tbody.querySelectorAll('tr').forEach((tr) => {
-                const link = tr.querySelector('.lineage-menu-link');
-                if (!link) return;
-                lineageRowList.push({
-                    id: link.dataset.clergyId,
-                    name: (link.dataset.clergyName || link.textContent.trim()) || '—',
-                    element: tr
-                });
+        let v2SearchFns = null;
+        let clergyFuse = null;
+        let currentSuggestions = [];
+        let activeSuggestionIndex = -1;
+        const suggestionLimit = 8;
+
+        function clearSuggestions() {
+            currentSuggestions = [];
+            activeSuggestionIndex = -1;
+            suggestionsEl.innerHTML = '';
+            suggestionsEl.setAttribute('aria-hidden', 'true');
+            searchInput.setAttribute('aria-expanded', 'false');
+            searchInput.removeAttribute('aria-activedescendant');
+        }
+
+        function setActiveSuggestionIndex(index) {
+            if (!currentSuggestions.length) {
+                activeSuggestionIndex = -1;
+                searchInput.removeAttribute('aria-activedescendant');
+                return;
+            }
+
+            const maxIndex = currentSuggestions.length - 1;
+            const nextIndex = Math.max(0, Math.min(index, maxIndex));
+            activeSuggestionIndex = nextIndex;
+
+            const items = suggestionsEl.querySelectorAll('.lineage-search-suggestion-item');
+            items.forEach((itemEl, itemIndex) => {
+                const isActive = itemIndex === activeSuggestionIndex;
+                itemEl.classList.toggle('active', isActive);
+                itemEl.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                if (isActive) {
+                    searchInput.setAttribute('aria-activedescendant', itemEl.id);
+                    itemEl.scrollIntoView({ block: 'nearest' });
+                }
             });
         }
 
-        function applySearchFilter() {
+        function renderSuggestions(items) {
+            currentSuggestions = Array.isArray(items) ? items : [];
+            if (!currentSuggestions.length) {
+                clearSuggestions();
+                return;
+            }
+
+            suggestionsEl.innerHTML = currentSuggestions.map((item, index) => (
+                `<button type="button" id="lineage-search-suggestion-${index}" class="lineage-search-suggestion-item" role="option" aria-selected="false" data-index="${index}">` +
+                `<span class="lineage-search-suggestion-name">${esc(item.name || 'Unknown')}</span>` +
+                `<span class="lineage-search-suggestion-meta">${esc([item.rank, item.organization].filter(Boolean).join(' · '))}</span>` +
+                '</button>'
+            )).join('');
+            suggestionsEl.setAttribute('aria-hidden', 'false');
+            searchInput.setAttribute('aria-expanded', 'true');
+            setActiveSuggestionIndex(0);
+        }
+
+        async function loadSearchFns() {
+            if (v2SearchFns) return v2SearchFns;
+            try {
+                const mod = await import('/static/js/fuzzySearchV2.js');
+                if (
+                    mod &&
+                    typeof mod.createClergyFuseIndex === 'function' &&
+                    typeof mod.searchClergy === 'function'
+                ) {
+                    v2SearchFns = mod;
+                    return v2SearchFns;
+                }
+            } catch (err) {
+                console.error('Failed to load fuzzySearchV2.js', err);
+            }
+            v2SearchFns = null;
+            return null;
+        }
+
+        async function loadClergySearchIndex() {
+            if (clergyFuse) return clergyFuse;
+            const fns = await loadSearchFns();
+            if (!fns) return null;
+            try {
+                const res = await fetch('/editor/api/clergy-list');
+                if (!res.ok) return null;
+                const payload = await res.json();
+                const clergyList = Array.isArray(payload) ? payload : [];
+                const built = fns.createClergyFuseIndex(clergyList);
+                clergyFuse = built && built.fuse ? built.fuse : null;
+                return clergyFuse;
+            } catch (err) {
+                console.error('Failed to load clergy search list', err);
+                return null;
+            }
+        }
+
+        async function getSuggestions(query) {
+            const trimmed = String(query || '').trim();
+            if (!trimmed) return [];
+
+            const fns = await loadSearchFns();
+            if (fns) {
+                const fuse = await loadClergySearchIndex();
+                if (fuse) {
+                    return fns.searchClergy(fuse, trimmed, suggestionLimit) || [];
+                }
+            }
+
+            return [];
+        }
+
+        async function updateSuggestionsFromInput() {
             const query = searchInput.value.trim();
             if (!query) {
-                lineageRowList.forEach((r) => { r.element.style.display = ''; });
+                clearSuggestions();
                 return;
             }
-            if (typeof window.fuzzySearch !== 'function') {
-                lineageRowList.forEach((r) => { r.element.style.display = ''; });
-                return;
-            }
-            const results = window.fuzzySearch(lineageRowList, query, (r) => r.name);
-            const matchSet = new Set(results.map((x) => x.item));
-            lineageRowList.forEach((r) => {
-                r.element.style.display = matchSet.has(r) ? '' : 'none';
-            });
+            const suggestions = await getSuggestions(query);
+            renderSuggestions(suggestions);
         }
 
-        if (searchInput) {
-            searchInput.addEventListener('input', () => applySearchFilter());
-            searchInput.addEventListener('focus', () => {
-                if (searchInput.value.trim()) applySearchFilter();
-            });
-        }
+        searchInput.addEventListener('input', () => {
+            updateSuggestionsFromInput();
+        });
+        searchInput.addEventListener('focus', () => {
+            if (searchInput.value.trim()) updateSuggestionsFromInput();
+        });
 
         document.addEventListener('keydown', (e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
                 e.preventDefault();
-                if (searchInput) {
-                    searchInput.focus();
-                    searchInput.select();
-                }
+                searchInput.focus();
+                searchInput.select();
             }
         });
 
-        let activeRow = null;
         let activeClergyId = null;
         let activeClergyName = null;
 
-        tableWrap.addEventListener('click', (event) => {
-            const link = event.target.closest('.lineage-menu-link');
-            if (!link) return;
-            event.preventDefault();
-
-            const clergyId = link.dataset.clergyId;
-            const clergyName = link.dataset.clergyName || link.textContent.trim();
-
+        function openSelectedClergy(item) {
+            if (!item) return;
+            const clergyId = item.id ? String(item.id) : null;
+            const clergyName = item.name ? String(item.name) : null;
             if (!clergyId && !clergyName) return;
-
-            activeClergyId = clergyId || null;
-            activeClergyName = clergyName || null;
-
-            const row = link.closest('tr');
-            if (activeRow && activeRow !== row) {
-                activeRow.classList.remove('lineage-row-active');
+            activeClergyId = clergyId;
+            activeClergyName = clergyName;
+            if (clergyName) {
+                searchInput.value = clergyName;
             }
-            if (row) {
-                row.classList.add('lineage-row-active');
-                activeRow = row;
-            }
-
+            clearSuggestions();
             if (mobileQuery.matches) showContentView();
             loadClergyContext(clergyId, clergyName);
+        }
+
+        searchInput.addEventListener('keydown', async (event) => {
+            if (event.key === 'Escape') {
+                clearSuggestions();
+                return;
+            }
+
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                if (!currentSuggestions.length) {
+                    const suggestions = await getSuggestions(searchInput.value);
+                    renderSuggestions(suggestions);
+                    return;
+                }
+                const nextIndex = event.key === 'ArrowDown'
+                    ? (activeSuggestionIndex + 1) % currentSuggestions.length
+                    : activeSuggestionIndex <= 0
+                    ? currentSuggestions.length - 1
+                    : activeSuggestionIndex - 1;
+                setActiveSuggestionIndex(nextIndex);
+                return;
+            }
+
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            if (!currentSuggestions.length) {
+                const suggestions = await getSuggestions(searchInput.value);
+                if (suggestions.length) {
+                    openSelectedClergy(suggestions[0]);
+                }
+                return;
+            }
+            const selectedIndex = activeSuggestionIndex >= 0 ? activeSuggestionIndex : 0;
+            openSelectedClergy(currentSuggestions[selectedIndex]);
+        });
+
+        suggestionsEl.addEventListener('click', (event) => {
+            const btn = event.target.closest('.lineage-search-suggestion-item');
+            if (!btn) return;
+            const index = Number(btn.getAttribute('data-index'));
+            if (!Number.isInteger(index) || index < 0 || index >= currentSuggestions.length) return;
+            openSelectedClergy(currentSuggestions[index]);
+        });
+
+        document.addEventListener('click', (event) => {
+            if (event.target === searchInput || suggestionsEl.contains(event.target)) return;
+            clearSuggestions();
         });
 
         // Intercept wiki internal links within the embedded wiki body so navigation

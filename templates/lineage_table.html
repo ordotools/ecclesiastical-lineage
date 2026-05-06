@@ -11,66 +11,36 @@
 
 {% block full_content %}
 <div class="lineage-wiki-layout">
-    <section class="lineage-menu-panel" aria-label="Lineage menu">
+    <section class="lineage-search-hero" aria-label="Search clergy">
         {% if error_message %}
         <div class="lineage-error" role="alert">{{ error_message }}</div>
         {% endif %}
 
         <div class="lineage-search-wrap">
-            <input type="search" id="lineage-search-input" class="lineage-search-input" placeholder="Search lineage…" aria-label="Search lineage table">
+            <input
+                type="search"
+                id="lineage-search-input"
+                class="lineage-search-input"
+                placeholder="Search clergy…"
+                aria-label="Search clergy"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-controls="lineage-search-suggestions"
+                aria-expanded="false"
+                autocomplete="off">
         </div>
-
-        <div class="lineage-table-wrap">
-            <table class="lineage-table">
-                <tbody>
-                    {% for row in rows %}
-                    {% if row.is_lineage_root %}
-                    <tr class="lineage-root-summary-row">
-                        <td class="lineage-root-summary-cell" style="--depth: {{ row.depth }};">
-                            <span class="lineage-root-summary">{{ row.consecrations_performed_count or 0 }} consecration{{ 's' if (row.consecrations_performed_count or 0) != 1 else '' }}, {{ row.ordinations_performed_count or 0 }} ordination{{ 's' if (row.ordinations_performed_count or 0) != 1 else '' }}</span>
-                        </td>
-                    </tr>
-                    {% endif %}
-                    <tr class="lineage-row{% if row.is_lineage_root %} lineage-row-root{% endif %}">
-                        <td class="name-cell" style="--depth: {{ row.depth }};">
-                            <span class="name-cell-inner">
-                                <span class="tree-glyph-strip" aria-hidden="true">
-                                    {# continuation lines at ancestor depths #}
-                                    {% for level in range(row.depth) %}
-                                        {% if row.guides[level] %}
-                                            <span class="tree-glyph tree-glyph-vert"></span>
-                                        {% else %}
-                                            <span class="tree-glyph tree-glyph-spacer"></span>
-                                        {% endif %}
-                                    {% endfor %}
-
-                                    {# connector at current depth (no glyph for root) #}
-                                    {% if row.flow == 'sibling' %}
-                                        <span class="tree-glyph tree-glyph-branch"></span>
-                                    {% elif row.flow != 'root' %}
-                                        <span class="tree-glyph tree-glyph-branch-last"></span>
-                                    {% endif %}
-                                </span>
-                                {% if row.event_type == 'ordination' %}<span class="event-marker"><strong>O</strong></span>{% endif %}{% if row.event_type == 'consecration' %}<span class="event-marker"><strong>C</strong></span>{% endif %}{% if row.event_type == 'ordination_and_consecration' %}<span class="event-marker"><strong>OC</strong></span>{% endif %}
-                                <a href="#" class="lineage-menu-link"
-                                   data-clergy-id="{{ row.id }}" data-clergy-name="{{ row.name }}">{{ row.name or '—' }}</a>
-                            </span>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" class="lineage-table-empty">No clergy in lineage.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div
+            id="lineage-search-suggestions"
+            class="lineage-search-suggestions"
+            role="listbox"
+            aria-label="Search suggestions"
+            aria-hidden="true"></div>
+        <div class="lineage-search-hint">
+            Press Enter to open top result.
         </div>
     </section>
 
     <section class="lineage-wiki-panel" aria-label="Clergy wiki content">
-        <button type="button" id="lineage-back-to-menu-btn" class="lineage-back-to-menu-btn" aria-label="Back to lineage menu" title="Back to menu">
-            <i class="fas fa-list"></i>
-        </button>
         <div class="wiki-content-area">
             <div class="wiki-content-flex">
                 <div class="wiki-article fade-in">
@@ -94,7 +64,7 @@
                     {{ wiki_aside_html|safe }}
                     {% else %}
                     <div class="lineage-wiki-aside-placeholder">
-                        Choose a name from the menu...
+                        Search for a clergy member to begin.
                     </div>
                     {% endif %}
                 </aside>

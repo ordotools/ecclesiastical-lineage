@@ -175,69 +175,102 @@ def _get_system_tag(name):
     return tag
 
 
+def _chronological_sort_key(record):
+    """
+    Ascending sort key for latest-wins tag logic.
+    Known dates/years sort by date; details_unknown (no date/year) and fully
+    unknown events sort earliest so dated events can win as latest.
+    """
+    t, known = _event_sort_key(record)
+    if not known or t is None:
+        return (0, date.min)
+    return (1, t)
+
+
+def compute_system_tag_names_for_clergy(clergy):
+    """
+    Compute validity-related system tag *names* for a clergy member (no DB).
+
+    Latest-wins semantics (tag rules; distinct from lineage cascade Rule 7):
+      - Priest tags from the chronologically last ordination only.
+      - Bishop tags from the chronologically last consecration only.
+      - If latest ord is invalid/doubtful and a consecration follows it,
+        also add the matching invalid_bishop / doubtful_bishop tag (Rule 3:
+        cannot validly receive consecration without a valid prior ordination).
+      - Latest consecration counts as valid for tags only if a valid-like
+        ordination exists strictly before it (Rule 3 gate). Invalid/doubtful
+        on the latest consecration still apply as bishop tags regardless of gate.
+      - 'valid' when latest ord is valid-like AND (no consecrations OR gated
+        latest cons is valid-like).
+    """
+    if clergy is None:
+        return set()
+
+    ordinations = list(getattr(clergy, 'ordinations', []) or [])
+    consecrations = list(getattr(clergy, 'consecrations', []) or [])
+
+    names = set()
+
+    ords_sorted = sorted(ordinations, key=_chronological_sort_key)
+    has_valid_ordination = False
+    if ords_sorted:
+        last_ord = ords_sorted[-1]
+        last_ord_status = _get_effective_status(last_ord)
+        last_ord_key = _event_sort_key(last_ord)
+        has_subsequent_cons = any(
+            _strictly_before(last_ord_key, _event_sort_key(c))
+            for c in consecrations
+        )
+        if last_ord_status == 'invalid':
+            names.add('invalid_priest')
+            if has_subsequent_cons:
+                names.add('invalid_bishop')
+        elif last_ord_status in ('doubtfully_valid', 'doubtful_event'):
+            names.add('doubtful_priest')
+            if has_subsequent_cons:
+                names.add('doubtful_bishop')
+        has_valid_ordination = last_ord_status in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS
+
+    cons_sorted = sorted(consecrations, key=_chronological_sort_key)
+    if not cons_sorted:
+        has_valid_consecration = True
+    else:
+        latest_cons = cons_sorted[-1]
+        last_cons_status = _get_effective_status(latest_cons)
+        cons_key = _event_sort_key(latest_cons)
+        gate = any(
+            _get_effective_status(o) in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS
+            and _strictly_before(_event_sort_key(o), cons_key)
+            for o in ordinations
+        )
+        if last_cons_status == 'invalid':
+            names.add('invalid_bishop')
+        elif last_cons_status in ('doubtfully_valid', 'doubtful_event'):
+            names.add('doubtful_bishop')
+        has_valid_consecration = (
+            gate and last_cons_status in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS
+        )
+
+    if has_valid_ordination and has_valid_consecration:
+        names.add('valid')
+
+    return names
+
+
 def compute_system_tags_for_clergy(clergy):
     """
     Compute the set of validity-related system Tag objects for a clergy member.
 
-    New semantics (see plan "Refine Tag System"):
-      - 'invalid_priest'   → at least one ordination with effective status 'invalid'
-      - 'doubtful_priest'  → at least one ordination with effective status in
-                             {'doubtfully_valid', 'doubtful_event'}
-      - 'invalid_bishop'   → at least one consecration with effective status 'invalid'
-      - 'doubtful_bishop'  → at least one consecration with effective status in
-                             {'doubtfully_valid', 'doubtful_event'}
-      - 'valid'            → at least one ordination with effective status in
-                             EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS and
-                             (no consecrations OR at least one consecration with
-                             effective status in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS)
+    See compute_system_tag_names_for_clergy for latest-wins + consecration-gate
+    semantics. Resolves names to Tag rows via _get_system_tag.
     """
-    if clergy is None:
-        return []
-
-    ordinations = getattr(clergy, 'ordinations', []) or []
-    consecrations = getattr(clergy, 'consecrations', []) or []
-
-    ord_statuses = [_get_effective_status(o) for o in ordinations]
-    cons_statuses = [_get_effective_status(c) for c in consecrations]
-
-    tags = set()
-
-    # Priest validity tags (from ordinations).
-    if any(s == 'invalid' for s in ord_statuses):
-        tag = _get_system_tag('invalid_priest')
+    names = compute_system_tag_names_for_clergy(clergy)
+    tags = []
+    for name in names:
+        tag = _get_system_tag(name)
         if tag:
-            tags.add(tag)
-
-    if any(s in ('doubtfully_valid', 'doubtful_event') for s in ord_statuses):
-        tag = _get_system_tag('doubtful_priest')
-        if tag:
-            tags.add(tag)
-
-    # Bishop validity tags (from consecrations).
-    if cons_statuses:
-        if any(s == 'invalid' for s in cons_statuses):
-            tag = _get_system_tag('invalid_bishop')
-            if tag:
-                tags.add(tag)
-        if any(s in ('doubtfully_valid', 'doubtful_event') for s in cons_statuses):
-            tag = _get_system_tag('doubtful_bishop')
-            if tag:
-                tags.add(tag)
-
-    # Overall "Valid" tag per new definition.
-    has_valid_ordination = any(
-        s in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS for s in ord_statuses
-    )
-    has_valid_consecration = (
-        not cons_statuses
-        or any(s in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS for s in cons_statuses)
-    )
-    if has_valid_ordination and has_valid_consecration:
-        tag = _get_system_tag('valid')
-        if tag:
-            tags.add(tag)
-
-    return list(tags)
+            tags.append(tag)
+    return tags
 
 
 def merge_user_and_system_tags(clergy, system_tags):

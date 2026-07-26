@@ -414,7 +414,10 @@ def create_ordinations_from_form(clergy, form):
                 db.session.flush()
                 ordination.ordaining_bishop_id = new_bishop.id
         
-        db.session.add(ordination)
+        # Append to the relationship so in-memory clergy.ordinations stays
+        # current for tag computation in the same request (bulk delete above
+        # does not refresh the collection by itself).
+        clergy.ordinations.append(ordination)
 
 def create_consecrations_from_form(clergy, form):
     """Create consecration records from form data"""
@@ -503,7 +506,9 @@ def create_consecrations_from_form(clergy, form):
                 db.session.flush()
                 consecration.consecrator_id = new_bishop.id
         
-        db.session.add(consecration)
+        # Append to the relationship so in-memory clergy.consecrations stays
+        # current for tag computation in the same request.
+        clergy.consecrations.append(consecration)
         db.session.flush()  # Get the ID for co-consecrators
         
         # Handle co-consecrators
@@ -530,9 +535,11 @@ def create_consecrations_from_form(clergy, form):
 
 def update_ordinations_from_form(clergy, form):
     """Update ordination records from form data (for editing)"""
-    # Clear existing ordinations
-    Ordination.query.filter_by(clergy_id=clergy.id).delete()
-    
+    # Clear existing ordinations (DB + in-memory collection). Bulk delete alone
+    # leaves clergy.ordinations stale, so tag compute would use pre-edit rows.
+    Ordination.query.filter_by(clergy_id=clergy.id).delete(synchronize_session='fetch')
+    clergy.ordinations.clear()
+
     # Create new ordinations from form data
     create_ordinations_from_form(clergy, form)
 
@@ -543,7 +550,8 @@ def update_consecrations_from_form(clergy, form):
     for consecration in existing_consecrations:
         consecration.co_consecrators.clear()
         db.session.delete(consecration)
-    
+    clergy.consecrations.clear()
+
     # Create new consecrations from form data
     create_consecrations_from_form(clergy, form)
 

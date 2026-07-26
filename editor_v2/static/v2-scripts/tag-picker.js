@@ -292,6 +292,7 @@
     }
     const opts = options || {};
     const append = !!opts.append;
+    const replaceSystem = !!opts.replaceSystem;
     const lowerRequested = new Set(
       names
         .filter((n) => typeof n === 'string')
@@ -301,6 +302,12 @@
 
     if (!append) {
       TAG_PICKER_STATE.selectedIds.clear();
+    } else if (replaceSystem) {
+      TAG_PICKER_STATE.tags.forEach((tag) => {
+        if (tag && tag.is_system && tag.id != null) {
+          TAG_PICKER_STATE.selectedIds.delete(tag.id);
+        }
+      });
     }
 
     TAG_PICKER_STATE.tags.forEach((tag) => {

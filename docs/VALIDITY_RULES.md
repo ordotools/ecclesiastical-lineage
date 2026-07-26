@@ -134,3 +134,21 @@ Current code: `canValidlyOrdain` = has valid ordination in range; `canValidlyCon
 | [models.py](../models.py)                                                         | was_bishop_on(date), get_primary_ordination/consecration                                                                                        |
 
 
+---
+
+## System tags vs lineage cascade
+
+**Lineage cascade** (Rules 1–8, Tables B–C) asks whether a bishop can give orders *at a date*, using any prior valid-like ordination/consecration.
+
+**System tags** (`invalid_priest`, `invalid_bishop`, `doubtful_*`, `valid`) summarize a clergy member’s *current* standing for the tag picker. They use **latest-wins**:
+
+| Tag driver | Rule |
+| ---------- | ---- |
+| Priest tags | Chronologically **last ordination** only |
+| Bishop tags | Chronologically **last consecration** only; **also** when latest ord is invalid/doubtful and a consecration follows it (Rule 3 — invalid/doubtful priesthood → matching bishop tag) |
+| Valid-like consecration for tags | Counts only if a valid-like ordination exists **strictly before** that consecration (Rule 3 gate). Raw invalid/doubtful on the latest consecration still apply as bishop tags |
+| Overall `valid` | Latest ord valid-like **and** (no consecrations **or** gated latest cons valid-like) |
+
+Implementation: `services/validation_cascade.compute_system_tag_names_for_clergy` and `editor_v2/static/v2-scripts/auto-tags-from-validity.js`.
+
+

@@ -2,7 +2,8 @@
  * Auto-tags from validity for Editor v2.
  *
  * Keeps the **tag picker selection** in sync with validity-related fields on the
- * clergy form.
+ * clergy form. Latest-wins: priest tags from last ordination; bishop/Valid from
+ * last consecration only when a valid-like ordination precedes it (Rule 3 gate).
  *
  * Depends on:
  * - window.EditorV2Validity (from validity-rules.js)
@@ -21,7 +22,13 @@
         'input[name^="ordinations["][name*="is_sub_conditione"]',
         'input[name^="ordinations["][name*="is_doubtful_event"]',
         'input[name^="consecrations["][name*="is_sub_conditione"]',
-        'input[name^="consecrations["][name*="is_doubtful_event"]'
+        'input[name^="consecrations["][name*="is_doubtful_event"]',
+        'input[name^="ordinations["][name$="[date]"]',
+        'input[name^="ordinations["][name$="[year]"]',
+        'input[name^="ordinations["][name*="details_unknown"]',
+        'input[name^="consecrations["][name$="[date]"]',
+        'input[name^="consecrations["][name$="[year]"]',
+        'input[name^="consecrations["][name*="details_unknown"]'
     ].join(', ');
 
     const TAG_ORDER = [
@@ -32,6 +39,9 @@
         'valid'
     ];
 
+    const VALID_LIKE = ['valid', 'sub_conditione'];
+    const DOUBTFUL_LIKE = ['doubtfully_valid', 'doubtful_event'];
+
     function toArray(value) {
         if (!value) {
             return [];
@@ -40,15 +50,90 @@
     }
 
     /**
+     * Sort key matching backend _event_sort_key / _chronological_sort_key.
+     * Returns { t: number|null, known: boolean } then chronological key for sort.
+     */
+    function eventSortKeyFromEntry(entry) {
+        if (!entry) {
+            return { chrono: [0, Number.NEGATIVE_INFINITY], t: null, known: false };
+        }
+        const dateEl = entry.querySelector('input[type="date"][name$="[date]"]');
+        const yearEl = entry.querySelector('input[name$="[year]"]');
+        const detailsEl = entry.querySelector('input[type="checkbox"][name*="[details_unknown]"]');
+
+        const dateVal = dateEl && (dateEl.value || '').trim();
+        if (dateVal) {
+            const t = new Date(dateVal).getTime();
+            if (Number.isFinite(t)) {
+                return { chrono: [1, t], t: t, known: true };
+            }
+        }
+
+        const yearRaw = yearEl && (yearEl.value || '').trim();
+        if (yearRaw) {
+            const y = parseInt(yearRaw, 10);
+            if (Number.isFinite(y)) {
+                const t = new Date(y, 0, 1).getTime();
+                return { chrono: [1, t], t: t, known: true };
+            }
+        }
+
+        if (detailsEl && detailsEl.checked) {
+            return { chrono: [0, Number.NEGATIVE_INFINITY], t: Number.NEGATIVE_INFINITY, known: true };
+        }
+
+        return { chrono: [0, Number.NEGATIVE_INFINITY], t: null, known: false };
+    }
+
+    function strictlyBefore(ordKey, consKey) {
+        if (!consKey.known) {
+            return true;
+        }
+        if (!ordKey.known || ordKey.t == null) {
+            return false;
+        }
+        return ordKey.t < consKey.t;
+    }
+
+    function collectEvents(form, entrySelector, type) {
+        const validityApi = window.EditorV2Validity;
+        const events = [];
+        toArray(form.querySelectorAll(entrySelector)).forEach(entry => {
+            const selectEl = entry.querySelector('select[name$="[validity]"]');
+            if (!selectEl) {
+                return;
+            }
+            const subCondEl = entry.querySelector('input[type="checkbox"][name*="[is_sub_conditione]"]');
+            const doubtEvtEl = entry.querySelector('input[type="checkbox"][name*="[is_doubtful_event]"]');
+            const record = {
+                validity: (selectEl.value || '').trim() || null,
+                is_sub_conditione: !!(subCondEl && subCondEl.checked),
+                is_doubtful_event: !!(doubtEvtEl && doubtEvtEl.checked)
+            };
+            const status = validityApi.getEffectiveStatus(record);
+            if (!status) {
+                return;
+            }
+            const sortKey = eventSortKeyFromEntry(entry);
+            events.push({ type, status, sortKey });
+        });
+        events.sort((a, b) => {
+            if (a.sortKey.chrono[0] !== b.sortKey.chrono[0]) {
+                return a.sortKey.chrono[0] - b.sortKey.chrono[0];
+            }
+            return a.sortKey.chrono[1] - b.sortKey.chrono[1];
+        });
+        return events;
+    }
+
+    /**
      * Computes the list of **system tag names** that should be applied based on
      * the ordinations / consecrations validity fields on the form.
      *
-     * Returns an array of strings drawn from TAG_ORDER:
-     *   - 'invalid_priest'
-     *   - 'invalid_bishop'
-     *   - 'doubtful_priest'
-     *   - 'doubtful_bishop'
-     *   - 'valid'
+     * Latest-wins (mirrors services/validation_cascade.compute_system_tag_names_for_clergy):
+     *   - priest tags from chronologically last ordination
+     *   - bishop tags from chronologically last consecration
+     *   - valid-like consecration counts only with prior valid-like ordination
      */
     function computeTagsFromForm(form) {
         const validityApi = window.EditorV2Validity;
@@ -56,73 +141,59 @@
             return [];
         }
 
-        const ordValidity = toArray(form.querySelectorAll('select[name^="ordinations["][name$="[validity]"]'));
-        const ordSubCond = toArray(form.querySelectorAll('input[name^="ordinations["][name*="is_sub_conditione"]'));
-        const ordDoubtEvt = toArray(form.querySelectorAll('input[name^="ordinations["][name*="is_doubtful_event"]'));
+        const ords = collectEvents(form, '.ordination-entry', 'ordination');
+        const cons = collectEvents(form, '.consecration-entry', 'consecration');
 
-        const consValidity = toArray(form.querySelectorAll('select[name^="consecrations["][name$="[validity]"]'));
-        const consSubCond = toArray(form.querySelectorAll('input[name^="consecrations["][name*="is_sub_conditione"]'));
-        const consDoubtEvt = toArray(form.querySelectorAll('input[name^="consecrations["][name*="is_doubtful_event"]'));
-
-        const collectStatuses = (validityNodes, subCondNodes, doubtEvtNodes) => {
-            const statuses = [];
-            validityNodes.forEach((selectEl, index) => {
-                if (!selectEl) {
-                    return;
-                }
-                const validityValue = (selectEl.value || '').trim() || null;
-                const subCondEl = subCondNodes[index];
-                const doubtEvtEl = doubtEvtNodes[index];
-
-                const record = {
-                    validity: validityValue,
-                    is_sub_conditione: !!(subCondEl && subCondEl.checked),
-                    is_doubtful_event: !!(doubtEvtEl && doubtEvtEl.checked)
-                };
-
-                const status = validityApi.getEffectiveStatus(record);
-                if (status) {
-                    statuses.push(status);
-                }
-            });
-            return statuses;
-        };
-
-        const ordStatuses = collectStatuses(ordValidity, ordSubCond, ordDoubtEvt);
-        const consStatuses = collectStatuses(consValidity, consSubCond, consDoubtEvt);
-
-        if (ordStatuses.length === 0 && consStatuses.length === 0) {
+        if (ords.length === 0 && cons.length === 0) {
             return [];
         }
 
-        const hasOrdInvalid = ordStatuses.some(s => s === 'invalid');
-        const hasOrdDoubtful = ordStatuses.some(s => s === 'doubtfully_valid' || s === 'doubtful_event');
-        const hasOrdValidLike = ordStatuses.some(s => s === 'valid' || s === 'sub_conditione');
-
-        const hasConsInvalid = consStatuses.some(s => s === 'invalid');
-        const hasConsDoubtful = consStatuses.some(s => s === 'doubtfully_valid' || s === 'doubtful_event');
-        const hasConsValidLike = consStatuses.some(s => s === 'valid' || s === 'sub_conditione');
-
         const tags = [];
 
-        if (hasOrdInvalid) {
-            tags.push('invalid_priest');
-        }
-        if (consStatuses.length > 0 && hasConsInvalid) {
-            tags.push('invalid_bishop');
-        }
-        if (hasOrdDoubtful) {
-            tags.push('doubtful_priest');
-        }
-        if (consStatuses.length > 0 && hasConsDoubtful) {
-            tags.push('doubtful_bishop');
+        let hasValidOrdination = false;
+        if (ords.length > 0) {
+            const lastOrd = ords[ords.length - 1];
+            const lastOrdStatus = lastOrd.status;
+            const hasSubsequentCons = cons.some(c =>
+                strictlyBefore(lastOrd.sortKey, c.sortKey)
+            );
+            if (lastOrdStatus === 'invalid') {
+                tags.push('invalid_priest');
+                if (hasSubsequentCons) {
+                    tags.push('invalid_bishop');
+                }
+            } else if (DOUBTFUL_LIKE.indexOf(lastOrdStatus) !== -1) {
+                tags.push('doubtful_priest');
+                if (hasSubsequentCons) {
+                    tags.push('doubtful_bishop');
+                }
+            }
+            hasValidOrdination = VALID_LIKE.indexOf(lastOrdStatus) !== -1;
         }
 
-        const hasValid =
-            hasOrdValidLike &&
-            (consStatuses.length === 0 || hasConsValidLike);
+        let hasValidConsecration = true;
+        if (cons.length > 0) {
+            const latestCons = cons[cons.length - 1];
+            const lastConsStatus = latestCons.status;
+            const consKey = latestCons.sortKey;
+            const gate = ords.some(o =>
+                VALID_LIKE.indexOf(o.status) !== -1 && strictlyBefore(o.sortKey, consKey)
+            );
 
-        if (hasValid) {
+            if (lastConsStatus === 'invalid') {
+                if (tags.indexOf('invalid_bishop') === -1) {
+                    tags.push('invalid_bishop');
+                }
+            } else if (DOUBTFUL_LIKE.indexOf(lastConsStatus) !== -1) {
+                if (tags.indexOf('doubtful_bishop') === -1) {
+                    tags.push('doubtful_bishop');
+                }
+            }
+
+            hasValidConsecration = gate && VALID_LIKE.indexOf(lastConsStatus) !== -1;
+        }
+
+        if (hasValidOrdination && hasValidConsecration) {
             tags.push('valid');
         }
 
@@ -153,18 +224,13 @@
         }
 
         const computedTags = computeTagsFromForm(form);
-        if (!computedTags || computedTags.length === 0) {
-            return;
-        }
-
-        // Merge validity-based **system tags** into whatever the user has
-        // already selected. This keeps user-chosen tags while force-selecting
-        // the system ones whenever the validity state requires them.
-        //
-        // tag-picker.js implements setSelectedByNames using both tag.label and
-        // tag.name so we can safely pass the system tag names here.
+        // Always sync system tags (including clearing when none apply) so
+        // tags_selected matches validity on first save.
         try {
-            tagApi.setSelectedByNames(computedTags, { append: true });
+            tagApi.setSelectedByNames(computedTags || [], {
+                append: true,
+                replaceSystem: true
+            });
         } catch (e) {
             // Fail silently; auto-tagging is a progressive enhancement.
         }
@@ -240,4 +306,3 @@
         syncTagsToForm(initialForm);
     }
 })();
-

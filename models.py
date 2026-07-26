@@ -189,6 +189,24 @@ class Clergy(db.Model):
             return (0, c.date) if c.date else (1, c.year or 0)
         return sorted(self.consecrations, key=_key)
 
+    @classmethod
+    def not_deleted_filter(cls):
+        """Filter expression for non-deleted clergy (NULL-safe)."""
+        return cls.is_deleted != True  # noqa: E712
+
+    @classmethod
+    def active_query(cls):
+        """Base query excluding soft-deleted clergy."""
+        return cls.query.filter(cls.not_deleted_filter())
+
+    @classmethod
+    def get_active_or_404(cls, clergy_id, query_options=None):
+        """Load clergy by id or 404 if missing or soft-deleted."""
+        q = cls.active_query().filter(cls.id == clergy_id)
+        if query_options:
+            q = q.options(*query_options)
+        return q.first_or_404()
+
     def __repr__(self):
         return f'<Clergy {self.name}>'
 

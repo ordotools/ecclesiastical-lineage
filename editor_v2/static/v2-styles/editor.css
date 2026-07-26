@@ -643,8 +643,15 @@ body {
 
 #clergyForm .form-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 1em;
   margin-top: 0.5em;
+}
+
+.editor-button--compact {
+  padding: 0.15em 0.5em;
+  font-size: 0.85em;
 }
 
 /* Editor v2 button roles */

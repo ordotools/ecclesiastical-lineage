@@ -946,7 +946,12 @@ def edit_clergy_handler(clergy_id):
                     return response
                 else:
                     # For regular AJAX requests, return JSON
-                    return jsonify({'success': True, 'message': 'Clergy record updated successfully!', 'clergy_id': clergy.id})
+                    return jsonify({
+                        'success': True,
+                        'message': 'Clergy record updated successfully!',
+                        'clergy_id': clergy.id,
+                        'is_deleted': bool(clergy.is_deleted),
+                    })
             except Exception as e:
                 db.session.rollback()
                 return jsonify({'success': False, 'message': str(e)}), 400
@@ -1135,95 +1140,113 @@ def soft_delete_clergy_handler(clergy_id, user=None):
     db.session.commit()
     return {'success': True, 'message': 'Clergy record soft-deleted successfully!'} 
 
+def _purge_clergy_related_data(clergy_id):
+    """Remove all FK-linked rows before deleting a clergy record."""
+    from sqlalchemy import text
+    from models import (
+        ClergyComment,
+        ClergyEvent,
+        ClergySpritePosition,
+        Consecration,
+        LineageRoot,
+        Ordination,
+        WikiArticleRequest,
+        WikiPage,
+        clergy_statuses,
+        clergy_tags,
+        db,
+    )
+
+    db.session.execute(text("""
+        DELETE FROM co_consecrators
+        WHERE co_consecrator_id = :clergy_id
+        OR consecration_id IN (
+            SELECT id FROM consecration
+            WHERE clergy_id = :clergy_id OR consecrator_id = :clergy_id
+        )
+    """), {'clergy_id': clergy_id})
+
+    Ordination.query.filter(Ordination.ordaining_bishop_id == clergy_id).delete(synchronize_session=False)
+    Ordination.query.filter(Ordination.clergy_id == clergy_id).delete(synchronize_session=False)
+    Consecration.query.filter(Consecration.consecrator_id == clergy_id).delete(synchronize_session=False)
+    Consecration.query.filter(Consecration.clergy_id == clergy_id).delete(synchronize_session=False)
+    ClergyComment.query.filter(ClergyComment.clergy_id == clergy_id).delete(synchronize_session=False)
+    ClergyEvent.query.filter(ClergyEvent.clergy_id == clergy_id).delete(synchronize_session=False)
+    ClergySpritePosition.query.filter(ClergySpritePosition.clergy_id == clergy_id).delete(synchronize_session=False)
+    WikiPage.query.filter(WikiPage.clergy_id == clergy_id).delete(synchronize_session=False)
+    WikiArticleRequest.query.filter(WikiArticleRequest.clergy_id == clergy_id).delete(synchronize_session=False)
+    LineageRoot.query.filter(LineageRoot.clergy_id == clergy_id).delete(synchronize_session=False)
+    db.session.execute(clergy_tags.delete().where(clergy_tags.c.clergy_id == clergy_id))
+    db.session.execute(clergy_statuses.delete().where(clergy_statuses.c.clergy_id == clergy_id))
+
+    try:
+        image_upload_service = get_image_upload_service()
+        image_upload_service.delete_clergy_images(clergy_id)
+    except Exception as e:
+        current_app.logger.warning("Error deleting images for clergy %s: %s", clergy_id, e)
+
+
 def permanently_delete_clergy_handler(clergy_ids, user=None):
     """Permanently delete clergy records and all related data"""
-    from models import Clergy, Ordination, Consecration, db
+    from models import Clergy, db
     from utils import log_audit_event
-    from datetime import datetime
-    
+
     if not clergy_ids:
         return {'success': False, 'message': 'No clergy IDs provided'}
-    
+
     try:
         deleted_count = 0
         deleted_names = []
-        
+        deleted_ids = []
+
         for clergy_id in clergy_ids:
             clergy = Clergy.query.get(clergy_id)
             if not clergy:
                 continue
-            
-            # Store clergy data for logging before any modifications
+
             clergy_name = clergy.name
-            clergy_rank = clergy.rank
-            clergy_organization = clergy.organization
-            clergy_dob = clergy.date_of_birth.isoformat() if clergy.date_of_birth else None
-            clergy_dod = clergy.date_of_death.isoformat() if clergy.date_of_death else None
-            was_deleted = clergy.is_deleted
-            deleted_at = clergy.deleted_at.isoformat() if clergy.deleted_at else None
-                
-            # Log the deletion before deleting
             log_audit_event(
                 action='permanent_delete',
                 entity_type='clergy',
                 entity_id=clergy_id,
                 entity_name=clergy_name,
                 details={
-                    'rank': clergy_rank,
-                    'organization': clergy_organization,
-                    'date_of_birth': clergy_dob,
-                    'date_of_death': clergy_dod,
-                    'was_deleted': was_deleted,
-                    'deleted_at': deleted_at
-                }
+                    'rank': clergy.rank,
+                    'organization': clergy.organization,
+                    'date_of_birth': clergy.date_of_birth.isoformat() if clergy.date_of_birth else None,
+                    'date_of_death': clergy.date_of_death.isoformat() if clergy.date_of_death else None,
+                    'was_deleted': bool(clergy.is_deleted),
+                    'deleted_at': clergy.deleted_at.isoformat() if clergy.deleted_at else None,
+                },
             )
-            
-            # Clean up all related data using clergy_id instead of clergy object
-            # IMPORTANT: Delete in the correct order to avoid foreign key violations
-            
-            # 1. First, remove all co-consecrator relationships (both where clergy was co-consecrator and where clergy was involved in consecrations)
-            from sqlalchemy import text
-            db.session.execute(text("""
-                DELETE FROM co_consecrators 
-                WHERE co_consecrator_id = :clergy_id 
-                OR consecration_id IN (
-                    SELECT id FROM consecration 
-                    WHERE clergy_id = :clergy_id OR consecrator_id = :clergy_id
-                )
-            """), {'clergy_id': clergy_id})
-            
-            # 2. Remove ordinations where this clergy was the ordaining bishop
-            Ordination.query.filter(Ordination.ordaining_bishop_id == clergy_id).delete()
-            
-            # 3. Remove ordinations where this clergy was ordained
-            Ordination.query.filter(Ordination.clergy_id == clergy_id).delete()
-            
-            # 4. Remove consecrations where this clergy was the consecrator
-            Consecration.query.filter(Consecration.consecrator_id == clergy_id).delete()
-            
-            # 5. Remove consecrations where this clergy was consecrated
-            Consecration.query.filter(Consecration.clergy_id == clergy_id).delete()
-            
-            # 6. Remove any comments associated with this clergy
-            from models import ClergyComment
-            ClergyComment.query.filter(ClergyComment.clergy_id == clergy_id).delete()
-            
-            # Finally delete the clergy record
+
+            _purge_clergy_related_data(clergy_id)
             db.session.delete(clergy)
             deleted_count += 1
             deleted_names.append(clergy_name)
-        
+            deleted_ids.append(clergy_id)
+
         db.session.commit()
-        
+
+        try:
+            _regenerate_sprite_sheet_background()
+        except Exception as e:
+            current_app.logger.warning(
+                "Failed to start background sprite sheet generation after delete: %s",
+                e,
+            )
+
         return {
-            'success': True, 
+            'success': True,
             'message': f'Successfully permanently deleted {deleted_count} clergy record(s)',
             'deleted_count': deleted_count,
-            'deleted_names': deleted_names
+            'deleted_names': deleted_names,
+            'deleted_ids': deleted_ids,
         }
-        
+
     except Exception as e:
         db.session.rollback()
+        current_app.logger.exception("Error permanently deleting clergy")
         return {'success': False, 'message': f'Error permanently deleting clergy: {str(e)}'}
 
 def get_all_statuses():

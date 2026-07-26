@@ -222,22 +222,28 @@ def edit_clergy_from_lineage(clergy_id):
 
 @lineage_api_bp.route('/clergy/modal/<int:clergy_id>/comment')
 def clergy_modal_comment(clergy_id):
-    clergy = Clergy.query.options(
-        joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
-        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
-        joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
-    ).filter(Clergy.id == clergy_id).first_or_404()
+    clergy = Clergy.get_active_or_404(
+        clergy_id,
+        query_options=[
+            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators),
+        ],
+    )
     return render_template('_clergy_comment_modal.html', clergy=clergy)
 
 
 @lineage_api_bp.route('/clergy/relationships/<int:clergy_id>')
 def clergy_relationships(clergy_id):
     try:
-        clergy = Clergy.query.options(
-            joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
-            joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
-            joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators)
-        ).filter(Clergy.id == clergy_id).first_or_404()
+        clergy = Clergy.get_active_or_404(
+            clergy_id,
+            query_options=[
+                joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
+                joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+                joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators),
+            ],
+        )
         ordaining_bishop = None
         po = clergy.get_primary_ordination()
         if po and po.ordaining_bishop:

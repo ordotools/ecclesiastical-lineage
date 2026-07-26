@@ -78,7 +78,7 @@ def _lineage_nodes_links():
             return year * 10000
         return None
 
-    all_clergy = Clergy.query.options(
+    all_clergy = Clergy.active_query().options(
         joinedload(Clergy.ordinations).joinedload(Ordination.ordaining_bishop),
         joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
         joinedload(Clergy.consecrations).joinedload(Consecration.co_consecrators),
@@ -87,7 +87,6 @@ def _lineage_nodes_links():
         selectinload(Clergy.consecrations_performed),
         selectinload(Clergy.tags),
     ).filter(
-        Clergy.is_deleted != True,
         Clergy.exclude_from_visualization != True,
     ).all()
     if not hasattr(g, 'organizations'):
@@ -218,6 +217,12 @@ def _lineage_nodes_links():
                     'is_invalid': consecration.is_invalid, 'is_doubtfully_valid': consecration.is_doubtfully_valid,
                     'is_doubtful_event': consecration.is_doubtful_event, 'is_sub_conditione': consecration.is_sub_conditione
                 })
+
+    active_node_ids = {n['id'] for n in nodes}
+    links = [
+        link for link in links
+        if link.get('source') in active_node_ids and link.get('target') in active_node_ids
+    ]
 
     # Derive structural roots based solely on incoming ordination/consecration links.
     event_links = [l for l in links if l.get('type') in ('ordination', 'consecration')]

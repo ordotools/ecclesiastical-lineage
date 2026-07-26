@@ -680,6 +680,17 @@
     {% if edit_mode and clergy %}
     <button type="submit" name="update_descendants" value="1" class="editor-button editor-button--save editor-button--update-descendants" disabled>Save and update descendants</button>
     {% endif %}
+    {% if edit_mode and clergy and user and user.can_delete_clergy() %}
+    <button
+      type="button"
+      id="permanentDeleteClergyBtn"
+      class="editor-button editor-button--danger editor-button--compact"
+      data-permanent-delete-url="{{ url_for('editor.clergy_permanent_delete_v2', clergy_id=clergy.id) }}"
+      data-clergy-name="{{ clergy.name | e }}"
+      title="Removes this record and all related links. Cannot be undone.">
+      Delete
+    </button>
+    {% endif %}
   </div>
 </form>
 <script>

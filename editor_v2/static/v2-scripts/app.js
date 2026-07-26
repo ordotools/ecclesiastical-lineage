@@ -157,6 +157,90 @@
         });
     }
 
+    function refreshPanelsAfterClergyRemoved(message) {
+        setCurrentClergyId(null);
+        if (typeof window !== 'undefined' && typeof window.htmx !== 'undefined' && typeof window.htmx.ajax === 'function') {
+            window.htmx.ajax('GET', '/editor/panel/center', {
+                target: '#editor-panel-center',
+                swap: 'innerHTML'
+            });
+            window.htmx.ajax('GET', '/editor/panel/left', {
+                target: '#editor-panel-left',
+                swap: 'innerHTML'
+            });
+        }
+        if (message && typeof window !== 'undefined' && window.alert) {
+            window.alert(message);
+        }
+    }
+
+    function initPermanentDeleteButton() {
+        const btn = document.getElementById('permanentDeleteClergyBtn');
+        if (!btn || btn.getAttribute('data-permanent-delete-inited') === 'true') {
+            return;
+        }
+        btn.setAttribute('data-permanent-delete-inited', 'true');
+
+        btn.addEventListener('click', function () {
+            const deleteUrl = btn.getAttribute('data-permanent-delete-url') || '';
+            const clergyName = btn.getAttribute('data-clergy-name') || 'this clergy record';
+            if (!deleteUrl) {
+                return;
+            }
+            const confirmed = window.confirm(
+                'Permanently delete "' + clergyName + '"?\n\n'
+                + 'This removes the record and all related ordination/consecration links. '
+                + 'This cannot be undone.'
+            );
+            if (!confirmed) {
+                return;
+            }
+
+            btn.disabled = true;
+            fetch(deleteUrl, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+                .then(function (response) {
+                    return response.json()
+                        .then(function (body) {
+                            return {
+                                ok: response.ok,
+                                body: body
+                            };
+                        })
+                        .catch(function () {
+                            return {
+                                ok: false,
+                                body: null
+                            };
+                        });
+                })
+                .then(function (result) {
+                    const body = result.body;
+                    const success = !!(result.ok && body && body.success === true);
+                    if (!success) {
+                        const message = body && typeof body.message === 'string'
+                            ? body.message
+                            : 'Failed to permanently delete clergy record.';
+                        window.alert(message);
+                        btn.disabled = false;
+                        return;
+                    }
+                    refreshPanelsAfterClergyRemoved(
+                        body.message || 'Clergy record permanently deleted.'
+                    );
+                })
+                .catch(function () {
+                    window.alert('Failed to permanently delete clergy record.');
+                    btn.disabled = false;
+                });
+        });
+    }
+
     /**
      * Intercept clergy form submissions in the v2 shell so that saves happen
      * via fetch + JSON, keeping the user on /editor while refreshing the
@@ -466,17 +550,25 @@
                     }
 
                     const clergyId = resolveClergyId(data, form);
+                    const isDeleted = data && data.is_deleted === true;
 
-                    if (clergyId != null) {
+                    if (clergyId != null && !isDeleted) {
                         setCurrentClergyId(clergyId);
                         form.setAttribute('data-clergy-id', String(clergyId));
+                    } else if (isDeleted) {
+                        setCurrentClergyId(null);
                     }
 
                     const finalizeSuccessUi = function (finalMessage) {
                         renderFormStatus(form, 'success', finalMessage);
 
                         if (typeof window !== 'undefined' && typeof window.htmx !== 'undefined' && typeof window.htmx.ajax === 'function') {
-                            if (clergyId != null) {
+                            if (isDeleted) {
+                                window.htmx.ajax('GET', '/editor/panel/center', {
+                                    target: '#editor-panel-center',
+                                    swap: 'innerHTML'
+                                });
+                            } else if (clergyId != null) {
                                 window.htmx.ajax('GET', `/editor/panel/center?clergy_id=${clergyId}`, {
                                     target: '#editor-panel-center',
                                     swap: 'innerHTML'
@@ -488,7 +580,7 @@
                             });
                         }
 
-                        if (typeof document !== 'undefined' && document.body && clergyId != null) {
+                        if (typeof document !== 'undefined' && document.body && clergyId != null && !isDeleted) {
                             document.body.dispatchEvent(new CustomEvent('editor:validityChanged', {
                                 detail: { clergyId: clergyId }
                             }));
@@ -777,12 +869,14 @@
                 initClergyFormInterceptor();
                 initUpdateDescendantsButtonLogic();
                 initLeftPanelSelectionSync();
+                initPermanentDeleteButton();
             });
         } else {
             initSelectionWiring();
             initClergyFormInterceptor();
             initUpdateDescendantsButtonLogic();
             initLeftPanelSelectionSync();
+            initPermanentDeleteButton();
         }
     }
 
@@ -794,6 +888,7 @@
         if (affectedCenter) {
             initClergyFormInterceptor();
             initUpdateDescendantsButtonLogic();
+            initPermanentDeleteButton();
             if (typeof window !== 'undefined' &&
                 window.EDITOR_V2_FORM &&
                 typeof window.EDITOR_V2_FORM.initClergyFormV2 === 'function') {

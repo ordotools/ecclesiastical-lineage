@@ -18,7 +18,11 @@ from models import (
     db,
 )
 from services import clergy as clergy_service
-from services.clergy import _slugify_tag_label, _RESERVED_SYSTEM_TAG_NAMES
+from services.clergy import (
+    _slugify_tag_label,
+    _RESERVED_SYSTEM_TAG_NAMES,
+    permanently_delete_clergy_handler,
+)
 from routes.editor_form_fields import FormFields
 from utils import require_permission
 from routes.main import _lineage_nodes_links
@@ -174,11 +178,7 @@ def shell():
 
 def _all_clergy_list():
     """Return list of { id, name, rank, organization } for non-deleted clergy, ordered by name."""
-    all_clergy = (
-        Clergy.query.filter(Clergy.is_deleted != True)  # noqa: E712
-        .order_by(Clergy.name)
-        .all()
-    )
+    all_clergy = Clergy.active_query().order_by(Clergy.name).all()
     return [
         {
             'id': c.id,
@@ -1010,3 +1010,14 @@ def clergy_edit_v2(clergy_id):
             return jsonify(data), status
 
     return _normalize_clergy_save_result(clergy, response, status_code)
+
+
+@editor.route('/clergy/<int:clergy_id>/permanent-delete', methods=['POST'])
+@require_permission('delete_clergy')
+def clergy_permanent_delete_v2(clergy_id):
+    """Editor v2: permanently delete clergy and all related data."""
+    result = permanently_delete_clergy_handler([clergy_id])
+    if result.get('success'):
+        result['clergy_id'] = clergy_id
+        result['permanently_deleted'] = True
+    return jsonify(result), (200 if result.get('success') else 400)

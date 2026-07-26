@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, make_response, current_app
 from services import clergy as clergy_service
-from services.clergy import soft_delete_clergy_handler
+from services.clergy import permanently_delete_clergy_handler, soft_delete_clergy_handler
 from utils import audit_log, require_permission, log_audit_event
 from models import Clergy, ClergyComment, db
 
@@ -94,7 +94,7 @@ def edit_clergy(clergy_id):
 
 @clergy_bp.route('/clergy/<int:clergy_id>/json')
 def clergy_json(clergy_id):
-    clergy = Clergy.query.get_or_404(clergy_id)
+    clergy = Clergy.get_active_or_404(clergy_id)
     return jsonify(clergy.to_dict())
 
 @clergy_bp.route('/api/search_bishops')
@@ -132,7 +132,7 @@ def search_bishops():
 
 @clergy_bp.route('/clergy/<int:clergy_id>/comments')
 def clergy_comments(clergy_id):
-    clergy = Clergy.query.get_or_404(clergy_id)
+    clergy = Clergy.get_active_or_404(clergy_id)
     return render_template('clergy_comments.html', clergy=clergy)
 
 @clergy_bp.route('/clergy/<int:clergy_id>/add-comment', methods=['POST'])
@@ -140,7 +140,7 @@ def add_clergy_comment(clergy_id):
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Not authenticated'}), 401
 
-    clergy = Clergy.query.get_or_404(clergy_id)
+    clergy = Clergy.get_active_or_404(clergy_id)
     comment_text = request.form.get('content', '').strip()
     field_name = request.form.get('field_name', '')
     is_public = request.form.get('is_public', '1') == '1'
@@ -179,7 +179,7 @@ def add_clergy_comment(clergy_id):
 
 @clergy_bp.route('/clergy/<int:clergy_id>/resolved-comments')
 def view_resolved_comments(clergy_id):
-    clergy = Clergy.query.get_or_404(clergy_id)
+    clergy = Clergy.get_active_or_404(clergy_id)
     resolved_comments = ClergyComment.query.filter_by(
         clergy_id=clergy_id, 
         status='resolved'
@@ -207,3 +207,13 @@ def delete_clergy(clergy_id):
             details={'message': result['message']}
         )
     return jsonify(result)
+
+
+@clergy_bp.route('/clergy/<int:clergy_id>/permanent-delete', methods=['POST'])
+@require_permission('delete_clergy')
+def permanent_delete_clergy(clergy_id):
+    result = permanently_delete_clergy_handler([clergy_id])
+    if result.get('success'):
+        result['clergy_id'] = clergy_id
+        result['permanently_deleted'] = True
+    return jsonify(result), (200 if result.get('success') else 400)

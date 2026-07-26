@@ -763,6 +763,8 @@
     clone.querySelectorAll('input:not([type="hidden"])').forEach(function(el) {
       el.value = '';
       el.removeAttribute('disabled');
+      el.removeAttribute('data-bishop-autocomplete-inited');
+      el.removeAttribute('data-clergy-autocomplete-inited');
     });
     clone.querySelectorAll('input[type="checkbox"]').forEach(function(el) { el.checked = false; });
     clone.querySelectorAll('textarea').forEach(function(el) { el.value = ''; });
@@ -1049,6 +1051,8 @@
     clone.querySelectorAll('input:not([type="hidden"])').forEach(function(el) {
       el.value = '';
       el.removeAttribute('disabled');
+      el.removeAttribute('data-bishop-autocomplete-inited');
+      el.removeAttribute('data-clergy-autocomplete-inited');
     });
     clone.querySelectorAll('input[type="checkbox"]').forEach(function(el) { el.checked = false; });
     clone.querySelectorAll('textarea').forEach(function(el) { el.value = ''; });

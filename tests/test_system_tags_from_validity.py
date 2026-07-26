@@ -140,6 +140,24 @@ def test_ord_only_valid():
     assert _names(c) == {'valid'}, _names(c)
 
 
+def test_invalid_ord_doubtful_cons_keeps_invalid_bishop_only():
+    """Invalid ord + later doubtful cons → invalid_bishop only (not both)."""
+    c = _clergy(
+        ordinations=[_ord(date(2010, 1, 1), invalid=True)],
+        consecrations=[_cons(date(2015, 1, 1), doubtful=True)],
+    )
+    assert _names(c) == {'invalid_priest', 'invalid_bishop'}, _names(c)
+
+
+def test_doubtful_ord_invalid_cons_keeps_invalid_bishop_only():
+    """Doubtful ord + later invalid cons → invalid_bishop only (not both)."""
+    c = _clergy(
+        ordinations=[_ord(date(2010, 1, 1), doubtful=True)],
+        consecrations=[_cons(date(2015, 1, 1), invalid=True)],
+    )
+    assert _names(c) == {'doubtful_priest', 'invalid_bishop'}, _names(c)
+
+
 def main():
     tests = [
         test_invalid_then_valid_ord,
@@ -152,6 +170,8 @@ def main():
         test_valid_cons_before_valid_ord_fails_gate,
         test_latest_invalid_cons_applies_even_if_gate_fails,
         test_ord_only_valid,
+        test_invalid_ord_doubtful_cons_keeps_invalid_bishop_only,
+        test_doubtful_ord_invalid_cons_keeps_invalid_bishop_only,
     ]
     failed = 0
     for fn in tests:

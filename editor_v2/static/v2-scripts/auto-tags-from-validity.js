@@ -197,6 +197,11 @@
             tags.push('valid');
         }
 
+        if (tags.indexOf('invalid_bishop') !== -1 && tags.indexOf('doubtful_bishop') !== -1) {
+            const idx = tags.indexOf('doubtful_bishop');
+            tags.splice(idx, 1);
+        }
+
         const normalized = [];
         const seen = new Set();
         TAG_ORDER.forEach(name => {

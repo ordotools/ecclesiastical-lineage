@@ -187,6 +187,13 @@ def _chronological_sort_key(record):
     return (1, t)
 
 
+def _resolve_worst_case_bishop_tags(names):
+    """If both invalid_bishop and doubtful_bishop, keep only invalid (worse)."""
+    if 'invalid_bishop' in names and 'doubtful_bishop' in names:
+        names.discard('doubtful_bishop')
+    return names
+
+
 def compute_system_tag_names_for_clergy(clergy):
     """
     Compute validity-related system tag *names* for a clergy member (no DB).
@@ -254,7 +261,7 @@ def compute_system_tag_names_for_clergy(clergy):
     if has_valid_ordination and has_valid_consecration:
         names.add('valid')
 
-    return names
+    return _resolve_worst_case_bishop_tags(names)
 
 
 def compute_system_tags_for_clergy(clergy):

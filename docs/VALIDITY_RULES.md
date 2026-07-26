@@ -145,7 +145,7 @@ Current code: `canValidlyOrdain` = has valid ordination in range; `canValidlyCon
 | Tag driver | Rule |
 | ---------- | ---- |
 | Priest tags | Chronologically **last ordination** only |
-| Bishop tags | Chronologically **last consecration** only; **also** when latest ord is invalid/doubtful and a consecration follows it (Rule 3 — invalid/doubtful priesthood → matching bishop tag) |
+| Bishop tags | Chronologically **last consecration** only; **also** when latest ord is invalid/doubtful and a consecration follows it (Rule 3 — invalid/doubtful priesthood → matching bishop tag). If both `invalid_bishop` and `doubtful_bishop` would apply, keep **invalid_bishop** only (worst case) |
 | Valid-like consecration for tags | Counts only if a valid-like ordination exists **strictly before** that consecration (Rule 3 gate). Raw invalid/doubtful on the latest consecration still apply as bishop tags |
 | Overall `valid` | Latest ord valid-like **and** (no consecrations **or** gated latest cons valid-like) |
 

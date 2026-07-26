@@ -95,16 +95,17 @@
       pill.type = 'button';
       pill.className = 'tag-pill';
       pill.setAttribute('data-tag-id', String(tag.id));
-      pill.style.backgroundColor = colorHex;
-      pill.style.color = textColorForBg(colorHex);
 
       const textSpan = document.createElement('span');
       textSpan.className = 'tag-pill__label';
       textSpan.textContent = label;
       pill.appendChild(textSpan);
 
-      if (TAG_PICKER_STATE.selectedIds.has(tag.id)) {
+      const isSelected = TAG_PICKER_STATE.selectedIds.has(tag.id);
+      if (isSelected) {
         pill.classList.add('tag-pill--selected');
+        pill.style.backgroundColor = colorHex;
+        pill.style.color = textColorForBg(colorHex);
       }
 
       if (tag.is_system) {

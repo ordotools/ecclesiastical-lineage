@@ -208,14 +208,27 @@ def get_sprite_sheet_status():
     with _sprite_sheet_lock:
         return _sprite_sheet_status.copy()
 
+def resolve_clergy_name(clergy):
+    """Return the display name for clergy based on rank and optional name fields."""
+    if not clergy:
+        return ''
+    if clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name:
+        return clergy.papal_name
+    if clergy.rank:
+        rank_obj = Rank.query.filter_by(name=clergy.rank).first()
+        if rank_obj and rank_obj.is_bishop:
+            return clergy.name
+    if clergy.religious_name:
+        return clergy.religious_name
+    return clergy.name
+
+
 def set_clergy_display_name(clergy):
-    """Set the display name for a clergy member based on their rank and papal name."""
+    """Set the display name for a clergy member based on their rank and name fields."""
+    resolved = resolve_clergy_name(clergy)
     if clergy.rank.lower() == 'pope':
-        # For popes, use papal name if available, otherwise use regular name
-        display_name = clergy.papal_name if clergy.papal_name else clergy.name
-        clergy.display_name = f"His Holiness {display_name}"
+        clergy.display_name = f"His Holiness {resolved}"
     elif clergy.rank.lower() == 'cardinal':
-        # For cardinals, use "first name Cardinal last name" format
         name_parts = clergy.name.split()
         if len(name_parts) >= 2:
             first_name = name_parts[0]
@@ -226,15 +239,16 @@ def set_clergy_display_name(clergy):
     elif clergy.rank.lower() in ['bishop', 'archbishop']:
         clergy.display_name = f"Most. Rev. {clergy.name}"
     elif clergy.rank.lower() == 'priest':
-        clergy.display_name = f"Rev. {clergy.name}"
+        clergy.display_name = f"Rev. {resolved}"
     else:
-        clergy.display_name = clergy.name
+        clergy.display_name = resolved
 
 def create_clergy_from_form(form):
     clergy = Clergy()
     clergy.name = form.get('name')
     clergy.rank = form.get('rank')
     clergy.papal_name = form.get('papal_name')
+    clergy.religious_name = form.get('religious_name')
     clergy.organization = form.get('organization')
     date_of_birth = form.get('date_of_birth')
     date_of_death = form.get('date_of_death')
@@ -778,6 +792,7 @@ def edit_clergy_handler(clergy_id):
                 clergy.name = request.form.get('name')
                 clergy.rank = request.form.get('rank')
                 clergy.papal_name = request.form.get('papal_name')
+                clergy.religious_name = request.form.get('religious_name')
                 clergy.organization = request.form.get('organization')
                 date_of_birth = request.form.get('date_of_birth')
                 date_of_death = request.form.get('date_of_death')
@@ -959,6 +974,7 @@ def edit_clergy_handler(clergy_id):
         clergy.name = request.form.get('name')
         clergy.rank = request.form.get('rank')
         clergy.papal_name = request.form.get('papal_name')
+        clergy.religious_name = request.form.get('religious_name')
         clergy.organization = request.form.get('organization')
         date_of_birth = request.form.get('date_of_birth')
         date_of_death = request.form.get('date_of_death')

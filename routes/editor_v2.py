@@ -469,11 +469,7 @@ def _serialize_clergy_basic(clergy):
     """Serialize basic clergy fields used by the right-panel JS."""
     if not clergy:
         return None
-    name = (
-        clergy.papal_name
-        if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name)
-        else clergy.name
-    )
+    name = clergy_service.resolve_clergy_name(clergy)
     return {
         'id': clergy.id,
         'name': name,

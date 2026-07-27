@@ -798,7 +798,7 @@ class ClergyFormController {
     
     prefillBasicFields(clergyData) {
         const fields = [
-            'name', 'papal_name', 'rank', 'organization', 
+            'name', 'papal_name', 'religious_name', 'rank', 'organization', 
             'date_of_birth', 'date_of_death', 'notes'
         ];
         

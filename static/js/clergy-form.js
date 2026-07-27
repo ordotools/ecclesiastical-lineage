@@ -642,6 +642,12 @@ window.ClergyForm.prefillBasicFields = function(clergyData) {
     if (papalNameField && clergyData.papal_name) {
         papalNameField.value = clergyData.papal_name;
     }
+
+    // Religious name
+    const religiousNameField = document.getElementById('religious_name');
+    if (religiousNameField && clergyData.religious_name) {
+        religiousNameField.value = clergyData.religious_name;
+    }
     
     // Rank
     const rankField = document.getElementById('rank');

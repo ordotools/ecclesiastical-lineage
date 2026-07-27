@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, session, current
 from sqlalchemy.orm import joinedload
 from services.image_upload import get_image_upload_service
 from models import db, WikiPage, WikiArticleRequest, User, Clergy, Ordination, Consecration, Organization, Rank
+from services.clergy import resolve_clergy_name
 from constants import GREEN_COLOR, BLACK_COLOR
 from datetime import datetime
 from sqlalchemy import or_
@@ -349,7 +350,7 @@ def _clergy_to_lineage_node(clergy, organizations, ranks):
     cons_date = pc.display_date if pc else (clergy.consecrations[0].display_date if getattr(clergy, 'consecrations', None) and clergy.consecrations else None)
     return {
         'id': clergy.id,
-        'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
+        'name': resolve_clergy_name(clergy),
         'rank': clergy.rank,
         'organization': clergy.organization,
         'org_color': org_color,
@@ -405,7 +406,7 @@ def _clergy_to_profile(clergy, clergy_id_to_wiki_slug):
 
     payload = {
         'image_url': _clergy_image_url(clergy),
-        'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
+        'name': resolve_clergy_name(clergy),
         'rank': clergy.rank or '',
         'organization': clergy.organization or '',
         'tags': [

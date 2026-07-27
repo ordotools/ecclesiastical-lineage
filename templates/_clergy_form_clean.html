@@ -9,6 +9,7 @@ window.ClergyFormConfig = {
         id: {{ clergy.id }},
         name: "{{ clergy.name or '' }}",
         papal_name: "{{ clergy.papal_name or '' }}",
+        religious_name: "{{ clergy.religious_name or '' }}",
         rank: "{{ clergy.rank or '' }}",
         organization: "{{ clergy.organization or '' }}",
         date_of_birth: "{{ clergy.date_of_birth.strftime('%Y-%m-%d') if clergy.date_of_birth else '' }}",
@@ -145,6 +146,16 @@ window.ClergyFormConfig = {
                                     <input type="text" id="name" name="name" class="form-control" required>
                                     {% if edit_mode and user and user.can_comment() %}
                                     <button type="button" class="btn btn-comment" data-field="name" title="Add comment">
+                                        <i class="fas fa-comment"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-field" id="religiousNameField">
+                                    <label for="religious_name" class="form-label">Religious Name</label>
+                                    <input type="text" id="religious_name" name="religious_name" class="form-control" placeholder="e.g., Fr. John">
+                                    {% if edit_mode and user and user.can_comment() %}
+                                    <button type="button" class="btn btn-comment" data-field="religious_name" title="Add comment">
                                         <i class="fas fa-comment"></i>
                                     </button>
                                     {% endif %}

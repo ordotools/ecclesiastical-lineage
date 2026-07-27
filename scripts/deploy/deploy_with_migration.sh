@@ -90,7 +90,7 @@ with app.app_context():
     # Check if required columns exist in clergy table
     inspector = inspect(db.engine)
     clergy_columns = [col['name'] for col in inspector.get_columns('clergy')]
-    required_clergy_columns = ['image_url', 'image_data', 'is_deleted', 'deleted_at', 'papal_name']
+    required_clergy_columns = ['image_url', 'image_data', 'is_deleted', 'deleted_at', 'papal_name', 'religious_name']
     
     missing_clergy_columns = [col for col in required_clergy_columns if col not in clergy_columns]
     
@@ -111,6 +111,8 @@ with app.app_context():
                         conn.execute(db.text('ALTER TABLE clergy ADD COLUMN deleted_at TIMESTAMP'))
                     elif col == 'papal_name':
                         conn.execute(db.text('ALTER TABLE clergy ADD COLUMN papal_name VARCHAR(200)'))
+                    elif col == 'religious_name':
+                        conn.execute(db.text('ALTER TABLE clergy ADD COLUMN religious_name VARCHAR(200)'))
                     conn.commit()
                 print(f'✅ Added column: {col}')
             except Exception as e:
@@ -227,7 +229,7 @@ with app.app_context():
     
     # Check if clergy table has required columns
     clergy_columns = [col['name'] for col in inspector.get_columns('clergy')]
-    required_clergy_columns = ['image_url', 'image_data', 'is_deleted', 'deleted_at', 'papal_name']
+    required_clergy_columns = ['image_url', 'image_data', 'is_deleted', 'deleted_at', 'papal_name', 'religious_name']
     
     missing_clergy_columns = [col for col in required_clergy_columns if col not in clergy_columns]
     

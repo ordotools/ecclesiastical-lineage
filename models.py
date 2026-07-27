@@ -108,6 +108,7 @@ class Clergy(db.Model):
     name = db.Column(db.String(200), nullable=False)
     rank = db.Column(db.String(100), nullable=False)
     papal_name = db.Column(db.String(200), nullable=True)  # Papal name for popes
+    religious_name = db.Column(db.String(200), nullable=True)  # Religious name for non-bishop clergy
     organization = db.Column(db.String(200))
     date_of_birth = db.Column(db.Date)
     date_of_death = db.Column(db.Date)

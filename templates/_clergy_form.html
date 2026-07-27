@@ -119,6 +119,14 @@
                                style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
                     </div>
 
+                    <div id="religiousNameField" style="grid-column: 1 / -1; flex-direction: column;">
+                        <label for="religious_name" style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Religious Name</label>
+                        <input type="text" id="religious_name" name="religious_name"
+                               value="{{ clergy.religious_name if edit_mode and clergy else '' }}"
+                               placeholder="e.g., Fr. John"
+                               style="width: 100%; padding: 0.5em; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 0.9em; color: white; transition: border-color 0.2s;">
+                    </div>
+
                     <!-- Papal Name Field (only shown for popes) - Row 2, 2 columns -->
                     <div id="papalNameField" style="display: none; grid-column: 1 / -1; grid-row: 2; flex-direction: column;">
                         <label for="papal_name" style="display: block; margin-bottom: 0.25em; font-weight: 400; color: white; font-size: 0.85em;">Papal Name</label>

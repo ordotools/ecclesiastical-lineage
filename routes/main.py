@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, session, jsonify, current_app, g
 from models import Clergy, User, db, Organization, Rank, Ordination, Consecration
+from services.clergy import resolve_clergy_name
 from constants import GREEN_COLOR, BLACK_COLOR
 import json
 import base64
@@ -153,7 +154,7 @@ def _lineage_nodes_links():
                 own_consecration_sort_keys.append(sort_key)
         nodes.append({
             'id': clergy.id,
-            'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
+            'name': resolve_clergy_name(clergy),
             'rank': clergy.rank,
             'is_bishop': rank_is_bishop.get(clergy.rank, False),
             'organization': clergy.organization,

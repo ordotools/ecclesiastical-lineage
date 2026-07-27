@@ -11,6 +11,7 @@ Reference for all clergy, ordination, consecration, status, and admin fields use
 | **name** | `required` | Used as-is via `form.get('name')`; no server-side validation. | **Required in UI.** Backend assumes present. |
 | **rank** | `required` | Used as-is via `form.get('rank')`. | **Required in UI.** Drives bishop-related UI (e.g. consecrations section). |
 | **papal_name** | — | Optional; `form.get('papal_name')`. | Optional. Shown only when rank is Pope. |
+| **religious_name** | — | Optional; `form.get('religious_name')`. | Optional. Always visible under Full Name. Used for display when clergy is not bishop-or-higher; bishop+ uses Full Name. |
 | **organization** | — | Optional; `form.get('organization')`. | Optional. Stored as string. |
 | **date_of_birth** | — | Optional; parsed as `%Y-%m-%d` if present, else `None`. | Optional. |
 | **date_of_death** | — | Optional; parsed as `%Y-%m-%d` if present, else `None`. | Optional. |
@@ -89,5 +90,5 @@ Backend: same as ordinations — rows are **created when** `date` is non-empty, 
 
 - **Required in UI (HTML):** `name`, `rank`.
 - **Required by backend for a saved ordination/consecration row:** that row must have either non-empty `date`, truthy `date_unknown` (with optional `year`), or truthy `details_unknown`. No row is required to exist.
-- **Everything else** (papal_name, organization, dates, notes, image fields, ordination/consecration sub-fields, validity, flags including `details_unknown`, ordaining bishop/consecrator, status_ids, `mark_deleted`, `exclude_from_visualization`) is **optional** per backend and/or HTML.
+- **Everything else** (papal_name, religious_name, organization, dates, notes, image fields, ordination/consecration sub-fields, validity, flags including `details_unknown`, ordaining bishop/consecrator, status_ids, `mark_deleted`, `exclude_from_visualization`) is **optional** per backend and/or HTML.
 - **Cascade/validity:** For how `details_unknown` events are ordered and treated in validation (e.g. as “before” child events when date is missing), see [VALIDITY_RULES.md](VALIDITY_RULES.md).

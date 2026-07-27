@@ -103,7 +103,7 @@ def run_database_migration(app):
         
         # Check and fix clergy table columns
         clergy_columns = [col['name'] for col in inspector.get_columns('clergy')]
-        required_clergy_columns = ['papal_name']
+        required_clergy_columns = ['papal_name', 'religious_name']
         missing_clergy_columns = [col for col in required_clergy_columns if col not in clergy_columns]
         if missing_clergy_columns:
             print(f"❌ Missing clergy columns: {missing_clergy_columns}")
@@ -113,6 +113,8 @@ def run_database_migration(app):
                     with db.engine.connect() as conn:
                         if col == 'papal_name':
                             conn.execute(db.text("ALTER TABLE clergy ADD COLUMN papal_name VARCHAR(200)"))
+                        elif col == 'religious_name':
+                            conn.execute(db.text("ALTER TABLE clergy ADD COLUMN religious_name VARCHAR(200)"))
                         conn.commit()
                     print(f"✅ Added clergy column: {col}")
                 except Exception as e:

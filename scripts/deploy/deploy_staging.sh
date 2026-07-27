@@ -149,7 +149,7 @@ with app.app_context():
     
     # Check if clergy table has required columns
     clergy_columns = [col['name'] for col in inspector.get_columns('clergy')]
-    required_clergy_columns = ['image_url', 'image_data', 'is_deleted', 'deleted_at', 'papal_name']
+    required_clergy_columns = ['image_url', 'image_data', 'is_deleted', 'deleted_at', 'papal_name', 'religious_name']
     
     missing_clergy_columns = [col for col in required_clergy_columns if col not in clergy_columns]
     

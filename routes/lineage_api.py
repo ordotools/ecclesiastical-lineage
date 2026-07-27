@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from sqlalchemy.orm import joinedload
 from utils import audit_log, require_permission
 from models import Clergy, User, db, Organization, Rank, Ordination, Consecration, Status
+from services.clergy import resolve_clergy_name
 from constants import GREEN_COLOR, BLACK_COLOR
 import json
 import base64
@@ -115,7 +116,7 @@ def get_lineage_data():
                 consecration_date = fc.display_date
             nodes.append({
                 'id': clergy.id,
-                'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
+                'name': resolve_clergy_name(clergy),
                 'rank': clergy.rank,
                 'organization': clergy.organization,
                 'org_color': org_color,
@@ -264,7 +265,7 @@ def clergy_relationships(clergy_id):
                 if not cc.is_deleted:
                     co_consecrated_clergy.append(cc)
         def _name(c):
-            return c.papal_name if (c.rank and c.rank.lower() == 'pope' and c.papal_name) else c.name
+            return resolve_clergy_name(c)
         return jsonify({
             'success': True,
             'ordaining_bishop': {'id': ordaining_bishop.id, 'name': _name(ordaining_bishop)} if ordaining_bishop else None,
@@ -307,7 +308,7 @@ def debug_lineage():
         for clergy in all_clergy:
             nodes.append({
                 'id': clergy.id,
-                'name': clergy.papal_name if (clergy.rank and clergy.rank.lower() == 'pope' and clergy.papal_name) else clergy.name,
+                'name': resolve_clergy_name(clergy),
                 'rank': clergy.rank, 'organization': clergy.organization,
                 'org_color': organizations.get(clergy.organization) or '#2c3e50',
                 'rank_color': ranks.get(clergy.rank) or '#888888'

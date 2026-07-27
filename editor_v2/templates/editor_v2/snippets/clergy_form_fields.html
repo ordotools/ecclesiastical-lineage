@@ -21,6 +21,11 @@
       <input type="text" id="name" name="name" value="{{ clergy.name if edit_mode and clergy else '' }}" required>
     </div>
 
+    <div id="religiousNameField" class="form-field full-width">
+      <label for="religious_name" class="form-label">Religious Name</label>
+      <input type="text" id="religious_name" name="religious_name" value="{{ clergy.religious_name if (edit_mode and clergy and clergy.religious_name is not none and clergy.religious_name != 'None') else '' }}" placeholder="e.g., Fr. John">
+    </div>
+
     <div id="papalNameField" class="form-field full-width">
       <label for="papal_name" class="form-label">Papal Name</label>
       <input type="text" id="papal_name" name="papal_name" value="{{ clergy.papal_name if (edit_mode and clergy and clergy.papal_name is not none and clergy.papal_name != 'None') else '' }}" placeholder="e.g., Pope Francis">

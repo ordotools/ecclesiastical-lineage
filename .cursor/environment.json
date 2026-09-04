@@ -1,0 +1,11 @@
+{
+  "name": "Ecclesiastical Lineage",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "flask",
+      "command": "cd /workspace && set -a && . ./.env && set +a && export FLASK_APP=app.py && exec ./env/bin/python app.py"
+    }
+  ]
+}

@@ -102,12 +102,106 @@ def test_cycle_breaking_is_stable():
     assert positions_snapshot(layout) == positions_snapshot(compute_lineage_grid_layout(cyclic_nodes, cyclic_links))
 
 
+def test_hidden_parent_preserves_child_depth():
+    """Excluded consecrator must not flatten visible children onto row 0."""
+    from services.lineage_grid_layout import compute_lineage_grid_layout
+
+    visible_nodes = [
+        {'id': 2, 'name': 'Child', 'consecration_date': '1970-01-01'},
+        {'id': 3, 'name': 'Grandchild', 'consecration_date': '1990-01-01'},
+    ]
+    visible_links = [
+        {'source': 2, 'target': 3, 'type': 'consecration', 'event_sort_key': 19900101,
+         'is_sub_conditione': False, 'is_invalid': False},
+    ]
+    ranking_links = [
+        {'source': 1, 'target': 2, 'type': 'consecration', 'event_sort_key': 19700101,
+         'is_sub_conditione': False, 'is_invalid': False},
+        {'source': 2, 'target': 3, 'type': 'consecration', 'event_sort_key': 19900101,
+         'is_sub_conditione': False, 'is_invalid': False},
+    ]
+
+    layout = compute_lineage_grid_layout(
+        visible_nodes,
+        visible_links,
+        ranking_links=ranking_links,
+    )
+    snapshot = positions_snapshot(layout)
+
+    assert snapshot[2][0] == 1, 'child of hidden parent should be row 1, not row 0'
+    assert snapshot[3][0] == 2
+
+
+def test_shared_hidden_consecrator_not_all_row_zero():
+    """Three visible bishops sharing one hidden consecrator must not all sit on row 0."""
+    from services.lineage_grid_layout import compute_lineage_grid_layout
+
+    visible_nodes = [
+        {'id': 11, 'name': 'Bishop One', 'consecration_date': '1970-01-01'},
+        {'id': 12, 'name': 'Bishop Two', 'consecration_date': '1971-01-01'},
+        {'id': 13, 'name': 'Bishop Three', 'consecration_date': '1972-01-01'},
+    ]
+    ranking_links = [
+        {'source': 10, 'target': 11, 'type': 'consecration', 'event_sort_key': 19700101,
+         'is_sub_conditione': False, 'is_invalid': False},
+        {'source': 10, 'target': 12, 'type': 'consecration', 'event_sort_key': 19710101,
+         'is_sub_conditione': False, 'is_invalid': False},
+        {'source': 10, 'target': 13, 'type': 'consecration', 'event_sort_key': 19720101,
+         'is_sub_conditione': False, 'is_invalid': False},
+    ]
+
+    layout = compute_lineage_grid_layout(visible_nodes, [], ranking_links=ranking_links)
+    rows = [layout['positions'][nid]['row'] for nid in (11, 12, 13)]
+
+    assert all(row == 1 for row in rows), f'expected all row 1, got {rows}'
+    assert not all(row == 0 for row in rows)
+
+
+def test_marked_lineage_root_at_row_zero_with_consecrands_below():
+    from services.lineage_grid_layout import compute_lineage_grid_layout
+
+    nodes = [
+        {'id': 20, 'name': 'Marked Root', 'is_lineage_root': True, 'consecration_date': '1950-01-01'},
+        {'id': 21, 'name': 'Consecrand', 'consecration_date': '1970-01-01'},
+    ]
+    links = [
+        {'source': 20, 'target': 21, 'type': 'consecration', 'event_sort_key': 19700101,
+         'is_sub_conditione': False, 'is_invalid': False},
+    ]
+
+    layout = compute_lineage_grid_layout(nodes, links)
+    snapshot = positions_snapshot(layout)
+
+    assert snapshot[20][0] == 0
+    assert snapshot[21][0] == 1
+
+
+def test_unattached_nodes_go_to_separate_band():
+    from services.lineage_grid_layout import compute_lineage_grid_layout
+
+    nodes = [
+        {'id': 30, 'name': 'Root', 'is_lineage_root': True, 'consecration_date': '1950-01-01'},
+        {'id': 31, 'name': 'Unlinked', 'consecration_date': '1980-01-01'},
+    ]
+    links = []
+
+    layout = compute_lineage_grid_layout(nodes, links)
+    snapshot = positions_snapshot(layout)
+
+    assert snapshot[30][0] == 0
+    assert snapshot[31][0] > layout['main_max_row']
+
+
 def main():
     tests = [
         test_fixture_snapshot,
         test_show_priests_includes_non_consecrated,
         test_deterministic_repeat,
         test_cycle_breaking_is_stable,
+        test_hidden_parent_preserves_child_depth,
+        test_shared_hidden_consecrator_not_all_row_zero,
+        test_marked_lineage_root_at_row_zero_with_consecrands_below,
+        test_unattached_nodes_go_to_separate_band,
     ]
     failures = []
     for test in tests:

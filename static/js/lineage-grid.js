@@ -308,10 +308,10 @@ function initPanZoom(viewport, stage) {
       translateY = (rect.height - stageRect.height * scale) / 2;
       apply();
     });
-    fitBtn.click();
+    requestAnimationFrame(() => fitBtn.click());
+  } else {
+    apply();
   }
-
-  apply();
 }
 
 export function initializeLineageGrid() {

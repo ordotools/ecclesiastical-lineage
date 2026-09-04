@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, session, jsonify, current_app, g
 from models import Clergy, User, db, Organization, Rank, Ordination, Consecration
 from services.clergy import resolve_clergy_name
+from services.lineage_grid_layout import compute_lineage_grid_layout
 from constants import GREEN_COLOR, BLACK_COLOR
 import json
 import base64
@@ -235,6 +236,40 @@ def _lineage_nodes_links():
     if 'user_id' in session:
         user = User.query.get(session['user_id'])
     return (nodes, links, user)
+
+
+def _lineage_consecration_ranking_links():
+    """Consecration links for grid ranking, including edges from excluded clergy."""
+    from sqlalchemy.orm import joinedload
+
+    def _event_sort_key(date, year):
+        if date:
+            return int(date.strftime('%Y%m%d'))
+        if year:
+            return year * 10000
+        return None
+
+    all_clergy = Clergy.active_query().options(
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+    ).all()
+
+    links = []
+    for clergy in all_clergy:
+        for consecration in clergy.consecrations:
+            if not consecration.consecrator:
+                continue
+            sort_key = _event_sort_key(consecration.date, consecration.year)
+            links.append({
+                'source': consecration.consecrator.id,
+                'target': clergy.id,
+                'type': 'consecration',
+                'event_sort_key': sort_key,
+                'is_invalid': consecration.is_invalid,
+                'is_doubtfully_valid': consecration.is_doubtfully_valid,
+                'is_doubtful_event': consecration.is_doubtful_event,
+                'is_sub_conditione': consecration.is_sub_conditione,
+            })
+    return links
 
 
 def lineage_visualization():
@@ -622,6 +657,40 @@ def lineage_table():
 @main_bp.route('/lineage_visualization')
 def lineage_visualization_alias():
     return lineage_visualization()
+
+
+@main_bp.route('/succession')
+def lineage_grid():
+    """Grid-based apostolic succession view (custom layout, no D3 force/tree)."""
+    show_priests = request.args.get('show_priests') in ('1', 'true', 'yes')
+    try:
+        nodes, links, user = _lineage_nodes_links()
+        ranking_links = _lineage_consecration_ranking_links()
+        layout = compute_lineage_grid_layout(
+            nodes,
+            links,
+            show_priests=show_priests,
+            ranking_links=ranking_links,
+        )
+        return render_template(
+            'lineage_grid.html',
+            nodes_json=json.dumps(nodes),
+            links_json=json.dumps(links),
+            layout_json=json.dumps(layout),
+            show_priests=show_priests,
+            user=user,
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error in lineage_grid: {e}")
+        return render_template(
+            'lineage_grid.html',
+            nodes_json=json.dumps([]),
+            links_json=json.dumps([]),
+            layout_json=json.dumps({'positions': {}, 'primary_edges': [], 'layout_node_ids': []}),
+            show_priests=show_priests,
+            user=None,
+            error_message=f"Unable to load lineage grid. Error: {str(e)}",
+        )
 
 
 @main_bp.route('/debug/lineage-coverage')

@@ -4,11 +4,20 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+UNATTACHED_ROW_OFFSET = 2
+
 
 def _link_endpoint(value: Any) -> int | None:
     if isinstance(value, dict):
-        return value.get('id')
-    return value
+        raw = value.get('id')
+    else:
+        raw = value
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 def _event_sort_key(link: dict) -> tuple:
@@ -84,7 +93,6 @@ def _find_cycle_edge(edges: list[tuple[int, int]]) -> tuple[int, int] | None:
 
     visiting: set[int] = set()
     visited: set[int] = set()
-    parent: dict[int, int | None] = {}
 
     def dfs(node: int) -> tuple[int, int] | None:
         visiting.add(node)
@@ -92,7 +100,6 @@ def _find_cycle_edge(edges: list[tuple[int, int]]) -> tuple[int, int] | None:
             if child in visiting:
                 return (node, child)
             if child not in visited:
-                parent[child] = node
                 found = dfs(child)
                 if found:
                     return found
@@ -108,26 +115,35 @@ def _find_cycle_edge(edges: list[tuple[int, int]]) -> tuple[int, int] | None:
     return None
 
 
-def _assign_rows(edges: list[tuple[int, int]], roots: set[int], node_ids: set[int]) -> dict[int, int]:
+def _assign_rows(
+    edges: list[tuple[int, int]],
+    roots: set[int],
+    node_ids: set[int],
+    *,
+    forced_roots: set[int] | None = None,
+) -> dict[int, int]:
+    """Assign generation rows on the full ranking DAG."""
     parents: dict[int, list[int]] = defaultdict(list)
     for source, target in edges:
         parents[target].append(source)
 
+    forced_roots = forced_roots or set()
     rows: dict[int, int] = {}
     for root in roots:
+        rows[root] = 0
+    for root in forced_roots:
         rows[root] = 0
 
     changed = True
     while changed:
         changed = False
         for node_id in sorted(node_ids):
-            if node_id in roots:
+            if node_id in forced_roots:
+                continue
+            if node_id in roots and node_id not in parents.get(node_id, []):
                 continue
             parent_list = parents.get(node_id, [])
             if not parent_list:
-                if node_id not in rows:
-                    rows[node_id] = 0
-                    changed = True
                 continue
             parent_rows = [rows[p] for p in parent_list if p in rows]
             if len(parent_rows) != len(parent_list):
@@ -139,6 +155,24 @@ def _assign_rows(edges: list[tuple[int, int]], roots: set[int], node_ids: set[in
     return rows
 
 
+def _assign_unattached_rows(
+    rows: dict[int, int],
+    layout_node_ids: set[int],
+) -> tuple[dict[int, int], int]:
+    """Place visible nodes that could not be ranked into a band below the main DAG."""
+    main_rows = [row for nid, row in rows.items() if nid in layout_node_ids]
+    main_max_row = max(main_rows) if main_rows else 0
+
+    unattached = sorted(nid for nid in layout_node_ids if nid not in rows)
+    if not unattached:
+        return rows, main_max_row
+
+    band_row = main_max_row + UNATTACHED_ROW_OFFSET
+    for idx, node_id in enumerate(unattached):
+        rows[node_id] = band_row + (idx // 10)
+    return rows, main_max_row
+
+
 def _assign_columns(
     rows: dict[int, int],
     edges: list[tuple[int, int]],
@@ -147,10 +181,9 @@ def _assign_columns(
     passes: int = 3,
 ) -> dict[int, int]:
     parents: dict[int, list[int]] = defaultdict(list)
-    children: dict[int, list[int]] = defaultdict(list)
     for source, target in edges:
         parents[target].append(source)
-        children[source].append(target)
+        parents[target] = sorted(set(parents[target]))
 
     max_row = max(rows.values()) if rows else 0
     by_row: dict[int, list[int]] = defaultdict(list)
@@ -229,16 +262,19 @@ def compute_lineage_grid_layout(
     links: list[dict],
     *,
     show_priests: bool = False,
+    ranking_links: list[dict] | None = None,
 ) -> dict[str, Any]:
     """
     Compute deterministic (row, col) positions for clergy cards.
 
-    Primary spine uses principal consecration edges only. Priests without
-    consecration are excluded unless show_priests=True.
+    Primary spine uses principal consecration edges only. Rank on the full
+    consecration DAG (including hidden/excluded consecrators) so visible
+    children keep depth when a parent is not shown.
     """
     node_by_id = {n['id']: n for n in nodes if n.get('id') is not None}
+    rank_source_links = ranking_links if ranking_links is not None else links
     consecration_participants = set()
-    for link in links:
+    for link in rank_source_links:
         if link.get('type') != 'consecration':
             continue
         source = _link_endpoint(link.get('source'))
@@ -247,48 +283,83 @@ def compute_lineage_grid_layout(
             consecration_participants.add(source)
         if target is not None:
             consecration_participants.add(target)
+    for node in nodes:
+        node_id = node.get('id')
+        if node_id is None:
+            continue
+        if node.get('consecrations_count', 0) > 0 or node.get('consecration_date'):
+            consecration_participants.add(node_id)
 
     if show_priests:
         layout_node_ids = set(node_by_id.keys())
     else:
         layout_node_ids = {nid for nid in node_by_id.keys() if nid in consecration_participants}
 
-    primary_links = _select_primary_consecration_links(links)
+    rank_source_links = ranking_links if ranking_links is not None else links
+    primary_links = _select_primary_consecration_links(rank_source_links)
     links_by_pair = {
         (_link_endpoint(l.get('source')), _link_endpoint(l.get('target'))): l
         for l in primary_links
         if _link_endpoint(l.get('source')) is not None and _link_endpoint(l.get('target')) is not None
     }
 
-    edges = [
-        pair for pair in links_by_pair.keys()
-        if pair[0] in layout_node_ids and pair[1] in layout_node_ids
-    ]
-    edges = _break_cycles(edges, links_by_pair)
+    full_edges = list(links_by_pair.keys())
+    full_edges = _break_cycles(full_edges, links_by_pair)
 
-    incoming = {target for _source, target in edges}
-    roots = {nid for nid in layout_node_ids if nid not in incoming}
-    if not roots and layout_node_ids:
-        roots = {min(layout_node_ids)}
+    rank_node_ids: set[int] = set(layout_node_ids)
+    for source, target in full_edges:
+        rank_node_ids.add(source)
+        rank_node_ids.add(target)
 
-    rows = _assign_rows(edges, roots, layout_node_ids)
-    for nid in layout_node_ids:
-        rows.setdefault(nid, 0)
+    incoming = {target for _source, target in full_edges}
+    structural_roots = {nid for nid in rank_node_ids if nid not in incoming}
+    marked_roots = {
+        n['id'] for n in nodes
+        if n.get('is_lineage_root') and n['id'] in layout_node_ids
+    }
+    # Row-0 heads: marked visible lineage roots plus hidden anchor nodes (excluded consecrators).
+    roots = set(marked_roots)
+    roots.update(nid for nid in structural_roots if nid not in layout_node_ids)
+    if not roots and rank_node_ids:
+        roots = {min(rank_node_ids)}
 
-    cols = _assign_columns(rows, edges, roots, node_by_id)
+    rows = _assign_rows(
+        full_edges,
+        roots,
+        rank_node_ids,
+        forced_roots=marked_roots,
+    )
+    rows, main_max_row = _assign_unattached_rows(rows, layout_node_ids)
+
+    rank_node_by_id = dict(node_by_id)
+    for node_id in rank_node_ids:
+        rank_node_by_id.setdefault(node_id, {'id': node_id})
+
+    cols = _assign_columns(rows, full_edges, roots | marked_roots, rank_node_by_id)
 
     positions = {
         nid: {'row': rows[nid], 'col': cols[nid]}
         for nid in layout_node_ids
+        if nid in rows and nid in cols
     }
 
-    primary_edge_keys = [
-        {'source': s, 'target': t}
-        for s, t in sorted(edges)
+    visible_edges = [
+        (s, t) for s, t in full_edges
+        if s in layout_node_ids and t in layout_node_ids
     ]
+    primary_edge_keys = [{'source': s, 'target': t} for s, t in sorted(visible_edges)]
+
+    fit_positions = {
+        nid: pos for nid, pos in positions.items()
+        if pos['row'] <= main_max_row
+    }
+    fit_max_col = max((pos['col'] for pos in fit_positions.values()), default=0)
+    fit_max_row = max((pos['row'] for pos in fit_positions.values()), default=0)
 
     return {
         'positions': positions,
         'primary_edges': primary_edge_keys,
         'layout_node_ids': sorted(layout_node_ids),
+        'main_max_row': main_max_row,
+        'fit_bounds': {'max_col': fit_max_col, 'max_row': fit_max_row},
     }

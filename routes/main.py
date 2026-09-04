@@ -238,6 +238,40 @@ def _lineage_nodes_links():
     return (nodes, links, user)
 
 
+def _lineage_consecration_ranking_links():
+    """Consecration links for grid ranking, including edges from excluded clergy."""
+    from sqlalchemy.orm import joinedload
+
+    def _event_sort_key(date, year):
+        if date:
+            return int(date.strftime('%Y%m%d'))
+        if year:
+            return year * 10000
+        return None
+
+    all_clergy = Clergy.active_query().options(
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+    ).all()
+
+    links = []
+    for clergy in all_clergy:
+        for consecration in clergy.consecrations:
+            if not consecration.consecrator:
+                continue
+            sort_key = _event_sort_key(consecration.date, consecration.year)
+            links.append({
+                'source': consecration.consecrator.id,
+                'target': clergy.id,
+                'type': 'consecration',
+                'event_sort_key': sort_key,
+                'is_invalid': consecration.is_invalid,
+                'is_doubtfully_valid': consecration.is_doubtfully_valid,
+                'is_doubtful_event': consecration.is_doubtful_event,
+                'is_sub_conditione': consecration.is_sub_conditione,
+            })
+    return links
+
+
 def lineage_visualization():
     current_app.logger.debug("=== LINEAGE_VISUALIZATION ROUTE CALLED ===")
     try:
@@ -631,7 +665,13 @@ def lineage_grid():
     show_priests = request.args.get('show_priests') in ('1', 'true', 'yes')
     try:
         nodes, links, user = _lineage_nodes_links()
-        layout = compute_lineage_grid_layout(nodes, links, show_priests=show_priests)
+        ranking_links = _lineage_consecration_ranking_links()
+        layout = compute_lineage_grid_layout(
+            nodes,
+            links,
+            show_priests=show_priests,
+            ranking_links=ranking_links,
+        )
         return render_template(
             'lineage_grid.html',
             nodes_json=json.dumps(nodes),

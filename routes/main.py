@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, session, jsonify, current_app, g
 from models import Clergy, User, db, Organization, Rank, Ordination, Consecration
 from services.clergy import resolve_clergy_name
+from services.lineage_grid_layout import compute_lineage_grid_layout
 from constants import GREEN_COLOR, BLACK_COLOR
 import json
 import base64
@@ -622,6 +623,34 @@ def lineage_table():
 @main_bp.route('/lineage_visualization')
 def lineage_visualization_alias():
     return lineage_visualization()
+
+
+@main_bp.route('/succession')
+def lineage_grid():
+    """Grid-based apostolic succession view (custom layout, no D3 force/tree)."""
+    show_priests = request.args.get('show_priests') in ('1', 'true', 'yes')
+    try:
+        nodes, links, user = _lineage_nodes_links()
+        layout = compute_lineage_grid_layout(nodes, links, show_priests=show_priests)
+        return render_template(
+            'lineage_grid.html',
+            nodes_json=json.dumps(nodes),
+            links_json=json.dumps(links),
+            layout_json=json.dumps(layout),
+            show_priests=show_priests,
+            user=user,
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error in lineage_grid: {e}")
+        return render_template(
+            'lineage_grid.html',
+            nodes_json=json.dumps([]),
+            links_json=json.dumps([]),
+            layout_json=json.dumps({'positions': {}, 'primary_edges': [], 'layout_node_ids': []}),
+            show_priests=show_priests,
+            user=None,
+            error_message=f"Unable to load lineage grid. Error: {str(e)}",
+        )
 
 
 @main_bp.route('/debug/lineage-coverage')

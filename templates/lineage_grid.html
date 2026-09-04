@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Succession Grid - Episcopal Lineage{% endblock %}
+
+{% block extra_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}">
+{% endblock %}
+
+{% block full_content %}
+<div class="lineage-grid-page">
+    <header class="lineage-grid-toolbar">
+        <h1>Apostolic Succession Grid</h1>
+        <div class="lineage-grid-toolbar-actions">
+            <label class="lineage-grid-toggle">
+                <input type="checkbox" id="lineage-grid-show-priests" {% if show_priests %}checked{% endif %}>
+                Show priests
+            </label>
+            <button type="button" class="lineage-grid-btn" id="lineage-grid-fit">Fit view</button>
+            <a class="lineage-grid-btn" href="{{ url_for('main.index') }}">Wiki search</a>
+        </div>
+    </header>
+
+    <div class="lineage-grid-legend" aria-label="Line legend">
+        <span class="lineage-grid-legend-item"><span class="lineage-grid-legend-line"></span> Consecration</span>
+        <span class="lineage-grid-legend-item"><span class="lineage-grid-legend-line lineage-grid-legend-line--ordination"></span> Ordination</span>
+        <span class="lineage-grid-legend-item"><span class="lineage-grid-legend-line lineage-grid-legend-line--co"></span> Co-consecration</span>
+        <span class="lineage-grid-legend-item"><span class="lineage-grid-legend-line lineage-grid-legend-line--invalid"></span> Invalid / doubtful</span>
+    </div>
+
+    {% if error_message %}
+    <p class="lineage-grid-empty" role="alert">{{ error_message }}</p>
+    {% else %}
+    <div id="lineage-grid-viewport" class="lineage-grid-viewport">
+        <div id="lineage-grid-stage" class="lineage-grid-stage"></div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    window.nodesData = {{ nodes_json|safe }};
+    window.linksData = {{ links_json|safe }};
+    window.layoutData = {{ layout_json|safe }};
+</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}"></script>
+{% endblock %}

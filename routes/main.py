@@ -238,6 +238,48 @@ def _lineage_nodes_links():
     return (nodes, links, user)
 
 
+def _lineage_rank_consecration_links():
+    """
+    Consecration links for grid row ranking.
+
+    Includes edges whose consecrator is excluded from visualization so hidden
+    parents still anchor descendant rows.
+    """
+    from sqlalchemy.orm import joinedload
+
+    def _event_sort_key(date, year):
+        if date:
+            return int(date.strftime('%Y%m%d'))
+        if year:
+            return year * 10000
+        return None
+
+    all_clergy = Clergy.active_query().options(
+        joinedload(Clergy.consecrations).joinedload(Consecration.consecrator),
+    ).all()
+
+    links = []
+    for clergy in all_clergy:
+        for consecration in clergy.consecrations:
+            if not consecration.consecrator:
+                continue
+            sort_key = _event_sort_key(consecration.date, consecration.year)
+            links.append({
+                'source': consecration.consecrator.id,
+                'target': clergy.id,
+                'type': 'consecration',
+                'event_sort_key': sort_key,
+                'is_invalid': consecration.is_invalid,
+                'is_sub_conditione': consecration.is_sub_conditione,
+            })
+    return links
+
+
+def _lineage_root_ids():
+    from models import LineageRoot
+    return [lr.clergy_id for lr in LineageRoot.query.all()]
+
+
 def lineage_visualization():
     current_app.logger.debug("=== LINEAGE_VISUALIZATION ROUTE CALLED ===")
     try:
@@ -631,7 +673,15 @@ def lineage_grid():
     show_priests = request.args.get('show_priests') in ('1', 'true', 'yes')
     try:
         nodes, links, user = _lineage_nodes_links()
-        layout = compute_lineage_grid_layout(nodes, links, show_priests=show_priests)
+        rank_links = _lineage_rank_consecration_links()
+        lineage_root_ids = _lineage_root_ids()
+        layout = compute_lineage_grid_layout(
+            nodes,
+            links,
+            rank_links=rank_links,
+            lineage_root_ids=lineage_root_ids,
+            show_priests=show_priests,
+        )
         return render_template(
             'lineage_grid.html',
             nodes_json=json.dumps(nodes),

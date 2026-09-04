@@ -102,12 +102,123 @@ def test_cycle_breaking_is_stable():
     assert positions_snapshot(layout) == positions_snapshot(compute_lineage_grid_layout(cyclic_nodes, cyclic_links))
 
 
+def test_hidden_parent_preserves_child_depth():
+    """Excluded consecrator still anchors row rank for visible consecrand."""
+    from services.lineage_grid_layout import compute_lineage_grid_layout
+
+    # Visible nodes: B and C. Hidden anchor A is excluded from nodes list.
+    visible_nodes = [
+        {'id': 2, 'name': 'Bishop B', 'consecration_date': '1970-01-01'},
+        {'id': 3, 'name': 'Bishop C', 'consecration_date': '1990-01-01'},
+    ]
+    visible_links = [
+        {
+            'source': 2, 'target': 3, 'type': 'consecration',
+            'event_sort_key': 19900101, 'is_sub_conditione': False, 'is_invalid': False,
+        },
+    ]
+    rank_links = [
+        {
+            'source': 1, 'target': 2, 'type': 'consecration',
+            'event_sort_key': 19700101, 'is_sub_conditione': False, 'is_invalid': False,
+        },
+        {
+            'source': 2, 'target': 3, 'type': 'consecration',
+            'event_sort_key': 19900101, 'is_sub_conditione': False, 'is_invalid': False,
+        },
+    ]
+    layout = compute_lineage_grid_layout(
+        visible_nodes,
+        visible_links,
+        rank_links=rank_links,
+    )
+    snapshot = positions_snapshot(layout)
+
+    assert 2 in snapshot and 3 in snapshot
+    assert snapshot[2][0] == 1, 'B should be one generation below hidden parent A'
+    assert snapshot[3][0] == 2, 'C should be two generations below hidden parent A'
+    assert snapshot[2][0] != 0, 'B must not flatten to row 0 when parent exists in rank graph'
+
+
+def test_shared_hidden_consecrator_not_all_row_zero():
+    """Multiple bishops sharing a hidden consecrator must not all sit on row 0."""
+    from services.lineage_grid_layout import compute_lineage_grid_layout
+
+    visible_nodes = [
+        {'id': 10, 'name': 'Bishop X'},
+        {'id': 11, 'name': 'Bishop Y'},
+        {'id': 12, 'name': 'Bishop Z'},
+    ]
+    visible_links = []
+    rank_links = [
+        {'source': 1, 'target': 10, 'type': 'consecration', 'event_sort_key': 19700101},
+        {'source': 1, 'target': 11, 'type': 'consecration', 'event_sort_key': 19710101},
+        {'source': 1, 'target': 12, 'type': 'consecration', 'event_sort_key': 19720101},
+    ]
+    layout = compute_lineage_grid_layout(
+        visible_nodes,
+        visible_links,
+        rank_links=rank_links,
+    )
+    snapshot = positions_snapshot(layout)
+    rows = {snapshot[nid][0] for nid in (10, 11, 12)}
+    assert rows == {1}, 'all visible consecrands share row 1 under hidden consecrator'
+    assert 0 not in rows
+
+
+def test_lineage_root_at_row_zero_consecrands_below():
+    from services.lineage_grid_layout import compute_lineage_grid_layout
+
+    nodes = [
+        {'id': 100, 'name': 'Apostolic Root', 'is_lineage_root': True},
+        {'id': 101, 'name': 'Successor'},
+    ]
+    links = [
+        {
+            'source': 100, 'target': 101, 'type': 'consecration',
+            'event_sort_key': 19800101, 'is_sub_conditione': False, 'is_invalid': False,
+        },
+    ]
+    layout = compute_lineage_grid_layout(nodes, links, rank_links=links, lineage_root_ids=[100])
+    snapshot = positions_snapshot(layout)
+    assert snapshot[100][0] == 0
+    assert snapshot[101][0] == 1
+
+
+def test_unattached_orphan_not_mixed_into_row_zero():
+    """Bishop with no consecrator data goes to unattached band, not generation 0."""
+    from services.lineage_grid_layout import compute_lineage_grid_layout
+
+    nodes = [
+        {'id': 1, 'name': 'Root', 'is_lineage_root': True},
+        {'id': 2, 'name': 'Orphan'},
+    ]
+    links = [
+        {
+            'source': 1, 'target': 50, 'type': 'consecration',
+            'event_sort_key': 19500101, 'is_sub_conditione': False, 'is_invalid': False,
+        },
+    ]
+    rank_links = links + [
+        # Orphan consecrated a hidden successor; no incoming consecration for orphan.
+        {'source': 2, 'target': 99, 'type': 'consecration', 'event_sort_key': 19700101},
+    ]
+    layout = compute_lineage_grid_layout(nodes, links, rank_links=rank_links)
+    snapshot = positions_snapshot(layout)
+    assert snapshot[1][0] == 0
+    assert snapshot[2][0] > snapshot[1][0], 'orphan without lineage root mark should not share row 0'
+
+
 def main():
     tests = [
         test_fixture_snapshot,
         test_show_priests_includes_non_consecrated,
         test_deterministic_repeat,
         test_cycle_breaking_is_stable,
+        test_hidden_parent_preserves_child_depth,
+        test_shared_hidden_consecrator_not_all_row_zero,
+        test_lineage_root_at_row_zero_consecrands_below,
+        test_unattached_orphan_not_mixed_into_row_zero,
     ]
     failures = []
     for test in tests:

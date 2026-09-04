@@ -3,10 +3,12 @@
  */
 import {
   GREEN_COLOR,
-  BLACK_COLOR,
   RED_COLOR,
   ORANGE_COLOR,
 } from './constants.js';
+
+const ORDINATION_COLOR = '#c9b458';
+const MIN_FIT_SCALE = 0.12;
 
 const CARD_W = 168;
 const CARD_H = 108;
@@ -37,7 +39,7 @@ function buildPrimaryEdgeSet(primaryEdges) {
 }
 
 function edgeStyle(link) {
-  let stroke = link.color || (link.type === 'ordination' ? BLACK_COLOR : GREEN_COLOR);
+  let stroke = link.color || (link.type === 'ordination' ? ORDINATION_COLOR : GREEN_COLOR);
   let strokeWidth = link.type === 'ordination' ? 1.75 : 2.25;
   let strokeDasharray = '';
   let opacity = 1;
@@ -104,9 +106,19 @@ function orthogonalSidePath(sourceRect, targetRect) {
   return `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`;
 }
 
-function routePath(link, sourceRect, targetRect, isPrimary) {
+function orthogonalBelowRowPath(sourceRect, targetRect) {
+  const start = bottomCenter(sourceRect);
+  const end = topCenter(targetRect);
+  const loopY = start.y + CARD_H * 0.55;
+  return `M ${start.x} ${start.y} L ${start.x} ${loopY} L ${end.x} ${loopY} L ${end.x} ${end.y}`;
+}
+
+function routePath(link, sourceRect, targetRect, isPrimary, sourcePos, targetPos) {
   if (link.type === 'ordination' || link.type === 'co-consecration') {
     return orthogonalSidePath(sourceRect, targetRect);
+  }
+  if (isPrimary && sourcePos && targetPos && sourcePos.row === targetPos.row) {
+    return orthogonalBelowRowPath(sourceRect, targetRect);
   }
   return orthogonalDownPath(sourceRect, targetRect);
 }
@@ -160,7 +172,7 @@ function renderCards(stage, nodes, positions) {
 
 function renderEdges(svg, links, positions, primaryEdgeSet) {
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-  ['grid-arrow-green', 'grid-arrow-black', 'grid-arrow-red', 'grid-arrow-orange'].forEach((id) => {
+  ['grid-arrow-green', 'grid-arrow-ordination', 'grid-arrow-red', 'grid-arrow-orange'].forEach((id) => {
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
     marker.setAttribute('id', id);
     marker.setAttribute('markerWidth', '8');
@@ -170,7 +182,7 @@ function renderEdges(svg, links, positions, primaryEdgeSet) {
     marker.setAttribute('orient', 'auto');
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', 'M0,0 L8,4 L0,8 Z');
-    path.setAttribute('fill', id.includes('black') ? BLACK_COLOR : id.includes('red') ? RED_COLOR : id.includes('orange') ? ORANGE_COLOR : GREEN_COLOR);
+    path.setAttribute('fill', id.includes('ordination') ? ORDINATION_COLOR : id.includes('red') ? RED_COLOR : id.includes('orange') ? ORANGE_COLOR : GREEN_COLOR);
     marker.appendChild(path);
     defs.appendChild(marker);
   });
@@ -191,7 +203,7 @@ function renderEdges(svg, links, positions, primaryEdgeSet) {
     const edgeKey = `${source}->${target}`;
     const isPrimary = link.type === 'consecration' && primaryEdgeSet.has(edgeKey);
     const style = edgeStyle(link);
-    const pathData = routePath(link, sourceRect, targetRect, isPrimary);
+    const pathData = routePath(link, sourceRect, targetRect, isPrimary, sourcePos, targetPos);
 
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', pathData);
@@ -207,7 +219,7 @@ function renderEdges(svg, links, positions, primaryEdgeSet) {
     }
 
     let markerId = 'grid-arrow-green';
-    if (link.type === 'ordination') markerId = 'grid-arrow-black';
+    if (link.type === 'ordination') markerId = 'grid-arrow-ordination';
     if (link.is_invalid) markerId = 'grid-arrow-red';
     else if (link.is_doubtfully_valid) markerId = 'grid-arrow-orange';
     path.setAttribute('marker-end', `url(#${markerId})`);
@@ -232,20 +244,34 @@ function renderEdges(svg, links, positions, primaryEdgeSet) {
   });
 }
 
-function computeStageSize(positions) {
-  let maxCol = 0;
-  let maxRow = 0;
-  Object.values(positions).forEach((pos) => {
-    maxCol = Math.max(maxCol, pos.col);
-    maxRow = Math.max(maxRow, pos.row);
-  });
+function computeStageSize(positions, fitBounds) {
+  let maxCol = fitBounds?.max_col;
+  let maxRow = fitBounds?.max_row;
+  if (maxCol == null || maxRow == null) {
+    maxCol = 0;
+    maxRow = 0;
+    Object.values(positions).forEach((pos) => {
+      maxCol = Math.max(maxCol, pos.col);
+      maxRow = Math.max(maxRow, pos.row);
+    });
+  }
   return {
     width: cellX(maxCol) + CARD_W + PAD,
     height: cellY(maxRow) + CARD_H + PAD,
   };
 }
 
-function initPanZoom(viewport, stage) {
+function computeFitStageSize(positions, fitBounds) {
+  if (!fitBounds || fitBounds.max_col == null || fitBounds.max_row == null) {
+    return computeStageSize(positions);
+  }
+  return {
+    width: cellX(fitBounds.max_col) + CARD_W + PAD,
+    height: cellY(fitBounds.max_row) + CARD_H + PAD,
+  };
+}
+
+function initPanZoom(viewport, stage, fitSize) {
   let scale = 1;
   let translateX = 0;
   let translateY = 0;
@@ -255,6 +281,18 @@ function initPanZoom(viewport, stage) {
 
   const apply = () => {
     stage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+  };
+
+  const fitToViewport = () => {
+    const rect = viewport.getBoundingClientRect();
+    const targetWidth = fitSize?.width || stage.offsetWidth;
+    const targetHeight = fitSize?.height || stage.offsetHeight;
+    const sx = rect.width / targetWidth;
+    const sy = rect.height / targetHeight;
+    scale = Math.max(MIN_FIT_SCALE, Math.min(1, sx, sy) * 0.95);
+    translateX = (rect.width - targetWidth * scale) / 2;
+    translateY = (rect.height - targetHeight * scale) / 2;
+    apply();
   };
 
   viewport.addEventListener(
@@ -298,17 +336,8 @@ function initPanZoom(viewport, stage) {
 
   const fitBtn = document.getElementById('lineage-grid-fit');
   if (fitBtn) {
-    fitBtn.addEventListener('click', () => {
-      const rect = viewport.getBoundingClientRect();
-      const stageRect = stage.getBoundingClientRect();
-      const sx = rect.width / stageRect.width;
-      const sy = rect.height / stageRect.height;
-      scale = Math.min(1, sx, sy) * 0.95;
-      translateX = (rect.width - stageRect.width * scale) / 2;
-      translateY = (rect.height - stageRect.height * scale) / 2;
-      apply();
-    });
-    requestAnimationFrame(() => fitBtn.click());
+    fitBtn.addEventListener('click', fitToViewport);
+    requestAnimationFrame(fitToViewport);
   } else {
     apply();
   }
@@ -332,7 +361,8 @@ export function initializeLineageGrid() {
   const layoutIds = new Set(layout.layout_node_ids || Object.keys(positions).map(Number));
   const visibleNodes = nodes.filter((n) => layoutIds.has(n.id));
 
-  const size = computeStageSize(positions);
+  const size = computeStageSize(positions, layout.fit_bounds);
+  const fitSize = computeFitStageSize(positions, layout.fit_bounds);
   stage.style.width = `${size.width}px`;
   stage.style.height = `${size.height}px`;
 
@@ -346,7 +376,7 @@ export function initializeLineageGrid() {
   const primaryEdgeSet = buildPrimaryEdgeSet(layout.primary_edges);
   renderEdges(svg, links, positions, primaryEdgeSet);
   renderCards(stage, visibleNodes, positions);
-  initPanZoom(viewport, stage);
+  initPanZoom(viewport, stage, fitSize);
 
   const priestToggle = document.getElementById('lineage-grid-show-priests');
   if (priestToggle) {

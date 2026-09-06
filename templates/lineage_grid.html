@@ -35,14 +35,13 @@
     </div>
     {% endif %}
 </div>
-
-<script>
-    window.nodesData = {{ nodes_json|safe }};
-    window.linksData = {{ links_json|safe }};
-    window.layoutData = {{ layout_json|safe }};
-</script>
 {% endblock %}
 
 {% block extra_scripts %}
-<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}"></script>
+<script>
+    window.nodesData = {{ nodes_json|safe }};
+    window.linksData = {{ links_json|safe }};
+    window.showPriests = {{ 'true' if show_priests else 'false' }};
+</script>
+<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=4"></script>
 {% endblock %}

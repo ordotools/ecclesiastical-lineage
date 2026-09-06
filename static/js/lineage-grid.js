@@ -14,6 +14,7 @@ import {
   rightCenter,
   routeAllEdges,
 } from './lineage-grid-router.js';
+import { computeLineageGridLayout } from './lineage-grid-layout.js';
 
 /** Visible on dark grid background (BLACK_COLOR #0d0d0d is invisible). */
 const ORDINATION_STROKE = '#c8d4dc';
@@ -321,7 +322,8 @@ export function initializeLineageGrid() {
 
   const nodes = window.nodesData || [];
   const links = window.linksData || [];
-  const layout = window.layoutData || { positions: {}, primary_edges: [], buses: [] };
+  const showPriests = window.showPriests === true || window.showPriests === 'true';
+  const layout = computeLineageGridLayout(nodes, links, { showPriests });
   const positions = layout.positions || {};
   const activeMetrics = activeMetricsFromLayout(layout);
 
@@ -369,4 +371,8 @@ export function initializeLineageGrid() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', initializeLineageGrid);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeLineageGrid);
+} else {
+  initializeLineageGrid();
+}

@@ -171,7 +171,10 @@ app.jinja_env.filters['from_json'] = from_json
 def add_cache_headers(response):
     from flask import request
     if request.path.startswith('/static/'):
-        response.headers['Cache-Control'] = 'public, max-age=31536000'
+        if app.debug and request.path.endswith('.js'):
+            response.headers['Cache-Control'] = 'no-cache'
+        else:
+            response.headers['Cache-Control'] = 'public, max-age=31536000'
     return response
 
 

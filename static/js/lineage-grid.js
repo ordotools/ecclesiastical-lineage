@@ -6,23 +6,21 @@ import {
   RED_COLOR,
   ORANGE_COLOR,
 } from './constants.js';
+import {
+  GRID_METRICS,
+  positionX,
+  positionY,
+  inflatedCardRect,
+  rightCenter,
+  routeAllEdges,
+} from './lineage-grid-router.js';
 
 /** Visible on dark grid background (BLACK_COLOR #0d0d0d is invisible). */
 const ORDINATION_STROKE = '#c8d4dc';
 const MIN_FIT_SCALE = 0.08;
 
-const CARD_W = 168;
-const CARD_H = 108;
-const GAP_X = 52;
-const GAP_Y = 64;
-const PAD = 48;
-
-function cellX(col) {
-  return PAD + col * (CARD_W + GAP_X);
-}
-
-function cellY(row) {
-  return PAD + row * (CARD_H + GAP_Y);
+function activeMetricsFromLayout(layout) {
+  return { ...GRID_METRICS, ...layout?.grid_metrics };
 }
 
 function linkEndpoints(link) {
@@ -68,53 +66,8 @@ function edgeStyle(link) {
   return { stroke, strokeWidth, strokeDasharray, opacity };
 }
 
-function cardRect(position) {
-  return {
-    x: cellX(position.col),
-    y: cellY(position.row),
-    w: CARD_W,
-    h: CARD_H,
-  };
-}
-
-function bottomCenter(rect) {
-  return { x: rect.x + rect.w / 2, y: rect.y + rect.h };
-}
-
-function topCenter(rect) {
-  return { x: rect.x + rect.w / 2, y: rect.y };
-}
-
-function rightCenter(rect) {
-  return { x: rect.x + rect.w, y: rect.y + rect.h / 2 };
-}
-
-function leftCenter(rect) {
-  return { x: rect.x, y: rect.y + rect.h / 2 };
-}
-
-function orthogonalDownPath(sourceRect, targetRect) {
-  const start = bottomCenter(sourceRect);
-  const end = topCenter(targetRect);
-  const midY = start.y + Math.max(24, (end.y - start.y) / 2);
-  return `M ${start.x} ${start.y} L ${start.x} ${midY} L ${end.x} ${midY} L ${end.x} ${end.y}`;
-}
-
-function orthogonalSidePath(sourceRect, targetRect) {
-  const start = rightCenter(sourceRect);
-  const end = leftCenter(targetRect);
-  const midX = start.x + Math.max(20, (end.x - start.x) / 2);
-  return `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`;
-}
-
-function routePath(link, sourceRect, targetRect, isPrimary, sourcePos, targetPos) {
-  if (link.type === 'ordination' || link.type === 'co-consecration') {
-    return orthogonalSidePath(sourceRect, targetRect);
-  }
-  if (isPrimary && sourcePos && targetPos && sourcePos.row === targetPos.row) {
-    return orthogonalSidePath(sourceRect, targetRect);
-  }
-  return orthogonalDownPath(sourceRect, targetRect);
+function cardRect(position, metrics) {
+  return inflatedCardRect(position, metrics);
 }
 
 function validityLabel(link) {
@@ -125,7 +78,7 @@ function validityLabel(link) {
   return '';
 }
 
-function renderCards(stage, nodes, positions) {
+function renderCards(stage, nodes, positions, metrics) {
   const cardsLayer = document.createElement('div');
   cardsLayer.className = 'lineage-grid-cards';
   stage.appendChild(cardsLayer);
@@ -137,8 +90,8 @@ function renderCards(stage, nodes, positions) {
     const card = document.createElement('article');
     card.className = 'lineage-grid-card';
     card.dataset.clergyId = String(node.id);
-    card.style.left = `${cellX(pos.col)}px`;
-    card.style.top = `${cellY(pos.row)}px`;
+    card.style.left = `${positionX(pos, metrics)}px`;
+    card.style.top = `${positionY(pos, metrics)}px`;
     card.style.setProperty('--org-color', node.org_color || '#2c3e50');
 
     const tag = (node.tags || []).find((t) => t.is_system)?.label || '';
@@ -164,7 +117,7 @@ function renderCards(stage, nodes, positions) {
   });
 }
 
-function renderEdges(svg, links, positions, primaryEdgeSet) {
+function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics) {
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
   ['grid-arrow-green', 'grid-arrow-ordination', 'grid-arrow-red', 'grid-arrow-orange'].forEach((id) => {
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
@@ -192,18 +145,19 @@ function renderEdges(svg, links, positions, primaryEdgeSet) {
   edgesGroup.setAttribute('class', 'lineage-grid-edges');
   svg.appendChild(edgesGroup);
 
+  const routedPaths = routeAllEdges(links, positions, layout, linkEndpoints, metrics);
+
   links.forEach((link) => {
     const { source, target } = linkEndpoints(link);
     const sourcePos = positions[source];
     const targetPos = positions[target];
     if (!sourcePos || !targetPos) return;
 
-    const sourceRect = cardRect(sourcePos);
-    const targetRect = cardRect(targetPos);
     const edgeKey = `${source}->${target}`;
     const isPrimary = link.type === 'consecration' && primaryEdgeSet.has(edgeKey);
     const style = edgeStyle(link);
-    const pathData = routePath(link, sourceRect, targetRect, isPrimary, sourcePos, targetPos);
+    const pathData = routedPaths.get(edgeKey);
+    if (!pathData) return;
 
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', pathData);
@@ -233,6 +187,7 @@ function renderEdges(svg, links, positions, primaryEdgeSet) {
 
     const label = validityLabel(link);
     if (label && link.type !== 'ordination') {
+      const sourceRect = cardRect(sourcePos, metrics);
       const mid = rightCenter(sourceRect);
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       text.setAttribute('x', String(mid.x + 6));
@@ -242,19 +197,48 @@ function renderEdges(svg, links, positions, primaryEdgeSet) {
       edgesGroup.appendChild(text);
     }
   });
+
+  (layout.buses || []).forEach((bus) => {
+    const trunkKey = `bus-trunk:${bus.source}`;
+    let pathData = routedPaths.get(trunkKey);
+    if (!pathData) {
+      const hubPos = positions[bus.source];
+      if (!hubPos || bus.timeline_y == null) return;
+      const hubRect = inflatedCardRect(hubPos, metrics);
+      const start = rightCenter(hubRect);
+      const timelineY = Number(bus.timeline_y);
+      const timelineEndX = bus.timeline_end_x != null
+        ? Number(bus.timeline_end_x)
+        : start.x + 100;
+      const exitX = start.x + 8;
+      pathData = `M ${start.x} ${start.y} L ${exitX} ${start.y} L ${exitX} ${timelineY} L ${timelineEndX} ${timelineY}`;
+    }
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathData);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', GREEN_COLOR);
+    path.setAttribute('stroke-width', '2.25');
+    path.classList.add('lineage-grid-edge');
+    path.classList.add('lineage-grid-edge--bus-trunk');
+    edgesGroup.appendChild(path);
+  });
 }
 
-function computeStageSize(positions, maxRowLimit = null) {
-  let maxCol = 0;
-  let maxRow = 0;
+function computeStageSize(positions, layout, metrics) {
+  if (layout?.bounds?.width && layout?.bounds?.height) {
+    return { width: layout.bounds.width, height: layout.bounds.height };
+  }
+
+  let maxX = metrics.PAD;
+  let maxY = metrics.PAD;
   Object.values(positions).forEach((pos) => {
-    if (maxRowLimit != null && pos.row > maxRowLimit) return;
-    maxCol = Math.max(maxCol, pos.col);
-    maxRow = Math.max(maxRow, pos.row);
+    maxX = Math.max(maxX, positionX(pos, metrics) + metrics.CARD_W);
+    maxY = Math.max(maxY, positionY(pos, metrics) + metrics.CARD_H);
   });
   return {
-    width: cellX(maxCol) + CARD_W + PAD,
-    height: cellY(maxRow) + CARD_H + PAD,
+    width: maxX + metrics.PAD,
+    height: maxY + metrics.PAD,
   };
 }
 
@@ -337,8 +321,15 @@ export function initializeLineageGrid() {
 
   const nodes = window.nodesData || [];
   const links = window.linksData || [];
-  const layout = window.layoutData || { positions: {}, primary_edges: [] };
+  const layout = window.layoutData || { positions: {}, primary_edges: [], buses: [] };
   const positions = layout.positions || {};
+  const activeMetrics = activeMetricsFromLayout(layout);
+
+  const root = document.querySelector('.lineage-grid-page');
+  if (root) {
+    root.style.setProperty('--grid-card-w', `${activeMetrics.CARD_W}px`);
+    root.style.setProperty('--grid-card-h', `${activeMetrics.CARD_H}px`);
+  }
 
   if (!nodes.length) {
     viewport.innerHTML = '<p class="lineage-grid-empty">No clergy data available.</p>';
@@ -348,11 +339,7 @@ export function initializeLineageGrid() {
   const layoutIds = new Set(layout.layout_node_ids || Object.keys(positions).map(Number));
   const visibleNodes = nodes.filter((n) => layoutIds.has(n.id));
 
-  const size = computeStageSize(positions);
-  const spineFitSize = computeStageSize(
-    positions,
-    layout.max_spine_row != null ? layout.max_spine_row : undefined,
-  );
+  const size = computeStageSize(positions, layout, activeMetrics);
   stage.style.width = `${size.width}px`;
   stage.style.height = `${size.height}px`;
 
@@ -364,9 +351,9 @@ export function initializeLineageGrid() {
   stage.appendChild(svg);
 
   const primaryEdgeSet = buildPrimaryEdgeSet(layout.primary_edges);
-  renderEdges(svg, links, positions, primaryEdgeSet);
-  renderCards(stage, visibleNodes, positions);
-  initPanZoom(viewport, stage, spineFitSize);
+  renderEdges(svg, links, positions, layout, primaryEdgeSet, activeMetrics);
+  renderCards(stage, visibleNodes, positions, activeMetrics);
+  initPanZoom(viewport, stage, size);
 
   const priestToggle = document.getElementById('lineage-grid-show-priests');
   if (priestToggle) {

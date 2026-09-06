@@ -127,8 +127,9 @@
 
 .lineage-grid-card {
   position: absolute;
-  width: 168px;
-  min-height: 108px;
+  width: var(--grid-card-w, 168px);
+  height: var(--grid-card-h, 136px);
+  min-height: var(--grid-card-h, 136px);
   box-sizing: border-box;
   border-radius: 12px;
   border: 1px solid var(--grid-card-border);

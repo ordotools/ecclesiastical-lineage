@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Snapshot-style tests for deterministic grid layout positions.
+Tests for timeline-packing grid layout (pixel positions).
 
 Run from project root:
 
-    python -m tests.test_lineage_grid_layout
+    python3 -m tests.test_lineage_grid_layout
 """
 
 import os
@@ -12,6 +12,18 @@ import sys
 
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+from services.lineage_grid_layout import (
+    CARD_H,
+    CARD_W,
+    DATE_SCALE,
+    GAP_X,
+    GAP_Y,
+    MIN_CHILD_GAP,
+    PAD,
+    compute_lineage_grid_layout,
+)
 
 
 FIXTURE_NODES = [
@@ -49,44 +61,43 @@ FIXTURE_LINKS = [
 
 def positions_snapshot(layout):
     return {
-        int(node_id): (pos['row'], pos['col'])
+        int(node_id): (round(float(pos['x']), 1), round(float(pos['y']), 1))
         for node_id, pos in sorted(layout['positions'].items(), key=lambda item: item[0])
     }
 
 
-def test_fixture_snapshot():
-    from services.lineage_grid_layout import compute_lineage_grid_layout
-
+def test_fixture_primary_edges_and_metrics():
     layout = compute_lineage_grid_layout(FIXTURE_NODES, FIXTURE_LINKS, show_priests=False)
-    snapshot = positions_snapshot(layout)
 
-    assert 6 not in snapshot, 'priests excluded by default'
-    assert snapshot[1] == (0, 0)
-    assert snapshot[2] == (0, 1)
-    assert snapshot[5][0] == 2
-    assert snapshot[3][0] == 1
-    assert snapshot[4][0] == 1
-    assert layout['primary_edges'] == [{'source': 1, 'target': 3}, {'source': 1, 'target': 4}, {'source': 3, 'target': 5}]
+    assert 6 not in layout['positions'], 'priests excluded by default'
+    assert layout['metrics'][1]['total_descendants'] == 3
+    assert layout['metrics'][2]['total_descendants'] == 0
+    assert layout['primary_edges'] == [
+        {'source': 1, 'target': 3},
+        {'source': 1, 'target': 4},
+        {'source': 3, 'target': 5},
+    ]
+
+
+def test_largest_descendant_tree_first():
+    layout = compute_lineage_grid_layout(FIXTURE_NODES, FIXTURE_LINKS, show_priests=False)
+    pos = layout['positions']
+
+    assert pos[1]['y'] < pos[2]['y'], 'larger tree (node 1) should sit above smaller root (node 2)'
 
 
 def test_show_priests_includes_non_consecrated():
-    from services.lineage_grid_layout import compute_lineage_grid_layout
-
     layout = compute_lineage_grid_layout(FIXTURE_NODES, FIXTURE_LINKS, show_priests=True)
     assert 6 in layout['positions']
 
 
 def test_deterministic_repeat():
-    from services.lineage_grid_layout import compute_lineage_grid_layout
-
     first = positions_snapshot(compute_lineage_grid_layout(FIXTURE_NODES, FIXTURE_LINKS))
     second = positions_snapshot(compute_lineage_grid_layout(FIXTURE_NODES, FIXTURE_LINKS))
     assert first == second
 
 
 def test_cycle_breaking_is_stable():
-    from services.lineage_grid_layout import compute_lineage_grid_layout
-
     cyclic_nodes = [
         {'id': 10, 'name': 'A'},
         {'id': 11, 'name': 'B'},
@@ -99,126 +110,207 @@ def test_cycle_breaking_is_stable():
     ]
     layout = compute_lineage_grid_layout(cyclic_nodes, cyclic_links)
     assert len(layout['positions']) == 3
-    assert positions_snapshot(layout) == positions_snapshot(compute_lineage_grid_layout(cyclic_nodes, cyclic_links))
-
-
-def test_hidden_parent_preserves_child_depth():
-    """Excluded consecrator still anchors row rank for visible consecrand."""
-    from services.lineage_grid_layout import compute_lineage_grid_layout
-
-    # Visible nodes: B and C. Hidden anchor A is excluded from nodes list.
-    visible_nodes = [
-        {'id': 2, 'name': 'Bishop B', 'consecration_date': '1970-01-01'},
-        {'id': 3, 'name': 'Bishop C', 'consecration_date': '1990-01-01'},
-    ]
-    visible_links = [
-        {
-            'source': 2, 'target': 3, 'type': 'consecration',
-            'event_sort_key': 19900101, 'is_sub_conditione': False, 'is_invalid': False,
-        },
-    ]
-    rank_links = [
-        {
-            'source': 1, 'target': 2, 'type': 'consecration',
-            'event_sort_key': 19700101, 'is_sub_conditione': False, 'is_invalid': False,
-        },
-        {
-            'source': 2, 'target': 3, 'type': 'consecration',
-            'event_sort_key': 19900101, 'is_sub_conditione': False, 'is_invalid': False,
-        },
-    ]
-    layout = compute_lineage_grid_layout(
-        visible_nodes,
-        visible_links,
-        rank_links=rank_links,
+    assert positions_snapshot(layout) == positions_snapshot(
+        compute_lineage_grid_layout(cyclic_nodes, cyclic_links),
     )
-    snapshot = positions_snapshot(layout)
-
-    assert 2 in snapshot and 3 in snapshot
-    assert snapshot[2][0] == 1, 'B should be one generation below hidden parent A'
-    assert snapshot[3][0] == 2, 'C should be two generations below hidden parent A'
-    assert snapshot[2][0] != 0, 'B must not flatten to row 0 when parent exists in rank graph'
 
 
-def test_shared_hidden_consecrator_not_all_row_zero():
-    """Multiple bishops sharing a hidden consecrator must not all sit on row 0."""
-    from services.lineage_grid_layout import compute_lineage_grid_layout
+def test_children_alternate_above_and_below():
+    layout = compute_lineage_grid_layout(FIXTURE_NODES, FIXTURE_LINKS, show_priests=False)
+    pos = layout['positions']
 
-    visible_nodes = [
-        {'id': 10, 'name': 'Bishop X'},
-        {'id': 11, 'name': 'Bishop Y'},
-        {'id': 12, 'name': 'Bishop Z'},
-    ]
-    visible_links = []
-    rank_links = [
-        {'source': 1, 'target': 10, 'type': 'consecration', 'event_sort_key': 19700101},
-        {'source': 1, 'target': 11, 'type': 'consecration', 'event_sort_key': 19710101},
-        {'source': 1, 'target': 12, 'type': 'consecration', 'event_sort_key': 19720101},
-    ]
-    layout = compute_lineage_grid_layout(
-        visible_nodes,
-        visible_links,
-        rank_links=rank_links,
-    )
-    snapshot = positions_snapshot(layout)
-    rows = {snapshot[nid][0] for nid in (10, 11, 12)}
-    assert rows == {1}, 'all visible consecrands share row 1 under hidden consecrator'
-    assert 0 not in rows
+    assert pos[3]['side'] == 'above'
+    assert pos[4]['side'] == 'below'
+    assert pos[3]['y'] < pos[1]['y']
+    assert pos[4]['y'] > pos[1]['y']
 
 
-def test_lineage_root_at_row_zero_consecrands_below():
-    from services.lineage_grid_layout import compute_lineage_grid_layout
+def test_date_order_left_to_right():
+    layout = compute_lineage_grid_layout(FIXTURE_NODES, FIXTURE_LINKS, show_priests=False)
+    pos = layout['positions']
 
+    assert pos[3]['x'] < pos[4]['x'], '1970 child should be left of 1971 child'
+
+
+def test_larger_year_gap_wider_x():
     nodes = [
-        {'id': 100, 'name': 'Apostolic Root', 'is_lineage_root': True},
-        {'id': 101, 'name': 'Successor'},
+        {'id': 1, 'name': 'Hub', 'is_lineage_root': True},
+        {'id': 2, 'name': 'Early', 'consecration_date': '1980-01-01'},
+        {'id': 3, 'name': 'Late', 'consecration_date': '2000-01-01'},
     ]
     links = [
-        {
-            'source': 100, 'target': 101, 'type': 'consecration',
-            'event_sort_key': 19800101, 'is_sub_conditione': False, 'is_invalid': False,
-        },
+        {'source': 1, 'target': 2, 'type': 'consecration', 'event_sort_key': 19800101},
+        {'source': 1, 'target': 3, 'type': 'consecration', 'event_sort_key': 20000101},
     ]
-    layout = compute_lineage_grid_layout(nodes, links, rank_links=links, lineage_root_ids=[100])
-    snapshot = positions_snapshot(layout)
-    assert snapshot[100][0] == 0
-    assert snapshot[101][0] == 1
+    layout = compute_lineage_grid_layout(nodes, links, rank_links=links)
+    pos = layout['positions']
+    gap = pos[3]['x'] - pos[2]['x']
+    assert gap >= max(MIN_CHILD_GAP, DATE_SCALE * 20)
 
 
-def test_unattached_orphan_not_mixed_into_row_zero():
-    """Bishop with no consecrator data goes to unattached band, not generation 0."""
-    from services.lineage_grid_layout import compute_lineage_grid_layout
+def test_nested_child_hub_vertical_offset():
+    hub_id = 10
+    child_hub_id = 20
+    nodes = [
+        {'id': hub_id, 'name': 'Parent Hub', 'is_lineage_root': True},
+        {'id': child_hub_id, 'name': 'Child Hub'},
+    ]
+    links = []
+    for i in range(5):
+        leaf_id = 100 + i
+        nodes.append({'id': leaf_id, 'name': f'Leaf {i}'})
+        links.append({
+            'source': child_hub_id,
+            'target': leaf_id,
+            'type': 'consecration',
+            'event_sort_key': 20000101 + i,
+        })
+    links.append({
+        'source': hub_id,
+        'target': child_hub_id,
+        'type': 'consecration',
+        'event_sort_key': 19900101,
+    })
 
+    layout = compute_lineage_grid_layout(nodes, links, rank_links=links)
+    pos = layout['positions']
+    timeline = pos[hub_id]['y'] + CARD_H / 2
+    child = pos[child_hub_id]
+
+    if child.get('side') == 'above':
+        gap = timeline - (child['y'] + CARD_H)
+    else:
+        gap = child['y'] - timeline
+    assert gap >= GAP_Y - 1, 'child hub should clear parent timeline by at least GAP_Y'
+
+    child_hub_bus = next(b for b in layout['buses'] if b['source'] == child_hub_id)
+    assert len(child_hub_bus['targets']) == 5
+
+
+def test_unknown_dates_after_known():
     nodes = [
         {'id': 1, 'name': 'Root', 'is_lineage_root': True},
-        {'id': 2, 'name': 'Orphan'},
+        {'id': 2, 'name': 'Dated', 'consecration_date': '1985-01-01'},
+        {'id': 3, 'name': 'Unknown'},
     ]
     links = [
-        {
-            'source': 1, 'target': 50, 'type': 'consecration',
-            'event_sort_key': 19500101, 'is_sub_conditione': False, 'is_invalid': False,
-        },
+        {'source': 1, 'target': 2, 'type': 'consecration', 'event_sort_key': 19850101},
+        {'source': 1, 'target': 3, 'type': 'consecration'},
     ]
-    rank_links = links + [
-        # Orphan consecrated a hidden successor; no incoming consecration for orphan.
-        {'source': 2, 'target': 99, 'type': 'consecration', 'event_sort_key': 19700101},
-    ]
-    layout = compute_lineage_grid_layout(nodes, links, rank_links=rank_links)
-    snapshot = positions_snapshot(layout)
-    assert snapshot[1][0] == 0
-    assert snapshot[2][0] > snapshot[1][0], 'orphan without lineage root mark should not share row 0'
+    layout = compute_lineage_grid_layout(nodes, links, rank_links=links)
+    pos = layout['positions']
+    assert pos[2]['x'] < pos[3]['x'], 'unknown-date child should sit right of dated child'
+
+
+def test_unique_positions():
+    layout = compute_lineage_grid_layout(FIXTURE_NODES, FIXTURE_LINKS, show_priests=False)
+    coords = [(round(pos['x'], 1), round(pos['y'], 1)) for pos in layout['positions'].values()]
+    assert len(coords) == len(set(coords)), 'each card must occupy a unique position'
+
+
+def test_grid_metrics_match_frontend():
+    layout = compute_lineage_grid_layout(FIXTURE_NODES, FIXTURE_LINKS)
+    gm = layout['grid_metrics']
+    assert gm['CARD_W'] == 168
+    assert gm['CARD_H'] == 136
+    assert gm['GAP_X'] == 52
+    assert gm['GAP_Y'] == 64
+    assert gm['PAD'] == 48
+    assert gm['CARD_INSET'] == 4
+    assert gm['LANE_PITCH'] == 9
+    assert gm['DATE_SCALE'] == 8
+
+
+def test_bus_timeline_bounds():
+    hub_id = 100
+    nodes = [{'id': hub_id, 'name': 'Hub Bishop', 'is_lineage_root': True}]
+    links = []
+    for i in range(3):
+        child_id = 200 + i
+        nodes.append({'id': child_id, 'name': f'Child {i}'})
+        links.append({
+            'source': hub_id,
+            'target': child_id,
+            'type': 'consecration',
+            'event_sort_key': 19800101 + i * 10000,
+        })
+
+    layout = compute_lineage_grid_layout(nodes, links, rank_links=links)
+    bus = layout['buses'][0]
+    hub_x = layout['positions'][hub_id]['x']
+
+    assert bus['timeline_start_x'] == hub_x + CARD_W
+    assert bus['timeline_end_x'] >= bus['timeline_start_x']
+    assert abs(bus['timeline_y'] - (layout['positions'][hub_id]['y'] + CARD_H / 2)) < 0.01
+
+
+def test_children_strictly_ltr_within_bus():
+    layout = compute_lineage_grid_layout(FIXTURE_NODES, FIXTURE_LINKS, show_priests=False)
+    pos = layout['positions']
+    bus = next(b for b in layout['buses'] if b['source'] == 1)
+    timeline_start = bus['timeline_start_x']
+
+    child_ids = [entry['target'] for entry in bus['targets']]
+    child_xs = [pos[cid]['x'] for cid in child_ids]
+    assert child_xs == sorted(child_xs), 'children must be ordered left-to-right'
+
+    for child_id in child_ids:
+        assert pos[child_id]['x'] >= timeline_start + GAP_X - 0.01, (
+            f'child {child_id} must sit right of parent timeline start'
+        )
+
+    for left_id, right_id in zip(child_ids, child_ids[1:]):
+        assert pos[right_id]['x'] > pos[left_id]['x'], 'each child must be strictly right of prior sibling'
+
+
+def test_hub_emits_bus_with_timeline_y():
+    hub_id = 100
+    nodes = [{'id': hub_id, 'name': 'Hub Bishop', 'is_lineage_root': True}]
+    links = []
+    for i in range(4):
+        child_id = 200 + i
+        nodes.append({'id': child_id, 'name': f'Child {i}'})
+        links.append({
+            'source': hub_id,
+            'target': child_id,
+            'type': 'consecration',
+            'event_sort_key': 19800101 + i * 10000,
+        })
+
+    layout = compute_lineage_grid_layout(nodes, links, rank_links=links)
+    assert len(layout['buses']) == 1
+    bus = layout['buses'][0]
+    assert bus['source'] == hub_id
+    assert 'timeline_y' in bus
+    assert len(bus['targets']) == 4
+    expected_timeline = layout['positions'][hub_id]['y'] + CARD_H / 2
+    assert abs(bus['timeline_y'] - expected_timeline) < 0.01
+
+
+def test_bounds_present():
+    layout = compute_lineage_grid_layout(FIXTURE_NODES, FIXTURE_LINKS)
+    assert layout['bounds']['width'] >= PAD + CARD_W
+    assert layout['bounds']['height'] >= PAD + CARD_H
 
 
 def main():
     tests = [
-        test_fixture_snapshot,
+        test_fixture_primary_edges_and_metrics,
+        test_largest_descendant_tree_first,
         test_show_priests_includes_non_consecrated,
         test_deterministic_repeat,
         test_cycle_breaking_is_stable,
-        test_hidden_parent_preserves_child_depth,
-        test_shared_hidden_consecrator_not_all_row_zero,
-        test_lineage_root_at_row_zero_consecrands_below,
-        test_unattached_orphan_not_mixed_into_row_zero,
+        test_children_alternate_above_and_below,
+        test_date_order_left_to_right,
+        test_larger_year_gap_wider_x,
+        test_nested_child_hub_vertical_offset,
+        test_unknown_dates_after_known,
+        test_unique_positions,
+        test_grid_metrics_match_frontend,
+        test_bus_timeline_bounds,
+        test_children_strictly_ltr_within_bus,
+        test_hub_emits_bus_with_timeline_y,
+        test_bounds_present,
     ]
     failures = []
     for test in tests:

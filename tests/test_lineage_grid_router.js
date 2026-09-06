@@ -1,0 +1,261 @@
+#!/usr/bin/env node
+/**
+ * Router occupancy tests for grid lineage edges.
+ *
+ * Run from project root:
+ *   node tests/test_lineage_grid_router.js
+ */
+
+import assert from 'node:assert/strict';
+import {
+  routeAllEdges,
+  rectIntersectsSegment,
+  inflatedCardRect,
+  LaneRouter,
+  segmentKey,
+  GRID_METRICS,
+} from '../static/js/lineage-grid-router.js';
+
+const { CARD_H } = GRID_METRICS;
+
+function linkEndpoints(link) {
+  return { source: link.source, target: link.target };
+}
+
+function parsePathPoints(pathD) {
+  const nums = pathD.match(/-?\d+\.?\d*/g).map(Number);
+  const points = [];
+  for (let i = 0; i < nums.length; i += 2) {
+    points.push({ x: nums[i], y: nums[i + 1] });
+  }
+  return points;
+}
+
+function pathSegments(points) {
+  const segments = [];
+  for (let i = 0; i < points.length - 1; i += 1) {
+    segments.push([points[i].x, points[i].y, points[i + 1].x, points[i + 1].y]);
+  }
+  return segments;
+}
+
+function testSegmentMissesCards() {
+  const positions = {
+    1: { x: 48, y: 48 },
+    2: { x: 48, y: 220 },
+  };
+  const links = [
+    { source: 1, target: 2, type: 'consecration' },
+  ];
+  const layout = {
+    positions,
+    primary_edges: [{ source: 1, target: 2 }],
+    buses: [],
+  };
+
+  const paths = routeAllEdges(links, positions, layout, linkEndpoints);
+  const pathD = paths.get('1->2');
+  assert.ok(pathD, 'expected routed path');
+
+  const cardRects = Object.entries(positions).map(([id, pos]) => ({
+    id: Number(id),
+    rect: inflatedCardRect(pos),
+  }));
+  pathSegments(parsePathPoints(pathD)).forEach(([x1, y1, x2, y2]) => {
+    cardRects.forEach(({ id, rect }) => {
+      if (id === 1 || id === 2) return;
+      assert.equal(
+        rectIntersectsSegment(rect, x1, y1, x2, y2),
+        false,
+        'segment must not intersect unrelated card',
+      );
+    });
+  });
+}
+
+function testNoDuplicateHorizontalSegments() {
+  const positions = {
+    1: { x: 48, y: 48 },
+    2: { x: 48, y: 220 },
+    3: { x: 268, y: 220 },
+  };
+  const links = [
+    { source: 1, target: 2, type: 'consecration' },
+    { source: 1, target: 3, type: 'consecration' },
+  ];
+  const layout = {
+    positions,
+    primary_edges: [{ source: 1, target: 2 }, { source: 1, target: 3 }],
+    buses: [],
+  };
+
+  const paths = routeAllEdges(links, positions, layout, linkEndpoints);
+  const horizKeys = new Set();
+  [paths.get('1->2'), paths.get('1->3')].forEach((pathD) => {
+    pathSegments(parsePathPoints(pathD)).forEach(([x1, y1, x2, y2]) => {
+      if (y1 !== y2) return;
+      const key = segmentKey(x1, y1, x2, y2);
+      assert.equal(horizKeys.has(key), false, `duplicate horizontal segment ${key}`);
+      horizKeys.add(key);
+    });
+  });
+}
+
+function testBusRouting() {
+  const hubY = 200;
+  const timelineY = hubY + CARD_H / 2;
+  const positions = {
+    10: { x: 48, y: hubY },
+    11: { x: 268, y: 80, side: 'above' },
+    12: { x: 488, y: 320, side: 'below' },
+  };
+  const links = [
+    { source: 10, target: 11, type: 'consecration' },
+    { source: 10, target: 12, type: 'consecration' },
+  ];
+  const layout = {
+    positions,
+    primary_edges: [{ source: 10, target: 11 }, { source: 10, target: 12 }],
+    buses: [{
+      source: 10,
+      timeline_y: timelineY,
+      targets: [
+        { target: 11, side: 'above' },
+        { target: 12, side: 'below' },
+      ],
+    }],
+  };
+
+  const paths = routeAllEdges(links, positions, layout, linkEndpoints);
+  assert.ok(paths.get('10->11'), 'bus child 11 routed');
+  assert.ok(paths.get('10->12'), 'bus child 12 routed');
+}
+
+function testBusTrunkAtParentMidline() {
+  const hubY = 150;
+  const timelineY = hubY + CARD_H / 2;
+  const positions = {
+    10: { x: 48, y: hubY },
+    11: { x: 268, y: 40, side: 'above' },
+  };
+  const links = [{ source: 10, target: 11, type: 'consecration' }];
+  const layout = {
+    positions,
+    primary_edges: [{ source: 10, target: 11 }],
+    buses: [{
+      source: 10,
+      timeline_y: timelineY,
+      targets: [{ target: 11, side: 'above' }],
+    }],
+  };
+
+  const router = new LaneRouter(positions, new Map([
+    [10, inflatedCardRect(positions[10])],
+    [11, inflatedCardRect(positions[11])],
+  ]));
+  router.routeBus(layout.buses[0]);
+
+  const horizSegments = [...router.occupied].filter((key) => key.startsWith('H:'));
+  assert.ok(horizSegments.length > 0, 'bus should occupy horizontal trunk segment');
+  const trunkYs = horizSegments.map((key) => Number(key.split(':')[1]));
+  const nearMidline = trunkYs.some((y) => Math.abs(y - timelineY) <= GRID_METRICS.LANE_PITCH * 2);
+  assert.ok(nearMidline, `trunk Y should be near parent midline ${timelineY}, got ${trunkYs.join(',')}`);
+}
+
+function testBusStubPathsVerticalOnly() {
+  const hubY = 150;
+  const timelineY = hubY + CARD_H / 2;
+  const positions = {
+    10: { x: 48, y: hubY },
+    11: { x: 268, y: 40, side: 'above' },
+    12: { x: 488, y: 320, side: 'below' },
+  };
+  const hubRect = inflatedCardRect(positions[10]);
+  const child11Rect = inflatedCardRect(positions[11]);
+  const child12Rect = inflatedCardRect(positions[12]);
+  const timelineStartX = positions[10].x + GRID_METRICS.CARD_W;
+  const timelineEndX = positions[12].x + GRID_METRICS.CARD_W;
+  const layout = {
+    positions,
+    primary_edges: [{ source: 10, target: 11 }, { source: 10, target: 12 }],
+    buses: [{
+      source: 10,
+      timeline_y: timelineY,
+      timeline_start_x: timelineStartX,
+      timeline_end_x: timelineEndX,
+      targets: [
+        { target: 11, side: 'above' },
+        { target: 12, side: 'below' },
+      ],
+    }],
+  };
+  const links = [
+    { source: 10, target: 11, type: 'consecration' },
+    { source: 10, target: 12, type: 'consecration' },
+  ];
+
+  const paths = routeAllEdges(links, positions, layout, linkEndpoints);
+  const trunkEndX = timelineEndX;
+
+  assert.ok(paths.get('bus-trunk:10'), 'bus trunk path should be returned');
+  ['10->11', '10->12'].forEach((key) => {
+    const pathD = paths.get(key);
+    assert.ok(pathD, `expected routed path for ${key}`);
+    const points = parsePathPoints(pathD);
+    assert.ok(points.length >= 2, 'stub path should have at least two points');
+    const first = points[0];
+    assert.notEqual(first.x, trunkEndX, 'stub path must not start at trunk end (RTL fan)');
+    const stubX = key === '10->11'
+      ? child11Rect.x + child11Rect.w / 2
+      : child12Rect.x + child12Rect.w / 2;
+    assert.equal(first.x, stubX, 'stub path should start at child center X on trunk');
+    assert.equal(points[0].x, points[1].x, 'first segment should be vertical from trunk');
+  });
+
+  const router = new LaneRouter(positions, new Map([
+    [10, hubRect],
+    [11, child11Rect],
+    [12, child12Rect],
+  ]));
+  router.routeBus(layout.buses[0]);
+  const horizSegments = [...router.occupied].filter((key) => key.startsWith('H:'));
+  const trunkSegment = horizSegments.find((key) => {
+    const [, y, xMin, xMax] = key.split(':').map(Number);
+    return Math.abs(y - timelineY) <= GRID_METRICS.LANE_PITCH * 2
+      && xMin <= timelineStartX + 1
+      && xMax >= timelineEndX - 1;
+  });
+  assert.ok(trunkSegment, 'trunk should span timeline_start_x to timeline_end_x left-to-right');
+}
+
+function testLaneRouterOccupancy() {
+  const positions = { 1: { x: 48, y: 48 } };
+  const cardRects = new Map([[1, inflatedCardRect(positions[1])]]);
+  const router = new LaneRouter(positions, cardRects);
+  router.occupySegment(10, 20, 50, 20);
+  assert.equal(router.isSegmentFree(10, 20, 50, 20), false);
+  assert.equal(router.isSegmentFree(10, 29, 50, 29), true);
+}
+
+const tests = [
+  testSegmentMissesCards,
+  testNoDuplicateHorizontalSegments,
+  testBusRouting,
+  testBusTrunkAtParentMidline,
+  testBusStubPathsVerticalOnly,
+  testLaneRouterOccupancy,
+];
+
+let failures = 0;
+for (const test of tests) {
+  try {
+    test();
+    console.log(`OK  ${test.name}`);
+  } catch (err) {
+    failures += 1;
+    console.error(`FAIL ${test.name}: ${err.message}`);
+  }
+}
+
+if (failures) process.exit(1);
+console.log('All lineage grid router tests passed.');

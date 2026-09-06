@@ -1,0 +1,10 @@
+{
+  "CARD_W": 168,
+  "CARD_H": 136,
+  "GAP_X": 52,
+  "GAP_Y": 64,
+  "PAD": 48,
+  "CARD_INSET": 4,
+  "LANE_PITCH": 9,
+  "DATE_SCALE": 8
+}

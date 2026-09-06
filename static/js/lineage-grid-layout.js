@@ -1,5 +1,5 @@
 /**
- * Deterministic timeline packing for consecration lineage grid.
+ * Deterministic timeline packing for succession lineage grid.
  * Runs client-side from visible graph data (nodes, links).
  */
 import gridMetrics from '../config/grid-metrics.json' with { type: 'json' };
@@ -17,6 +17,66 @@ const {
 
 const MIN_CHILD_GAP = CARD_W + GAP_X;
 const CLUSTER_GAP = GAP_Y;
+const FIRST_CHILD_X = CARD_W + GAP_X;
+
+/** Higher rank = more valid (Table A inverted for selection). */
+const VALIDITY_RANK = {
+  valid: 5,
+  sub_conditione: 4,
+  doubtful_event: 3,
+  doubtfully_valid: 2,
+  invalid: 1,
+};
+
+function linkValidityRank(link) {
+  if (link.is_invalid) return VALIDITY_RANK.invalid;
+  if (link.is_doubtfully_valid) return VALIDITY_RANK.doubtfully_valid;
+  if (link.is_doubtful_event) return VALIDITY_RANK.doubtful_event;
+  if (link.is_sub_conditione) return VALIDITY_RANK.sub_conditione;
+  return VALIDITY_RANK.valid;
+}
+
+function isBishopNode(node) {
+  if (!node) return false;
+  return !!node.is_bishop || (node.consecrations_count || 0) > 0;
+}
+
+function incomingSuccessionType(node) {
+  return isBishopNode(node) ? 'consecration' : 'ordination';
+}
+
+function comparePrimarySuccession(a, b) {
+  const rankDiff = linkValidityRank(b) - linkValidityRank(a);
+  if (rankDiff !== 0) return rankDiff;
+  const ka = eventSortKey(a);
+  const kb = eventSortKey(b);
+  if (ka[0] !== kb[0]) return ka[0] ? -1 : 1;
+  return kb[1] - ka[1];
+}
+
+function selectPrimarySuccessionLinks(links, nodeById) {
+  const byTarget = new Map();
+  links.forEach((link) => {
+    if (link.type === 'co-consecration') return;
+    if (link.type !== 'ordination' && link.type !== 'consecration') return;
+    const target = linkEndpoint(link.target);
+    const source = linkEndpoint(link.source);
+    if (target == null || source == null) return;
+
+    const node = nodeById.get(target);
+    if (link.type !== incomingSuccessionType(node)) return;
+
+    if (!byTarget.has(target)) byTarget.set(target, []);
+    byTarget.get(target).push(link);
+  });
+
+  const primaryLinks = [];
+  byTarget.forEach((targetLinks) => {
+    const ordered = [...targetLinks].sort(comparePrimarySuccession);
+    if (ordered.length) primaryLinks.push(ordered[0]);
+  });
+  return primaryLinks;
+}
 
 function linkEndpoint(value) {
   if (value != null && typeof value === 'object') return value.id ?? null;
@@ -59,27 +119,6 @@ function linkYear(link, node) {
     if (!Number.isNaN(year)) return year;
   }
   return null;
-}
-
-function selectPrimaryConsecrationLinks(links) {
-  const byTarget = new Map();
-  links.forEach((link) => {
-    if (link.type !== 'consecration') return;
-    const target = linkEndpoint(link.target);
-    const source = linkEndpoint(link.source);
-    if (target == null || source == null) return;
-    if (!byTarget.has(target)) byTarget.set(target, []);
-    byTarget.get(target).push(link);
-  });
-
-  const primaryLinks = [];
-  byTarget.forEach((targetLinks) => {
-    const ordered = [...targetLinks].sort(compareEventSort);
-    let chosen = ordered.find((l) => !l.is_sub_conditione && !l.is_invalid);
-    if (!chosen && ordered.length) chosen = ordered[0];
-    if (chosen) primaryLinks.push(chosen);
-  });
-  return primaryLinks;
 }
 
 function findCycleEdge(edges) {
@@ -258,6 +297,14 @@ function computeExtents(nodeId, children, cache) {
   return result;
 }
 
+function siblingGap(year, prevYear, isFirstChild) {
+  if (isFirstChild) return GAP_X;
+  if (year != null && prevYear != null) {
+    return Math.max(MIN_CHILD_GAP, DATE_SCALE * (year - prevYear));
+  }
+  return MIN_CHILD_GAP;
+}
+
 function computeChildXPositions(
   childList,
   nodeById,
@@ -267,28 +314,26 @@ function computeChildXPositions(
 ) {
   if (!childList.length) return [];
 
-  const baseX = CARD_W + GAP_X;
   const positions = [];
-  let prevEnd = baseX - GAP_X;
+  const railOccupied = { above: 0, below: 0 };
   let prevYear = null;
 
-  childList.forEach(([childId, link]) => {
+  childList.forEach(([childId, link], idx) => {
     const node = nodeById.get(childId) || { id: childId };
     const year = linkYear(link, node);
+    const side = childSide(idx);
     const childWidth = computeSubtreeWidth(childId, children, nodeById, widthCache, xCache);
+    const gap = siblingGap(year, prevYear, idx === 0);
 
-    let gap;
-    if (year != null && prevYear != null) {
-      gap = Math.max(MIN_CHILD_GAP, DATE_SCALE * (year - prevYear));
-    } else if (!positions.length) {
-      gap = GAP_X;
+    let x;
+    if (railOccupied[side] === 0) {
+      x = FIRST_CHILD_X;
     } else {
-      gap = MIN_CHILD_GAP;
+      x = railOccupied[side] + gap;
     }
 
-    const x = prevEnd + gap;
     positions.push(x);
-    prevEnd = x + childWidth;
+    railOccupied[side] = x + childWidth;
     if (year != null) prevYear = year;
   });
 
@@ -439,7 +484,7 @@ function placeSubtree(
   if (busTargets.length) {
     const timelineStartX = x + CARD_W;
     const timelineEndX = x + Math.max(
-      ...childList.map(([childId], i) => relXs[i] + (widthCache.get(childId) || CARD_W)),
+      ...childList.map(([,], i) => relXs[i] + CARD_W),
     );
     buses.push({
       source: nodeId,
@@ -583,7 +628,7 @@ export function computeLineageGridLayout(nodes, links, options = {}) {
       }),
     );
 
-  const primaryLinks = selectPrimaryConsecrationLinks(links);
+  const primaryLinks = selectPrimarySuccessionLinks(links, nodeById);
 
   const { children, parents, layoutEdges } = buildLayoutForest(
     layoutNodeIds,

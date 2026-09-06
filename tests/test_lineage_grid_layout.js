@@ -26,11 +26,11 @@ const {
 };
 
 const FIXTURE_NODES = [
-  { id: 1, name: 'Root Alpha', consecration_date: '1950-01-01', is_lineage_root: true },
-  { id: 2, name: 'Root Beta', consecration_date: '1952-01-01', is_lineage_root: true },
-  { id: 3, name: 'Child One', consecration_date: '1970-06-01' },
-  { id: 4, name: 'Child Two', consecration_date: '1971-03-15' },
-  { id: 5, name: 'Grandchild', consecration_date: '1990-09-20' },
+  { id: 1, name: 'Root Alpha', consecration_date: '1950-01-01', is_lineage_root: true, is_bishop: true },
+  { id: 2, name: 'Root Beta', consecration_date: '1952-01-01', is_lineage_root: true, is_bishop: true },
+  { id: 3, name: 'Child One', consecration_date: '1970-06-01', is_bishop: true },
+  { id: 4, name: 'Child Two', consecration_date: '1971-03-15', is_bishop: true },
+  { id: 5, name: 'Grandchild', consecration_date: '1990-09-20', is_bishop: true },
   { id: 6, name: 'Priest Only', rank: 'Priest', ordination_date: '1985-01-01' },
 ];
 
@@ -151,22 +151,24 @@ function testDateOrderLeftToRight() {
   const layout = computeLineageGridLayout(FIXTURE_NODES, FIXTURE_LINKS, { showPriests: false });
   const pos = layout.positions;
 
-  assert.ok(pos[3].x < pos[4].x, '1970 child should be left of 1971 child');
+  assert.ok(pos[3].x < pos[5].x, '1970 child should be left of 1990 grandchild on same rail');
 }
 
 function testLargerYearGapWiderX() {
   const nodes = [
-    { id: 1, name: 'Hub', is_lineage_root: true },
-    { id: 2, name: 'Early', consecration_date: '1980-01-01' },
-    { id: 3, name: 'Late', consecration_date: '2000-01-01' },
+    { id: 1, name: 'Hub', is_lineage_root: true, is_bishop: true },
+    { id: 2, name: 'Early', consecration_date: '1980-01-01', is_bishop: true },
+    { id: 3, name: 'LateBelow', consecration_date: '2000-01-01', is_bishop: true },
+    { id: 4, name: 'LateAbove', consecration_date: '2005-01-01', is_bishop: true },
   ];
   const links = [
     { source: 1, target: 2, type: 'consecration', event_sort_key: 19800101 },
     { source: 1, target: 3, type: 'consecration', event_sort_key: 20000101 },
+    { source: 1, target: 4, type: 'consecration', event_sort_key: 20050101 },
   ];
   const layout = computeLineageGridLayout(nodes, links);
   const pos = layout.positions;
-  const gap = pos[3].x - pos[2].x;
+  const gap = pos[4].x - pos[2].x;
   assert.ok(gap >= Math.max(MIN_CHILD_GAP, DATE_SCALE * 20));
 }
 
@@ -174,13 +176,13 @@ function testNestedChildHubVerticalOffset() {
   const hubId = 10;
   const childHubId = 20;
   const nodes = [
-    { id: hubId, name: 'Parent Hub', is_lineage_root: true },
-    { id: childHubId, name: 'Child Hub' },
+    { id: hubId, name: 'Parent Hub', is_lineage_root: true, is_bishop: true },
+    { id: childHubId, name: 'Child Hub', is_bishop: true },
   ];
   const links = [];
   for (let i = 0; i < 5; i += 1) {
     const leafId = 100 + i;
-    nodes.push({ id: leafId, name: `Leaf ${i}` });
+    nodes.push({ id: leafId, name: `Leaf ${i}`, is_bishop: true });
     links.push({
       source: childHubId,
       target: leafId,
@@ -215,17 +217,19 @@ function testNestedChildHubVerticalOffset() {
 
 function testUnknownDatesAfterKnown() {
   const nodes = [
-    { id: 1, name: 'Root', is_lineage_root: true },
-    { id: 2, name: 'Dated', consecration_date: '1985-01-01' },
-    { id: 3, name: 'Unknown' },
+    { id: 1, name: 'Root', is_lineage_root: true, is_bishop: true },
+    { id: 2, name: 'Dated', consecration_date: '1985-01-01', is_bishop: true },
+    { id: 3, name: 'Spacer', is_bishop: true },
+    { id: 4, name: 'Unknown', is_bishop: true },
   ];
   const links = [
     { source: 1, target: 2, type: 'consecration', event_sort_key: 19850101 },
-    { source: 1, target: 3, type: 'consecration' },
+    { source: 1, target: 3, type: 'consecration', event_sort_key: 19900101 },
+    { source: 1, target: 4, type: 'consecration' },
   ];
   const layout = computeLineageGridLayout(nodes, links);
   const pos = layout.positions;
-  assert.ok(pos[2].x < pos[3].x, 'unknown-date child should sit right of dated child');
+  assert.ok(pos[2].x < pos[4].x, 'unknown-date child should sit right of dated child on same rail');
 }
 
 function testUniquePositions() {
@@ -250,13 +254,152 @@ function testGridMetricsMatchFrontend() {
   assert.equal(gm.DATE_SCALE, 8);
 }
 
+function testBusEndAtDirectChildCardsNotNested() {
+  const hubId = 100;
+  const childHubId = 200;
+  const nodes = [
+    { id: hubId, name: 'Parent Hub', is_lineage_root: true, is_bishop: true },
+    { id: childHubId, name: 'Child Hub', is_bishop: true },
+  ];
+  const links = [];
+  for (let i = 0; i < 5; i += 1) {
+    const leafId = 300 + i;
+    nodes.push({ id: leafId, name: `Leaf ${i}`, is_bishop: true });
+    links.push({
+      source: childHubId,
+      target: leafId,
+      type: 'consecration',
+      event_sort_key: 20000101 + i,
+    });
+  }
+  links.push({
+    source: hubId,
+    target: childHubId,
+    type: 'consecration',
+    event_sort_key: 19900101,
+  });
+
+  const layout = computeLineageGridLayout(nodes, links);
+  const bus = layout.buses.find((b) => b.source === hubId);
+  const pos = layout.positions;
+  const hubX = pos[hubId].x;
+  const childHubRight = pos[childHubId].x + CARD_W;
+  const nestedLeafRight = Math.max(...[300, 301, 302, 303, 304].map((id) => pos[id].x + CARD_W));
+
+  assert.ok(bus, 'parent hub should emit a bus');
+  assert.equal(bus.timeline_start_x, hubX + CARD_W);
+  assert.ok(Math.abs(bus.timeline_end_x - childHubRight) < 0.01,
+    'bus end should stop at direct child card, not nested descendants');
+  assert.ok(nestedLeafRight > bus.timeline_end_x,
+    'nested descendants should extend past parent bus trunk');
+}
+
+function testOppositeRailChildrenMayShareX() {
+  const hubId = 10;
+  const nodes = [
+    { id: hubId, name: 'Hub', is_lineage_root: true, is_bishop: true },
+    { id: 11, name: 'Above', is_bishop: true },
+    { id: 12, name: 'Below', is_bishop: true },
+  ];
+  const links = [
+    { source: hubId, target: 11, type: 'consecration', event_sort_key: 19800101 },
+    { source: hubId, target: 12, type: 'consecration', event_sort_key: 19810101 },
+  ];
+  const layout = computeLineageGridLayout(nodes, links);
+  const pos = layout.positions;
+
+  assert.equal(pos[11].side, 'above');
+  assert.equal(pos[12].side, 'below');
+  assert.equal(pos[11].x, pos[12].x, 'first above and first below child may share X');
+}
+
+function testBishopIgnoresOrdinationIncoming() {
+  const nodes = [
+    { id: 1, name: 'Ordainer', is_bishop: true, is_lineage_root: true },
+    { id: 2, name: 'Consecrator', is_bishop: true, is_lineage_root: true },
+    { id: 3, name: 'Bishop Target', is_bishop: true, consecrations_count: 1 },
+  ];
+  const links = [
+    { source: 1, target: 3, type: 'ordination', event_sort_key: 19700101 },
+    {
+      source: 2, target: 3, type: 'consecration',
+      event_sort_key: 19800101, is_sub_conditione: false, is_invalid: false,
+    },
+  ];
+  const layout = computeLineageGridLayout(nodes, links);
+  assert.deepEqual(layout.primary_edges, [{ source: 2, target: 3 }]);
+}
+
+function testPrimarySuccessionPicksMostValidThenLatest() {
+  const nodes = [
+    { id: 1, name: 'A', is_bishop: true, is_lineage_root: true },
+    { id: 2, name: 'B', is_bishop: true, is_lineage_root: true },
+    { id: 3, name: 'C', is_bishop: true },
+  ];
+  const links = [
+    {
+      source: 1, target: 3, type: 'consecration',
+      event_sort_key: 19700101, is_invalid: true,
+    },
+    {
+      source: 2, target: 3, type: 'consecration',
+      event_sort_key: 19800101, is_doubtfully_valid: true,
+    },
+  ];
+  const layout = computeLineageGridLayout(nodes, links);
+  assert.deepEqual(layout.primary_edges, [{ source: 2, target: 3 }]);
+}
+
+function testInvalidOnlySuccessionStillCreatesBus() {
+  const nodes = [
+    { id: 1, name: 'Hub', is_bishop: true, is_lineage_root: true },
+    { id: 2, name: 'Child', is_bishop: true },
+  ];
+  const links = [
+    {
+      source: 1, target: 2, type: 'consecration',
+      event_sort_key: 19800101, is_invalid: true,
+    },
+  ];
+  const layout = computeLineageGridLayout(nodes, links);
+  assert.equal(layout.buses.length, 1);
+  assert.deepEqual(layout.primary_edges, [{ source: 1, target: 2 }]);
+}
+
+function testOrdinationChildUsesBusWhenShowPriests() {
+  const layout = computeLineageGridLayout(FIXTURE_NODES, FIXTURE_LINKS, { showPriests: true });
+  const bus = layout.buses.find((b) => b.source === 1);
+  assert.ok(bus, 'hub with priest child should emit bus');
+  assert.ok(bus.targets.some((t) => t.target === 6), 'priest ordination child should be on bus');
+  assert.ok(layout.primary_edges.some((e) => e.source === 1 && e.target === 6));
+}
+
+function testCoConsecrationNotLayoutParent() {
+  const nodes = [
+    { id: 2, name: 'Visible Co', consecration_date: '1952-01-01', is_bishop: true },
+    { id: 3, name: 'Successor', consecration_date: '1970-06-01', is_bishop: true, consecrations_count: 1 },
+  ];
+  const links = [
+    {
+      source: 2, target: 3, type: 'co-consecration',
+      event_sort_key: 19700601, is_sub_conditione: false, is_invalid: false,
+    },
+    {
+      source: 2, target: 3, type: 'consecration',
+      event_sort_key: 19700601, is_sub_conditione: false, is_invalid: false,
+    },
+  ];
+  const layout = computeLineageGridLayout(nodes, links);
+  assert.deepEqual(layout.primary_edges, [{ source: 2, target: 3 }]);
+}
+
 function testBusTimelineBounds() {
   const hubId = 100;
-  const nodes = [{ id: hubId, name: 'Hub Bishop', is_lineage_root: true }];
+  const nodes = [{ id: hubId, name: 'Hub Bishop', is_lineage_root: true, is_bishop: true }];
   const links = [];
   for (let i = 0; i < 3; i += 1) {
     const childId = 200 + i;
-    nodes.push({ id: childId, name: `Child ${i}` });
+    nodes.push({ id: childId, name: `Child ${i}`, is_bishop: true });
     links.push({
       source: hubId,
       target: childId,
@@ -281,25 +424,23 @@ function testChildrenStrictlyLtrWithinBus() {
   const timelineStart = bus.timeline_start_x;
 
   const childIds = bus.targets.map((entry) => entry.target);
-  const childXs = childIds.map((cid) => pos[cid].x);
-  assert.deepEqual(childXs, [...childXs].sort((a, b) => a - b));
-
   childIds.forEach((childId) => {
     assert.ok(pos[childId].x >= timelineStart + GAP_X - 0.01);
   });
 
-  for (let i = 0; i < childIds.length - 1; i += 1) {
-    assert.ok(pos[childIds[i + 1]].x > pos[childIds[i]].x);
+  const aboveIds = bus.targets.filter((t) => t.side === 'above').map((t) => t.target);
+  for (let i = 0; i < aboveIds.length - 1; i += 1) {
+    assert.ok(pos[aboveIds[i + 1]].x > pos[aboveIds[i]].x, 'same-rail above children stay LTR');
   }
 }
 
 function testHubEmitsBusWithTimelineY() {
   const hubId = 100;
-  const nodes = [{ id: hubId, name: 'Hub Bishop', is_lineage_root: true }];
+  const nodes = [{ id: hubId, name: 'Hub Bishop', is_lineage_root: true, is_bishop: true }];
   const links = [];
   for (let i = 0; i < 4; i += 1) {
     const childId = 200 + i;
-    nodes.push({ id: childId, name: `Child ${i}` });
+    nodes.push({ id: childId, name: `Child ${i}`, is_bishop: true });
     links.push({
       source: hubId,
       target: childId,
@@ -420,6 +561,13 @@ const tests = [
   ['testUnknownDatesAfterKnown', testUnknownDatesAfterKnown],
   ['testUniquePositions', testUniquePositions],
   ['testGridMetricsMatchFrontend', testGridMetricsMatchFrontend],
+  ['testBusEndAtDirectChildCardsNotNested', testBusEndAtDirectChildCardsNotNested],
+  ['testOppositeRailChildrenMayShareX', testOppositeRailChildrenMayShareX],
+  ['testBishopIgnoresOrdinationIncoming', testBishopIgnoresOrdinationIncoming],
+  ['testPrimarySuccessionPicksMostValidThenLatest', testPrimarySuccessionPicksMostValidThenLatest],
+  ['testInvalidOnlySuccessionStillCreatesBus', testInvalidOnlySuccessionStillCreatesBus],
+  ['testOrdinationChildUsesBusWhenShowPriests', testOrdinationChildUsesBusWhenShowPriests],
+  ['testCoConsecrationNotLayoutParent', testCoConsecrationNotLayoutParent],
   ['testBusTimelineBounds', testBusTimelineBounds],
   ['testChildrenStrictlyLtrWithinBus', testChildrenStrictlyLtrWithinBus],
   ['testHubEmitsBusWithTimelineY', testHubEmitsBusWithTimelineY],

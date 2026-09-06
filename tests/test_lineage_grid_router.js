@@ -40,9 +40,11 @@ function pathSegments(points) {
 }
 
 function testSegmentMissesCards() {
+  const hubY = 48;
+  const timelineY = hubY + CARD_H / 2;
   const positions = {
-    1: { x: 48, y: 48 },
-    2: { x: 48, y: 220 },
+    1: { x: 48, y: hubY },
+    2: { x: 268, y: 220, side: 'below' },
   };
   const links = [
     { source: 1, target: 2, type: 'consecration' },
@@ -50,12 +52,18 @@ function testSegmentMissesCards() {
   const layout = {
     positions,
     primary_edges: [{ source: 1, target: 2 }],
-    buses: [],
+    buses: [{
+      source: 1,
+      timeline_y: timelineY,
+      timeline_start_x: 48 + GRID_METRICS.CARD_W,
+      timeline_end_x: 268 + GRID_METRICS.CARD_W,
+      targets: [{ target: 2, side: 'below' }],
+    }],
   };
 
   const paths = routeAllEdges(links, positions, layout, linkEndpoints);
   const pathD = paths.get('1->2');
-  assert.ok(pathD, 'expected routed path');
+  assert.ok(pathD, 'expected bus stub path');
 
   const cardRects = Object.entries(positions).map(([id, pos]) => ({
     id: Number(id),
@@ -74,10 +82,12 @@ function testSegmentMissesCards() {
 }
 
 function testNoDuplicateHorizontalSegments() {
+  const hubY = 48;
+  const timelineY = hubY + CARD_H / 2;
   const positions = {
-    1: { x: 48, y: 48 },
-    2: { x: 48, y: 220 },
-    3: { x: 268, y: 220 },
+    1: { x: 48, y: hubY },
+    2: { x: 268, y: 220, side: 'below' },
+    3: { x: 268, y: 40, side: 'above' },
   };
   const links = [
     { source: 1, target: 2, type: 'consecration' },
@@ -86,12 +96,22 @@ function testNoDuplicateHorizontalSegments() {
   const layout = {
     positions,
     primary_edges: [{ source: 1, target: 2 }, { source: 1, target: 3 }],
-    buses: [],
+    buses: [{
+      source: 1,
+      timeline_y: timelineY,
+      timeline_start_x: 48 + GRID_METRICS.CARD_W,
+      timeline_end_x: 268 + GRID_METRICS.CARD_W,
+      targets: [
+        { target: 3, side: 'above' },
+        { target: 2, side: 'below' },
+      ],
+    }],
   };
 
   const paths = routeAllEdges(links, positions, layout, linkEndpoints);
   const horizKeys = new Set();
   [paths.get('1->2'), paths.get('1->3')].forEach((pathD) => {
+    assert.ok(pathD, 'expected bus stub path');
     pathSegments(parsePathPoints(pathD)).forEach(([x1, y1, x2, y2]) => {
       if (y1 !== y2) return;
       const key = segmentKey(x1, y1, x2, y2);

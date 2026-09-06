@@ -3,7 +3,7 @@
 {% block title %}Succession Grid - Episcopal Lineage{% endblock %}
 
 {% block extra_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=5">
 {% endblock %}
 
 {% block full_content %}
@@ -21,9 +21,9 @@
     </header>
 
     <div class="lineage-grid-legend" aria-label="Line legend">
+        <span class="lineage-grid-legend-item"><span class="lineage-grid-legend-line lineage-grid-legend-line--bus"></span> Bus</span>
         <span class="lineage-grid-legend-item"><span class="lineage-grid-legend-line"></span> Consecration</span>
         <span class="lineage-grid-legend-item"><span class="lineage-grid-legend-line lineage-grid-legend-line--ordination"></span> Ordination</span>
-        <span class="lineage-grid-legend-item"><span class="lineage-grid-legend-line lineage-grid-legend-line--co"></span> Co-consecration</span>
         <span class="lineage-grid-legend-item"><span class="lineage-grid-legend-line lineage-grid-legend-line--invalid"></span> Invalid / doubtful</span>
     </div>
 
@@ -43,5 +43,5 @@
     window.linksData = {{ links_json|safe }};
     window.showPriests = {{ 'true' if show_priests else 'false' }};
 </script>
-<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=4"></script>
+<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=6"></script>
 {% endblock %}

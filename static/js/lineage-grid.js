@@ -13,8 +13,8 @@ import {
   inflatedCardRect,
   rightCenter,
   routeAllEdges,
-} from './lineage-grid-router.js';
-import { computeLineageGridLayout } from './lineage-grid-layout.js';
+} from './lineage-grid-router.js?v=5';
+import { computeLineageGridLayout } from './lineage-grid-layout.js?v=5';
 
 /** Visible on dark grid background (BLACK_COLOR #0d0d0d is invisible). */
 const ORDINATION_STROKE = '#c8d4dc';
@@ -146,16 +146,17 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics) {
   edgesGroup.setAttribute('class', 'lineage-grid-edges');
   svg.appendChild(edgesGroup);
 
-  const routedPaths = routeAllEdges(links, positions, layout, linkEndpoints, metrics);
+  const displayLinks = links.filter((link) => link.type !== 'co-consecration');
+  const routedPaths = routeAllEdges(displayLinks, positions, layout, linkEndpoints, metrics);
 
-  links.forEach((link) => {
+  displayLinks.forEach((link) => {
     const { source, target } = linkEndpoints(link);
     const sourcePos = positions[source];
     const targetPos = positions[target];
     if (!sourcePos || !targetPos) return;
 
     const edgeKey = `${source}->${target}`;
-    const isPrimary = link.type === 'consecration' && primaryEdgeSet.has(edgeKey);
+    const isPrimary = primaryEdgeSet.has(edgeKey);
     const style = edgeStyle(link);
     const pathData = routedPaths.get(edgeKey);
     if (!pathData) return;
@@ -218,8 +219,6 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics) {
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', pathData);
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', GREEN_COLOR);
-    path.setAttribute('stroke-width', '2.25');
     path.classList.add('lineage-grid-edge');
     path.classList.add('lineage-grid-edge--bus-trunk');
     edgesGroup.appendChild(path);

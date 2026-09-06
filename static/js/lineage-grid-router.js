@@ -7,12 +7,12 @@ import gridMetrics from '../config/grid-metrics.json' with { type: 'json' };
 
 export const GRID_METRICS = { ...gridMetrics };
 
-function positionX(position, metrics = GRID_METRICS) {
+export function positionX(position, metrics = GRID_METRICS) {
   if (position.x != null) return Number(position.x);
   return metrics.PAD + (position.col ?? 0) * (metrics.CARD_W + metrics.GAP_X);
 }
 
-function positionY(position, metrics = GRID_METRICS) {
+export function positionY(position, metrics = GRID_METRICS) {
   if (position.y != null) return Number(position.y);
   return metrics.PAD + (position.row ?? 0) * (metrics.CARD_H + metrics.GAP_Y);
 }
@@ -327,25 +327,11 @@ class LaneRouter {
       return null;
     }
 
-    const sourcePos = this.positions[sourceId];
-    const targetPos = this.positions[targetId];
-
-    if (link.type === 'ordination' || link.type === 'co-consecration') {
-      return this.routeSide(sourceRect, targetRect, sourceId, targetId);
+    if (link.type === 'ordination' || link.type === 'consecration' || link.type === 'co-consecration') {
+      return null;
     }
 
-    if (isPrimary && sourcePos && targetPos) {
-      const sameRow = sourcePos.row != null && targetPos.row != null
-        ? sourcePos.row === targetPos.row
-        : Math.abs(positionY(sourcePos, this.metrics) - positionY(targetPos, this.metrics)) < 4;
-      if (sameRow) {
-        return this.routeSide(sourceRect, targetRect, sourceId, targetId);
-      }
-    }
-
-    const downward = !sourcePos || !targetPos
-      || positionY(targetPos, this.metrics) >= positionY(sourcePos, this.metrics);
-    return this.routeVertical(sourceRect, targetRect, sourceId, targetId, downward);
+    return null;
   }
 }
 
@@ -401,7 +387,8 @@ export function routeAllEdges(links, positions, layout, linkEndpointsFn, metrics
     const targetPos = positions[target];
     if (!sourcePos || !targetPos) return;
 
-    const isPrimary = link.type === 'consecration' && primaryEdgeSet.has(key);
+    const isPrimary = (link.type === 'consecration' || link.type === 'ordination')
+      && primaryEdgeSet.has(key);
     const isBusChild = busChildSet.has(key);
     const path = router.routeEdge(link, source, target, isPrimary, isBusChild);
     if (path) paths.set(key, path);
@@ -413,8 +400,6 @@ export function routeAllEdges(links, positions, layout, linkEndpointsFn, metrics
 export {
   cellX,
   cellY,
-  positionX,
-  positionY,
   inflatedCardRect,
   bottomCenter,
   topCenter,

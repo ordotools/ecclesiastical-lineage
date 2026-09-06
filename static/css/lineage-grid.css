@@ -94,6 +94,15 @@
   border-top-color: #e74c3c;
 }
 
+.lineage-grid-legend-line--bus {
+  border-top-color: #e74c3c;
+}
+
+.lineage-grid-edge--bus-trunk {
+  stroke: #e74c3c;
+  stroke-width: 2.25;
+}
+
 .lineage-grid-viewport {
   position: relative;
   flex: 1;

@@ -13,6 +13,8 @@ const {
   GAP_Y,
   PAD,
   DATE_SCALE,
+  MIN_BRANCH_GAP,
+  MULTI_STUB_GAP,
 } = GRID_METRICS;
 
 const MIN_CHILD_GAP = CARD_W + GAP_X;
@@ -305,42 +307,140 @@ function siblingGap(year, prevYear, isFirstChild) {
   return MIN_CHILD_GAP;
 }
 
+function buildRelationCounts(links) {
+  const counts = new Map();
+  links.forEach((link) => {
+    if (link.type === 'co-consecration') return;
+    if (link.type !== 'ordination' && link.type !== 'consecration') return;
+    const source = linkEndpoint(link.source);
+    const target = linkEndpoint(link.target);
+    if (source == null || target == null) return;
+    const key = `${source}:${target}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  return counts;
+}
+
+function childEmitsBus(childId, children) {
+  return (children.get(childId) || []).length > 0;
+}
+
+function relationGroupHalfWidth(nRelations) {
+  if (nRelations <= 1) return 0;
+  return ((nRelations - 1) * MULTI_STUB_GAP) / 2;
+}
+
+function branchMinPitch(parentId, childList, relationCounts) {
+  let pitch = MIN_BRANCH_GAP;
+  childList.forEach(([childId]) => {
+    const nRelations = relationCounts.get(`${parentId}:${childId}`) || 1;
+    if (nRelations > 1) {
+      pitch = Math.max(pitch, (nRelations - 1) * MULTI_STUB_GAP + MIN_BRANCH_GAP);
+    }
+  });
+  return pitch;
+}
+
 function computeChildXPositions(
+  parentId,
   childList,
   nodeById,
   children,
   widthCache,
   xCache,
+  relationCounts,
 ) {
   if (!childList.length) return [];
+
+  const firstOrigin = FIRST_CHILD_X + CARD_W / 2;
+  const allLeaves = childList.every(([childId]) => !childEmitsBus(childId, children));
+
+  if (allLeaves) {
+    const pitch = branchMinPitch(parentId, childList, relationCounts);
+    const positions = [];
+    const railOccupied = { above: 0, below: 0 };
+    let prevYear = null;
+
+    childList.forEach(([childId, link], idx) => {
+      const node = nodeById.get(childId) || { id: childId };
+      const year = linkYear(link, node);
+      const side = childSide(idx);
+      const childWidth = computeSubtreeWidth(
+        childId,
+        children,
+        nodeById,
+        widthCache,
+        xCache,
+        relationCounts,
+      );
+      const gap = siblingGap(year, prevYear, idx === 0);
+      const originX = firstOrigin + idx * pitch;
+      const railMinX = railOccupied[side] === 0
+        ? FIRST_CHILD_X
+        : railOccupied[side] + gap;
+
+      const x = Math.max(originX - CARD_W / 2, railMinX);
+      positions.push(x);
+      railOccupied[side] = x + childWidth;
+      if (year != null) prevYear = year;
+    });
+
+    return positions;
+  }
 
   const positions = [];
   const railOccupied = { above: 0, below: 0 };
   let prevYear = null;
+  let prevOriginX = null;
+  let prevGroupHalf = 0;
 
   childList.forEach(([childId, link], idx) => {
     const node = nodeById.get(childId) || { id: childId };
     const year = linkYear(link, node);
     const side = childSide(idx);
-    const childWidth = computeSubtreeWidth(childId, children, nodeById, widthCache, xCache);
+    const childWidth = computeSubtreeWidth(
+      childId,
+      children,
+      nodeById,
+      widthCache,
+      xCache,
+      relationCounts,
+    );
     const gap = siblingGap(year, prevYear, idx === 0);
+    const nRelations = relationCounts.get(`${parentId}:${childId}`) || 1;
+    const groupHalf = relationGroupHalfWidth(nRelations);
 
-    let x;
-    if (railOccupied[side] === 0) {
-      x = FIRST_CHILD_X;
+    let originX;
+    if (idx === 0) {
+      originX = firstOrigin;
     } else {
-      x = railOccupied[side] + gap;
+      originX = prevOriginX + prevGroupHalf + MIN_BRANCH_GAP + groupHalf;
     }
+
+    const railMinX = railOccupied[side] === 0
+      ? FIRST_CHILD_X
+      : railOccupied[side] + gap;
+
+    const x = Math.max(originX - CARD_W / 2, railMinX);
 
     positions.push(x);
     railOccupied[side] = x + childWidth;
+    prevOriginX = x + CARD_W / 2;
+    prevGroupHalf = groupHalf;
     if (year != null) prevYear = year;
   });
 
   return positions;
 }
 
-function computeSubtreeWidth(nodeId, children, nodeById, widthCache, xCache) {
+function computeSubtreeWidth(
+  nodeId,
+  children,
+  nodeById,
+  widthCache,
+  xCache,
+  relationCounts,
+) {
   if (widthCache.has(nodeId)) return widthCache.get(nodeId);
 
   const childList = children.get(nodeId) || [];
@@ -350,12 +450,27 @@ function computeSubtreeWidth(nodeId, children, nodeById, widthCache, xCache) {
     return CARD_W;
   }
 
-  const childXs = computeChildXPositions(childList, nodeById, children, widthCache, xCache);
+  const childXs = computeChildXPositions(
+    nodeId,
+    childList,
+    nodeById,
+    children,
+    widthCache,
+    xCache,
+    relationCounts,
+  );
   xCache.set(nodeId, childList.map(([cid], i) => [cid, childXs[i]]));
 
   let maxRight = CARD_W;
   childList.forEach(([childId], i) => {
-    const childWidth = computeSubtreeWidth(childId, children, nodeById, widthCache, xCache);
+    const childWidth = computeSubtreeWidth(
+      childId,
+      children,
+      nodeById,
+      widthCache,
+      xCache,
+      relationCounts,
+    );
     maxRight = Math.max(maxRight, childXs[i] + childWidth);
   });
 
@@ -426,6 +541,7 @@ function placeSubtree(
   buses,
   placed,
   clusterMembers,
+  relationCounts,
   side = null,
 ) {
   if (placed.has(nodeId)) return;
@@ -442,7 +558,15 @@ function placeSubtree(
   const timelineY = y + CARD_H / 2;
   let relXs = (xCache.get(nodeId) || []).map(([, relX]) => relX);
   if (relXs.length !== childList.length) {
-    relXs = computeChildXPositions(childList, nodeById, children, widthCache, xCache);
+    relXs = computeChildXPositions(
+      nodeId,
+      childList,
+      nodeById,
+      children,
+      widthCache,
+      xCache,
+      relationCounts,
+    );
     xCache.set(nodeId, childList.map(([cid], i) => [cid, relXs[i]]));
   }
 
@@ -463,7 +587,11 @@ function placeSubtree(
       childY = parentBottom + GAP_Y + childExt.above;
     }
 
-    busTargets.push({ target: childId, side: childSideVal });
+    busTargets.push({
+      target: childId,
+      side: childSideVal,
+      origin_x: x + relXs[idx] + CARD_W / 2,
+    });
     placeSubtree(
       childId,
       childX,
@@ -477,6 +605,7 @@ function placeSubtree(
       buses,
       placed,
       clusterMembers,
+      relationCounts,
       childSideVal,
     );
   });
@@ -629,6 +758,7 @@ export function computeLineageGridLayout(nodes, links, options = {}) {
     );
 
   const primaryLinks = selectPrimarySuccessionLinks(links, nodeById);
+  const relationCounts = buildRelationCounts(links);
 
   const { children, parents, layoutEdges } = buildLayoutForest(
     layoutNodeIds,
@@ -645,7 +775,7 @@ export function computeLineageGridLayout(nodes, links, options = {}) {
   const widthCache = new Map();
   const xCache = new Map();
   layoutNodeIds.forEach((nid) => {
-    computeSubtreeWidth(nid, children, nodeById, widthCache, xCache);
+    computeSubtreeWidth(nid, children, nodeById, widthCache, xCache, relationCounts);
   });
 
   const seeds = selectClusterSeeds(
@@ -682,6 +812,7 @@ export function computeLineageGridLayout(nodes, links, options = {}) {
       buses,
       placed,
       clusterMembers,
+      relationCounts,
     );
 
     clusterY = seedY + CARD_H + ext.below + CLUSTER_GAP;

@@ -14,12 +14,19 @@ import {
   LaneRouter,
   segmentKey,
   GRID_METRICS,
+  positionY,
+  stubPathKey,
 } from '../static/js/lineage-grid-router.js';
 
-const { CARD_H } = GRID_METRICS;
+const { CARD_H, CARD_W } = GRID_METRICS;
 
 function linkEndpoints(link) {
   return { source: link.source, target: link.target };
+}
+
+function stubPath(paths, source, target, type = 'consecration', index = 0) {
+  return paths.get(stubPathKey(source, target, { type }, index))
+    || paths.get(`${source}->${target}`);
 }
 
 function parsePathPoints(pathD) {
@@ -62,7 +69,7 @@ function testSegmentMissesCards() {
   };
 
   const paths = routeAllEdges(links, positions, layout, linkEndpoints);
-  const pathD = paths.get('1->2');
+  const pathD = stubPath(paths, 1, 2);
   assert.ok(pathD, 'expected bus stub path');
 
   const cardRects = Object.entries(positions).map(([id, pos]) => ({
@@ -110,7 +117,7 @@ function testNoDuplicateHorizontalSegments() {
 
   const paths = routeAllEdges(links, positions, layout, linkEndpoints);
   const horizKeys = new Set();
-  [paths.get('1->2'), paths.get('1->3')].forEach((pathD) => {
+  [stubPath(paths, 1, 2), stubPath(paths, 1, 3)].forEach((pathD) => {
     assert.ok(pathD, 'expected bus stub path');
     pathSegments(parsePathPoints(pathD)).forEach(([x1, y1, x2, y2]) => {
       if (y1 !== y2) return;
@@ -147,8 +154,8 @@ function testBusRouting() {
   };
 
   const paths = routeAllEdges(links, positions, layout, linkEndpoints);
-  assert.ok(paths.get('10->11'), 'bus child 11 routed');
-  assert.ok(paths.get('10->12'), 'bus child 12 routed');
+  assert.ok(stubPath(paths, 10, 11), 'bus child 11 routed');
+  assert.ok(stubPath(paths, 10, 12), 'bus child 12 routed');
 }
 
 function testBusTrunkAtParentMidline() {
@@ -218,18 +225,23 @@ function testBusStubPathsVerticalOnly() {
   const trunkEndX = timelineEndX;
 
   assert.ok(paths.get('bus-trunk:10'), 'bus trunk path should be returned');
-  ['10->11', '10->12'].forEach((key) => {
-    const pathD = paths.get(key);
-    assert.ok(pathD, `expected routed path for ${key}`);
+  ['10->11', '10->12'].forEach((legacyKey) => {
+    const [source, target] = legacyKey.split('->').map(Number);
+    const pathD = stubPath(paths, source, target);
+    assert.ok(pathD, `expected routed path for ${legacyKey}`);
     const points = parsePathPoints(pathD);
-    assert.ok(points.length >= 2, 'stub path should have at least two points');
+    assert.equal(points.length, 2, 'stub path should be a single vertical segment');
     const first = points[0];
     assert.notEqual(first.x, trunkEndX, 'stub path must not start at trunk end (RTL fan)');
-    const stubX = key === '10->11'
-      ? child11Rect.x + child11Rect.w / 2
-      : child12Rect.x + child12Rect.w / 2;
+    const childRect = legacyKey === '10->11' ? child11Rect : child12Rect;
+    const stubX = childRect.x + childRect.w / 2;
     assert.equal(first.x, stubX, 'stub path should start at child center X on trunk');
-    assert.equal(points[0].x, points[1].x, 'first segment should be vertical from trunk');
+    assert.equal(points[0].x, points[1].x, 'stub segment should be vertical');
+    const side = legacyKey === '10->11' ? 'above' : 'below';
+    const expectedEdgeY = side === 'above'
+      ? positionY(positions[11]) + CARD_H
+      : positionY(positions[12]);
+    assert.equal(points[1].y, expectedEdgeY, 'stub should end on real card edge');
   });
 
   const router = new LaneRouter(positions, new Map([
@@ -237,7 +249,7 @@ function testBusStubPathsVerticalOnly() {
     [11, child11Rect],
     [12, child12Rect],
   ]));
-  router.routeBus(layout.buses[0]);
+  router.routeBus(layout.buses[0], links, linkEndpoints);
   const horizSegments = [...router.occupied].filter((key) => key.startsWith('H:'));
   const trunkSegment = horizSegments.find((key) => {
     const [, y, xMin, xMax] = key.split(':').map(Number);
@@ -246,6 +258,47 @@ function testBusStubPathsVerticalOnly() {
       && xMax >= timelineEndX - 1;
   });
   assert.ok(trunkSegment, 'trunk should span timeline_start_x to timeline_end_x left-to-right');
+}
+
+function testMultiRelationStubPaths() {
+  const hubY = 150;
+  const timelineY = hubY + CARD_H / 2;
+  const positions = {
+    10: { x: 48, y: hubY },
+    11: { x: 268, y: 40, side: 'above' },
+  };
+  const links = [
+    { source: 10, target: 11, type: 'ordination', event_sort_key: 19700101 },
+    { source: 10, target: 11, type: 'consecration', event_sort_key: 19800101 },
+  ];
+  const layout = {
+    positions,
+    primary_edges: [{ source: 10, target: 11 }],
+    buses: [{
+      source: 10,
+      timeline_y: timelineY,
+      timeline_start_x: 48 + GRID_METRICS.CARD_W,
+      timeline_end_x: 268 + GRID_METRICS.CARD_W,
+      targets: [{ target: 11, side: 'above' }],
+    }],
+  };
+
+  const paths = routeAllEdges(links, positions, layout, linkEndpoints);
+  const ordPath = paths.get('10->11:ordination:0');
+  const consPath = paths.get('10->11:consecration:1');
+  assert.ok(ordPath, 'ordination stub path should exist');
+  assert.ok(consPath, 'consecration stub path should exist');
+
+  const centerX = positions[11].x + CARD_W / 2;
+  const ordPoints = parsePathPoints(ordPath);
+  const consPoints = parsePathPoints(consPath);
+  assert.ok(ordPoints[0].x < centerX, 'ordination stub should sit left of center');
+  assert.ok(consPoints[0].x > centerX, 'consecration stub should sit right of center');
+  assert.equal(
+    (consPoints[0].x - centerX) + (centerX - ordPoints[0].x),
+    GRID_METRICS.MULTI_STUB_GAP,
+    'multi-relation stubs should be symmetric about card center',
+  );
 }
 
 function testLaneRouterOccupancy() {
@@ -263,6 +316,7 @@ const tests = [
   testBusRouting,
   testBusTrunkAtParentMidline,
   testBusStubPathsVerticalOnly,
+  testMultiRelationStubPaths,
   testLaneRouterOccupancy,
 ];
 

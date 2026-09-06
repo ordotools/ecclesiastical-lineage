@@ -51,6 +51,33 @@ function leftCenter(rect) {
   return { x: rect.x, y: rect.y + rect.h / 2 };
 }
 
+function realCardEdgeY(position, side, metrics = GRID_METRICS) {
+  const y = positionY(position, metrics);
+  if (side === 'above') return y + metrics.CARD_H;
+  return y;
+}
+
+function realCardCenterX(position, metrics = GRID_METRICS) {
+  return positionX(position, metrics) + metrics.CARD_W / 2;
+}
+
+function compareLinkEventSort(a, b) {
+  const ka = a.event_sort_key;
+  const kb = b.event_sort_key;
+  const aNull = ka == null;
+  const bNull = kb == null;
+  if (aNull !== bNull) return aNull ? 1 : -1;
+  if (ka !== kb) return ka - kb;
+  const typeOrder = { ordination: 0, consecration: 1 };
+  const ta = typeOrder[a.type] ?? 2;
+  const tb = typeOrder[b.type] ?? 2;
+  return ta - tb;
+}
+
+function stubPathKey(sourceId, targetId, link, index) {
+  return `${sourceId}->${targetId}:${link.type}:${index}`;
+}
+
 function segmentKey(x1, y1, x2, y2) {
   if (y1 === y2) {
     return `H:${y1}:${Math.min(x1, x2)}:${Math.max(x1, x2)}`;
@@ -190,7 +217,7 @@ class LaneRouter {
     return x;
   }
 
-  routeBus(bus) {
+  routeBus(bus, links = [], linkEndpointsFn = null) {
     const hubPos = this.positions[bus.source];
     if (!hubPos) return {};
     const hubRect = this.cardRects.get(bus.source);
@@ -201,21 +228,40 @@ class LaneRouter {
     const trunkBaseY = bus.timeline_y != null
       ? Number(bus.timeline_y)
       : start.y;
-    const stubs = (bus.targets || [])
-      .map((entry) => {
-        const targetPos = this.positions[entry.target];
-        if (!targetPos) return null;
-        const targetRect = this.cardRects.get(entry.target);
-        if (!targetRect) return null;
-        const stubX = targetRect.x + targetRect.w / 2;
-        const end = entry.side === 'above' ? bottomCenter(targetRect) : topCenter(targetRect);
-        return { targetId: entry.target, stubX, end };
-      })
-      .filter(Boolean);
 
-    if (!stubs.length) return {};
+    const targetEntries = (bus.targets || []).map((entry) => {
+      const targetPos = this.positions[entry.target];
+      if (!targetPos) return null;
 
-    const maxStubX = Math.max(...stubs.map((s) => s.stubX));
+      let targetLinks = [];
+      if (linkEndpointsFn && links.length) {
+        targetLinks = links.filter((link) => {
+          if (link.type !== 'ordination' && link.type !== 'consecration') return false;
+          const { source, target } = linkEndpointsFn(link);
+          return source === bus.source && target === entry.target;
+        }).sort(compareLinkEventSort);
+      }
+
+      const cardCenterX = entry.origin_x != null
+        ? Number(entry.origin_x)
+        : realCardCenterX(targetPos, this.metrics);
+      const edgeY = realCardEdgeY(targetPos, entry.side, this.metrics);
+      return {
+        targetId: entry.target,
+        side: entry.side,
+        cardCenterX,
+        edgeY,
+        targetLinks,
+      };
+    }).filter(Boolean);
+
+    if (!targetEntries.length) return {};
+
+    const maxStubX = Math.max(...targetEntries.map((entry) => {
+      const n = entry.targetLinks.length || 1;
+      const groupHalf = n <= 1 ? 0 : ((n - 1) * this.metrics.MULTI_STUB_GAP) / 2;
+      return entry.cardCenterX + groupHalf;
+    }));
     const timelineStartX = bus.timeline_start_x != null
       ? Number(bus.timeline_start_x)
       : start.x + 8;
@@ -239,16 +285,32 @@ class LaneRouter {
     const childPaths = {
       [`bus-trunk:${bus.source}`]: trunkPath,
     };
-    stubs.forEach((stub) => {
-      const exclude = new Set([bus.source, stub.targetId]);
-      const vx = this.nextVertLane(stub.stubX, Math.min(trunkYFinal, stub.end.y), Math.max(trunkYFinal, stub.end.y), exclude);
-      const points = [
-        { x: vx, y: trunkYFinal },
-        { x: vx, y: stub.end.y },
-        stub.end,
-      ];
-      const path = this.reservePath(points, exclude);
-      if (path) childPaths[`${bus.source}->${stub.targetId}`] = path;
+
+    targetEntries.forEach((entry) => {
+      const relations = entry.targetLinks.length
+        ? entry.targetLinks
+        : [{ type: 'consecration' }];
+      const n = relations.length;
+      const { MULTI_STUB_GAP } = this.metrics;
+
+      relations.forEach((link, i) => {
+        const attachX = entry.cardCenterX + (i - (n - 1) / 2) * MULTI_STUB_GAP;
+        const points = [
+          { x: attachX, y: trunkYFinal },
+          { x: attachX, y: entry.edgeY },
+        ];
+        const simplified = simplifyPath(points);
+        for (let seg = 0; seg < simplified.length - 1; seg += 1) {
+          const a = simplified[seg];
+          const b = simplified[seg + 1];
+          this.occupySegment(a.x, a.y, b.x, b.y);
+        }
+        const path = pointsToPath(simplified);
+        const key = entry.targetLinks.length
+          ? stubPathKey(bus.source, entry.targetId, link, i)
+          : `${bus.source}->${entry.targetId}`;
+        childPaths[key] = path;
+      });
     });
 
     return childPaths;
@@ -352,6 +414,21 @@ function buildBusChildSet(buses) {
   return set;
 }
 
+function relationLinksForPair(links, source, target, linkEndpointsFn) {
+  return links.filter((link) => {
+    if (link.type !== 'ordination' && link.type !== 'consecration') return false;
+    const endpoints = linkEndpointsFn(link);
+    return endpoints.source === source && endpoints.target === target;
+  }).sort(compareLinkEventSort);
+}
+
+function pathKeyForLink(source, target, link, links, linkEndpointsFn) {
+  const relations = relationLinksForPair(links, source, target, linkEndpointsFn);
+  const index = relations.indexOf(link);
+  if (index >= 0) return stubPathKey(source, target, link, index);
+  return `${source}->${target}`;
+}
+
 /**
  * Route all edges and hub buses; returns Map edgeKey -> SVG path d string.
  */
@@ -368,30 +445,30 @@ export function routeAllEdges(links, positions, layout, linkEndpointsFn, metrics
     (layout.primary_edges || []).map((e) => `${e.source}->${e.target}`),
   );
   const busChildSet = buildBusChildSet(layout.buses);
+  const sortedLinks = [...links].sort((a, b) => linkRoutePriority(a) - linkRoutePriority(b));
 
   (layout.buses || []).forEach((bus) => {
-    const busPaths = router.routeBus(bus);
+    const busPaths = router.routeBus(bus, sortedLinks, linkEndpointsFn);
     Object.entries(busPaths).forEach(([key, path]) => {
       paths.set(key, path);
     });
   });
 
-  const sortedLinks = [...links].sort((a, b) => linkRoutePriority(a) - linkRoutePriority(b));
-
   sortedLinks.forEach((link) => {
     const { source, target } = linkEndpointsFn(link);
-    const key = `${source}->${target}`;
-    if (paths.has(key)) return;
+    const typedKey = pathKeyForLink(source, target, link, sortedLinks, linkEndpointsFn);
+    const legacyKey = `${source}->${target}`;
+    if (paths.has(typedKey) || paths.has(legacyKey)) return;
 
     const sourcePos = positions[source];
     const targetPos = positions[target];
     if (!sourcePos || !targetPos) return;
 
     const isPrimary = (link.type === 'consecration' || link.type === 'ordination')
-      && primaryEdgeSet.has(key);
-    const isBusChild = busChildSet.has(key);
+      && primaryEdgeSet.has(legacyKey);
+    const isBusChild = busChildSet.has(legacyKey);
     const path = router.routeEdge(link, source, target, isPrimary, isBusChild);
-    if (path) paths.set(key, path);
+    if (path) paths.set(typedKey, path);
   });
 
   return paths;
@@ -408,4 +485,10 @@ export {
   segmentKey,
   rectIntersectsSegment,
   LaneRouter,
+  realCardEdgeY,
+  realCardCenterX,
+  stubPathKey,
+  compareLinkEventSort,
+  pathKeyForLink,
+  relationLinksForPair,
 };

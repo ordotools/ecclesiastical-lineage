@@ -13,8 +13,9 @@ import {
   inflatedCardRect,
   rightCenter,
   routeAllEdges,
-} from './lineage-grid-router.js?v=5';
-import { computeLineageGridLayout } from './lineage-grid-layout.js?v=5';
+  pathKeyForLink,
+} from './lineage-grid-router.js?v=9';
+import { computeLineageGridLayout } from './lineage-grid-layout.js?v=9';
 
 /** Visible on dark grid background (BLACK_COLOR #0d0d0d is invisible). */
 const ORDINATION_STROKE = '#c8d4dc';
@@ -170,7 +171,8 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics) {
     marker.setAttribute('id', id);
     marker.setAttribute('markerWidth', '8');
     marker.setAttribute('markerHeight', '8');
-    marker.setAttribute('refX', '7');
+    marker.setAttribute('markerUnits', 'userSpaceOnUse');
+    marker.setAttribute('refX', '8');
     marker.setAttribute('refY', '4');
     marker.setAttribute('orient', 'auto');
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -203,7 +205,8 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics) {
     const edgeKey = `${source}->${target}`;
     const isPrimary = primaryEdgeSet.has(edgeKey);
     const style = edgeStyle(link);
-    const pathData = routedPaths.get(edgeKey);
+    const pathKey = pathKeyForLink(source, target, link, displayLinks, linkEndpoints);
+    const pathData = routedPaths.get(pathKey) || routedPaths.get(edgeKey);
     if (!pathData) return;
 
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');

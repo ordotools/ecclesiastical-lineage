@@ -19,6 +19,8 @@ const {
   GAP_X,
   GAP_Y,
   MIN_CHILD_GAP,
+  MIN_BRANCH_GAP,
+  MULTI_STUB_GAP,
   PAD,
 } = {
   ...GRID_METRICS,
@@ -168,8 +170,11 @@ function testLargerYearGapWiderX() {
   ];
   const layout = computeLineageGridLayout(nodes, links);
   const pos = layout.positions;
-  const gap = pos[4].x - pos[2].x;
-  assert.ok(gap >= Math.max(MIN_CHILD_GAP, DATE_SCALE * 20));
+  const originEarly = pos[2].x + CARD_W / 2;
+  const originLate = pos[4].x + CARD_W / 2;
+  assert.ok(originLate > originEarly, 'later child origin should sit right of earlier');
+  assert.ok(originLate - originEarly >= MIN_BRANCH_GAP - 0.01,
+    'leaf branch origins should respect minimal even pitch');
 }
 
 function testNestedChildHubVerticalOffset() {
@@ -252,6 +257,8 @@ function testGridMetricsMatchFrontend() {
   assert.equal(gm.CARD_INSET, 4);
   assert.equal(gm.LANE_PITCH, 9);
   assert.equal(gm.DATE_SCALE, 8);
+  assert.equal(gm.MIN_BRANCH_GAP, 48);
+  assert.equal(gm.MULTI_STUB_GAP, 14);
 }
 
 function testBusEndAtDirectChildCardsNotNested() {
@@ -294,23 +301,109 @@ function testBusEndAtDirectChildCardsNotNested() {
     'nested descendants should extend past parent bus trunk');
 }
 
-function testOppositeRailChildrenMayShareX() {
+function testChronologicalOriginsWithMinGap() {
   const hubId = 10;
   const nodes = [
     { id: hubId, name: 'Hub', is_lineage_root: true, is_bishop: true },
     { id: 11, name: 'Above', is_bishop: true },
     { id: 12, name: 'Below', is_bishop: true },
+    { id: 13, name: 'Later', is_bishop: true },
   ];
   const links = [
     { source: hubId, target: 11, type: 'consecration', event_sort_key: 19800101 },
     { source: hubId, target: 12, type: 'consecration', event_sort_key: 19810101 },
+    { source: hubId, target: 13, type: 'consecration', event_sort_key: 19820101 },
   ];
   const layout = computeLineageGridLayout(nodes, links);
   const pos = layout.positions;
 
   assert.equal(pos[11].side, 'above');
   assert.equal(pos[12].side, 'below');
-  assert.equal(pos[11].x, pos[12].x, 'first above and first below child may share X');
+  assert.ok(pos[12].x > pos[11].x, 'later event should sit right of earlier event');
+  assert.ok(pos[13].x > pos[12].x, 'third event should continue LTR');
+
+  const origins = [11, 12, 13].map((id) => pos[id].x + CARD_W / 2);
+  const pitch1 = origins[1] - origins[0];
+  assert.ok(Math.abs(pitch1 - MIN_BRANCH_GAP) < 0.01,
+    `first two leaf origins should use minimal pitch, got ${pitch1}`);
+  assert.ok(origins[2] > origins[1], 'third event should continue LTR');
+  assert.ok(origins[2] > origins[0], 'third above-rail origin clears first after same-rail bump');
+}
+
+function testLeafBranchUsesMinimalEvenPitch() {
+  const hubId = 20;
+  const nodes = [
+    { id: hubId, name: 'Hub', is_lineage_root: true, is_bishop: true },
+    { id: 21, name: 'A', is_bishop: true },
+    { id: 22, name: 'B', is_bishop: true },
+  ];
+  const links = [
+    { source: hubId, target: 21, type: 'consecration', event_sort_key: 19800101 },
+    { source: hubId, target: 22, type: 'consecration', event_sort_key: 19810101 },
+  ];
+  const layout = computeLineageGridLayout(nodes, links);
+  const origins = [21, 22].map((id) => layout.positions[id].x + CARD_W / 2);
+  assert.ok(Math.abs(origins[1] - origins[0] - MIN_BRANCH_GAP) < 0.01);
+}
+
+function testBusHubDisplacesOnlyWhenNeeded() {
+  const hubId = 30;
+  const childHubId = 40;
+  const nodes = [
+    { id: hubId, name: 'Parent Hub', is_lineage_root: true, is_bishop: true },
+    { id: 31, name: 'Leaf A', is_bishop: true },
+    { id: 32, name: 'Leaf B', is_bishop: true },
+    { id: childHubId, name: 'Child Hub', is_bishop: true },
+  ];
+  const links = [
+    { source: hubId, target: 31, type: 'consecration', event_sort_key: 19800101 },
+    { source: hubId, target: 32, type: 'consecration', event_sort_key: 19810101 },
+    { source: hubId, target: childHubId, type: 'consecration', event_sort_key: 19820101 },
+  ];
+  for (let i = 0; i < 5; i += 1) {
+    const leafId = 500 + i;
+    nodes.push({ id: leafId, name: `Nested ${i}`, is_bishop: true });
+    links.push({
+      source: childHubId,
+      target: leafId,
+      type: 'consecration',
+      event_sort_key: 20000101 + i,
+    });
+  }
+
+  const layout = computeLineageGridLayout(nodes, links);
+  const pos = layout.positions;
+  const hubX = pos[hubId].x;
+  const originA = pos[31].x + CARD_W / 2 - hubX;
+  const originB = pos[32].x + CARD_W / 2 - hubX;
+  const originHub = pos[childHubId].x + CARD_W / 2 - hubX;
+
+  assert.ok(Math.abs(originB - originA - MIN_BRANCH_GAP) < 0.01,
+    'first two leaf origins should stay at minimal pitch');
+  assert.ok(originHub > originB + MIN_BRANCH_GAP - 0.01,
+    'child hub origin should be pushed right by subtree interference');
+}
+
+function testMultiRelationWidensOriginGroup() {
+  const nodes = [
+    { id: 1, name: 'Hub', is_bishop: true, is_lineage_root: true },
+    { id: 2, name: 'Target', is_bishop: true, consecrations_count: 1 },
+    { id: 3, name: 'Single', is_bishop: true },
+  ];
+  const links = [
+    { source: 1, target: 2, type: 'ordination', event_sort_key: 19700101 },
+    { source: 1, target: 2, type: 'consecration', event_sort_key: 19800101 },
+    { source: 1, target: 3, type: 'consecration', event_sort_key: 19900101 },
+  ];
+  const layout = computeLineageGridLayout(nodes, links);
+  const pos = layout.positions;
+
+  assert.ok(pos[2], 'multi-relation target gets one card');
+  assert.ok(pos[3], 'third child gets one card');
+  const gap12 = (pos[3].x + CARD_W / 2) - (pos[2].x + CARD_W / 2);
+  const minPitch = (2 - 1) * MULTI_STUB_GAP + MIN_BRANCH_GAP;
+  assert.ok(gap12 >= minPitch - 0.01,
+    `gap after multi-relation child should respect multi-relation min pitch, got ${gap12}`);
 }
 
 function testBishopIgnoresOrdinationIncoming() {
@@ -428,9 +521,13 @@ function testChildrenStrictlyLtrWithinBus() {
     assert.ok(pos[childId].x >= timelineStart + GAP_X - 0.01);
   });
 
-  const aboveIds = bus.targets.filter((t) => t.side === 'above').map((t) => t.target);
-  for (let i = 0; i < aboveIds.length - 1; i += 1) {
-    assert.ok(pos[aboveIds[i + 1]].x > pos[aboveIds[i]].x, 'same-rail above children stay LTR');
+  for (let i = 0; i < childIds.length - 1; i += 1) {
+    const left = childIds[i];
+    const right = childIds[i + 1];
+    assert.ok(
+      pos[right].x + CARD_W / 2 > pos[left].x + CARD_W / 2,
+      'bus children should advance chronologically left-to-right by origin',
+    );
   }
 }
 
@@ -562,7 +659,10 @@ const tests = [
   ['testUniquePositions', testUniquePositions],
   ['testGridMetricsMatchFrontend', testGridMetricsMatchFrontend],
   ['testBusEndAtDirectChildCardsNotNested', testBusEndAtDirectChildCardsNotNested],
-  ['testOppositeRailChildrenMayShareX', testOppositeRailChildrenMayShareX],
+  ['testChronologicalOriginsWithMinGap', testChronologicalOriginsWithMinGap],
+  ['testLeafBranchUsesMinimalEvenPitch', testLeafBranchUsesMinimalEvenPitch],
+  ['testBusHubDisplacesOnlyWhenNeeded', testBusHubDisplacesOnlyWhenNeeded],
+  ['testMultiRelationWidensOriginGroup', testMultiRelationWidensOriginGroup],
   ['testBishopIgnoresOrdinationIncoming', testBishopIgnoresOrdinationIncoming],
   ['testPrimarySuccessionPicksMostValidThenLatest', testPrimarySuccessionPicksMostValidThenLatest],
   ['testInvalidOnlySuccessionStillCreatesBus', testInvalidOnlySuccessionStillCreatesBus],

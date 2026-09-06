@@ -6,5 +6,7 @@
   "PAD": 48,
   "CARD_INSET": 4,
   "LANE_PITCH": 9,
-  "DATE_SCALE": 8
+  "DATE_SCALE": 8,
+  "MIN_BRANCH_GAP": 48,
+  "MULTI_STUB_GAP": 14
 }

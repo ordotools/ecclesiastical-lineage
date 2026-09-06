@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app, Response, abort
 from services.geocoding import geocoding_service
 from utils import require_permission_api, log_audit_event
-from models import Clergy, db, Organization, Location
+from models import Clergy, db, Organization, Location, SpriteSheet, ClergySpritePosition
 import os
 import requests
 
@@ -287,3 +287,33 @@ def api_living_clergy():
     except Exception as e:
         current_app.logger.error(f"Error getting living clergy: {e}")
         return jsonify({'error': 'Failed to get clergy list'}), 500
+
+
+@main_api_bp.route('/api/sprite-sheet')
+def get_sprite_sheet():
+    """Current sprite sheet URL and clergy tile mapping."""
+    try:
+        sprite_sheet = SpriteSheet.query.filter_by(is_current=True).first()
+        if not sprite_sheet:
+            return jsonify({
+                'success': False,
+                'error': 'No sprite sheet exists. Please upload or edit an image to generate one.'
+            }), 404
+
+        positions = ClergySpritePosition.query.filter_by(sprite_sheet_id=sprite_sheet.id).all()
+        mapping = {pos.clergy_id: (pos.x_position, pos.y_position) for pos in positions}
+        return jsonify({
+            'success': True,
+            'url': sprite_sheet.url,
+            'mapping': mapping,
+            'thumbnail_size': sprite_sheet.thumbnail_size,
+            'images_per_row': sprite_sheet.images_per_row,
+            'sprite_width': sprite_sheet.sprite_width,
+            'sprite_height': sprite_sheet.sprite_height
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error getting sprite sheet: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

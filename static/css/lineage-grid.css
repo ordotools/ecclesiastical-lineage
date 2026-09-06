@@ -1,16 +1,41 @@
 /* Grid lineage page */
 
+body {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+body ::selection,
+body ::-moz-selection {
+  background: transparent;
+}
+
 .lineage-grid-page {
   --grid-card-bg: rgba(252, 250, 245, 0.96);
-  --grid-card-border: rgba(44, 62, 80, 0.14);
   --grid-surface: #1a1a1a;
   --grid-text: #f5f3ed;
   --grid-muted: #a8b0ba;
+  --grid-bus: #7b90a4;
+  --grid-bus-width: 6.75px;
+  --grid-ordination: #c8d4dc;
   min-height: 100vh;
   background: var(--grid-surface);
   color: var(--grid-text);
   display: flex;
   flex-direction: column;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.lineage-grid-page ::selection,
+.lineage-grid-page ::-moz-selection {
+  background: transparent;
 }
 
 .lineage-grid-toolbar {
@@ -83,7 +108,7 @@
 }
 
 .lineage-grid-legend-line--ordination {
-  border-top-color: #c8d4dc;
+  border-top-color: var(--grid-ordination);
 }
 
 .lineage-grid-legend-line--co {
@@ -95,12 +120,31 @@
 }
 
 .lineage-grid-legend-line--bus {
-  border-top-color: #e74c3c;
+  position: relative;
+  width: 26px;
+  border-top-color: var(--grid-bus);
+  border-top-width: 6px;
+}
+
+.lineage-grid-legend-line--bus::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -11px;
+  width: 6px;
+  height: 16px;
+  background: var(--grid-bus);
 }
 
 .lineage-grid-edge--bus-trunk {
-  stroke: #e74c3c;
-  stroke-width: 2.25;
+  stroke: var(--grid-bus);
+  stroke-width: var(--grid-bus-width);
+  stroke-linecap: butt;
+  fill: none;
+}
+
+.lineage-grid-edge--bus-cap {
+  stroke-linecap: square;
 }
 
 .lineage-grid-viewport {
@@ -136,18 +180,21 @@
 
 .lineage-grid-card {
   position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   width: var(--grid-card-w, 168px);
   height: var(--grid-card-h, 136px);
   min-height: var(--grid-card-h, 136px);
   box-sizing: border-box;
-  border-radius: 12px;
-  border: 1px solid var(--grid-card-border);
+  padding: 10px 10px 10px 14px;
+  border: none;
+  border-radius: 0;
   background: var(--grid-card-bg);
   color: #2c3e50;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-  cursor: pointer;
   overflow: hidden;
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  transition: none;
 }
 
 .lineage-grid-card::before {
@@ -158,71 +205,54 @@
   background: var(--org-color, #2c3e50);
 }
 
-.lineage-grid-card:hover {
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
-  transform: translateY(-1px);
-}
-
-.lineage-grid-card__photo-wrap {
+.lineage-grid-card__row {
   display: flex;
-  justify-content: center;
-  padding: 10px 12px 0;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .lineage-grid-card__photo {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
   border-radius: 50%;
-  object-fit: cover;
-  background: #dfe4ea;
+  overflow: hidden;
+  background-color: #dfe4ea;
+  background-image: var(--sprite-url, none);
+  background-position: var(--sprite-x, 0) var(--sprite-y, 0);
+  background-size: var(--sprite-size, auto);
+  background-repeat: no-repeat;
 }
 
-.lineage-grid-card__body {
-  padding: 6px 12px 10px 14px;
+.lineage-grid-card__meta-stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  gap: 2px;
 }
 
-.lineage-grid-card__name {
+.lineage-grid-card__rank,
+.lineage-grid-card__org {
   margin: 0;
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.lineage-grid-card__meta {
-  margin: 4px 0 0;
   font-size: 0.72rem;
   color: #5d6d7e;
   line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.lineage-grid-card__date {
-  margin: 4px 0 0;
-  font-size: 0.7rem;
-  color: #7f8c8d;
-}
-
-.lineage-grid-card__tag {
-  display: inline-block;
-  margin-top: 6px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  font-size: 0.65rem;
+.lineage-grid-card__rank {
   font-weight: 600;
-  text-transform: lowercase;
-  background: rgba(11, 159, 47, 0.12);
-  color: #0b9f2f;
 }
 
-.lineage-grid-card__tag.lineage-grid-card--invalid_priest,
-.lineage-grid-card__tag.lineage-grid-card--invalid_bishop {
-  background: rgba(231, 76, 60, 0.12);
-  color: #e74c3c;
-}
-
-.lineage-grid-card__tag.lineage-grid-card--doubtful_priest,
-.lineage-grid-card__tag.lineage-grid-card--doubtful_bishop {
-  background: rgba(243, 156, 18, 0.14);
-  color: #d68910;
+.lineage-grid-card__name {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .lineage-grid-edge-label {

@@ -18,6 +18,7 @@ import { computeLineageGridLayout } from './lineage-grid-layout.js?v=5';
 
 /** Visible on dark grid background (BLACK_COLOR #0d0d0d is invisible). */
 const ORDINATION_STROKE = '#c8d4dc';
+const BUS_T_CAP_HALF = 10;
 const MIN_FIT_SCALE = 0.08;
 
 function activeMetricsFromLayout(layout) {
@@ -39,7 +40,9 @@ function buildPrimaryEdgeSet(primaryEdges) {
 }
 
 function edgeStyle(link) {
-  let stroke = link.color || (link.type === 'ordination' ? ORDINATION_STROKE : GREEN_COLOR);
+  let stroke = link.type === 'ordination'
+    ? ORDINATION_STROKE
+    : (link.color || GREEN_COLOR);
   let strokeWidth = link.type === 'ordination' ? 1.75 : 2.25;
   let strokeDasharray = '';
   let opacity = 1;
@@ -79,7 +82,27 @@ function validityLabel(link) {
   return '';
 }
 
-function renderCards(stage, nodes, positions, metrics) {
+function spritePosition(mapping, id) {
+  if (!mapping) return null;
+  const pos = mapping[id] ?? mapping[String(id)] ?? mapping[Number(id)];
+  if (Array.isArray(pos) && pos.length >= 2) return pos;
+  return null;
+}
+
+function applySpritePhoto(photoEl, nodeId, spriteSheetData) {
+  if (!spriteSheetData?.success || !spriteSheetData.url) return;
+  const pos = spritePosition(spriteSheetData.mapping, nodeId);
+  if (!pos) return;
+  const sw = spriteSheetData.sprite_width;
+  const sh = spriteSheetData.sprite_height;
+  if (!sw || !sh) return;
+  photoEl.style.setProperty('--sprite-url', `url(${JSON.stringify(spriteSheetData.url)})`);
+  photoEl.style.setProperty('--sprite-x', `${-pos[0]}px`);
+  photoEl.style.setProperty('--sprite-y', `${-pos[1]}px`);
+  photoEl.style.setProperty('--sprite-size', `${sw}px ${sh}px`);
+}
+
+function renderCards(stage, nodes, positions, metrics, spriteSheetData) {
   const cardsLayer = document.createElement('div');
   cardsLayer.className = 'lineage-grid-cards';
   stage.appendChild(cardsLayer);
@@ -95,27 +118,49 @@ function renderCards(stage, nodes, positions, metrics) {
     card.style.top = `${positionY(pos, metrics)}px`;
     card.style.setProperty('--org-color', node.org_color || '#2c3e50');
 
-    const tag = (node.tags || []).find((t) => t.is_system)?.label || '';
-    const validityClass = tag ? `lineage-grid-card--${tag.replace(/\s+/g, '-')}` : '';
-
     card.innerHTML = `
-      <div class="lineage-grid-card__photo-wrap">
-        <img class="lineage-grid-card__photo" src="${node.image_url || ''}" alt="" loading="lazy">
+      <div class="lineage-grid-card__row">
+        <div class="lineage-grid-card__photo" aria-hidden="true"></div>
+        <div class="lineage-grid-card__meta-stack">
+          <p class="lineage-grid-card__rank">${node.rank || ''}</p>
+          <p class="lineage-grid-card__org">${node.organization || ''}</p>
+        </div>
       </div>
-      <div class="lineage-grid-card__body">
-        <h2 class="lineage-grid-card__name">${node.name || ''}</h2>
-        <p class="lineage-grid-card__meta">${node.rank || ''}${node.organization ? ` · ${node.organization}` : ''}</p>
-        ${node.consecration_date ? `<p class="lineage-grid-card__date">${node.consecration_date}</p>` : ''}
-        ${tag ? `<span class="lineage-grid-card__tag ${validityClass}">${tag}</span>` : ''}
-      </div>
+      <h2 class="lineage-grid-card__name">${node.name || ''}</h2>
     `;
-
-    card.addEventListener('click', () => {
-      window.location.href = `/?clergy_id=${encodeURIComponent(node.id)}`;
-    });
+    applySpritePhoto(card.querySelector('.lineage-grid-card__photo'), node.id, spriteSheetData);
 
     cardsLayer.appendChild(card);
   });
+}
+
+function lastPathSegment(pathD) {
+  const nums = (pathD.match(/-?\d+\.?\d*/g) || []).map(Number);
+  if (nums.length < 4) return null;
+  return {
+    x1: nums[nums.length - 4],
+    y1: nums[nums.length - 3],
+    x2: nums[nums.length - 2],
+    y2: nums[nums.length - 1],
+  };
+}
+
+function appendBusTCap(edgesGroup, pathData) {
+  const seg = lastPathSegment(pathData);
+  if (!seg) return;
+  const dx = seg.x2 - seg.x1;
+  const dy = seg.y2 - seg.y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len;
+  const ny = dx / len;
+  const cap = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  cap.setAttribute(
+    'd',
+    `M ${seg.x2 + nx * BUS_T_CAP_HALF} ${seg.y2 + ny * BUS_T_CAP_HALF} L ${seg.x2 - nx * BUS_T_CAP_HALF} ${seg.y2 - ny * BUS_T_CAP_HALF}`,
+  );
+  cap.setAttribute('fill', 'none');
+  cap.classList.add('lineage-grid-edge', 'lineage-grid-edge--bus-trunk', 'lineage-grid-edge--bus-cap');
+  edgesGroup.appendChild(cap);
 }
 
 function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics) {
@@ -222,6 +267,7 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics) {
     path.classList.add('lineage-grid-edge');
     path.classList.add('lineage-grid-edge--bus-trunk');
     edgesGroup.appendChild(path);
+    appendBusTCap(edgesGroup, pathData);
   });
 }
 
@@ -314,7 +360,24 @@ function initPanZoom(viewport, stage, fitSize) {
   }
 }
 
-export function initializeLineageGrid() {
+async function loadSpriteSheetData() {
+  try {
+    if (typeof window.getSpriteSheetData === 'function') {
+      return await window.getSpriteSheetData();
+    }
+    const response = await fetch('/api/sprite-sheet', {
+      method: 'GET',
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.warn('Failed to load sprite sheet:', error);
+    return null;
+  }
+}
+
+export async function initializeLineageGrid() {
   const viewport = document.getElementById('lineage-grid-viewport');
   const stage = document.getElementById('lineage-grid-stage');
   if (!viewport || !stage) return;
@@ -325,6 +388,7 @@ export function initializeLineageGrid() {
   const layout = computeLineageGridLayout(nodes, links, { showPriests });
   const positions = layout.positions || {};
   const activeMetrics = activeMetricsFromLayout(layout);
+  const spriteSheetData = await loadSpriteSheetData();
 
   const root = document.querySelector('.lineage-grid-page');
   if (root) {
@@ -353,7 +417,7 @@ export function initializeLineageGrid() {
 
   const primaryEdgeSet = buildPrimaryEdgeSet(layout.primary_edges);
   renderEdges(svg, links, positions, layout, primaryEdgeSet, activeMetrics);
-  renderCards(stage, visibleNodes, positions, activeMetrics);
+  renderCards(stage, visibleNodes, positions, activeMetrics, spriteSheetData);
   initPanZoom(viewport, stage, size);
 
   const priestToggle = document.getElementById('lineage-grid-show-priests');

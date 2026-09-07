@@ -191,7 +191,7 @@ Co-consecration and gutter routing are not used.
 | `GAP_Y` | 64 | Card-edge vertical clearance |
 | `PAD` | 48 | Canvas padding |
 | `DATE_SCALE` | 8 | Pixels per year for same-rail clearance |
-| `MIN_BRANCH_GAP` | 48 | Min spacing between bus stub origin groups |
+| `MIN_BRANCH_GAP` | `CARD_W + GAP_X / 2` (194) | Min spacing between bus stub origin groups (derived in JS) |
 | `MULTI_STUB_GAP` | 14 | Offset between ordination/consecration stubs |
 
 ---

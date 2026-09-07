@@ -5,6 +5,5 @@
   "GAP_Y": 64,
   "PAD": 48,
   "DATE_SCALE": 8,
-  "MIN_BRANCH_GAP": 48,
   "MULTI_STUB_GAP": 14
 }

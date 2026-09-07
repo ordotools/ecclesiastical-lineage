@@ -255,7 +255,7 @@ function testGridMetricsMatchFrontend() {
   assert.equal(gm.GAP_Y, 64);
   assert.equal(gm.PAD, 48);
   assert.equal(gm.DATE_SCALE, 8);
-  assert.equal(gm.MIN_BRANCH_GAP, 48);
+  assert.equal(gm.MIN_BRANCH_GAP, CARD_W + GAP_X / 2);
   assert.equal(gm.MULTI_STUB_GAP, 14);
 }
 

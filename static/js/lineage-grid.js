@@ -4,12 +4,14 @@
  * Pipeline (computeLineageGridLayout):
  * 1. Layout nodes — bishops / consecration participants; all if showPriests.
  * 2. Forest — one incoming succession link per person; break cycles (newest edge).
- * 3. First clergy — no layout parent; left-edge seeds at x = PAD.
- * 4. Pack — children LTR by date, alternate above/below; leaf vs hub spacing.
- * 5. Stretch-n-squeeze — multi-pass slide children left; grid-native stretch when blocked.
- * 6. Vertical compact — pull child hubs toward parent using live subtree extents.
- * 7. Collide — later clusters shift down until no card overlap.
- * 8. Draw — grey trunk at parent midline; vertical stubs to card edges.
+ * 3. Side assignment — suffix rail flips before pack (5:3 scoring, opposite-rail gap).
+ * 4. First clergy — no layout parent; left-edge seeds at x = PAD.
+ * 5. Pack — children LTR by date, alternate above/below; leaf vs hub spacing.
+ * 6. Squeeze — slide children left; stretch only as last resort when slide blocked.
+ * 7. Vertical compact — pull child hubs toward parent using live subtree extents.
+ * 8. Intra-cluster collide — heal card overlaps within each forest cluster.
+ * 9. Inter-cluster collide — later clusters shift down until no card overlap.
+ * 10. Draw — grey trunk at parent midline; vertical stubs to card edges.
  */
 import gridMetrics from '../config/grid-metrics.json' with { type: 'json' };
 
@@ -356,11 +358,24 @@ function computeDescendantMetrics(children, nodeIds) {
 // Layout — packing
 // ---------------------------------------------------------------------------
 
-function childSide(index) {
+function defaultChildSide(index) {
   return index % 2 === 0 ? 'above' : 'below';
 }
 
-function computeExtents(nodeId, children, cache) {
+function sideMapKey(parentId, childId) {
+  return `${parentId}:${childId}`;
+}
+
+function getChildSide(parentId, childId, index, sideMap, positions) {
+  if (sideMap) {
+    const key = sideMapKey(parentId, childId);
+    if (sideMap.has(key)) return sideMap.get(key);
+  }
+  if (positions?.[childId]?.side) return positions[childId].side;
+  return defaultChildSide(index);
+}
+
+function computeExtents(nodeId, children, cache, sideMap = null) {
   if (cache.has(nodeId)) return cache.get(nodeId);
   const childList = children.get(nodeId) || [];
   if (!childList.length) {
@@ -372,9 +387,10 @@ function computeExtents(nodeId, children, cache) {
   let extentAbove = 0;
   let extentBelow = 0;
   childList.forEach(([childId], idx) => {
-    const childExt = computeExtents(childId, children, cache);
+    const childExt = computeExtents(childId, children, cache, sideMap);
     const slot = CARD_H + GAP_Y + childExt.above + childExt.below;
-    if (childSide(idx) === 'above') extentAbove = Math.max(extentAbove, slot);
+    const side = getChildSide(nodeId, childId, idx, sideMap, null);
+    if (side === 'above') extentAbove = Math.max(extentAbove, slot);
     else extentBelow = Math.max(extentBelow, slot);
   });
 
@@ -436,7 +452,16 @@ function linkYear(link, node) {
   return null;
 }
 
-function computeChildXPositions(parentId, childList, nodeById, children, widthCache, xCache, relationCounts) {
+function computeChildXPositions(
+  parentId,
+  childList,
+  nodeById,
+  children,
+  widthCache,
+  xCache,
+  relationCounts,
+  sideMap = null,
+) {
   if (!childList.length) return [];
 
   const firstOrigin = FIRST_CHILD_X + CARD_W / 2;
@@ -452,8 +477,10 @@ function computeChildXPositions(parentId, childList, nodeById, children, widthCa
     childList.forEach(([childId, link], idx) => {
       const node = nodeById.get(childId) || { id: childId };
       const year = linkYear(link, node);
-      const side = childSide(idx);
-      const childWidth = computeSubtreeWidth(childId, children, nodeById, widthCache, xCache, relationCounts);
+      const side = getChildSide(parentId, childId, idx, sideMap, null);
+      const childWidth = computeSubtreeWidth(
+        childId, children, nodeById, widthCache, xCache, relationCounts, sideMap,
+      );
       const gap = siblingGap(year, prevYear, idx === 0);
       const originX = firstOrigin + idx * pitch;
       const railMinX = railOccupied[side] === 0 ? FIRST_CHILD_X : railOccupied[side] + gap;
@@ -474,8 +501,10 @@ function computeChildXPositions(parentId, childList, nodeById, children, widthCa
   childList.forEach(([childId, link], idx) => {
     const node = nodeById.get(childId) || { id: childId };
     const year = linkYear(link, node);
-    const side = childSide(idx);
-    const childWidth = computeSubtreeWidth(childId, children, nodeById, widthCache, xCache, relationCounts);
+    const side = getChildSide(parentId, childId, idx, sideMap, null);
+    const childWidth = computeSubtreeWidth(
+      childId, children, nodeById, widthCache, xCache, relationCounts, sideMap,
+    );
     const gap = siblingGap(year, prevYear, idx === 0);
     const nRelations = relationCounts.get(`${parentId}:${childId}`) || 1;
     const groupHalf = relationGroupHalfWidth(nRelations);
@@ -495,7 +524,15 @@ function computeChildXPositions(parentId, childList, nodeById, children, widthCa
   return positions;
 }
 
-function computeSubtreeWidth(nodeId, children, nodeById, widthCache, xCache, relationCounts) {
+function computeSubtreeWidth(
+  nodeId,
+  children,
+  nodeById,
+  widthCache,
+  xCache,
+  relationCounts,
+  sideMap = null,
+) {
   if (widthCache.has(nodeId)) return widthCache.get(nodeId);
 
   const childList = children.get(nodeId) || [];
@@ -505,12 +542,16 @@ function computeSubtreeWidth(nodeId, children, nodeById, widthCache, xCache, rel
     return CARD_W;
   }
 
-  const childXs = computeChildXPositions(nodeId, childList, nodeById, children, widthCache, xCache, relationCounts);
+  const childXs = computeChildXPositions(
+    nodeId, childList, nodeById, children, widthCache, xCache, relationCounts, sideMap,
+  );
   xCache.set(nodeId, childList.map(([cid], i) => [cid, childXs[i]]));
 
   let maxRight = CARD_W;
   childList.forEach(([childId], i) => {
-    const childWidth = computeSubtreeWidth(childId, children, nodeById, widthCache, xCache, relationCounts);
+    const childWidth = computeSubtreeWidth(
+      childId, children, nodeById, widthCache, xCache, relationCounts, sideMap,
+    );
     maxRight = Math.max(maxRight, childXs[i] + childWidth);
   });
 
@@ -546,19 +587,15 @@ function selectClusterSeeds(firstClergyIds, totalDescendants, nodeById) {
   });
 }
 
-function placeSubtree(nodeId, x, y, ctx, side = null) {
+function placeSubtreeChildren(nodeId, ctx) {
   const {
     children, nodeById, extents, widthCache, xCache,
-    positions, buses, placed, clusterMembers, relationCounts,
+    positions, buses, placed, clusterMembers, relationCounts, sideMap,
   } = ctx;
 
-  if (placed.has(nodeId)) return;
-
-  const pos = { x, y };
-  if (side) pos.side = side;
-  positions[nodeId] = pos;
-  placed.add(nodeId);
-  clusterMembers.add(nodeId);
+  const pos = positions[nodeId];
+  if (!pos) return;
+  const { x, y } = pos;
 
   const childList = children.get(nodeId) || [];
   if (!childList.length) return;
@@ -566,7 +603,9 @@ function placeSubtree(nodeId, x, y, ctx, side = null) {
   const timelineY = y + CARD_H / 2;
   let relXs = (xCache.get(nodeId) || []).map(([, relX]) => relX);
   if (relXs.length !== childList.length) {
-    relXs = computeChildXPositions(nodeId, childList, nodeById, children, widthCache, xCache, relationCounts);
+    relXs = computeChildXPositions(
+      nodeId, childList, nodeById, children, widthCache, xCache, relationCounts, sideMap,
+    );
     xCache.set(nodeId, childList.map(([cid], i) => [cid, relXs[i]]));
   }
 
@@ -576,7 +615,7 @@ function placeSubtree(nodeId, x, y, ctx, side = null) {
 
   childList.forEach(([childId], idx) => {
     if (placed.has(childId)) return;
-    const childSideVal = childSide(idx);
+    const childSideVal = getChildSide(nodeId, childId, idx, sideMap, positions);
     const childExt = extents.get(childId) || { above: 0, below: 0 };
     const childX = x + relXs[idx];
 
@@ -592,6 +631,9 @@ function placeSubtree(nodeId, x, y, ctx, side = null) {
     placeSubtree(childId, childX, childY, ctx, childSideVal);
   });
 
+  const existingBusIdx = buses.findIndex((b) => b.source === nodeId);
+  if (existingBusIdx >= 0) buses.splice(existingBusIdx, 1);
+
   if (busTargets.length) {
     buses.push({
       source: nodeId,
@@ -601,6 +643,59 @@ function placeSubtree(nodeId, x, y, ctx, side = null) {
       targets: busTargets,
     });
   }
+}
+
+function placeSubtree(nodeId, x, y, ctx, side = null) {
+  const { positions, placed, clusterMembers } = ctx;
+
+  if (placed.has(nodeId)) return;
+
+  const pos = { x, y };
+  if (side) pos.side = side;
+  positions[nodeId] = pos;
+  placed.add(nodeId);
+  if (clusterMembers) clusterMembers.add(nodeId);
+
+  placeSubtreeChildren(nodeId, ctx);
+}
+
+function clearSubtreeCaches(rootId, children, widthCache, xCache) {
+  descendantIds(rootId, children).forEach((id) => {
+    widthCache.delete(id);
+    xCache.delete(id);
+  });
+  widthCache.delete(rootId);
+  xCache.delete(rootId);
+}
+
+/** Repack descendant geometry after a sideMap change; root anchor X/Y preserved. */
+function repackSubtree(rootId, ctx) {
+  const {
+    children, nodeById, extents, widthCache, xCache,
+    positions, buses, placed, relationCounts, sideMap,
+  } = ctx;
+
+  const rootPos = positions[rootId];
+  if (!rootPos) return;
+
+  const descIds = descendantIds(rootId, children);
+  const descSet = new Set(descIds);
+
+  descIds.forEach((id) => {
+    if (id === rootId) return;
+    delete positions[id];
+    placed.delete(id);
+  });
+
+  for (let i = buses.length - 1; i >= 0; i -= 1) {
+    if (descSet.has(buses[i].source)) buses.splice(i, 1);
+  }
+
+  clearSubtreeCaches(rootId, children, widthCache, xCache);
+  computeSubtreeWidth(
+    rootId, children, nodeById, widthCache, xCache, relationCounts, sideMap,
+  );
+  placeSubtreeChildren(rootId, ctx);
 }
 
 function layoutCardRect(pos) {
@@ -745,6 +840,7 @@ function computeMinLeftX(
   nodeById,
   relationCounts,
   children,
+  sideMap,
 ) {
   const allLeaves = childList.every(([childId]) => !childEmitsBus(childId, children));
   let originMinX = FIRST_CHILD_X;
@@ -770,8 +866,8 @@ function computeMinLeftX(
     originMinX = prevOriginX + prevGroupHalf + MIN_BRANCH_GAP + groupHalf - CARD_W / 2;
   }
 
-  const targetSide = childSide(childIndex);
   const [targetChildId, targetLink] = childList[childIndex];
+  const targetSide = getChildSide(parentId, targetChildId, childIndex, sideMap, positions);
   const targetNode = nodeById.get(targetChildId) || { id: targetChildId };
   const targetYear = linkYear(targetLink, targetNode);
 
@@ -780,7 +876,7 @@ function computeMinLeftX(
   let lastSameRailYear = null;
   for (let idx = 0; idx < childIndex; idx += 1) {
     const [childId, link] = childList[idx];
-    if (childSide(idx) !== targetSide) continue;
+    if (getChildSide(parentId, childId, idx, sideMap, positions) !== targetSide) continue;
     const node = nodeById.get(childId) || { id: childId };
     const year = linkYear(link, node);
     lastSameRailCardRight = positions[childId].x + CARD_W - parentX;
@@ -949,6 +1045,8 @@ function findMinimalFit(
   relationCounts,
   children,
   buses,
+  sideMap,
+  allowStretch = true,
 ) {
   const [cPlusOneId] = childList[childIndex];
   const minLeftX = computeMinLeftX(
@@ -960,6 +1058,7 @@ function findMinimalFit(
     nodeById,
     relationCounts,
     children,
+    sideMap,
   );
   const currentX = positions[cPlusOneId].x;
   const maxDx = currentX - minLeftX;
@@ -978,12 +1077,14 @@ function findMinimalFit(
       return { dx, signedDy: 0, blockerId: null };
     }
 
+    if (!allowStretch) continue;
+
     for (let j = childIndex - 1; j >= 0; j -= 1) {
       const [blockerId] = childList[j];
       const dy = computeMinimalGridDy(blockerId, cPlusOneId, dx, positions, children);
       if (dy == null || dy <= 0) continue;
 
-      const blockerSide = positions[blockerId].side || childSide(j);
+      const blockerSide = getChildSide(parentId, blockerId, j, sideMap, positions);
       const signedDy = blockerSide === 'below' ? dy : -dy;
 
       if (!stretchMoveAllowed(
@@ -1045,7 +1146,7 @@ function subtreeOverlapsOthers(
   return false;
 }
 
-function compactVerticalLayout(positions, buses, children, parents) {
+function compactVerticalLayout(positions, buses, children, parents, sideMap) {
   const hubIds = [...new Set(buses.map((bus) => bus.source))].sort(
     (a, b) => busDepth(b, parents) - busDepth(a, parents),
   );
@@ -1063,7 +1164,7 @@ function compactVerticalLayout(positions, buses, children, parents) {
       childList.forEach(([childId], idx) => {
         const childPos = positions[childId];
         if (!childPos) return;
-        const side = childSide(idx);
+        const side = getChildSide(parentId, childId, idx, sideMap, positions);
         const neededAbove = actualExtentAbove(childId, positions, children);
         const neededBelow = actualExtentBelow(childId, positions, children);
 
@@ -1114,17 +1215,642 @@ function applySqueezeMove(
   refreshBusesForSubtree(cPlusOneId, buses, positions, children);
 }
 
-/**
- * Post-pack pass: slide bus children left into gaps; stretch prior child vertically when needed.
- */
-function stretchSqueezeLayout(
+function allCardsOverlap(positions) {
+  const entries = Object.entries(positions);
+  for (let i = 0; i < entries.length; i += 1) {
+    for (let j = i + 1; j < entries.length; j += 1) {
+      if (rectsOverlap(layoutCardRect(entries[i][1]), layoutCardRect(entries[j][1]))) return true;
+    }
+  }
+  return false;
+}
+
+function measureGroupLayout(parentId, positions, children, buses) {
+  const busCount = countBusesInGroup(parentId, children, buses);
+  const aspect = groupAspectRatio(parentId, positions, children);
+  const aspectLegal = busCount < MIN_BUSSES_FOR_ASPECT || aspect <= ASPECT_CAP + 0.001;
+  const bbox = subtreeBBox(parentId, positions, children);
+  return {
+    legal: aspectLegal && !allCardsOverlap(positions),
+    aspectDelta: Math.abs(aspect - ASPECT_CAP),
+    width: bbox.right - bbox.left,
+  };
+}
+
+function layoutScoreBetter(a, b) {
+  if (a.aspectDelta !== b.aspectDelta) return a.aspectDelta < b.aspectDelta;
+  if (Math.abs(a.width - b.width) > 0.01) return a.width < b.width;
+  return false;
+}
+
+function suffixHasHub(childList, fromIndex, children) {
+  for (let idx = fromIndex; idx < childList.length; idx += 1) {
+    if (childEmitsBus(childList[idx][0], children)) return true;
+  }
+  return false;
+}
+
+function invertedSuffixSideMap(parentId, fromIndex, childList, sideMap, positions) {
+  const temp = new Map(sideMap);
+  for (let idx = fromIndex; idx < childList.length; idx += 1) {
+    const [childId] = childList[idx];
+    const key = sideMapKey(parentId, childId);
+    const current = temp.get(key)
+      || getChildSide(parentId, childId, idx, temp, positions);
+    temp.set(key, current === 'above' ? 'below' : 'above');
+  }
+  return temp;
+}
+
+function suffixFitsOppositeRailVertically(
+  parentId,
+  fromIndex,
+  childList,
+  positions,
+  parentPos,
+  children,
+  sideMap,
+) {
+  const parentTop = parentPos.y;
+  const parentBottom = parentPos.y + CARD_H;
+
+  for (let idx = fromIndex; idx < childList.length; idx += 1) {
+    const [childId] = childList[idx];
+    const side = getChildSide(parentId, childId, idx, sideMap, positions);
+    const neededAbove = actualExtentAbove(childId, positions, children);
+    const neededBelow = actualExtentBelow(childId, positions, children);
+
+    let targetY;
+    if (side === 'below') {
+      targetY = parentBottom + GAP_Y + neededAbove;
+    } else {
+      targetY = parentTop - GAP_Y - neededBelow - CARD_H;
+    }
+
+    const dy = targetY - positions[childId].y;
+    if (subtreeOverlapsPriorSiblings(childId, 0, dy, childList, idx, positions, children)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function oppositeRailHasGap(
+  parentId,
+  fromIndex,
+  childList,
+  positions,
+  parentPos,
+  nodeById,
+  relationCounts,
+  children,
+  sideMap,
+) {
+  const tempSideMap = invertedSuffixSideMap(
+    parentId, fromIndex, childList, sideMap, positions,
+  );
+
+  const currentMinLeft = computeMinLeftX(
+    parentId,
+    fromIndex,
+    childList,
+    positions,
+    parentPos.x,
+    nodeById,
+    relationCounts,
+    children,
+    sideMap,
+  );
+  const flippedMinLeft = computeMinLeftX(
+    parentId,
+    fromIndex,
+    childList,
+    positions,
+    parentPos.x,
+    nodeById,
+    relationCounts,
+    children,
+    tempSideMap,
+  );
+
+  if (currentMinLeft - flippedMinLeft >= GAP_X - 0.01) return true;
+
+  return suffixFitsOppositeRailVertically(
+    parentId, fromIndex, childList, positions, parentPos, children, tempSideMap,
+  );
+}
+
+function createLayoutSnapshot(positions, buses, sideMap) {
+  const posSnap = new Map();
+  Object.entries(positions).forEach(([nid, p]) => {
+    posSnap.set(Number(nid), { x: p.x, y: p.y, side: p.side });
+  });
+
+  const busSnap = buses.map((bus) => ({
+    source: bus.source,
+    timeline_y: bus.timeline_y,
+    timeline_start_x: bus.timeline_start_x,
+    timeline_end_x: bus.timeline_end_x,
+    targets: bus.targets.map((t) => ({
+      target: t.target,
+      side: t.side,
+      origin_x: t.origin_x,
+    })),
+  }));
+
+  return {
+    posSnap,
+    busSnap,
+    sideSnap: new Map(sideMap),
+  };
+}
+
+function restoreLayoutSnapshot(snapshot, positions, buses, sideMap) {
+  const { posSnap, busSnap, sideSnap } = snapshot;
+
+  posSnap.forEach((p, nid) => {
+    positions[nid].x = p.x;
+    positions[nid].y = p.y;
+    if (p.side) positions[nid].side = p.side;
+    else delete positions[nid].side;
+  });
+
+  sideMap.clear();
+  sideSnap.forEach((value, key) => sideMap.set(key, value));
+
+  busSnap.forEach((snap) => {
+    const bus = buses.find((b) => b.source === snap.source);
+    if (!bus) return;
+    bus.timeline_y = snap.timeline_y;
+    bus.timeline_start_x = snap.timeline_start_x;
+    bus.timeline_end_x = snap.timeline_end_x;
+    snap.targets.forEach((st) => {
+      const target = bus.targets.find((t) => t.target === st.target);
+      if (target) {
+        target.side = st.side;
+        target.origin_x = st.origin_x;
+      }
+    });
+  });
+}
+
+function createGroupSnapshot(parentId, positions, children, buses, sideMap, childList) {
+  return createLayoutSnapshot(positions, buses, sideMap);
+}
+
+function restoreGroupSnapshot(snapshot, positions, buses, sideMap) {
+  restoreLayoutSnapshot(snapshot, positions, buses, sideMap);
+}
+
+function invertSuffixSides(parentId, fromIndex, childList, sideMap, positions) {
+  for (let idx = fromIndex; idx < childList.length; idx += 1) {
+    const [childId] = childList[idx];
+    const key = sideMapKey(parentId, childId);
+    const current = sideMap.get(key)
+      || getChildSide(parentId, childId, idx, sideMap, positions);
+    sideMap.set(key, current === 'above' ? 'below' : 'above');
+  }
+}
+
+function relayoutDirectChildrenOfBus(parentId, positions, buses, children, sideMap) {
+  const parentPos = positions[parentId];
+  if (!parentPos) return;
+  const childList = children.get(parentId) || [];
+  const parentTop = parentPos.y;
+  const parentBottom = parentPos.y + CARD_H;
+
+  childList.forEach(([childId], idx) => {
+    const childPos = positions[childId];
+    if (!childPos) return;
+    const side = getChildSide(parentId, childId, idx, sideMap, positions);
+    const neededAbove = actualExtentAbove(childId, positions, children);
+    const neededBelow = actualExtentBelow(childId, positions, children);
+
+    let targetY;
+    if (side === 'below') {
+      targetY = parentBottom + GAP_Y + neededAbove;
+    } else {
+      targetY = parentTop - GAP_Y - neededBelow - CARD_H;
+    }
+
+    const dy = targetY - childPos.y;
+    if (Math.abs(dy) > 0.01) {
+      translateSubtree(childId, 0, dy, positions, buses, children);
+    }
+    positions[childId].side = side;
+    updateBusTargetSide(parentId, childId, side, buses);
+  });
+
+  const parentBus = buses.find((b) => b.source === parentId);
+  if (parentBus) refreshBusGeometry(parentBus, positions);
+}
+
+function relayoutNestedBusesUnder(rootId, positions, buses, children, sideMap) {
+  descendantIds(rootId, children).forEach((nid) => {
+    if ((children.get(nid) || []).length > 0) {
+      relayoutDirectChildrenOfBus(nid, positions, buses, children, sideMap);
+    }
+  });
+}
+
+function relayoutSuffixBreakBuses(positions, buses, children, sideMap) {
+  const parentsWithBreak = new Set();
+  sideMap.forEach((_side, key) => {
+    const colon = key.indexOf(':');
+    if (colon > 0) parentsWithBreak.add(Number(key.slice(0, colon)));
+  });
+
+  parentsWithBreak.forEach((parentId) => {
+    relayoutDirectChildrenOfBus(parentId, positions, buses, children, sideMap);
+    const childList = children.get(parentId) || [];
+    childList.forEach(([childId]) => {
+      if (sideMap.has(sideMapKey(parentId, childId))) {
+        relayoutNestedBusesUnder(childId, positions, buses, children, sideMap);
+      }
+    });
+  });
+}
+
+function childTargetY(parentPos, side, childId, positions, children) {
+  const neededAbove = actualExtentAbove(childId, positions, children);
+  const neededBelow = actualExtentBelow(childId, positions, children);
+  const parentTop = parentPos.y;
+  const parentBottom = parentPos.y + CARD_H;
+  if (side === 'below') return parentBottom + GAP_Y + neededAbove;
+  return parentTop - GAP_Y - neededBelow - CARD_H;
+}
+
+function reattachChildToSide(childId, side, parentPos, positions, buses, children) {
+  const targetY = childTargetY(parentPos, side, childId, positions, children);
+  const dy = targetY - positions[childId].y;
+  if (Math.abs(dy) > 0.01) {
+    translateSubtree(childId, 0, dy, positions, buses, children);
+  }
+  positions[childId].side = side;
+}
+
+function updateBusTargetSide(parentId, childId, side, buses) {
+  const bus = buses.find((b) => b.source === parentId);
+  if (!bus) return;
+  const target = bus.targets.find((t) => t.target === childId);
+  if (target) target.side = side;
+}
+
+function applySuffixFlip(
+  parentId,
+  fromIndex,
+  childList,
+  parentPos,
+  positions,
+  buses,
+  children,
+  sideMap,
+) {
+  invertSuffixSides(parentId, fromIndex, childList, sideMap, positions);
+  for (let idx = fromIndex; idx < childList.length; idx += 1) {
+    const [childId] = childList[idx];
+    const side = getChildSide(parentId, childId, idx, sideMap, positions);
+    positions[childId].side = side;
+    updateBusTargetSide(parentId, childId, side, buses);
+  }
+  relayoutDirectChildrenOfBus(parentId, positions, buses, children, sideMap);
+  for (let idx = fromIndex; idx < childList.length; idx += 1) {
+    relayoutNestedBusesUnder(childList[idx][0], positions, buses, children, sideMap);
+  }
+}
+
+function busHasSuffixBreak(parentId, childList, sideMap) {
+  return childList.some(([childId]) => sideMap.has(sideMapKey(parentId, childId)));
+}
+
+function suffixFlipMinLeftGain(
+  parentId,
+  fromIndex,
+  childList,
+  positions,
+  parentPos,
+  nodeById,
+  relationCounts,
+  children,
+  sideMap,
+) {
+  const tempSideMap = invertedSuffixSideMap(
+    parentId, fromIndex, childList, sideMap, positions,
+  );
+  const currentMinLeft = computeMinLeftX(
+    parentId, fromIndex, childList, positions, parentPos.x,
+    nodeById, relationCounts, children, sideMap,
+  );
+  const flippedMinLeft = computeMinLeftX(
+    parentId, fromIndex, childList, positions, parentPos.x,
+    nodeById, relationCounts, children, tempSideMap,
+  );
+  return currentMinLeft - flippedMinLeft;
+}
+
+function sideAssignmentPass(
+  layoutNodeIds,
+  children,
+  parents,
+  nodeById,
+  relationCounts,
+  sideMap,
+  seeds,
+) {
+  const extentCache = new Map();
+  layoutNodeIds.forEach((nid) => computeExtents(nid, children, extentCache));
+
+  const widthCache = new Map();
+  const xCache = new Map();
+  layoutNodeIds.forEach((nid) => {
+    computeSubtreeWidth(nid, children, nodeById, widthCache, xCache, relationCounts);
+  });
+
+  const positions = {};
+  const buses = [];
+  const placed = new Set();
+  let clusterY = PAD;
+
+  const placeCtx = {
+    children,
+    nodeById,
+    extents: extentCache,
+    widthCache,
+    xCache,
+    positions,
+    buses,
+    placed,
+    clusterMembers: null,
+    relationCounts,
+    sideMap,
+  };
+
+  seeds.forEach((seed) => {
+    if (placed.has(seed)) return;
+    const ext = extentCache.get(seed) || { above: 0, below: 0 };
+    const seedY = clusterY + ext.above;
+    placeCtx.clusterMembers = new Set();
+    placeSubtree(seed, PAD, seedY, placeCtx);
+    clusterY = seedY + CARD_H + ext.below + CLUSTER_GAP;
+  });
+
+  const repackCtx = {
+    children,
+    nodeById,
+    extents: extentCache,
+    widthCache,
+    xCache,
+    positions,
+    buses,
+    placed,
+    clusterMembers: new Set(),
+    relationCounts,
+    sideMap,
+  };
+
+  const hubIds = [...layoutNodeIds]
+    .filter((id) => (children.get(id) || []).length >= 2)
+    .sort((a, b) => busDepth(a, parents) - busDepth(b, parents));
+
+  hubIds.forEach((parentId) => {
+    const childList = children.get(parentId) || [];
+    const parentPos = positions[parentId];
+    if (!parentPos) return;
+
+    let flippedThisBus = false;
+
+    const scoreSuffixFlip = (fromIndex, applyFlip) => {
+      if (applyFlip) {
+        applySuffixFlip(
+          parentId, fromIndex, childList, parentPos, positions, buses, children, sideMap,
+        );
+      }
+
+      squeezeSlideLayout(
+        positions, buses, children, parents, nodeById, relationCounts, sideMap,
+      );
+      stretchLastResortLayout(
+        positions, buses, children, parents, nodeById, relationCounts, sideMap,
+      );
+      compactVerticalLayout(positions, buses, children, parents, sideMap);
+      return measureGroupLayout(parentId, positions, children, buses);
+    };
+
+    for (let i = 1; i < childList.length; i += 1) {
+      if (flippedThisBus || busHasSuffixBreak(parentId, childList, sideMap)) break;
+
+      const canFlip = suffixHasHub(childList, i, children)
+        && oppositeRailHasGap(
+          parentId, i, childList, positions, parentPos,
+          nodeById, relationCounts, children, sideMap,
+        );
+
+      if (!canFlip) continue;
+
+      const packedSnapshot = createLayoutSnapshot(positions, buses, sideMap);
+      const baselineScore = scoreSuffixFlip(i, false);
+      restoreLayoutSnapshot(packedSnapshot, positions, buses, sideMap);
+      clearSubtreeCaches(parentId, children, widthCache, xCache);
+      computeSubtreeWidth(
+        parentId, children, nodeById, widthCache, xCache, relationCounts, sideMap,
+      );
+      repackSubtree(parentId, repackCtx);
+
+      const minLeftGain = suffixFlipMinLeftGain(
+        parentId, i, childList, positions, parentPos,
+        nodeById, relationCounts, children, sideMap,
+      );
+      const tempSideMap = invertedSuffixSideMap(
+        parentId, i, childList, sideMap, positions,
+      );
+      const verticalGapFill = suffixFitsOppositeRailVertically(
+        parentId, i, childList, positions, parentPos, children, tempSideMap,
+      );
+      const flipScore = scoreSuffixFlip(i, true);
+      const singleHubSuffix = i === childList.length - 1 && suffixHasHub(childList, i, children);
+      const commit = flipScore.legal && (
+        layoutScoreBetter(flipScore, baselineScore)
+        || minLeftGain >= GAP_X - 0.01
+        || (verticalGapFill && singleHubSuffix && flipScore.width <= baselineScore.width + 0.01)
+      );
+
+      restoreLayoutSnapshot(packedSnapshot, positions, buses, sideMap);
+      clearSubtreeCaches(parentId, children, widthCache, xCache);
+      computeSubtreeWidth(
+        parentId, children, nodeById, widthCache, xCache, relationCounts, sideMap,
+      );
+      repackSubtree(parentId, repackCtx);
+
+      if (commit) {
+        invertSuffixSides(parentId, i, childList, sideMap, positions);
+        flippedThisBus = true;
+      }
+    }
+  });
+}
+
+function simulateBusChildMove(
+  parentId,
+  childIndex,
+  childList,
+  bus,
   positions,
   buses,
   children,
   parents,
   nodeById,
   relationCounts,
+  sideMap,
 ) {
+  const snapshot = createGroupSnapshot(
+    parentId, positions, children, buses, sideMap, childList,
+  );
+  const parentPos = positions[parentId];
+  const [cPlusOneId] = childList[childIndex];
+  const allowStretch = !busHasSuffixBreak(parentId, childList, sideMap);
+
+  const fit = findMinimalFit(
+    parentId,
+    childIndex,
+    childList,
+    positions,
+    parentPos,
+    nodeById,
+    relationCounts,
+    children,
+    buses,
+    sideMap,
+    allowStretch,
+  );
+  if (fit) {
+    applySqueezeMove(fit, cPlusOneId, bus, positions, buses, children);
+    if (busHasSuffixBreak(parentId, childList, sideMap)) {
+      relayoutDirectChildrenOfBus(parentId, positions, buses, children, sideMap);
+      relayoutNestedBusesUnder(cPlusOneId, positions, buses, children, sideMap);
+    }
+  }
+
+  compactVerticalLayout(positions, buses, children, parents, sideMap);
+
+  const score = measureGroupLayout(parentId, positions, children, buses);
+  const result = { score, fit, changed: fit != null };
+  restoreGroupSnapshot(snapshot, positions, buses, sideMap);
+  return result;
+}
+
+function applySqueezeMoveIfLegal(
+  fit,
+  cPlusOneId,
+  bus,
+  positions,
+  buses,
+  children,
+  parents,
+  sideMap,
+) {
+  const snapshot = createLayoutSnapshot(positions, buses, sideMap);
+  applySqueezeMove(fit, cPlusOneId, bus, positions, buses, children);
+  compactVerticalLayout(positions, buses, children, parents, sideMap);
+  const legal = !allCardsOverlap(positions);
+  if (!legal) {
+    restoreLayoutSnapshot(snapshot, positions, buses, sideMap);
+    return false;
+  }
+  return true;
+}
+
+function optimizeBusChildSlide(
+  parentId,
+  childIndex,
+  childList,
+  bus,
+  positions,
+  buses,
+  children,
+  parents,
+  nodeById,
+  relationCounts,
+  sideMap,
+) {
+  const [cPlusOneId] = childList[childIndex];
+  const parentPos = positions[parentId];
+
+  const fit = findMinimalFit(
+    parentId,
+    childIndex,
+    childList,
+    positions,
+    parentPos,
+    nodeById,
+    relationCounts,
+    children,
+    buses,
+    sideMap,
+    false,
+  );
+  if (!fit) return null;
+
+  const applied = applySqueezeMoveIfLegal(
+    fit, cPlusOneId, bus, positions, buses, children, parents, sideMap,
+  );
+  return applied ? { fit } : null;
+}
+
+function optimizeBusChildStretch(
+  parentId,
+  childIndex,
+  childList,
+  bus,
+  positions,
+  buses,
+  children,
+  parents,
+  nodeById,
+  relationCounts,
+  sideMap,
+) {
+  if (busHasSuffixBreak(parentId, childList, sideMap)) return null;
+
+  const [cPlusOneId] = childList[childIndex];
+  const parentPos = positions[parentId];
+
+  const slideFit = findMinimalFit(
+    parentId,
+    childIndex,
+    childList,
+    positions,
+    parentPos,
+    nodeById,
+    relationCounts,
+    children,
+    buses,
+    sideMap,
+    false,
+  );
+  if (slideFit) return null;
+
+  const fit = findMinimalFit(
+    parentId,
+    childIndex,
+    childList,
+    positions,
+    parentPos,
+    nodeById,
+    relationCounts,
+    children,
+    buses,
+    sideMap,
+    true,
+  );
+  if (!fit || !fit.signedDy) return null;
+
+  const applied = applySqueezeMoveIfLegal(
+    fit, cPlusOneId, bus, positions, buses, children, parents, sideMap,
+  );
+  return applied ? { fit } : null;
+}
+
+function runSqueezePass(positions, buses, children, parents, nodeById, relationCounts, sideMap, optimizeFn) {
   const sortedBuses = [...buses].sort(
     (a, b) => busDepth(b.source, parents) - busDepth(a.source, parents),
   );
@@ -1144,24 +1870,120 @@ function stretchSqueezeLayout(
         const [cPlusOneId] = childList[i];
         if (!positions[cPlusOneId]) continue;
 
-        const fit = findMinimalFit(
+        const result = optimizeFn(
           parentId,
           i,
           childList,
+          bus,
           positions,
-          parentPos,
+          buses,
+          children,
+          parents,
           nodeById,
           relationCounts,
-          children,
-          buses,
+          sideMap,
         );
-        if (!fit) continue;
-
-        applySqueezeMove(fit, cPlusOneId, bus, positions, buses, children);
-        changed = true;
+        if (result) changed = true;
       }
     });
   }
+}
+
+/** Post-pack pass: slide bus children left into gaps (no stretch). */
+function squeezeSlideLayout(
+  positions,
+  buses,
+  children,
+  parents,
+  nodeById,
+  relationCounts,
+  sideMap,
+) {
+  runSqueezePass(
+    positions, buses, children, parents, nodeById, relationCounts, sideMap, optimizeBusChildSlide,
+  );
+}
+
+/** Stretch prior child vertically only when slide is blocked and legal. */
+function stretchLastResortLayout(
+  positions,
+  buses,
+  children,
+  parents,
+  nodeById,
+  relationCounts,
+  sideMap,
+) {
+  runSqueezePass(
+    positions, buses, children, parents, nodeById, relationCounts, sideMap, optimizeBusChildStretch,
+  );
+  relayoutSuffixBreakBuses(positions, buses, children, sideMap);
+}
+
+function resolveIntraClusterOverlaps(positions, buses, children, clusterNodeMap) {
+  const margin = 4;
+  const maxIter = 500;
+
+  clusterNodeMap.forEach((members) => {
+    let iter = 0;
+    let changed = true;
+
+    while (changed && iter < maxIter) {
+      changed = false;
+      iter += 1;
+
+      const ids = [...members].filter((id) => positions[id]);
+      ids.sort((a, b) => {
+        const pa = positions[a];
+        const pb = positions[b];
+        if (Math.abs(pa.y - pb.y) > 1) return pa.y - pb.y;
+        return pa.x - pb.x;
+      });
+
+      for (let i = 0; i < ids.length; i += 1) {
+        for (let j = i + 1; j < ids.length; j += 1) {
+          const idA = ids[i];
+          const idB = ids[j];
+          const ra = layoutCardRect(positions[idA]);
+          const rb = layoutCardRect(positions[idB]);
+          if (!rectsOverlap(ra, rb)) continue;
+
+          const posA = positions[idA];
+          const posB = positions[idB];
+          const moveId = posA.x > posB.x
+            || (Math.abs(posA.x - posB.x) < 1 && idA > idB)
+            ? idA
+            : idB;
+          const otherId = moveId === idA ? idB : idA;
+          const rMove = layoutCardRect(positions[moveId]);
+          const rOther = layoutCardRect(positions[otherId]);
+
+          const sameY = Math.abs(positions[moveId].y - positions[otherId].y) < 1;
+          const sameRail = sameY
+            && Math.abs(positions[moveId].x - positions[otherId].x) < CARD_W + GAP_X;
+
+          if (sameRail) {
+            const dx = rOther.right + margin - rMove.left;
+            if (dx > 0) {
+              translateSubtree(moveId, dx, 0, positions, buses, children);
+              refreshBusesForSubtree(moveId, buses, positions, children);
+              changed = true;
+            }
+          } else {
+            const overlapY = rOther.bottom + margin - rMove.top;
+            if (overlapY > 0) {
+              const dy = Math.ceil(overlapY / GAP_Y) * GAP_Y;
+              translateSubtree(moveId, 0, dy, positions, buses, children);
+              refreshBusesForSubtree(moveId, buses, positions, children);
+              changed = true;
+            }
+          }
+          break;
+        }
+        if (changed) break;
+      }
+    }
+  });
 }
 
 function resolveCardCollisions(positions, buses, clusterNodeMap) {
@@ -1294,16 +2116,27 @@ export function computeLineageGridLayout(nodes, links, options = {}) {
   const firstClergyIds = computeFirstClergyIds(layoutNodeIds, parents);
   const { directCount, totalDescendants } = computeDescendantMetrics(children, layoutNodeIds);
 
+  const seeds = selectClusterSeeds(firstClergyIds, totalDescendants, nodeById);
+
+  const sideMap = new Map();
+  sideAssignmentPass(
+    layoutNodeIds,
+    children,
+    parents,
+    nodeById,
+    relationCounts,
+    sideMap,
+    seeds,
+  );
+
   const extentCache = new Map();
-  layoutNodeIds.forEach((nid) => computeExtents(nid, children, extentCache));
+  layoutNodeIds.forEach((nid) => computeExtents(nid, children, extentCache, sideMap));
 
   const widthCache = new Map();
   const xCache = new Map();
   layoutNodeIds.forEach((nid) => {
-    computeSubtreeWidth(nid, children, nodeById, widthCache, xCache, relationCounts);
+    computeSubtreeWidth(nid, children, nodeById, widthCache, xCache, relationCounts, sideMap);
   });
-
-  const seeds = selectClusterSeeds(firstClergyIds, totalDescendants, nodeById);
 
   const positions = {};
   const buses = [];
@@ -1322,6 +2155,7 @@ export function computeLineageGridLayout(nodes, links, options = {}) {
     placed,
     clusterMembers: null,
     relationCounts,
+    sideMap,
   };
 
   seeds.forEach((seed) => {
@@ -1337,23 +2171,45 @@ export function computeLineageGridLayout(nodes, links, options = {}) {
   });
 
   if (stretchSqueeze) {
-    stretchSqueezeLayout(
+    squeezeSlideLayout(
       positions,
       buses,
       children,
       parents,
       nodeById,
       relationCounts,
+      sideMap,
+    );
+    stretchLastResortLayout(
+      positions,
+      buses,
+      children,
+      parents,
+      nodeById,
+      relationCounts,
+      sideMap,
     );
     compactVerticalLayout(
       positions,
       buses,
       children,
       parents,
+      sideMap,
     );
   }
 
+  resolveIntraClusterOverlaps(positions, buses, children, clusterNodeMap);
   resolveCardCollisions(positions, buses, clusterNodeMap);
+
+  if (stretchSqueeze) {
+    compactVerticalLayout(
+      positions,
+      buses,
+      children,
+      parents,
+      sideMap,
+    );
+  }
 
   if (Object.keys(positions).length) {
     const minY = Math.min(...Object.values(positions).map((p) => p.y));
@@ -1500,6 +2356,28 @@ export function parseTrunkPath(pathD) {
     xMax: Math.max(nums[0], nums[2]),
   };
 }
+
+/** Test hooks for layout unit tests (suffix flip, gap heuristic). */
+export const __lineageGridTestHooks = {
+  defaultChildSide,
+  getChildSide,
+  invertSuffixSides,
+  oppositeRailHasGap,
+  applySuffixFlip,
+  measureGroupLayout,
+  simulateBusChildMove,
+  suffixHasHub,
+  allCardsOverlap,
+  busHasSuffixBreak,
+  relayoutDirectChildrenOfBus,
+  relayoutNestedBusesUnder,
+  relayoutSuffixBreakBuses,
+  sideAssignmentPass,
+  repackSubtree,
+  squeezeSlideLayout,
+  stretchLastResortLayout,
+  resolveIntraClusterOverlaps,
+};
 
 // ---------------------------------------------------------------------------
 // Page render

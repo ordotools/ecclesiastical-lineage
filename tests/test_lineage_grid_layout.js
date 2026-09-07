@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import {
   computeLineageGridLayout,
   GRID_METRICS,
+  __lineageGridTestHooks,
 } from '../static/js/lineage-grid.js';
 
 const {
@@ -886,6 +887,196 @@ function testMultiPassSqueezeReachesMinLeft() {
   assertNoCardOverlap(squeezed);
 }
 
+function gapFlipFixture() {
+  const hubId = 1;
+  const deepHubId = 3;
+  const nodes = [
+    { id: hubId, name: 'Hub', is_lineage_root: true, is_bishop: true },
+    { id: 2, name: 'Short Above', is_bishop: true },
+    { id: deepHubId, name: 'Deep Below Hub', is_bishop: true },
+  ];
+  const links = [
+    { source: hubId, target: 2, type: 'consecration', event_sort_key: 19800101 },
+    { source: hubId, target: deepHubId, type: 'consecration', event_sort_key: 19850101 },
+  ];
+  for (let i = 0; i < 4; i += 1) {
+    nodes.push({ id: 50 + i, name: `Nested ${i}`, is_bishop: true });
+    links.push({
+      source: deepHubId,
+      target: 50 + i,
+      type: 'consecration',
+      event_sort_key: 20000101 + i * 10000,
+    });
+  }
+  return { nodes, links, hubId, deepHubId };
+}
+
+function testSuffixFlipFillsOppositeRailGap() {
+  const { nodes, links, hubId, deepHubId } = gapFlipFixture();
+  const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
+  const squeezed = computeLineageGridLayout(nodes, links);
+
+  assert.equal(
+    packed.positions[deepHubId].side,
+    'above',
+    'side pass should flip deep hub before pack when opposite gap exists',
+  );
+  assert.equal(
+    squeezed.positions[deepHubId].side,
+    'above',
+    'deep hub stays on above rail after squeeze',
+  );
+  assert.ok(
+    squeezed.bounds.width <= packed.bounds.width + 1,
+    'flip should not widen footprint',
+  );
+  assertNoCardOverlap(squeezed);
+
+  const hubY = squeezed.positions[hubId].y + CARD_H / 2;
+  assert.ok(
+    squeezed.positions[deepHubId].y + CARD_H < hubY,
+    'flipped deep hub should sit above parent bus',
+  );
+}
+
+function testSuffixInvertSideMap() {
+  const { invertSuffixSides, getChildSide } = __lineageGridTestHooks;
+  const sideMap = new Map();
+  const childList = [[10, {}], [11, {}], [12, {}]];
+
+  invertSuffixSides(1, 1, childList, sideMap, {});
+
+  assert.equal(getChildSide(1, 10, 0, sideMap, null), 'above', 'prefix child untouched');
+  assert.equal(getChildSide(1, 11, 1, sideMap, null), 'above', 'suffix child 1 inverts below to above');
+  assert.equal(getChildSide(1, 12, 2, sideMap, null), 'below', 'suffix child 2 inverts above to below');
+}
+
+function testNoGapKeepsStrictAlternate() {
+  const nodes = [
+    { id: 1, name: 'Hub', is_lineage_root: true, is_bishop: true },
+    { id: 2, name: 'Child A', is_bishop: true },
+    { id: 3, name: 'Child B', is_bishop: true },
+  ];
+  const links = [
+    { source: 1, target: 2, type: 'consecration', event_sort_key: 19800101 },
+    { source: 1, target: 3, type: 'consecration', event_sort_key: 19900101 },
+  ];
+  const layout = computeLineageGridLayout(nodes, links);
+  assert.equal(layout.positions[2].side, 'above');
+  assert.equal(layout.positions[3].side, 'below');
+  assertNoCardOverlap(layout);
+}
+
+function aspectRejectFlipFixture() {
+  const hubId = 1;
+  const nodes = [{ id: hubId, name: 'Root Hub', is_lineage_root: true, is_bishop: true }];
+  const links = [];
+
+  for (let c = 0; c < 4; c += 1) {
+    const childId = 10 + c;
+    nodes.push({ id: childId, name: `Child ${c}`, is_bishop: true });
+    links.push({
+      source: hubId,
+      target: childId,
+      type: 'consecration',
+      event_sort_key: 19800101 + c * 50000,
+    });
+    if (c >= 2) {
+      for (let n = 0; n < 8; n += 1) {
+        const nestedId = 100 + c * 10 + n;
+        nodes.push({ id: nestedId, name: `Nested ${nestedId}`, is_bishop: true });
+        links.push({
+          source: childId,
+          target: nestedId,
+          type: 'consecration',
+          event_sort_key: 20000101 + nestedId,
+        });
+      }
+    }
+  }
+  return { nodes, links, hubId, trailingHubId: 13 };
+}
+
+function testAspectCapRejectsSuffixFlip() {
+  const { nodes, links, trailingHubId } = aspectRejectFlipFixture();
+  const layout = computeLineageGridLayout(nodes, links);
+  assert.equal(
+    layout.positions[trailingHubId].side,
+    'below',
+    'flip that would exceed 5:3 aspect cap should not be applied',
+  );
+  assertNoCardOverlap(layout);
+}
+
+function denseNestedHubFixture() {
+  const rootId = 1;
+  const nodes = [{ id: rootId, name: 'Root', is_lineage_root: true, is_bishop: true }];
+  const links = [];
+  let nextId = 10;
+  let parentId = rootId;
+
+  for (let depth = 0; depth < 4; depth += 1) {
+    const hubId = nextId;
+    nextId += 1;
+    nodes.push({ id: hubId, name: `Hub ${depth}`, is_bishop: true });
+    links.push({
+      source: parentId,
+      target: hubId,
+      type: 'consecration',
+      event_sort_key: 19800101 + depth * 10000,
+    });
+    for (let i = 0; i < 5; i += 1) {
+      const leafId = nextId;
+      nextId += 1;
+      nodes.push({ id: leafId, name: `Leaf ${depth}-${i}`, is_bishop: true });
+      links.push({
+        source: hubId,
+        target: leafId,
+        type: 'consecration',
+        event_sort_key: 19900101 + depth * 100000 + i,
+      });
+    }
+    parentId = hubId;
+  }
+  return { nodes, links };
+}
+
+function testDenseNestedHubNoOverlap() {
+  const { nodes, links } = denseNestedHubFixture();
+  const layout = computeLineageGridLayout(nodes, links);
+  assert.ok(layout.buses.length >= 4, 'fixture should contain multiple buses');
+  assertNoCardOverlap(layout);
+}
+
+function testSidePassBeforePack() {
+  const { nodes, links, deepHubId } = gapFlipFixture();
+  const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
+  assert.equal(
+    packed.positions[deepHubId].side,
+    'above',
+    'packed layout should reflect side pass flip before squeeze',
+  );
+}
+
+function testStretchLastResortSkipsWhenSlideWorks() {
+  const { nodes, links, hubId, childHubId } = stretchSqueezeFixture();
+  const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
+  const full = computeLineageGridLayout(nodes, links);
+
+  const packedGap = stubGapAboveParent(packed.positions[hubId], packed.positions[childHubId]);
+  const fullGap = stubGapAboveParent(full.positions[hubId], full.positions[childHubId]);
+
+  assert.ok(
+    full.positions[30].x < packed.positions[30].x,
+    'slide pass should move trailing sibling left',
+  );
+  assert.ok(
+    fullGap > packedGap + 50,
+    'stretch last resort should lengthen stub when slide alone is insufficient',
+  );
+  assertNoCardOverlap(full);
+}
+
 const MIN_BUSSES_FOR_ASPECT = 4;
 
 const tests = [
@@ -929,6 +1120,13 @@ const tests = [
   ['testVerticalCompactPullsWhenOverReserved', testVerticalCompactPullsWhenOverReserved],
   ['testStretchUsesGridAlignedDy', testStretchUsesGridAlignedDy],
   ['testMultiPassSqueezeReachesMinLeft', testMultiPassSqueezeReachesMinLeft],
+  ['testSuffixFlipFillsOppositeRailGap', testSuffixFlipFillsOppositeRailGap],
+  ['testSuffixInvertSideMap', testSuffixInvertSideMap],
+  ['testNoGapKeepsStrictAlternate', testNoGapKeepsStrictAlternate],
+  ['testAspectCapRejectsSuffixFlip', testAspectCapRejectsSuffixFlip],
+  ['testDenseNestedHubNoOverlap', testDenseNestedHubNoOverlap],
+  ['testSidePassBeforePack', testSidePassBeforePack],
+  ['testStretchLastResortSkipsWhenSlideWorks', testStretchLastResortSkipsWhenSlideWorks],
 ];
 
 let failures = 0;

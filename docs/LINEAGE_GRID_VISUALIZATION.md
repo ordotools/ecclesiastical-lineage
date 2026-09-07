@@ -29,11 +29,13 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 | **Multi-relation stubs** | Separate offset arrows for ordination + consecration on same pair |
 | **Vertical stub routing** | Pure vertical segments to real card edge |
 | **Card collision pass** | Post-placement AABB nudge (cluster bbox pre-check) |
-| **Stretch-n-squeeze pass** | Multi-pass bus compaction: slide children left; grid-native vertical stretch when blocked (5:3 aspect cap for 4+ bus groups) |
+| **Side assignment pass** | Suffix rail flips decided before pack (5:3 scoring, opposite-rail gap); caches recomputed with `sideMap` |
+| **Stretch-n-squeeze pass** | Slide-first bus compaction; vertical stretch only as last resort when slide blocked (5:3 aspect cap for 4+ bus groups) |
+| **Intra-cluster collision** | Within-cluster card AABB healing before inter-cluster collide |
 | **Vertical compact pass** | Pull child hubs toward parent bus using live post-squeeze subtree extents |
 | **Shared metrics** | [`static/config/grid-metrics.json`](../static/config/grid-metrics.json) |
 | **In-place priest toggle** | Re-layout without full page reload |
-| **Tests** | 31 layout + 8 router tests |
+| **Tests** | 47 layout + 8 router tests |
 
 ### Intentionally not done (yet)
 
@@ -46,7 +48,7 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 
 - Exclusion creates more left-edge forests; disconnected clusters stack vertically → tall canvas
 - Nested descendant buses may extend past parent trunk (by design)
-- Static JS long-cached in production; bump `?v=` on changes (currently `?v=17`)
+- Static JS long-cached in production; bump `?v=` on changes (currently `?v=19`)
 - Bus trunks stay on parent card midline; no lane-shift jog for overlapping Y
 - `LineageRoot` table vs `exclude_from_visualization` — later migration/cleanup
 
@@ -86,12 +88,14 @@ Entry: `computeLineageGridLayout(nodes, links, { showPriests })`.
 
 1. **Layout nodes** — bishops / consecration participants; all visible nodes if `showPriests`.
 2. **Forest** — one incoming succession link per target (bishop → consecration, priest → ordination); best validity then latest `event_sort_key`; co-consecration excluded; cycles broken by removing newest edge on each cycle.
-3. **First clergy** — layout nodes with no layout parent; seeds sorted by `total_descendants` (largest first), each at `(PAD, cluster_y + extent_above)`.
-4. **Pack** — children LTR by date, alternate above/below; leaf branches use even pitch at `MIN_BRANCH_GAP`; hub branches use sequential min gap; same-rail clearance via `railMinX`.
-5. **Stretch-n-squeeze** — multi-pass; slide children left; grid-native vertical stretch when blocked (5:3 cap for 4+ bus groups).
-6. **Vertical compact** — pull child hubs toward parent bus using live subtree extents.
-7. **Collide** — later clusters shift down until no card AABB overlap (cluster bbox pre-check, then member-level).
-8. **Draw** — grey horizontal trunk at parent midline; vertical stub per ordination/consecration to real card edge (layout handles spacing; stubs always draw).
+3. **Side assignment** — suffix rail flips before pack when opposite-rail gap and 5:3 scoring favor flip; one break per bus.
+4. **First clergy** — layout nodes with no layout parent; seeds sorted by `total_descendants` (largest first), each at `(PAD, cluster_y + extent_above)`.
+5. **Pack** — children LTR by date, alternate above/below (respecting `sideMap`); leaf branches use even pitch at `MIN_BRANCH_GAP`; hub branches use sequential min gap; same-rail clearance via `railMinX`.
+6. **Squeeze** — slide children left; stretch prior child vertically only when slide blocked (5:3 cap for 4+ bus groups); no flip during squeeze.
+7. **Vertical compact** — pull child hubs toward parent bus using live subtree extents.
+8. **Intra-cluster collide** — heal card overlaps within each forest cluster.
+9. **Inter-cluster collide** — later clusters shift down until no card AABB overlap (cluster bbox pre-check, then member-level).
+10. **Draw** — grey horizontal trunk at parent midline; vertical stub per ordination/consecration to real card edge (layout handles spacing; stubs always draw).
 
 ### Return payload
 

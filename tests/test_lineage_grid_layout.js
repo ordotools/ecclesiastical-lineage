@@ -643,6 +643,251 @@ function testTwoTrueRootsStackVertically() {
   assertNoCardOverlap(layout);
 }
 
+function stretchSqueezeFixture() {
+  const hubId = 1;
+  const childHubId = 10;
+  const nodes = [
+    { id: hubId, name: 'Hub', is_lineage_root: true, is_bishop: true },
+    { id: childHubId, name: 'Child Hub', is_bishop: true },
+    { id: 20, name: 'Leaf Below', is_bishop: true },
+    { id: 30, name: 'Leaf Above', is_bishop: true },
+  ];
+  const links = [
+    { source: hubId, target: childHubId, type: 'consecration', event_sort_key: 19800101 },
+    { source: hubId, target: 20, type: 'consecration', event_sort_key: 19810101 },
+    { source: hubId, target: 30, type: 'consecration', event_sort_key: 19820101 },
+  ];
+  for (let i = 0; i < 5; i += 1) {
+    nodes.push({ id: 100 + i, name: `Nested ${i}`, is_bishop: true });
+    links.push({
+      source: childHubId,
+      target: 100 + i,
+      type: 'consecration',
+      event_sort_key: 20000101 + i,
+    });
+  }
+  return { nodes, links, hubId, childHubId };
+}
+
+function testStretchSqueezeSlidesSiblingLeft() {
+  const { nodes, links } = stretchSqueezeFixture();
+  const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
+  const squeezed = computeLineageGridLayout(nodes, links);
+
+  assert.ok(
+    squeezed.positions[30].x < packed.positions[30].x - 100,
+    'later above-rail sibling should slide left into bus gap',
+  );
+  assert.ok(
+    squeezed.bounds.width < packed.bounds.width,
+    'squeeze should shrink overall footprint width',
+  );
+  assert.ok(
+    squeezed.positions[30].x > squeezed.positions[10].x,
+    'bus children should stay strictly LTR after squeeze',
+  );
+  assertNoCardOverlap(squeezed);
+}
+
+function stubGapAboveParent(parentPos, childPos) {
+  const timelineY = parentPos.y + CARD_H / 2;
+  return timelineY - (childPos.y + CARD_H);
+}
+
+function testStretchSqueezeStretchesBlockerVertically() {
+  const { nodes, links, hubId, childHubId } = stretchSqueezeFixture();
+  const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
+  const squeezed = computeLineageGridLayout(nodes, links);
+
+  const packedGap = stubGapAboveParent(packed.positions[hubId], packed.positions[childHubId]);
+  const squeezedGap = stubGapAboveParent(squeezed.positions[hubId], squeezed.positions[childHubId]);
+
+  assert.ok(
+    squeezedGap > packedGap + 50,
+    'stretch should lengthen vertical stub from parent bus to blocking child hub',
+  );
+  assertNoCardOverlap(squeezed);
+}
+
+function testStretchSqueezePureSlideOnNestedBus() {
+  const hubId = 50;
+  const childHubId = 60;
+  const nodes = [
+    { id: hubId, name: 'Hub', is_lineage_root: true, is_bishop: true },
+    { id: childHubId, name: 'Child Hub', is_bishop: true },
+  ];
+  const links = [{
+    source: hubId, target: childHubId, type: 'consecration', event_sort_key: 19800101,
+  }];
+  for (let i = 0; i < 4; i += 1) {
+    nodes.push({ id: 200 + i, name: `Leaf ${i}`, is_bishop: true });
+    links.push({
+      source: childHubId,
+      target: 200 + i,
+      type: 'consecration',
+      event_sort_key: 19900101 + i * 10000,
+    });
+  }
+
+  const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
+  const squeezed = computeLineageGridLayout(nodes, links);
+  const lastLeaf = 203;
+
+  assert.ok(
+    squeezed.positions[lastLeaf].x <= packed.positions[lastLeaf].x + 0.01,
+    'nested bus leaves should not move right',
+  );
+  assertNoCardOverlap(squeezed);
+}
+
+function testSmallGroupAllowsStretchBeyondAspectCap() {
+  const { nodes, links, hubId, childHubId } = stretchSqueezeFixture();
+  const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
+  const squeezed = computeLineageGridLayout(nodes, links);
+
+  assert.ok(squeezed.buses.length < MIN_BUSSES_FOR_ASPECT, 'fixture should skip aspect cap');
+  const packedGap = stubGapAboveParent(packed.positions[hubId], packed.positions[childHubId]);
+  const squeezedGap = stubGapAboveParent(squeezed.positions[hubId], squeezed.positions[childHubId]);
+  assert.ok(
+    squeezedGap > packedGap,
+    'small groups should still allow vertical stretch for squeeze',
+  );
+}
+
+function testAspectCapRejectsExcessiveStretch() {
+  const rootId = 1;
+  const nodes = [{ id: rootId, name: 'Root', is_lineage_root: true, is_bishop: true }];
+  const links = [];
+  let nextId = 10;
+  let parentId = rootId;
+
+  for (let depth = 0; depth < 3; depth += 1) {
+    const hubId = nextId;
+    nextId += 1;
+    nodes.push({ id: hubId, name: `Hub ${depth}`, is_bishop: true });
+    links.push({
+      source: parentId,
+      target: hubId,
+      type: 'consecration',
+      event_sort_key: 19800101 + depth * 10000,
+    });
+    for (let i = 0; i < 6; i += 1) {
+      const leafId = nextId;
+      nextId += 1;
+      nodes.push({ id: leafId, name: `Leaf ${depth}-${i}`, is_bishop: true });
+      links.push({
+        source: hubId,
+        target: leafId,
+        type: 'consecration',
+        event_sort_key: 19900101 + depth * 100000 + i,
+      });
+    }
+    parentId = hubId;
+  }
+
+  const trailingId = nextId;
+  nodes.push({ id: trailingId, name: 'Trailing', is_bishop: true });
+  links.push({
+    source: rootId,
+    target: trailingId,
+    type: 'consecration',
+    event_sort_key: 20200101,
+  });
+
+  const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
+  const squeezed = computeLineageGridLayout(nodes, links);
+
+  assert.ok(squeezed.buses.length >= MIN_BUSSES_FOR_ASPECT,
+    'fixture should contain enough buses to apply aspect cap');
+  assert.ok(
+    Math.abs(squeezed.positions[trailingId].x - packed.positions[trailingId].x) < 500
+      || squeezed.bounds.width <= packed.bounds.width,
+    'aspect cap or overlap limits should prevent unbounded stretch+s squeeze expansion',
+  );
+  assertNoCardOverlap(squeezed);
+}
+
+function stubGapBelowParent(parentPos, childPos) {
+  return childPos.y - (parentPos.y + CARD_H);
+}
+
+function testChainedMinLeftFromPriorSibling() {
+  const { nodes, links, hubId } = stretchSqueezeFixture();
+  const squeezed = computeLineageGridLayout(nodes, links);
+  const hubX = squeezed.positions[hubId].x;
+  const prevOrigin = squeezed.positions[20].x + CARD_W / 2 - hubX;
+  const minLeftRel = prevOrigin + MIN_BRANCH_GAP - CARD_W / 2;
+  const leaf30Rel = squeezed.positions[30].x - hubX;
+
+  assert.ok(
+    Math.abs(leaf30Rel - minLeftRel) < 2,
+    'trailing sibling should sit at chained min-left from prior direct sibling origin',
+  );
+  assertNoCardOverlap(squeezed);
+}
+
+function testVerticalCompactPullsWhenOverReserved() {
+  const hubId = 1;
+  const childHubId = 10;
+  const nodes = [
+    { id: hubId, name: 'Hub', is_lineage_root: true, is_bishop: true },
+    { id: 2, name: 'Spacer', is_bishop: true },
+    { id: childHubId, name: 'Child Hub', is_bishop: true },
+    { id: 201, name: 'Nested', is_bishop: true },
+  ];
+  const links = [
+    { source: hubId, target: 2, type: 'consecration', event_sort_key: 19800101 },
+    { source: hubId, target: childHubId, type: 'consecration', event_sort_key: 19810101 },
+    { source: childHubId, target: 201, type: 'consecration', event_sort_key: 19900101 },
+  ];
+
+  const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
+  const squeezed = computeLineageGridLayout(nodes, links);
+
+  const packedStub = stubGapBelowParent(packed.positions[hubId], packed.positions[childHubId]);
+  const squeezedStub = stubGapBelowParent(squeezed.positions[hubId], squeezed.positions[childHubId]);
+  assert.ok(
+    squeezedStub <= packedStub + 1,
+    'vertical compact should not lengthen below-side stub versus packed layout',
+  );
+  assertNoCardOverlap(squeezed);
+}
+
+function testStretchUsesGridAlignedDy() {
+  const { nodes, links, childHubId } = stretchSqueezeFixture();
+  const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
+  const squeezed = computeLineageGridLayout(nodes, links);
+
+  const subtreeIds = [childHubId, 100, 101, 102, 103, 104];
+  subtreeIds.forEach((id) => {
+    const dy = squeezed.positions[id].y - packed.positions[id].y;
+    if (Math.abs(dy) < 0.01) return;
+    const rem = Math.abs(dy % GAP_Y);
+    assert.ok(
+      rem < 0.01 || Math.abs(rem - GAP_Y) < 0.01,
+      `subtree y shift for ${id} should be grid-aligned, got ${dy}`,
+    );
+  });
+}
+
+function testMultiPassSqueezeReachesMinLeft() {
+  const { nodes, links } = stretchSqueezeFixture();
+  const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
+  const squeezed = computeLineageGridLayout(nodes, links);
+
+  assert.ok(
+    squeezed.positions[30].x < packed.positions[30].x - 100,
+    'multi-pass squeeze should move trailing sibling far left',
+  );
+  assert.ok(
+    squeezed.bounds.width < packed.bounds.width,
+    'multi-pass squeeze should reduce footprint width',
+  );
+  assertNoCardOverlap(squeezed);
+}
+
+const MIN_BUSSES_FOR_ASPECT = 4;
+
 const tests = [
   ['testFixturePrimaryEdgesAndMetrics', testFixturePrimaryEdgesAndMetrics],
   ['testLargestDescendantTreeFirst', testLargestDescendantTreeFirst],
@@ -675,6 +920,15 @@ const tests = [
   ['testOrphanBishopWithConsecrationsStillAppears', testOrphanBishopWithConsecrationsStillAppears],
   ['testNoCardOverlapOnFixture', testNoCardOverlapOnFixture],
   ['testTwoTrueRootsStackVertically', testTwoTrueRootsStackVertically],
+  ['testStretchSqueezeSlidesSiblingLeft', testStretchSqueezeSlidesSiblingLeft],
+  ['testStretchSqueezeStretchesBlockerVertically', testStretchSqueezeStretchesBlockerVertically],
+  ['testStretchSqueezePureSlideOnNestedBus', testStretchSqueezePureSlideOnNestedBus],
+  ['testSmallGroupAllowsStretchBeyondAspectCap', testSmallGroupAllowsStretchBeyondAspectCap],
+  ['testAspectCapRejectsExcessiveStretch', testAspectCapRejectsExcessiveStretch],
+  ['testChainedMinLeftFromPriorSibling', testChainedMinLeftFromPriorSibling],
+  ['testVerticalCompactPullsWhenOverReserved', testVerticalCompactPullsWhenOverReserved],
+  ['testStretchUsesGridAlignedDy', testStretchUsesGridAlignedDy],
+  ['testMultiPassSqueezeReachesMinLeft', testMultiPassSqueezeReachesMinLeft],
 ];
 
 let failures = 0;

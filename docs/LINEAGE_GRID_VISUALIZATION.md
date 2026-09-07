@@ -3,7 +3,7 @@
 **Route:** `/succession`  
 **Status:** Active development (client-side timeline packing)
 
-Grid-based apostolic succession view. Layout runs in the browser from visible graph data only.
+Grid-based apostolic succession view. Layout, routing, and render run entirely in the browser from visible graph data.
 
 ---
 
@@ -13,25 +13,25 @@ Grid-based apostolic succession view. Layout runs in the browser from visible gr
 
 | Area | What was done |
 |------|----------------|
-| **Layout engine** | Client-side timeline packing in [`static/js/lineage-grid-layout.js`](../static/js/lineage-grid-layout.js) |
-| **Visible-only backend payload** | Route sends `nodes`, `links` only — no pixel positions, no hidden IDs |
+| **Single client module** | All viz logic in [`static/js/lineage-grid.js`](../static/js/lineage-grid.js) |
+| **Layout engine** | Timeline packing: forest, first clergy, branch spacing, collision, buses |
+| **Bus routing** | Trunks + vertical stubs only (no gutter/lane router) |
+| **Visible-only backend payload** | Route sends `nodes`, `links` only — no pixel positions |
 | **First clergy left edge** | No visualized consecration predecessor → left-edge seed at `x = PAD` |
-| **Excluded clergy filter** | `_lineage_nodes_links()` drops `exclude_from_visualization` from nodes and links |
-| **Orphan bishop coverage** | Bishops / `consecrations_count > 0` stay on chart even with no visible consecration parent |
-| **Descendant ranking** | `direct_count`, `total_descendants`; largest trees placed first |
-| **Timeline buses** | Per-parent red horizontal trunk; children alternate above/below; adaptive branch origin spacing |
-| **Succession forest** | One primary incoming edge per clergy (consecration for bishops, ordination for priests); best validity then latest date |
-| **Bus-only succession lines** | Ordination/consecration stubs from buses only; co-consecration not drawn on grid |
+| **Excluded clergy filter** | `_lineage_nodes_links()` drops `exclude_from_visualization` |
+| **Orphan bishop coverage** | Bishops / `consecrations_count > 0` stay on chart |
+| **Descendant ranking** | `direct_count`, `total_descendants`; largest trees first |
+| **Timeline buses** | Grey horizontal trunk; children alternate above/below |
+| **Succession forest** | One primary incoming edge per clergy; best validity then latest date |
+| **Bus-only succession lines** | Ordination/consecration stubs from buses only |
 | **Chronological branch order** | Direct children sorted by `event_sort_key`; origins advance LTR |
-| **Adaptive branch spacing** | Leaf-only branches: even minimal pitch (`MIN_BRANCH_GAP`); hub branches: sequential min gap, bumped only by same-rail subtree interference |
-| **Multi-relation stubs** | Same source→target ordination + consecration draws separate offset arrows, group centered on origin |
-| **Vertical stub routing** | Pure vertical segments to real card edge; no horizontal jog at card (arrowheads stay aligned) |
-| **Vertical spacing** | Full nested `extent_above` / `extent_below`; `GAP_Y` = card-edge clearance |
-| **Card collision pass** | Post-placement AABB nudge pushes overlapping clusters down |
-| **Same-rail X clearance** | `max(MIN_CHILD_GAP, DATE_SCALE × year_delta)` when same-rail siblings would overlap |
-| **Shared metrics** | [`static/config/grid-metrics.json`](../static/config/grid-metrics.json) — layout + router + CSS |
-| **Edge routing** | [`static/js/lineage-grid-router.js`](../static/js/lineage-grid-router.js) — bus trunks + vertical stubs |
-| **Tests** | 31 JS layout tests + 7 JS router tests |
+| **Adaptive branch spacing** | Leaf-only: even minimal pitch; hub: sequential min gap |
+| **Multi-relation stubs** | Separate offset arrows for ordination + consecration on same pair |
+| **Vertical stub routing** | Pure vertical segments to real card edge |
+| **Card collision pass** | Post-placement AABB nudge (cluster bbox pre-check) |
+| **Shared metrics** | [`static/config/grid-metrics.json`](../static/config/grid-metrics.json) |
+| **In-place priest toggle** | Re-layout without full page reload |
+| **Tests** | 31 layout + 8 router tests |
 
 ### Intentionally not done (yet)
 
@@ -39,14 +39,13 @@ Grid-based apostolic succession view. Layout runs in the browser from visible gr
 - Global calendar axis across whole chart
 - Changing co-consecration display on other visualizations
 - Ghost cards for excluded clergy
-- Hidden-parent reparenting (removed; successors of excluded consecrators are first clergy)
 
 ### Known limitations / follow-ups
 
 - Exclusion creates more left-edge forests; disconnected clusters stack vertically → tall canvas
 - Nested descendant buses may extend past parent trunk (by design)
-- Static JS long-cached in production; bump `?v=` on layout JS changes (currently `?v=12` on template, `?v=9` on module imports)
-- Edge router may give up after 24 lane attempts on trunk horizontal lanes (stubs always draw)
+- Static JS long-cached in production; bump `?v=` on changes (currently `?v=14`)
+- Bus trunks stay on parent card midline; no lane-shift jog for overlapping Y
 - `LineageRoot` table vs `exclude_from_visualization` — later migration/cleanup
 
 ---
@@ -58,18 +57,24 @@ GET /succession
     │
     ▼
 routes/main.py::lineage_grid()
-    │  nodes, links, show_priests
+    │  nodes, links, show_priests (query param only)
     ▼
 templates/lineage_grid.html  →  window.nodesData, linksData
     │
     ▼
-static/js/lineage-grid-layout.js  — forest, first clergy, packing, collision, buses
+static/js/lineage-grid.js
+    computeLineageGridLayout()  — forest, packing, collision, buses
+    routeAllEdges()             — trunk + vertical stubs
+    render cards / SVG / pan-zoom
     │
-    ▼
-static/js/lineage-grid.js         — cards, pan/zoom, CSS vars
-static/js/lineage-grid-router.js  — SVG edges + bus trunks
+    ▼ (after first paint)
+GET /api/sprite-sheet           — clergy photo tiles
 static/css/lineage-grid.css
 ```
+
+**Server computes:** graph nodes/links from DB (names, dates, validity flags, `event_sort_key`, `is_bishop`).  
+**Server does not compute:** positions, columns, buses, edge paths.  
+**Unused on grid:** `is_lineage_root` (table view only).
 
 ---
 
@@ -77,60 +82,14 @@ static/css/lineage-grid.css
 
 Entry: `computeLineageGridLayout(nodes, links, { showPriests })`.
 
-### 1. Choose layout nodes
+1. **Layout nodes** — bishops / consecration participants; all visible nodes if `showPriests`.
+2. **Forest** — one incoming succession link per target (bishop → consecration, priest → ordination); best validity then latest `event_sort_key`; co-consecration excluded; cycles broken by removing newest edge on each cycle.
+3. **First clergy** — layout nodes with no layout parent; seeds sorted by `total_descendants` (largest first), each at `(PAD, cluster_y + extent_above)`.
+4. **Pack** — children LTR by date, alternate above/below; leaf branches use even pitch at `MIN_BRANCH_GAP`; hub branches use sequential min gap; same-rail clearance via `railMinX`.
+5. **Collide** — later clusters shift down until no card AABB overlap (cluster bbox pre-check, then member-level).
+6. **Draw** — grey horizontal trunk at parent midline; vertical stub per ordination/consecration to real card edge (layout handles spacing; stubs always draw).
 
-- Backend already excludes `exclude_from_visualization` clergy from `nodes` and `links`.
-- Default layout set: consecration participants **or** bishops **or** `consecrations_count > 0`.
-- `show_priests=1`: all visible nodes.
-- Priests with zero consecrations still require `show_priests`.
-
-### 2. Build layout forest
-
-- Primary links = one incoming succession edge per target via `selectPrimarySuccessionLinks`.
-- **Bishops** (`is_bishop` or `consecrations_count > 0`): incoming = consecration only (own consecration).
-- **Priests / others**: incoming = ordination only.
-- Conflict resolution among multiple candidates: most valid (`valid` > `sub_conditione` > `doubtful_event` > `doubtfully_valid` > `invalid`), then latest `event_sort_key`. Invalid-only succession still included.
-- Co-consecration never a layout parent and not drawn on grid.
-- Break cycles deterministically (remove newest back-edges).
-- Layout edges = broken primary edges with both endpoints in layout set.
-- **First clergy** = layout nodes with no layout parent.
-
-### 3. Descendant metrics
-
-- `direct_count`, `total_descendants` via BFS on layout forest.
-
-### 4. Extents and width (bottom-up)
-
-- Leaf: `extent_above = extent_below = 0`
-- Per child slot: `CARD_H + GAP_Y + child.extent_above + child.extent_below`
-- **Child sort:** direct children sorted ascending by `event_sort_key` (nulls last); tie-break by target id
-- **Alternate above/below:** even index → above, odd → below
-- **Adaptive branch origin spacing** (`computeChildXPositions`):
-
-  | Parent's direct children | Origin placement |
-  |---|---|
-  | **All leaves** (no layout grandchildren) | Even pitch at `branchMinPitch` = `max(MIN_BRANCH_GAP, multi-relation group width)`; card `x = max(originX − CARD_W/2, railMinX)` only when same-rail subtree would overlap |
-  | **Any bus-hub child** (has layout children) | Sequential minimum gap: `originX = prevOriginX + prevGroupHalf + MIN_BRANCH_GAP + groupHalf`; card bumped right only via `railMinX` when same-rail subtree interferes |
-
-- **Same-rail clearance** (`siblingGap`): `max(MIN_CHILD_GAP, DATE_SCALE × year_delta)` applied via `railMinX`, not as a global uniform pitch
-- **Multi-relation width:** `buildRelationCounts` counts ordination + consecration links per source→target; widens min pitch / group half-width for offset stub clusters
-- Subtree width: max over children of `childX + childSubtreeWidth`
-- **Bus trunk end:** max over direct child card rights (`childX + CARD_W`), not nested descendant width
-- **Bus target metadata:** each target carries `origin_x` (absolute stub center after any rail bump)
-
-### 5. First clergy and cluster placement
-
-- Seeds = first clergy; prefer largest `total_descendants` when ordering clusters.
-- Every seed at `(PAD, cluster_y + extent_above)`.
-- Children alternate above/below; Y from parent **card edge** + `GAP_Y`.
-- Bus metadata per parent with layout children.
-
-### 6. Collision resolution
-
-- AABB pass: later clusters pushed down if overlapping earlier cards.
-- Y normalized so top card ≥ `PAD`.
-
-### 7. Return payload
+### Return payload
 
 ```javascript
 {
@@ -150,9 +109,19 @@ Entry: `computeLineageGridLayout(nodes, links, { showPriests })`.
 
 ---
 
-## Always-works checklist
+## Complexity notes
 
-Contract the algorithm must keep. Slice 1 (first clergy + exclusion) covers most items; open items marked **later**.
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| Cycle break | O(cycles · (V+E)) | One DFS per cycle; remove newest edge |
+| Descendant metrics | O(N) | Post-order memo on forest |
+| Link indexing | O(L) once | `buildLinksByPair` for routing |
+| Collision | O(C² · members) worst case | Cluster bbox rejects most pairs early |
+| Layout prepass | O(N) | Extents + subtree widths cached |
+
+---
+
+## Always-works checklist
 
 ### Input
 
@@ -162,46 +131,34 @@ Contract the algorithm must keep. Slice 1 (first clergy + exclusion) covers most
 
 ### Forest
 
-- [x] One primary succession parent per target (bishop → consecration, priest → ordination; best validity then latest)
+- [x] One primary succession parent per target
 - [x] Co-consecration never creates layout parent; not drawn on grid
-- [x] Cycles broken deterministically; cycle orphans become first clergy
+- [x] Cycles broken deterministically
 - [x] First clergy = no visualized succession predecessor
 
 ### Geometry
 
 - [x] Every first clergy at left (`x = PAD`)
 - [x] Children LTR by `event_sort_key`; alternate above/below
-- [x] Leaf-only branches: even minimal bus origin pitch (`MIN_BRANCH_GAP`)
-- [x] Hub branches: sequential min origin gap; displaced only by same-rail subtree interference
-- [x] Same-rail cards never overlap (`MIN_CHILD_GAP` / date scale via `railMinX`)
+- [x] Leaf-only branches: even minimal bus origin pitch
+- [x] Hub branches: sequential min origin gap
+- [x] Same-rail cards never overlap
 - [x] Nested extents; `GAP_Y` card-edge clearance
 - [x] No overlapping cards after AABB pass
 - [x] Repeat run → identical positions
 
 ### Coverage
 
-- [x] Every layout-eligible visible node gets a position (orphaned bishops included)
-- [x] `show_priests` adds non-consecrated nodes without stealing bishop seed rules
+- [x] Every layout-eligible visible node gets a position
+- [x] `show_priests` adds non-consecrated nodes without breaking bishop rules
 
 ### Edges
 
-- [x] Red bus trunks; color-coded stubs (validity + type)
-- [x] Succession lines (ordination/consecration) only from bus stubs
-- [x] Vertical stubs terminate on real card edge (not inflated collision rect)
-- [x] Arrowheads point into cards (`markerUnits="userSpaceOnUse"`, vertical last segment)
-- [x] Multiple ordination/consecration links same pair → separate offset stubs, group centered on `origin_x`
-- [x] Bus stubs always draw (layout handles spacing; stubs do not use collision-gated `reservePath`)
-
----
-
-## Later considerations
-
-- **More left-edge forests:** exclusion removes shared hidden parents; vertical stack grows. May need date-aligned Y for first clergy or a global calendar axis instead of “largest tree on top, push rest down.”
-- **Ghost cards:** collapsed marker for excluded ancestor would restore lineage story without drawing excluded clergy.
-- **Long cross-cluster gutters:** removed — grid no longer gutters succession edges
-- **`selectClusterSeeds` simplification:** now equivalent to “all parentless nodes, sort by descendants, place at PAD” — optional refactor.
-- **`is_lineage_root`:** used by table view only; grid must not reuse it (ordination-only incoming edges differ from consecration forest).
-- **`LineageRoot` vs `exclude_from_visualization`:** consolidate in a later migration.
+- [x] Grey bus trunks; color-coded stubs
+- [x] Succession lines only from bus stubs
+- [x] Vertical stubs terminate on real card edge
+- [x] Multi-relation offset stubs centered on `origin_x`
+- [x] Bus stubs always draw
 
 ---
 
@@ -209,20 +166,16 @@ Contract the algorithm must keep. Slice 1 (first clergy + exclusion) covers most
 
 ### Cards
 
-- Absolute `(x, y)` from layout
-- Size from `--grid-card-w` / `--grid-card-h`
+- Absolute `(x, y)` from layout; size from `--grid-card-w` / `--grid-card-h`
+- Sprites applied after first paint when `/api/sprite-sheet` returns
 
 ### Bus edges
 
-1. **Trunk (red):** parent right center → exit → vertical to `timeline_y` → horizontal LTR to last direct child extent
-2. **Stubs (color-coded):** single vertical segment from `(attachX, timeline_y)` to real card top/bottom edge
-3. **Origin X:** from bus target `origin_x` when present, else card center
-4. **Multi-relation:** for `n` ordination/consecration links on same bus→child, `attachX_i = origin_x + (i − (n−1)/2) × MULTI_STUB_GAP`; path keys `source->target:type:index`
-5. **Arrowheads:** SVG `marker-end` with `orient="auto"` on vertical segment; `refX` at triangle tip
+1. **Trunk (grey):** horizontal LTR at `timeline_y` (parent midline)
+2. **Stubs:** single vertical segment from trunk to card top/bottom edge
+3. **Multi-relation:** `attachX_i = origin_x + (i − (n−1)/2) × MULTI_STUB_GAP`
 
-### Other edges
-
-- Co-consecration and gutter routing are not used on the succession grid
+Co-consecration and gutter routing are not used.
 
 ---
 
@@ -237,11 +190,9 @@ Contract the algorithm must keep. Slice 1 (first clergy + exclusion) covers most
 | `GAP_X` | 52 | Min horizontal gap |
 | `GAP_Y` | 64 | Card-edge vertical clearance |
 | `PAD` | 48 | Canvas padding |
-| `DATE_SCALE` | 8 | Pixels per year for same-rail `siblingGap` |
+| `DATE_SCALE` | 8 | Pixels per year for same-rail clearance |
 | `MIN_BRANCH_GAP` | 48 | Min spacing between bus stub origin groups |
-| `MULTI_STUB_GAP` | 14 | Offset between ordination/consecration stubs on same child |
-| `CARD_INSET` | 4 | Router collision inset (trunks only; stub endpoints use real card edge) |
-| `LANE_PITCH` | 9 | Lane offset for overlapping trunk segments |
+| `MULTI_STUB_GAP` | 14 | Offset between ordination/consecration stubs |
 
 ---
 
@@ -252,20 +203,14 @@ node tests/test_lineage_grid_layout.js
 node tests/test_lineage_grid_router.js
 ```
 
-Layout: first clergy left edge, orphan bishops, descendant ranking, adaptive branch spacing (leaf vs hub), compact bus trunks, primary succession selection, chronological origins, multi-relation pitch, buses, alternating sides, nested hubs, cycle break, priests toggle, AABB no-overlap.
-
-Router: segment occupancy, bus trunk at midline, vertical-only stubs, real card-edge endpoints, multi-relation stub keys.
-
 ---
 
 ## File reference
 
 | File | Purpose |
 |------|---------|
-| [`static/js/lineage-grid-layout.js`](../static/js/lineage-grid-layout.js) | Client layout algorithm |
+| [`static/js/lineage-grid.js`](../static/js/lineage-grid.js) | Layout, routing, page render |
 | [`static/config/grid-metrics.json`](../static/config/grid-metrics.json) | Shared dimensions |
-| [`static/js/lineage-grid.js`](../static/js/lineage-grid.js) | Page init, cards, edge render |
-| [`static/js/lineage-grid-router.js`](../static/js/lineage-grid-router.js) | SVG path routing |
 | [`static/css/lineage-grid.css`](../static/css/lineage-grid.css) | Grid page styles |
 | [`templates/lineage_grid.html`](../templates/lineage_grid.html) | Template + JSON bootstrap |
 | [`routes/main.py`](../routes/main.py) | `/succession` route |
@@ -277,8 +222,8 @@ Router: segment occupancy, bus trunk at midline, vertical-only stubs, real card-
 ## Evolution (brief)
 
 1. **Original grid:** Generation rows + hub-comb; fixed `row ± 1`.
-2. **Timeline packing (Python):** Descendant-ranked clusters; date-scaled buses; pixel layout server-side.
-3. **Client layout:** Generic graph from backend; JS packing + AABB collision.
-4. **First clergy left edge:** Visible-only payload; no hidden reparenting; excluded predecessors → left-edge seeds.
-5. **Succession buses:** Red trunks; bus-only succession stubs; bishop consecration-only incoming.
-6. **Branch layout refinements (current):** Chronological LTR origins; adaptive leaf/hub spacing; vertical stubs with aligned arrowheads; multi-relation offset stubs; `MIN_BRANCH_GAP` / `MULTI_STUB_GAP` metrics.
+2. **Timeline packing (Python):** Descendant-ranked clusters; server-side pixels.
+3. **Client layout:** JS packing + AABB collision; split layout/router/page modules.
+4. **First clergy left edge:** Visible-only payload; no hidden reparenting.
+5. **Succession buses:** Bus-only stubs; bishop consecration-only incoming.
+6. **Consolidation (current):** Single JS file; dead gutter router removed; simplified cycle/seeds/metrics; in-place priest toggle.

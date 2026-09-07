@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import {
   computeLineageGridLayout,
   GRID_METRICS,
-} from '../static/js/lineage-grid-layout.js';
+} from '../static/js/lineage-grid.js';
 
 const {
   CARD_H,
@@ -254,8 +254,6 @@ function testGridMetricsMatchFrontend() {
   assert.equal(gm.GAP_X, 52);
   assert.equal(gm.GAP_Y, 64);
   assert.equal(gm.PAD, 48);
-  assert.equal(gm.CARD_INSET, 4);
-  assert.equal(gm.LANE_PITCH, 9);
   assert.equal(gm.DATE_SCALE, 8);
   assert.equal(gm.MIN_BRANCH_GAP, 48);
   assert.equal(gm.MULTI_STUB_GAP, 14);

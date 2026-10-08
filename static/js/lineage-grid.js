@@ -2705,6 +2705,22 @@ export function computeLineageGridLayout(nodes, links, options = {}) {
       Object.values(positions).forEach((p) => { p.y += yShift; });
       buses.forEach((bus) => { bus.timeline_y += yShift; });
     }
+
+    // Snap Y positions to GAP_Y grid where they're close (within 0.5px tolerance).
+    // This cleans up numerical precision without breaking carefully-calculated gaps.
+    const snapThreshold = 0.5;
+    Object.values(positions).forEach((p) => {
+      const gridY = Math.round(p.y / GAP_Y) * GAP_Y;
+      if (Math.abs(p.y - gridY) < snapThreshold) {
+        p.y = gridY;
+      }
+    });
+    buses.forEach((bus) => {
+      const gridY = Math.round(bus.timeline_y / GAP_Y) * GAP_Y;
+      if (Math.abs(bus.timeline_y - gridY) < snapThreshold) {
+        bus.timeline_y = gridY;
+      }
+    });
   }
 
   const metrics = {};

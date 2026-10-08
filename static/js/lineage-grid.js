@@ -2344,16 +2344,12 @@ function calculateBusDensity(busId, positions, children) {
   const nodeIds = new Set(descendantIds(busId, children));
   const actualCount = nodeIds.size;
 
-  if (actualCount === 0) return { overall: 0, above: 0, below: 0 };
+  if (actualCount === 0) return 0;
 
   let minY = Infinity;
   let maxY = -Infinity;
   let minX = Infinity;
   let maxX = -Infinity;
-  let aboveCount = 0;
-  let belowCount = 0;
-  const parentPos = positions[busId];
-  const parentCenterY = parentPos ? parentPos.y + CARD_H / 2 : 0;
 
   nodeIds.forEach((nid) => {
     const pos = positions[nid];
@@ -2362,35 +2358,16 @@ function calculateBusDensity(busId, positions, children) {
     maxX = Math.max(maxX, pos.x + CARD_W);
     minY = Math.min(minY, pos.y);
     maxY = Math.max(maxY, pos.y + CARD_H);
-
-    if (nid !== busId) {
-      const nodeCenterY = pos.y + CARD_H / 2;
-      if (nodeCenterY < parentCenterY) aboveCount += 1;
-      else belowCount += 1;
-    }
   });
 
   if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
-    return { overall: 0, above: 0, below: 0 };
+    return 0;
   }
 
   const width = maxX - minX;
   const height = maxY - minY;
   const reservedSlots = Math.ceil(width / (CARD_W + GAP_X)) * Math.ceil(height / (CARD_H + GAP_Y));
-  const overallDensity = actualCount / Math.max(1, reservedSlots);
-
-  const aboveHeight = Math.max(0, parentCenterY - minY);
-  const belowHeight = Math.max(0, maxY - parentCenterY);
-  const aboveSlots = Math.max(1, Math.ceil(width / (CARD_W + GAP_X)) * Math.ceil(aboveHeight / (CARD_H + GAP_Y)));
-  const belowSlots = Math.max(1, Math.ceil(width / (CARD_W + GAP_X)) * Math.ceil(belowHeight / (CARD_H + GAP_Y)));
-
-  return {
-    overall: overallDensity,
-    above: aboveCount / aboveSlots,
-    below: belowCount / belowSlots,
-    aboveCount,
-    belowCount,
-  };
+  return actualCount / Math.max(1, reservedSlots);
 }
 
 function calculateAllBusDensities(buses, positions, children, parents) {
@@ -2406,25 +2383,25 @@ function calculateAllBusDensities(buses, positions, children, parents) {
   return densities;
 }
 
-// Per-rail density: compress sparse rails more aggressively, work bottom-up from leaves.
+// Tetris block optimization: arrange siblings under each parent in densest pattern.
+// Work depth-first (leaves first) so cascading improvements flow upward.
+// ponytail: rail-swap heuristic if one side becomes over-dense; upgrade as bottleneck
 function densityBasedOptimization(positions, buses, children, parents, nodeById, relationCounts, sideMap) {
   const densities = calculateAllBusDensities(buses, positions, children, parents);
-  const overallDensities = Array.from(densities.values())
-    .map((d) => d.overall)
-    .filter((d) => d > 0);
-  if (!overallDensities.length) return;
+  const allDensities = Array.from(densities.values()).filter((d) => d > 0);
+  if (!allDensities.length) return;
 
-  const medianOverall = overallDensities.sort((a, b) => a - b)[Math.floor(overallDensities.length / 2)];
+  const medianDensity = allDensities.sort((a, b) => a - b)[Math.floor(allDensities.length / 2)];
 
-  // Process buses in reverse depth order (leaves first) so cascading compression is consistent.
+  // Process buses depth-first (leaves first) so optimizations cascade upward.
   const sortedBuses = [...buses].sort(
     (a, b) => busDepth(b.source, parents) - busDepth(a.source, parents),
   );
 
   sortedBuses.forEach((bus) => {
     const parentId = bus.source;
-    const density = densities.get(parentId);
-    if (!density || density.overall <= 0) return;
+    const density = densities.get(parentId) || 0;
+    if (density <= 0) return;
 
     const childList = children.get(parentId) || [];
     if (childList.length < 2) return;
@@ -2432,33 +2409,11 @@ function densityBasedOptimization(positions, buses, children, parents, nodeById,
     const parentPos = positions[parentId];
     if (!parentPos) return;
 
-    // Compress only if under median; skip high-density buses.
-    const overallRatio = density.overall / Math.max(medianOverall, 0.1);
-    if (overallRatio >= 0.85) return;
+    // Only optimize under-dense sibling groups; skip tight ones.
+    const densityRatio = density / Math.max(medianDensity, 0.1);
+    if (densityRatio >= 0.85) return;
 
-    const parentCenterY = parentPos.y + CARD_H / 2;
-    const aboveChildren = childList.filter(([cid]) => {
-      const cpos = positions[cid];
-      return cpos && cpos.y + CARD_H / 2 < parentCenterY;
-    });
-    const belowChildren = childList.filter(([cid]) => {
-      const cpos = positions[cid];
-      return cpos && cpos.y + CARD_H / 2 >= parentCenterY;
-    });
-
-    // ponytail: separate above/below compression; coarsen rail swap heuristic if over-dense on one side
-    const aboveRatio = aboveChildren.length > 0 ? density.above / Math.max(medianOverall, 0.1) : 1;
-    const belowRatio = belowChildren.length > 0 ? density.below / Math.max(medianOverall, 0.1) : 1;
-
-    const aboveCompress = Math.max(0.7, Math.min(1.0, aboveRatio));
-    const belowCompress = Math.max(0.7, Math.min(1.0, belowRatio));
-
-    compressRailChildren(
-      parentId, aboveChildren, aboveCompress, positions, buses, children, sideMap, 'above',
-    );
-    compressRailChildren(
-      parentId, belowChildren, belowCompress, positions, buses, children, sideMap, 'below',
-    );
+    optimizeSiblingBlocks(parentId, childList, positions, buses, children, sideMap);
 
     bus.targets.forEach((target) => {
       const childPos = positions[target.target];
@@ -2468,51 +2423,44 @@ function densityBasedOptimization(positions, buses, children, parents, nodeById,
   });
 }
 
-function compressRailChildren(
-  parentId,
-  railChildren,
-  compressionFactor,
-  positions,
-  buses,
-  children,
-  sideMap,
-  railSide,
-) {
-  if (railChildren.length < 2 || compressionFactor >= 0.99) return;
+function optimizeSiblingBlocks(parentId, childList, positions, buses, children, sideMap) {
+  // Only tighten origin spacing between siblings; don't rearrange or move blocks.
+  // Each child's subtree remains anchored; we just pull origins closer.
+  if (childList.length < 2) return;
 
-  const childIdxShifts = [];
-  let prevOriginX = null;
-
-  railChildren.forEach(([childId]) => {
-    const childPos = positions[childId];
-    if (!childPos) {
-      childIdxShifts.push(null);
-      return;
-    }
-
-    const currentOrigin = childPos.x + CARD_W / 2;
-    let targetOrigin = currentOrigin;
-
-    if (prevOriginX !== null) {
-      const gap = currentOrigin - prevOriginX;
-      const adjustedGap = Math.max(MIN_BRANCH_GAP, gap * compressionFactor);
-      targetOrigin = prevOriginX + adjustedGap;
-    }
-
-    const shift = targetOrigin - currentOrigin;
-    childIdxShifts.push(shift <= 0 ? shift : 0);
-    prevOriginX = targetOrigin;
+  const childIds = childList.map(([id]) => id);
+  const childOrigins = childIds.map((id) => {
+    const pos = positions[id];
+    return pos ? pos.x + CARD_W / 2 : null;
   });
 
+  // Find gaps between consecutive origins and tighten if safe.
   const snapshot = createLayoutSnapshot(positions, buses, sideMap);
+  let anyTightened = false;
 
-  railChildren.forEach(([childId], idx) => {
-    const shift = childIdxShifts[idx];
-    if (shift == null || Math.abs(shift) < 0.1) return;
-    translateSubtree(childId, shift, 0, positions, buses, children);
-  });
+  for (let i = 1; i < childOrigins.length; i += 1) {
+    if (childOrigins[i] == null || childOrigins[i - 1] == null) continue;
 
-  if (allCardsOverlap(positions)) {
+    const prevOrigin = childOrigins[i - 1];
+    const currentOrigin = childOrigins[i];
+    const gap = currentOrigin - prevOrigin;
+
+    // Only tighten if gap is significantly larger than MIN_BRANCH_GAP.
+    if (gap <= MIN_BRANCH_GAP + 1) continue;
+
+    const tightenedGap = MIN_BRANCH_GAP + 1;
+    const deltaX = tightenedGap - gap;
+
+    if (Math.abs(deltaX) > 0.1) {
+      // Move this child and its descendants left to tighten.
+      translateSubtree(childIds[i], deltaX, 0, positions, buses, children);
+      childOrigins[i] = positions[childIds[i]].x + CARD_W / 2;
+      anyTightened = true;
+    }
+  }
+
+  // Validate: if any tightening caused overlap, rollback.
+  if (anyTightened && allCardsOverlap(positions)) {
     restoreLayoutSnapshot(snapshot, positions, buses, sideMap);
   }
 }

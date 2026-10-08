@@ -2339,6 +2339,117 @@ function runSqueezePass(positions, buses, children, parents, nodeById, relationC
   }
 }
 
+// density = (actual nodes in bus subtree) / (reserved node slots in bounding box)
+function calculateBusDensity(busId, positions, children) {
+  const nodeIds = new Set(descendantIds(busId, children));
+  const actualCount = nodeIds.size;
+
+  if (actualCount === 0) return 0;
+
+  let minY = Infinity;
+  let maxY = -Infinity;
+  let minX = Infinity;
+  let maxX = -Infinity;
+
+  nodeIds.forEach((nid) => {
+    const pos = positions[nid];
+    if (!pos) return;
+    minX = Math.min(minX, pos.x);
+    maxX = Math.max(maxX, pos.x + CARD_W);
+    minY = Math.min(minY, pos.y);
+    maxY = Math.max(maxY, pos.y + CARD_H);
+  });
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return 0;
+
+  const width = maxX - minX;
+  const height = maxY - minY;
+  const reservedSlots = Math.ceil(width / (CARD_W + GAP_X)) * Math.ceil(height / (CARD_H + GAP_Y));
+
+  return actualCount / Math.max(1, reservedSlots);
+}
+
+function calculateAllBusDensities(buses, positions, children) {
+  const densities = new Map();
+  buses.forEach((bus) => {
+    densities.set(bus.source, calculateBusDensity(bus.source, positions, children));
+  });
+  return densities;
+}
+
+// Adjust child spacing based on bus density: low-density buses compress, high-density stretch.
+function densityBasedOptimization(positions, buses, children, parents, nodeById, relationCounts, sideMap) {
+  const densities = calculateAllBusDensities(buses, positions, children);
+  const globalDensities = Array.from(densities.values()).filter((d) => d > 0);
+  if (!globalDensities.length) return;
+
+  const medianDensity = globalDensities.sort((a, b) => a - b)[Math.floor(globalDensities.length / 2)];
+
+  buses.forEach((bus) => {
+    const parentId = bus.source;
+    const density = densities.get(parentId) || 0;
+    if (density <= 0) return;
+
+    const childList = children.get(parentId) || [];
+    if (childList.length < 2) return;
+
+    const parentPos = positions[parentId];
+    if (!parentPos) return;
+
+    // Only compress if significantly under-dense; stretch if over-dense.
+    const denseRatio = density / Math.max(medianDensity, 0.1);
+    if (denseRatio >= 0.85) return;
+
+    // ponytail: linear density scaling; upgrade to per-rail density or aspect-aware scaling if needed
+    const compressionFactor = Math.max(0.8, Math.min(1.0, denseRatio));
+
+    let prevOriginX = null;
+    const childIdxShifts = [];
+
+    childList.forEach(([childId], idx) => {
+      const childPos = positions[childId];
+      if (!childPos) {
+        childIdxShifts.push(null);
+        return;
+      }
+
+      const currentOrigin = childPos.x + CARD_W / 2;
+      let targetOrigin = currentOrigin;
+
+      if (prevOriginX !== null && idx > 0) {
+        const gap = currentOrigin - prevOriginX;
+        const adjustedGap = Math.max(MIN_BRANCH_GAP, gap * compressionFactor);
+        targetOrigin = prevOriginX + adjustedGap;
+      }
+
+      const shift = targetOrigin - currentOrigin;
+      childIdxShifts.push(shift <= 0 ? shift : 0);
+      prevOriginX = targetOrigin;
+    });
+
+    // Apply shifts if they only move left and don't cause overlaps
+    const snapshot = createLayoutSnapshot(positions, buses, sideMap);
+
+    childList.forEach(([childId], idx) => {
+      const shift = childIdxShifts[idx];
+      if (shift == null || Math.abs(shift) < 0.1) return;
+
+      translateSubtree(childId, shift, 0, positions, buses, children);
+    });
+
+    if (allCardsOverlap(positions)) {
+      restoreLayoutSnapshot(snapshot, positions, buses, sideMap);
+      return;
+    }
+
+    bus.targets.forEach((target) => {
+      const childPos = positions[target.target];
+      if (childPos) target.origin_x = childPos.x + CARD_W / 2;
+    });
+    refreshBusGeometry(bus, positions);
+  });
+}
+
 /** Post-pack pass: slide bus children left into gaps (no stretch). */
 function squeezeSlideLayout(
   positions,
@@ -2658,6 +2769,15 @@ export function computeLineageGridLayout(nodes, links, options = {}) {
 
   if (stretchSqueeze) {
     squeezeSlideLayout(
+      positions,
+      buses,
+      children,
+      parents,
+      nodeById,
+      relationCounts,
+      sideMap,
+    );
+    densityBasedOptimization(
       positions,
       buses,
       children,

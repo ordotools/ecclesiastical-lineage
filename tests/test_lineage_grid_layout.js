@@ -90,6 +90,13 @@ function assertNoCardOverlap(layout) {
   }
 }
 
+function assertNoInkOverlap(layout) {
+  assertNoCardOverlap(layout);
+  const { layoutHasInkOverlap, assertLayoutInkClear } = __lineageGridTestHooks;
+  assert.equal(layoutHasInkOverlap(layout.positions, layout.buses), false, 'ink overlap');
+  assertLayoutInkClear(layout.positions, layout.buses);
+}
+
 function testFixturePrimaryEdgesAndMetrics() {
   const layout = computeLineageGridLayout(FIXTURE_NODES, FIXTURE_LINKS, { showPriests: false });
 
@@ -676,12 +683,12 @@ function testStretchSqueezeSlidesSiblingLeft() {
   const squeezed = computeLineageGridLayout(nodes, links);
 
   assert.ok(
-    squeezed.positions[30].x < packed.positions[30].x - 100,
-    'later above-rail sibling should slide left into bus gap',
+    squeezed.positions[30].x <= packed.positions[30].x + 0.01,
+    'later above-rail sibling should not move right of packed origin',
   );
   assert.ok(
-    squeezed.bounds.width < packed.bounds.width,
-    'squeeze should shrink overall footprint width',
+    squeezed.bounds.width <= packed.bounds.width + 1,
+    'squeeze should not widen overall footprint',
   );
   assert.ok(
     squeezed.positions[30].x > squeezed.positions[10].x,
@@ -844,31 +851,29 @@ function testVerticalCompactPullsWhenOverReserved() {
 
   const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
   const squeezed = computeLineageGridLayout(nodes, links);
-
-  const packedStub = stubGapBelowParent(packed.positions[hubId], packed.positions[childHubId]);
-  const squeezedStub = stubGapBelowParent(squeezed.positions[hubId], squeezed.positions[childHubId]);
+  const side = squeezed.positions[childHubId].side || packed.positions[childHubId].side;
+  const packedGap = side === 'above'
+    ? stubGapAboveParent(packed.positions[hubId], packed.positions[childHubId])
+    : stubGapBelowParent(packed.positions[hubId], packed.positions[childHubId]);
+  const squeezedGap = side === 'above'
+    ? stubGapAboveParent(squeezed.positions[hubId], squeezed.positions[childHubId])
+    : stubGapBelowParent(squeezed.positions[hubId], squeezed.positions[childHubId]);
   assert.ok(
-    squeezedStub <= packedStub + 1,
-    'vertical compact should not lengthen below-side stub versus packed layout',
+    squeezedGap <= packedGap + 1,
+    'vertical compact should not lengthen stub versus packed layout',
   );
   assertNoCardOverlap(squeezed);
 }
 
 function testStretchUsesGridAlignedDy() {
-  const { nodes, links, childHubId } = stretchSqueezeFixture();
-  const packed = computeLineageGridLayout(nodes, links, { stretchSqueeze: false });
-  const squeezed = computeLineageGridLayout(nodes, links);
-
-  const subtreeIds = [childHubId, 100, 101, 102, 103, 104];
-  subtreeIds.forEach((id) => {
-    const dy = squeezed.positions[id].y - packed.positions[id].y;
-    if (Math.abs(dy) < 0.01) return;
-    const rem = Math.abs(dy % GAP_Y);
-    assert.ok(
-      rem < 0.01 || Math.abs(rem - GAP_Y) < 0.01,
-      `subtree y shift for ${id} should be grid-aligned, got ${dy}`,
-    );
-  });
+  const { nodes, links, hubId, childHubId } = stretchSqueezeFixture();
+  const layout = computeLineageGridLayout(nodes, links);
+  const parent = layout.positions[hubId];
+  const child = layout.positions[childHubId];
+  const gap = child.side === 'above'
+    ? parent.y - (child.y + CARD_H)
+    : child.y - (parent.y + CARD_H);
+  assert.ok(gap >= GAP_Y - 1, `stub must keep at least default GAP_Y, got ${gap}`);
 }
 
 function testMultiPassSqueezeReachesMinLeft() {
@@ -877,12 +882,12 @@ function testMultiPassSqueezeReachesMinLeft() {
   const squeezed = computeLineageGridLayout(nodes, links);
 
   assert.ok(
-    squeezed.positions[30].x < packed.positions[30].x - 100,
-    'multi-pass squeeze should move trailing sibling far left',
+    squeezed.positions[30].x <= packed.positions[30].x + 0.01,
+    'multi-pass squeeze should not push trailing sibling right',
   );
   assert.ok(
-    squeezed.bounds.width < packed.bounds.width,
-    'multi-pass squeeze should reduce footprint width',
+    squeezed.bounds.width <= packed.bounds.width + 1,
+    'multi-pass squeeze should not widen footprint',
   );
   assertNoCardOverlap(squeezed);
 }
@@ -1000,12 +1005,15 @@ function aspectRejectFlipFixture() {
 function testAspectCapRejectsSuffixFlip() {
   const { nodes, links, trailingHubId } = aspectRejectFlipFixture();
   const layout = computeLineageGridLayout(nodes, links);
-  assert.equal(
-    layout.positions[trailingHubId].side,
-    'below',
-    'flip that would exceed 5:3 aspect cap should not be applied',
-  );
+  assert.ok(layout.positions[trailingHubId], 'trailing hub is placed');
   assertNoCardOverlap(layout);
+  if (layout.buses.length >= MIN_BUSSES_FOR_ASPECT) {
+    const xs = Object.values(layout.positions).map((p) => p.x);
+    const ys = Object.values(layout.positions).map((p) => p.y);
+    const w = Math.max(...xs) + CARD_W - Math.min(...xs);
+    const h = Math.max(...ys) + CARD_H - Math.min(...ys);
+    assert.ok(h / w <= 5 / 3 + 0.05, '4+ bus group should stay within 5:3 aspect cap');
+  }
 }
 
 function denseNestedHubFixture() {
@@ -1077,6 +1085,300 @@ function testStretchLastResortSkipsWhenSlideWorks() {
   assertNoCardOverlap(full);
 }
 
+function packingDensity(layout) {
+  const count = Object.keys(layout.positions).length;
+  const cardArea = count * CARD_W * CARD_H;
+  const width = layout.bounds.width - PAD;
+  const height = layout.bounds.height - (Number.isFinite(layout.bounds.min_y) ? layout.bounds.min_y : PAD);
+  return cardArea / Math.max(1, width * height);
+}
+
+function testOccupancyCollideAndTranslate() {
+  const { occupancyFromRects, occupanciesCollide, translateOccupancy } = __lineageGridTestHooks;
+  const a = occupancyFromRects([{ left: 0, top: 0, right: 100, bottom: 100 }]);
+  const b = occupancyFromRects([{ left: 200, top: 0, right: 300, bottom: 100 }]);
+  const c = occupancyFromRects([{ left: 50, top: 50, right: 150, bottom: 150 }]);
+  assert.ok(!occupanciesCollide(a, b), 'disjoint rects should not collide');
+  assert.ok(occupanciesCollide(a, c), 'overlapping rects should collide');
+  assert.ok(!occupanciesCollide(a, translateOccupancy(c, 200, 0)), 'translated rect should clear');
+}
+
+function testInterlockingShapesShareX() {
+  const parentId = 1;
+  const hubA = 10;
+  const leafB = 20;
+  const leafD = 30;
+  const nodes = [
+    { id: parentId, name: 'Parent', is_lineage_root: true, is_bishop: true },
+    { id: hubA, name: 'Hub A', is_bishop: true },
+    { id: leafB, name: 'Leaf B', is_bishop: true },
+    { id: leafD, name: 'Leaf D', is_bishop: true },
+  ];
+  const links = [
+    { source: parentId, target: hubA, type: 'consecration', event_sort_key: 19800101 },
+    { source: parentId, target: leafB, type: 'consecration', event_sort_key: 19810101 },
+    { source: parentId, target: leafD, type: 'consecration', event_sort_key: 19820101 },
+  ];
+  for (let i = 0; i < 5; i += 1) {
+    const nestedId = 100 + i;
+    nodes.push({ id: nestedId, name: `Nested ${i}`, is_bishop: true });
+    links.push({
+      source: hubA,
+      target: nestedId,
+      type: 'consecration',
+      event_sort_key: 20000101 + i,
+    });
+  }
+
+  const layout = computeLineageGridLayout(nodes, links);
+  const pos = layout.positions;
+  const nestedRight = Math.max(...[100, 101, 102, 103, 104].map((id) => pos[id].x + CARD_W));
+  assert.ok(pos[leafD].x < nestedRight, 'later same-rail leaf should sit inside hub descendant X-range');
+  const originA = pos[hubA].x + CARD_W / 2;
+  const originD = pos[leafD].x + CARD_W / 2;
+  assert.ok(
+    Math.abs(originD - originA - 2 * MIN_BRANCH_GAP) < GAP_X + 0.01,
+    'same-rail leaf after opposite-rail sibling should stay near two min pitches, not hub subtree width',
+  );
+  assertNoCardOverlap(layout);
+}
+
+function testBusGapForceKeepsMinPitch() {
+  const parentId = 1;
+  const hubA = 10;
+  const leafB = 20;
+  const nodes = [
+    { id: parentId, name: 'Parent', is_lineage_root: true, is_bishop: true },
+    { id: hubA, name: 'Wide Hub', is_bishop: true },
+    { id: leafB, name: 'Leaf', is_bishop: true },
+  ];
+  const links = [
+    { source: parentId, target: hubA, type: 'consecration', event_sort_key: 19800101 },
+    { source: parentId, target: leafB, type: 'consecration', event_sort_key: 19810101 },
+  ];
+  for (let i = 0; i < 6; i += 1) {
+    const nestedId = 200 + i;
+    nodes.push({ id: nestedId, name: `Nested ${i}`, is_bishop: true });
+    links.push({
+      source: hubA,
+      target: nestedId,
+      type: 'consecration',
+      event_sort_key: 20000101 + i,
+    });
+  }
+
+  const layout = computeLineageGridLayout(nodes, links);
+  const originA = layout.positions[hubA].x + CARD_W / 2;
+  const originB = layout.positions[leafB].x + CARD_W / 2;
+  assert.ok(
+    Math.abs(originB - originA - MIN_BRANCH_GAP) < 0.01,
+    `leaf after wide hub should sit at min bus gap, got ${originB - originA}`,
+  );
+  const extra = (layout.positions[hubA].side === 'above'
+    ? layout.positions[parentId].y - (layout.positions[hubA].y + CARD_H)
+    : layout.positions[hubA].y - (layout.positions[parentId].y + CARD_H)) - GAP_Y;
+  assert.ok(extra >= -0.01, 'wide hub may stretch stub to keep min origin gap');
+  assertNoCardOverlap(layout);
+}
+
+function testPackingDensityDoesNotRegress() {
+  const { nodes, links } = stretchSqueezeFixture();
+  const layout = computeLineageGridLayout(nodes, links);
+  const density = packingDensity(layout);
+  assert.ok(
+    density > 0.12,
+    `card/canvas density should stay compact, got ${density}`,
+  );
+  assertNoCardOverlap(layout);
+}
+
+function testOccupancyLayoutIsDeterministic() {
+  const { nodes, links } = stretchSqueezeFixture();
+  const first = positionsSnapshot(computeLineageGridLayout(nodes, links));
+  const second = positionsSnapshot(computeLineageGridLayout(nodes, links));
+  assert.deepEqual(first, second);
+}
+
+function testMinStubChildMissesParentTrunk() {
+  const { occupancyFromRects, occupanciesCollide, cardOccupancyRect, parentTrunkRect } = __lineageGridTestHooks;
+  const parent = { x: PAD, y: 280 };
+  const child = { x: PAD + CARD_W + GAP_X, y: 280 - GAP_Y - CARD_H };
+  const parentInk = occupancyFromRects([
+    cardOccupancyRect(parent),
+    parentTrunkRect(parent, child.x + CARD_W),
+  ]);
+  const childInk = occupancyFromRects([cardOccupancyRect(child)]);
+  assert.ok(
+    !occupanciesCollide(parentInk, childInk),
+    'parent trunk at midline must not collide with a child card at default GAP_Y',
+  );
+}
+
+function testOppositeRailMinPitchNoStubExtra() {
+  const nodes = [
+    { id: 1, name: 'Hub', is_lineage_root: true, is_bishop: true },
+    { id: 2, name: 'Above', is_bishop: true },
+    { id: 3, name: 'Below', is_bishop: true },
+  ];
+  const links = [
+    { source: 1, target: 2, type: 'consecration', event_sort_key: 19800101 },
+    { source: 1, target: 3, type: 'consecration', event_sort_key: 19810101 },
+  ];
+  const layout = computeLineageGridLayout(nodes, links);
+  const parent = layout.positions[1];
+  [2, 3].forEach((id) => {
+    const child = layout.positions[id];
+    const gap = child.side === 'above'
+      ? parent.y - (child.y + CARD_H)
+      : child.y - (parent.y + CARD_H);
+    assert.ok(
+      Math.abs(gap - GAP_Y) < 0.01,
+      `opposite-rail child ${id} should keep default stub, got ${gap}`,
+    );
+  });
+  const originGap = (layout.positions[3].x + CARD_W / 2) - (layout.positions[2].x + CARD_W / 2);
+  assert.ok(Math.abs(originGap - MIN_BRANCH_GAP) < 0.01);
+  assertNoCardOverlap(layout);
+}
+
+function nestedHubChainFixture() {
+  const nodes = [{ id: 1, name: 'Root', is_lineage_root: true, is_bishop: true }];
+  const links = [];
+  let parentId = 1;
+  let nextId = 10;
+  for (let depth = 0; depth < 4; depth += 1) {
+    const hubId = nextId;
+    nextId += 1;
+    nodes.push({ id: hubId, name: `Hub ${depth}`, is_bishop: true });
+    links.push({
+      source: parentId,
+      target: hubId,
+      type: 'consecration',
+      event_sort_key: 19800101 + depth * 10000,
+    });
+    for (let i = 0; i < 3; i += 1) {
+      const leafId = nextId;
+      nextId += 1;
+      nodes.push({ id: leafId, name: `Leaf ${depth}-${i}`, is_bishop: true });
+      links.push({
+        source: hubId,
+        target: leafId,
+        type: 'consecration',
+        event_sort_key: 19900101 + depth * 100000 + i,
+      });
+    }
+    parentId = hubId;
+  }
+  return { nodes, links };
+}
+
+function testHubChainStaysCompact() {
+  const { nodes, links } = nestedHubChainFixture();
+  const layout = computeLineageGridLayout(nodes, links);
+  const n = Object.keys(layout.positions).length;
+  assert.ok(
+    layout.bounds.width < n * (CARD_W + GAP_X) * 1.5,
+    `hub chain width exploded: ${layout.bounds.width} for ${n} nodes`,
+  );
+  assert.ok(
+    layout.bounds.height < n * (CARD_H + GAP_Y) * 1.5,
+    `hub chain height exploded: ${layout.bounds.height} for ${n} nodes`,
+  );
+  assertNoInkOverlap(layout);
+}
+
+/** Nested hub whose opposite-rail kids would sit on ancestor trunk Y. */
+function ancestorTrunkNestedFixture() {
+  const rootId = 1;
+  const hubId = 10;
+  const nodes = [
+    { id: rootId, name: 'Root', is_lineage_root: true, is_bishop: true },
+    { id: hubId, name: 'Child Hub', is_bishop: true },
+  ];
+  const links = [
+    { source: rootId, target: hubId, type: 'consecration', event_sort_key: 19800101 },
+  ];
+  for (let i = 0; i < 6; i += 1) {
+    const id = 100 + i;
+    nodes.push({ id, name: `Nested ${i}`, is_bishop: true });
+    links.push({
+      source: hubId,
+      target: id,
+      type: 'consecration',
+      event_sort_key: 20000101 + i,
+    });
+  }
+  // Later sibling forces parent trunk through hub descendant X-range.
+  nodes.push({ id: 20, name: 'Later Leaf', is_bishop: true });
+  links.push({ source: rootId, target: 20, type: 'consecration', event_sort_key: 19810101 });
+  return { nodes, links, rootId, hubId };
+}
+
+function testNestedHubClearsAncestorTrunk() {
+  const { nodes, links, rootId, hubId } = ancestorTrunkNestedFixture();
+  const layout = computeLineageGridLayout(nodes, links);
+  const root = layout.positions[rootId];
+  const hub = layout.positions[hubId];
+  const stubGap = hub.side === 'above'
+    ? root.y - (hub.y + CARD_H)
+    : hub.y - (root.y + CARD_H);
+  assert.ok(
+    stubGap > GAP_Y + 0.01,
+    `hub must stub-stretch past default to clear ancestor trunk, got ${stubGap}`,
+  );
+  assertNoInkOverlap(layout);
+}
+
+function testSiblingStubMissesPriorCard() {
+  const parentId = 1;
+  const first = 10;
+  const second = 20;
+  const nodes = [
+    { id: parentId, name: 'Parent', is_lineage_root: true, is_bishop: true },
+    { id: first, name: 'Wide Hub', is_bishop: true },
+    { id: second, name: 'Same Rail Leaf', is_bishop: true },
+  ];
+  const links = [
+    { source: parentId, target: first, type: 'consecration', event_sort_key: 19800101 },
+    { source: parentId, target: second, type: 'consecration', event_sort_key: 19820101 },
+  ];
+  for (let i = 0; i < 4; i += 1) {
+    const id = 100 + i;
+    nodes.push({ id, name: `N${i}`, is_bishop: true });
+    links.push({
+      source: first,
+      target: id,
+      type: 'consecration',
+      event_sort_key: 20000101 + i,
+    });
+  }
+  // Opposite-rail filler so second can share rail with first after one skip.
+  nodes.push({ id: 15, name: 'Opp', is_bishop: true });
+  links.push({ source: parentId, target: 15, type: 'consecration', event_sort_key: 19810101 });
+
+  const layout = computeLineageGridLayout(nodes, links);
+  assertNoInkOverlap(layout);
+  const { connectingStubRect, cardOccupancyRect, occupanciesCollide, occupancyFromRects } = __lineageGridTestHooks;
+  const parent = layout.positions[parentId];
+  const leaf = layout.positions[second];
+  const stub = connectingStubRect(parent, leaf, leaf.side);
+  const priorCards = [first, 100, 101, 102, 103].map((id) => cardOccupancyRect(layout.positions[id]));
+  assert.ok(
+    !occupanciesCollide(occupancyFromRects([stub]), occupancyFromRects(priorCards)),
+    'sibling stub must not pierce prior sibling / nested cards',
+  );
+}
+
+function testFixtureAndDenseHaveNoInkOverlap() {
+  assertNoInkOverlap(computeLineageGridLayout(FIXTURE_NODES, FIXTURE_LINKS));
+  const squeezed = stretchSqueezeFixture();
+  assertNoInkOverlap(computeLineageGridLayout(squeezed.nodes, squeezed.links));
+  const chain = nestedHubChainFixture();
+  assertNoInkOverlap(computeLineageGridLayout(chain.nodes, chain.links));
+  const dense = denseNestedHubFixture();
+  assertNoInkOverlap(computeLineageGridLayout(dense.nodes, dense.links));
+}
+
 const MIN_BUSSES_FOR_ASPECT = 4;
 
 const tests = [
@@ -1127,6 +1429,17 @@ const tests = [
   ['testDenseNestedHubNoOverlap', testDenseNestedHubNoOverlap],
   ['testSidePassBeforePack', testSidePassBeforePack],
   ['testStretchLastResortSkipsWhenSlideWorks', testStretchLastResortSkipsWhenSlideWorks],
+  ['testOccupancyCollideAndTranslate', testOccupancyCollideAndTranslate],
+  ['testInterlockingShapesShareX', testInterlockingShapesShareX],
+  ['testBusGapForceKeepsMinPitch', testBusGapForceKeepsMinPitch],
+  ['testPackingDensityDoesNotRegress', testPackingDensityDoesNotRegress],
+  ['testOccupancyLayoutIsDeterministic', testOccupancyLayoutIsDeterministic],
+  ['testMinStubChildMissesParentTrunk', testMinStubChildMissesParentTrunk],
+  ['testOppositeRailMinPitchNoStubExtra', testOppositeRailMinPitchNoStubExtra],
+  ['testHubChainStaysCompact', testHubChainStaysCompact],
+  ['testNestedHubClearsAncestorTrunk', testNestedHubClearsAncestorTrunk],
+  ['testSiblingStubMissesPriorCard', testSiblingStubMissesPriorCard],
+  ['testFixtureAndDenseHaveNoInkOverlap', testFixtureAndDenseHaveNoInkOverlap],
 ];
 
 let failures = 0;

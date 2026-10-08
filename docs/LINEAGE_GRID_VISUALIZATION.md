@@ -28,14 +28,17 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 | **Adaptive branch spacing** | Leaf-only: even minimal pitch; hub: sequential min gap |
 | **Multi-relation stubs** | Separate offset arrows for ordination + consecration on same pair |
 | **Vertical stub routing** | Pure vertical segments to real card edge |
-| **Card collision pass** | Post-placement AABB nudge (cluster bbox pre-check) |
-| **Side assignment pass** | Suffix rail flips decided before pack (5:3 scoring, opposite-rail gap); caches recomputed with `sideMap` |
-| **Stretch-n-squeeze pass** | Slide-first bus compaction; vertical stretch only as last resort when slide blocked (5:3 aspect cap for 4+ bus groups) |
-| **Intra-cluster collision** | Within-cluster card AABB healing before inter-cluster collide |
-| **Vertical compact pass** | Pull child hubs toward parent bus using live post-squeeze subtree extents |
+| **Card collision pass** | Intra occupancy heal; inter-cluster Y-pocket search (keep seed order) |
+| **Side assignment pass** | Suffix rail flips decided before pack (5:3 scoring, occupancy gap) |
+| **Stretch-n-squeeze pass** | Slide-first bus compaction; vertical stretch when slide blocked (5:3 aspect cap for 4+ bus groups) |
+| **Occupancy shapes** | Card + trunk + stub ink with Y-strip collide; C-shapes can interlock |
+| **Bus-piece pack** | Each hub is a recursive piece; LTR attach with hard zero ink overlap |
+| **Shape-aware pack** | Min bus origin, then stub stretch, then extra origin; never accept collide |
+| **Intra-cluster collision** | Ink-aware heal within each forest cluster |
+| **Vertical compact pass** | Pull child hubs toward parent using occupancy |
 | **Shared metrics** | [`static/config/grid-metrics.json`](../static/config/grid-metrics.json) |
 | **In-place priest toggle** | Re-layout without full page reload |
-| **Tests** | 47 layout + 8 router tests |
+| **Tests** | 58 layout + 8 router tests |
 
 ### Intentionally not done (yet)
 
@@ -46,9 +49,9 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 
 ### Known limitations / follow-ups
 
-- Exclusion creates more left-edge forests; disconnected clusters stack vertically → tall canvas
+- Exclusion creates more left-edge forests; later clusters search Y pockets but seeds stay ordered (largest tree first) and at `x = PAD`
 - Nested descendant buses may extend past parent trunk (by design)
-- Static JS long-cached in production; bump `?v=` on changes (currently `?v=19`)
+- Static JS long-cached in production; bump `?v=` on changes (currently `?v=22`)
 - Bus trunks stay on parent card midline; no lane-shift jog for overlapping Y
 - `LineageRoot` table vs `exclude_from_visualization` — later migration/cleanup
 
@@ -88,14 +91,28 @@ Entry: `computeLineageGridLayout(nodes, links, { showPriests })`.
 
 1. **Layout nodes** — bishops / consecration participants; all visible nodes if `showPriests`.
 2. **Forest** — one incoming succession link per target (bishop → consecration, priest → ordination); best validity then latest `event_sort_key`; co-consecration excluded; cycles broken by removing newest edge on each cycle.
-3. **Side assignment** — suffix rail flips before pack when opposite-rail gap and 5:3 scoring favor flip; one break per bus.
-4. **First clergy** — layout nodes with no layout parent; seeds sorted by `total_descendants` (largest first), each at `(PAD, cluster_y + extent_above)`.
-5. **Pack** — children LTR by date, alternate above/below (respecting `sideMap`); leaf branches use even pitch at `MIN_BRANCH_GAP`; hub branches use sequential min gap; same-rail clearance via `railMinX`.
-6. **Squeeze** — slide children left; stretch prior child vertically only when slide blocked (5:3 cap for 4+ bus groups); no flip during squeeze.
-7. **Vertical compact** — pull child hubs toward parent bus using live subtree extents.
-8. **Intra-cluster collide** — heal card overlaps within each forest cluster.
-9. **Inter-cluster collide** — later clusters shift down until no card AABB overlap (cluster bbox pre-check, then member-level).
+3. **Side assignment** — suffix rail flips before pack when opposite-rail occupancy gap and 5:3 scoring favor flip; one break per bus.
+4. **First clergy** — layout nodes with no layout parent; seeds sorted by `total_descendants` (largest first), each at `x = PAD`.
+5. **Pack** — bus-piece LTR. Each consecrator bus is a piece (parent card + trunk + ordered child attachments); hub children are packed recursively first. Attach trial ink = child tile + connecting stub + provisional parent trunk through the full child bbox. Search stub stretch then extra origin; **never accept ink collide** (practical ceiling 64×256, then keep searching). Leaf branches keep even `MIN_BRANCH_GAP` pitch unless ink forces a break. Occupancy is cards + bus trunks + stubs (Y-strip index). Connecting stub may touch own parent trunk (T-junction).
+6. **Squeeze** — slide children left using occupancy collide (incl. parent trunk); stretch prior child vertically only when slide blocked (5:3 cap for 4+ bus groups); no flip during squeeze; refuse moves that introduce ink overlap.
+7. **Vertical compact** — pull child hubs toward parent until occupancy hits neighbors.
+8. **Intra-cluster collide** — ink-aware heal within each forest cluster (same DOF: origin X / stub Y).
+9. **Inter-cluster collide** — later clusters search Y pockets until ink-clear (no stack-anyway fallback). Seeds stay at `x = PAD` unless a Y-only fit is impossible.
 10. **Draw** — grey horizontal trunk at parent midline; vertical stub per ordination/consecration to real card edge (layout handles spacing; stubs always draw).
+
+### Occupancy + forces
+
+A subtree’s occupancy is the union of card rects (4px ink pad), thin bus trunks, and thin stubs. A **bus piece** adds the connecting stub and provisional parent trunk through the child tile. Collision uses real rect overlap after a bbox/Y-strip reject. The parent-connecting stub is not collided against the parent trunk (T-junction); trunk pad may touch the parent card edge.
+
+Placement degrees of freedom per child: origin X and stub length.
+
+1. **Bus-gap (expensive):** extra origin above `MIN_BRANCH_GAP` is last resort.
+2. **Stub-stretch (cheap):** extra `GAP_Y` slots open a pocket so the next child can stay at min pitch.
+3. **Footprint:** minimize width, then height; 5:3 cap for groups with 4+ buses.
+
+Hard rule: pack and post-passes **refuse** any move that leaves card/trunk/stub ink overlapping (except T-junction / attachment pads).
+
+Chronological **order** is kept. Origin packing does not spread children by `DATE_SCALE`.
 
 ### Return payload
 
@@ -124,8 +141,8 @@ Entry: `computeLineageGridLayout(nodes, links, { showPriests })`.
 | Cycle break | O(cycles · (V+E)) | One DFS per cycle; remove newest edge |
 | Descendant metrics | O(N) | Post-order memo on forest |
 | Link indexing | O(L) once | `buildLinksByPair` for routing |
-| Collision | O(C² · members) worst case | Cluster bbox rejects most pairs early |
-| Layout prepass | O(N) | Extents + subtree widths cached |
+| Collision | O(C² · members) worst case | Occupancy bbox rejects most pairs; Y-strips for ink overlap |
+| Occupancy queries | O(rects · Y-slots) | Strip interval overlap, not fat subtree AABB |
 
 ---
 
@@ -151,9 +168,11 @@ Entry: `computeLineageGridLayout(nodes, links, { showPriests })`.
 - [x] Leaf-only branches: even minimal bus origin pitch
 - [x] Hub branches: sequential min origin gap
 - [x] Same-rail cards never overlap
-- [x] Nested extents; `GAP_Y` card-edge clearance
-- [x] No overlapping cards after AABB pass
-- [x] Stretch-n-squeeze reduces horizontal footprint without breaking min bus gaps
+- [x] Nested occupancy; `GAP_Y` default card-edge clearance; stubs may stretch past default
+- [x] No overlapping cards after occupancy pass
+- [x] No card/trunk/stub ink overlap (T-junction + attachment pads only)
+- [x] Stretch-n-squeeze / occupancy pack keep min bus gaps; extra origin is last resort
+- [x] Interlocking C-shapes may share X-range without card or bus-ink overlap
 - [x] Repeat run → identical positions
 
 ### Coverage
@@ -199,7 +218,7 @@ Co-consecration and gutter routing are not used.
 | `GAP_X` | 52 | Min horizontal gap |
 | `GAP_Y` | 64 | Card-edge vertical clearance |
 | `PAD` | 48 | Canvas padding |
-| `DATE_SCALE` | 8 | Pixels per year for same-rail clearance |
+| `DATE_SCALE` | 8 | Kept in metrics; origin packing uses min bus gap, not date distance |
 | `MIN_BRANCH_GAP` | `CARD_W + GAP_X / 2` (194) | Min spacing between bus stub origin groups (derived in JS) |
 | `ASPECT_CAP` | `5 / 3` | Max height/width ratio for stretch in groups with 4+ buses (derived in JS) |
 | `MULTI_STUB_GAP` | 14 | Offset between ordination/consecration stubs |
@@ -236,4 +255,5 @@ node tests/test_lineage_grid_router.js
 3. **Client layout:** JS packing + AABB collision; split layout/router/page modules.
 4. **First clergy left edge:** Visible-only payload; no hidden reparenting.
 5. **Succession buses:** Bus-only stubs; bishop consecration-only incoming.
-6. **Consolidation (current):** Single JS file; dead gutter router removed; simplified cycle/seeds/metrics; in-place priest toggle.
+6. **Consolidation:** Single JS file; dead gutter router removed; simplified cycle/seeds/metrics; in-place priest toggle.
+7. **Occupancy packing (current):** Bus-piece LTR attach; hard zero ink overlap (cards + trunks + stubs); stub-stretch then extra origin; ink-aware heal / inter-cluster Y pockets.

@@ -8,8 +8,8 @@
  * 4. Grid — MatrixBuilder places every card in a grid cell (collision-free by construction).
  * 5. Draw — cards as CSS grid items; grey trunk on the card's middle row; vertical stubs to card edges.
  */
-import gridMetrics from '../config/grid-metrics.json?v=24' with { type: 'json' };
-import { MatrixBuilder } from './matrix-builder.js?v=24';
+import gridMetrics from '../config/grid-metrics.json?v=25' with { type: 'json' };
+import { MatrixBuilder } from './matrix-builder.js?v=25';
 
 export const GRID_METRICS = { ...gridMetrics };
 GRID_METRICS.CARD_H = GRID_METRICS.CARD_ROWS * GRID_METRICS.ROW_H
@@ -20,7 +20,7 @@ const RED_COLOR = '#e74c3c';
 const ORANGE_COLOR = '#f39c12';
 const ORDINATION_STROKE = '#c8d4dc';
 const BUS_T_CAP_HALF = 10;
-const MIN_FIT_SCALE = 0.08;
+const MIN_ZOOM = 0.08;
 
 const {
   CARD_W,
@@ -893,7 +893,7 @@ function computeStageSize(positions, layout, metrics) {
   return { width: maxX + metrics.PAD, height: maxY + metrics.PAD };
 }
 
-function initPanZoom(viewport, stage, fitSize) {
+function initPanZoom(viewport, stage) {
   let scale = 1;
   let translateX = 0;
   let translateY = 0;
@@ -910,7 +910,7 @@ function initPanZoom(viewport, stage, fitSize) {
     (event) => {
       event.preventDefault();
       const delta = event.deltaY > 0 ? 0.92 : 1.08;
-      const next = Math.min(2.5, Math.max(MIN_FIT_SCALE, scale * delta));
+      const next = Math.min(2.5, Math.max(MIN_ZOOM, scale * delta));
       const rect = viewport.getBoundingClientRect();
       const px = event.clientX - rect.left;
       const py = event.clientY - rect.top;
@@ -944,27 +944,7 @@ function initPanZoom(viewport, stage, fitSize) {
     viewport.classList.remove('is-dragging');
   });
 
-  const fitToView = () => {
-    const rect = viewport.getBoundingClientRect();
-    const targetW = fitSize?.width ?? stage.offsetWidth;
-    const targetH = fitSize?.height ?? stage.offsetHeight;
-    const sx = rect.width / targetW;
-    const sy = rect.height / targetH;
-    scale = Math.min(1, Math.max(MIN_FIT_SCALE, sx, sy)) * 0.95;
-    translateX = (rect.width - targetW * scale) / 2;
-    translateY = (rect.height - targetH * scale) / 2;
-    apply();
-  };
-
-  const fitBtn = document.getElementById('lineage-grid-fit');
-  if (fitBtn) {
-    fitBtn.addEventListener('click', fitToView);
-    requestAnimationFrame(fitToView);
-  } else {
-    apply();
-  }
-
-  return { fitToView };
+  apply();
 }
 
 async function loadSpriteSheetData() {
@@ -1021,8 +1001,8 @@ function renderGrid(viewport, stage, nodes, links, showPriests, spriteSheetData)
 
   if (spriteSheetData) applySpritesToCards(cardsLayer, spriteSheetData);
 
-  const panZoom = initPanZoom(viewport, stage, size);
-  return { layout, panZoom, cardsLayer };
+  initPanZoom(viewport, stage);
+  return { layout, cardsLayer };
 }
 
 export async function initializeLineageGrid() {

@@ -1,6 +1,6 @@
 # Lineage Grid Visualization — Progress & Algorithm
 
-**Route:** `/succession`  
+**Route:** `/` (landing page; `/succession` redirects here)  
 **Status:** Active development (client-side grid layout via `MatrixBuilder`)
 
 Grid-based apostolic succession view. Layout, routing, and render run entirely in the browser from visible graph data.
@@ -44,7 +44,7 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 - Lineage packing is bottom-left skyline: a lineage never tucks under another's overhang, so some pockets stay empty
 - Rigid per-column contours don't interlock C-shapes, so some subtrees use more rows than a gap-filling packer would
 - Nested descendant buses may extend past parent trunk (by design)
-- Static JS long-cached in production; bump `?v=` on changes (currently JS `?v=24`, also on the `matrix-builder.js` and `grid-metrics.json` imports; CSS `?v=18`)
+- Static JS long-cached in production; bump `?v=` on changes (currently JS `?v=25`, also on the `matrix-builder.js` and `grid-metrics.json` imports; CSS `?v=19`)
 - `LineageRoot` table vs `exclude_from_visualization` — later migration/cleanup
 
 ---
@@ -52,10 +52,10 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 ## Architecture
 
 ```
-GET /succession
+GET /
     │
     ▼
-routes/main.py::lineage_grid()
+routes/main.py::index()
     │  nodes, links, show_priests (query param only)
     ▼
 templates/lineage_grid.html  →  window.nodesData, linksData
@@ -223,7 +223,7 @@ node tests/test_lineage_grid_router.js
 | [`static/config/grid-metrics.json`](../static/config/grid-metrics.json) | Shared dimensions |
 | [`static/css/lineage-grid.css`](../static/css/lineage-grid.css) | Grid page styles |
 | [`templates/lineage_grid.html`](../templates/lineage_grid.html) | Template + JSON bootstrap |
-| [`routes/main.py`](../routes/main.py) | `/succession` route |
+| [`routes/main.py`](../routes/main.py) | `/` route (`/succession` redirects) |
 | [`tests/test_lineage_grid_layout.js`](../tests/test_lineage_grid_layout.js) | Layout tests |
 | [`tests/test_lineage_grid_router.js`](../tests/test_lineage_grid_router.js) | Router tests |
 

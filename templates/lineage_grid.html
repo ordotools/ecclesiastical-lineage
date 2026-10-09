@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block extra_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=19">
+{% endblock %}
+
+{% block full_content %}
+<div class="lineage-grid-page">
+    <header class="lineage-grid-toolbar">
+        <h1>Episcopal Lineage</h1>
+        <div class="lineage-grid-toolbar-actions">
+            <label class="lineage-grid-toggle">
+                <input type="checkbox" id="lineage-grid-show-priests" {% if show_priests %}checked{% endif %}>
+                Show priests
+            </label>
+        </div>
+    </header>
+
+    {% if error_message %}
+    <p class="lineage-grid-empty" role="alert">{{ error_message }}</p>
+    {% else %}
+    <div id="lineage-grid-viewport" class="lineage-grid-viewport">
+        <div id="lineage-grid-stage" class="lineage-grid-stage"></div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    window.nodesData = {{ nodes_json|safe }};
+    window.linksData = {{ links_json|safe }};
+    window.showPriests = {{ 'true' if show_priests else 'false' }};
+</script>
+<script src="{{ url_for('static', filename='js/sprite-sheet-cache.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=25"></script>
+{% endblock %}

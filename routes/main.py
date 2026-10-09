@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, session, jsonify, current_app, g
+from flask import Blueprint, render_template, request, session, jsonify, current_app, g, redirect, url_for
 from models import Clergy, User, db, Organization, Rank, Ordination, Consecration
 from services.clergy import resolve_clergy_name
 from constants import GREEN_COLOR, BLACK_COLOR
@@ -15,14 +15,27 @@ def health():
 
 @main_bp.route('/')
 def index():
+    """Landing page: grid-based apostolic succession view."""
+    show_priests = request.args.get('show_priests') in ('1', 'true', 'yes')
     try:
         nodes, links, user = _lineage_nodes_links()
-        rows = _flat_hierarchy_rows(nodes, links)
-        return render_template('lineage_table.html', rows=rows, user=user)
+        return render_template(
+            'lineage_grid.html',
+            nodes_json=json.dumps(nodes),
+            links_json=json.dumps(links),
+            show_priests=show_priests,
+            user=user,
+        )
     except Exception as e:
-        current_app.logger.error(f"Error in index (lineage_table): {e}")
-        return render_template('lineage_table.html', rows=[], user=None,
-                              error_message=f"Unable to load lineage data. Error: {str(e)}")
+        current_app.logger.error(f"Error in lineage grid: {e}")
+        return render_template(
+            'lineage_grid.html',
+            nodes_json=json.dumps([]),
+            links_json=json.dumps([]),
+            show_priests=show_priests,
+            user=None,
+            error_message=f"Unable to load lineage grid. Error: {str(e)}",
+        )
 
 
 @main_bp.route('/chapel-view')
@@ -622,6 +635,12 @@ def lineage_table():
 @main_bp.route('/lineage_visualization')
 def lineage_visualization_alias():
     return lineage_visualization()
+
+
+@main_bp.route('/succession')
+def lineage_grid():
+    """Old grid URL; the grid is now the landing page."""
+    return redirect(url_for('main.index', **request.args), code=301)
 
 
 @main_bp.route('/debug/lineage-coverage')

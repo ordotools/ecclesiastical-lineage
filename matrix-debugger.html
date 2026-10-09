@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matrix-Based Grid Layout Debugger</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0e27;
+      color: #e0e0e0;
+      padding: 20px;
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .container {
+      max-width: 1600px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      gap: 20px;
+    }
+    h1 { margin: 0; font-size: 24px; flex-shrink: 0; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 20px;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .panel {
+      background: #1a1f3a;
+      border: 1px solid #2d3561;
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .panel.full-width {
+      flex-shrink: 0;
+    }
+
+    .panel h2 {
+      flex-shrink: 0;
+    }
+
+    .panel h2 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      margin-top: 0;
+      color: #7c8acf;
+      flex-shrink: 0;
+    }
+
+    /* Matrix display */
+    .matrix-grid {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      background: #0f1326;
+      border-radius: 4px;
+      overflow-y: auto;
+      overflow-x: auto;
+      align-content: start;
+      justify-content: start;
+      flex: 1;
+      min-height: 0;
+      max-height: 100%;
+    }
+
+    .matrix-cell {
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #2d3561;
+      border: 1px solid #3d4571;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: default;
+      flex-shrink: 0;
+    }
+
+    .matrix-cell.empty {
+      background: #0f1326;
+      border-color: #1a1f3a;
+    }
+
+    .matrix-cell.current {
+      background: #4ade80;
+      color: #0a0e27;
+      border-color: #22c55e;
+    }
+
+    .matrix-cell.conflict {
+      background: #ef4444;
+      color: white;
+      border-color: #dc2626;
+      animation: pulse 0.5s ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      background: #2d3561;
+      color: #e0e0e0;
+      border: 1px solid #3d4571;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: #3d4571;
+      border-color: #4d5581;
+    }
+
+    button.active {
+      background: #4ade80;
+      color: #0a0e27;
+      border-color: #22c55e;
+    }
+
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    input[type="range"] {
+      width: 120px;
+    }
+
+    .speed-label {
+      font-size: 11px;
+      color: #7c8acf;
+      min-width: 50px;
+    }
+
+    /* Step log */
+    .step-log {
+      background: #0f1326;
+      border-radius: 4px;
+      padding: 12px;
+      overflow-y: auto;
+      font-size: 11px;
+      font-family: 'Monaco', monospace;
+      line-height: 1.6;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid #1a1f3a;
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-entry.action {
+      color: #4ade80;
+    }
+
+    .log-entry.conflict {
+      color: #ef4444;
+    }
+
+    .log-entry.move {
+      color: #fbbf24;
+    }
+
+    /* Tree view */
+    .tree-view {
+      background: #0f1326;
+      border-radius: 4px;
+      padding: 12px;
+      font-size: 12px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .tree-node {
+      padding: 4px 0;
+      padding-left: 16px;
+    }
+
+    .tree-node.current {
+      background: rgba(74, 222, 128, 0.1);
+      color: #4ade80;
+      border-left: 2px solid #4ade80;
+      padding-left: 14px;
+    }
+
+    /* Info panel */
+    .info {
+      background: #0f1326;
+      border-radius: 4px;
+      padding: 12px;
+      font-size: 11px;
+      line-height: 1.6;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid #1a1f3a;
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+    }
+
+    .label {
+      color: #7c8acf;
+      font-weight: 600;
+    }
+
+    /* Full-width sections */
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Matrix-Based Grid Layout Debugger</h1>
+
+    <div class="panel full-width">
+      <h2>Controls</h2>
+      <div class="controls">
+        <button id="playBtn">Play</button>
+        <button id="pauseBtn" class="active">Pause</button>
+        <button id="stepBackBtn">← Step Back</button>
+        <button id="stepForwardBtn">Step Forward →</button>
+        <button id="resetBtn">Reset</button>
+        <div class="slider-group">
+          <span class="speed-label">Speed:</span>
+          <input type="range" id="speedSlider" min="100" max="2000" value="500" step="100">
+          <span class="speed-label" id="speedValue">500ms</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="panel">
+        <h2>Matrix</h2>
+        <div class="matrix-grid" id="matrixGrid"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Step Log</h2>
+        <div class="step-log" id="stepLog"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Tree Structure</h2>
+        <div class="tree-view" id="treeView"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Info</h2>
+        <div class="info">
+          <div class="info-row">
+            <span class="label">Current Step:</span>
+            <span id="stepCount">0 / 0</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Matrix Size:</span>
+            <span id="matrixSize">0×0</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Nodes Placed:</span>
+            <span id="nodesPlaced">0</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Status:</span>
+            <span id="status">Ready</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { MatrixBuilder } from './static/js/matrix-builder.js';
+    const testData = {
+      id: 'root',
+      name: 'Pope John Paul II',
+      children: [
+        {
+          id: 'A',
+          name: 'Cardinal A',
+          children: [
+            { id: 'A1', name: 'Bishop A1', children: [] },
+            { id: 'A2', name: 'Bishop A2', children: [
+              { id: 'A2a', name: 'Priest A2a', children: [] }
+            ] }
+          ]
+        },
+        {
+          id: 'B',
+          name: 'Cardinal B',
+          children: [
+            { id: 'B1', name: 'Bishop B1', children: [] },
+            { id: 'B2', name: 'Bishop B2', children: [] },
+            { id: 'B3', name: 'Bishop B3', children: [] }
+          ]
+        },
+        {
+          id: 'C',
+          name: 'Cardinal C',
+          children: [
+            { id: 'C1', name: 'Bishop C1', children: [] }
+          ]
+        }
+      ]
+    };
+
+    class Debugger {
+      constructor() {
+        this.builder = new MatrixBuilder(testData);
+        this.steps = [];
+        this.currentStep = 0;
+        this.isPlaying = false;
+        this.playInterval = null;
+        this.speed = 500;
+        this.init();
+      }
+
+      init() {
+        this.steps = this.builder.build();
+        this.render();
+        this.attachListeners();
+      }
+
+      attachListeners() {
+        document.getElementById('playBtn').addEventListener('click', () => this.play());
+        document.getElementById('pauseBtn').addEventListener('click', () => this.pause());
+        document.getElementById('stepForwardBtn').addEventListener('click', () => this.stepForward());
+        document.getElementById('stepBackBtn').addEventListener('click', () => this.stepBack());
+        document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+          this.speed = parseInt(e.target.value);
+          document.getElementById('speedValue').textContent = `${this.speed}ms`;
+        });
+      }
+
+      play() {
+        if (this.isPlaying) return;
+        this.isPlaying = true;
+        document.getElementById('playBtn').classList.add('active');
+        document.getElementById('pauseBtn').classList.remove('active');
+
+        this.playInterval = setInterval(() => {
+          if (this.currentStep < this.steps.length - 1) {
+            this.stepForward();
+          } else {
+            this.pause();
+          }
+        }, this.speed);
+      }
+
+      pause() {
+        this.isPlaying = false;
+        clearInterval(this.playInterval);
+        document.getElementById('playBtn').classList.remove('active');
+        document.getElementById('pauseBtn').classList.add('active');
+      }
+
+      stepForward() {
+        if (this.currentStep < this.steps.length - 1) {
+          this.currentStep++;
+          this.render();
+        }
+      }
+
+      stepBack() {
+        if (this.currentStep > 0) {
+          this.currentStep--;
+          this.render();
+        }
+      }
+
+      reset() {
+        this.pause();
+        this.currentStep = 0;
+        this.render();
+      }
+
+      render() {
+        this.renderMatrix();
+        this.renderStepLog();
+        this.renderTreeView();
+        this.renderInfo();
+      }
+
+      renderMatrix() {
+        const gridEl = document.getElementById('matrixGrid');
+        gridEl.innerHTML = '';
+
+        const tempMatrix = new Map(this.builder.matrix);
+        const bounds = this.builder.bounds;
+
+        if (tempMatrix.size === 0) {
+          const cell = document.createElement('div');
+          cell.className = 'matrix-cell empty';
+          gridEl.appendChild(cell);
+          gridEl.style.gridTemplateColumns = 'repeat(1, 40px)';
+          return;
+        }
+
+        const rows = bounds.maxRow - bounds.minRow + 1;
+        const cols = bounds.maxCol - bounds.minCol + 1;
+
+        gridEl.style.gridTemplateColumns = `repeat(${cols}, 40px)`;
+
+        for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+          for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'matrix-cell';
+            const key = `${r},${c}`;
+            const nodeId = tempMatrix.get(key);
+
+            if (!nodeId) {
+              cell.classList.add('empty');
+            } else {
+              cell.textContent = nodeId;
+
+              const currentStepItem = this.steps[this.currentStep];
+              if (currentStepItem?.action === 'place' && currentStepItem.row === r && currentStepItem.col === c) {
+                cell.classList.add('current');
+              }
+            }
+
+            gridEl.appendChild(cell);
+          }
+        }
+      }
+
+      renderStepLog() {
+        const logEl = document.getElementById('stepLog');
+        logEl.innerHTML = '';
+
+        for (let i = 0; i <= this.currentStep && i < this.steps.length; i++) {
+          const step = this.steps[i];
+          const entry = document.createElement('div');
+          entry.className = 'log-entry';
+
+          if (step.action === 'log') {
+            entry.classList.add(step.type);
+          } else {
+            entry.classList.add('action');
+          }
+
+          entry.textContent = `[${i}] ${step.message}`;
+          logEl.appendChild(entry);
+        }
+
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      renderInfo() {
+        const step = this.steps[this.currentStep] || {};
+        const arr = this.builder.getMatrixArray();
+        const rows = arr.length;
+        const cols = arr[0]?.length || 0;
+
+        document.getElementById('stepCount').textContent = `${this.currentStep} / ${this.steps.length - 1}`;
+        document.getElementById('matrixSize').textContent = `${cols}×${rows}`;
+        document.getElementById('nodesPlaced').textContent = this.builder.nodePositions.size;
+        document.getElementById('status').textContent = this.isPlaying ? 'Playing...' : 'Paused';
+      }
+
+      renderTreeView() {
+        const treeEl = document.getElementById('treeView');
+        treeEl.innerHTML = '';
+
+        const placedNodeIds = new Set();
+        for (let i = 0; i <= this.currentStep && i < this.steps.length; i++) {
+          const step = this.steps[i];
+          if (step.action === 'place') {
+            placedNodeIds.add(step.nodeId);
+          }
+        }
+
+        const walkTree = (node, depth) => {
+          const div = document.createElement('div');
+          div.className = 'tree-node';
+          div.style.paddingLeft = (16 + depth * 16) + 'px';
+
+          if (placedNodeIds.has(node.id)) {
+            div.classList.add('current');
+          }
+
+          const positions = this.builder.nodePositions.get(node.id);
+          const posStr = positions && positions.length > 0 ? ` ${positions.map(p => `(${p.row},${p.col})`).join(' ')}` : '';
+          div.textContent = `${node.id}: ${node.name}${posStr}`;
+          treeEl.appendChild(div);
+
+          if (node.children) {
+            node.children.forEach(child => walkTree(child, depth + 1));
+          }
+        };
+
+        walkTree(this.builder.tree, 0);
+      }
+    }
+
+    const app = new Debugger();
+  </script>
+</body>
+</html>

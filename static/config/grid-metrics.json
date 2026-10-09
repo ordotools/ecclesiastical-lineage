@@ -1,0 +1,12 @@
+{
+  "CARD_W": 170,
+  "ROW_H": 20,
+  "CARD_ROWS": 3,
+  "BUS_OFFSET_ROWS": 1,
+  "GAP_X": 22,
+  "GAP_Y": 22,
+  "PAD": 48,
+  "MULTI_STUB_GAP": 14,
+  "LINEAGE_GAP": 1,
+  "PACK_ASPECT": 1.6
+}

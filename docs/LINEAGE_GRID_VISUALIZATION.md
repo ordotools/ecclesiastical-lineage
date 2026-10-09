@@ -1,7 +1,7 @@
 # Lineage Grid Visualization — Progress & Algorithm
 
 **Route:** `/succession`  
-**Status:** Active development (client-side timeline packing)
+**Status:** Active development (client-side grid layout via `MatrixBuilder`)
 
 Grid-based apostolic succession view. Layout, routing, and render run entirely in the browser from visible graph data.
 
@@ -13,7 +13,8 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 
 | Area | What was done |
 |------|----------------|
-| **Single client module** | All viz logic in [`static/js/lineage-grid.js`](../static/js/lineage-grid.js) |
+| **Client modules** | Data, routing, render in [`static/js/lineage-grid.js`](../static/js/lineage-grid.js); cell layout in [`static/js/matrix-builder.js`](../static/js/matrix-builder.js) |
+| **Grid layout** | Cards on a CSS grid; contour stacking places every card collision-free in one pass (replaced the pack / squeeze / heal passes) |
 | **Layout engine** | Timeline packing: forest, first clergy, branch spacing, collision, buses |
 | **Bus routing** | Trunks + vertical stubs only (no gutter/lane router) |
 | **Visible-only backend payload** | Route sends `nodes`, `links` only — no pixel positions |
@@ -25,20 +26,11 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 | **Succession forest** | One primary incoming edge per clergy; best validity then latest date |
 | **Bus-only succession lines** | Ordination/consecration stubs from buses only |
 | **Chronological branch order** | Direct children sorted by `event_sort_key`; origins advance LTR |
-| **Adaptive branch spacing** | Leaf-only: even minimal pitch; hub: sequential min gap |
 | **Multi-relation stubs** | Separate offset arrows for ordination + consecration on same pair |
 | **Vertical stub routing** | Pure vertical segments to real card edge |
-| **Card collision pass** | Intra occupancy heal; inter-cluster Y-pocket search (keep seed order) |
-| **Side assignment pass** | Suffix rail flips decided before pack (5:3 scoring, occupancy gap) |
-| **Stretch-n-squeeze pass** | Slide-first bus compaction; vertical stretch when slide blocked (5:3 aspect cap for 4+ bus groups) |
-| **Occupancy shapes** | Card + trunk + stub ink with Y-strip collide; C-shapes can interlock |
-| **Bus-piece pack** | Each hub is a recursive piece; LTR attach with hard zero ink overlap |
-| **Shape-aware pack** | Min bus origin, then stub stretch, then extra origin; never accept collide |
-| **Intra-cluster collision** | Ink-aware heal within each forest cluster |
-| **Vertical compact pass** | Pull child hubs toward parent using occupancy |
 | **Shared metrics** | [`static/config/grid-metrics.json`](../static/config/grid-metrics.json) |
 | **In-place priest toggle** | Re-layout without full page reload |
-| **Tests** | 58 layout + 8 router tests |
+| **Tests** | 35 layout (incl. random-forest invariants + 5k timing) + 8 router tests |
 
 ### Intentionally not done (yet)
 
@@ -49,10 +41,10 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 
 ### Known limitations / follow-ups
 
-- Exclusion creates more left-edge forests; later clusters search Y pockets but seeds stay ordered (largest tree first) and at `x = PAD`
+- Lineage packing is bottom-left skyline: a lineage never tucks under another's overhang, so some pockets stay empty
+- Rigid per-column contours don't interlock C-shapes, so some subtrees use more rows than a gap-filling packer would
 - Nested descendant buses may extend past parent trunk (by design)
-- Static JS long-cached in production; bump `?v=` on changes (currently `?v=22`)
-- Bus trunks stay on parent card midline; no lane-shift jog for overlapping Y
+- Static JS long-cached in production; bump `?v=` on changes (currently JS `?v=24`, also on the `matrix-builder.js` and `grid-metrics.json` imports; CSS `?v=18`)
 - `LineageRoot` table vs `exclude_from_visualization` — later migration/cleanup
 
 ---
@@ -70,7 +62,7 @@ templates/lineage_grid.html  →  window.nodesData, linksData
     │
     ▼
 static/js/lineage-grid.js
-    computeLineageGridLayout()  — forest, packing, collision, buses
+    computeLineageGridLayout()  — forest → buildSuccessionTrees → MatrixBuilder → x/y + buses
     routeAllEdges()             — trunk + vertical stubs
     render cards / SVG / pan-zoom
     │
@@ -90,45 +82,34 @@ static/css/lineage-grid.css
 Entry: `computeLineageGridLayout(nodes, links, { showPriests })`.
 
 1. **Layout nodes** — bishops / consecration participants; all visible nodes if `showPriests`.
-2. **Forest** — one incoming succession link per target (bishop → consecration, priest → ordination); best validity then latest `event_sort_key`; co-consecration excluded; cycles broken by removing newest edge on each cycle.
-3. **Side assignment** — suffix rail flips before pack when opposite-rail occupancy gap and 5:3 scoring favor flip; one break per bus.
-4. **First clergy** — layout nodes with no layout parent; seeds sorted by `total_descendants` (largest first), each at `x = PAD`.
-5. **Pack** — bus-piece LTR. Each consecrator bus is a piece (parent card + trunk + ordered child attachments); hub children are packed recursively first. Attach trial ink = child tile + connecting stub + provisional parent trunk through the full child bbox. Search stub stretch then extra origin; **never accept ink collide** (practical ceiling 64×256, then keep searching). Leaf branches keep even `MIN_BRANCH_GAP` pitch unless ink forces a break. Occupancy is cards + bus trunks + stubs (Y-strip index). Connecting stub may touch own parent trunk (T-junction).
-6. **Squeeze** — slide children left using occupancy collide (incl. parent trunk); stretch prior child vertically only when slide blocked (5:3 cap for 4+ bus groups); no flip during squeeze; refuse moves that introduce ink overlap.
-7. **Vertical compact** — pull child hubs toward parent until occupancy hits neighbors.
-8. **Intra-cluster collide** — ink-aware heal within each forest cluster (same DOF: origin X / stub Y).
-9. **Inter-cluster collide** — later clusters search Y pockets until ink-clear (no stack-anyway fallback). Seeds stay at `x = PAD` unless a Y-only fit is impossible.
-10. **Draw** — grey horizontal trunk at parent midline; vertical stub per ordination/consecration to real card edge (layout handles spacing; stubs always draw).
+2. **Forest** — one incoming succession link per target (bishop → consecration, priest → ordination); best validity then latest `event_sort_key`; co-consecration excluded; cycles broken by removing newest edge on each cycle. Children sorted by `event_sort_key`.
+3. **First clergy** — layout nodes with no layout parent; lineages sorted by `total_descendants` (largest first). `buildSuccessionTrees()` returns this forest as nested `{ id, children }` trees.
+4. **Grid** — `MatrixBuilder` (`static/js/matrix-builder.js`) places each card in a cell:
+   - A card spans `CARD_ROWS` rows in one column; its bus trunk runs along the card's middle row.
+   - Child *j* takes column `parentCol + 1 + j`; even index above the trunk, odd below; near card edge `BUS_OFFSET_ROWS` rows from the trunk.
+   - `measure()` (post-order) records each subtree's min/max row per column and stacks sibling blocks **nearest-first** (later siblings hug the trunk, earlier ones sit further out), so trunks and stubs never cross a card.
+   - Lineages are skyline-packed side by side (largest first, top-left): each takes the column where its contour sits highest, with `LINEAGE_GAP` empty cells between lineages; canvas width targets `PACK_ASPECT` (pixel width / height).
+   - No shifting, retries or repair passes: a second write to a cell throws.
+5. **Pixels** — `x = PAD + col·(CARD_W + GAP_X)`, `y = PAD + row·(ROW_H + GAP_Y)`; `timeline_y` = centre of the trunk row. These match the CSS grid tracks exactly.
+6. **Draw** — cards are CSS grid items (`grid-area` from row/col); SVG overlay draws grey trunks and vertical stubs to real card edges (multi-relation stubs offset by `MULTI_STUB_GAP`).
 
-### Occupancy + forces
-
-A subtree’s occupancy is the union of card rects (4px ink pad), thin bus trunks, and thin stubs. A **bus piece** adds the connecting stub and provisional parent trunk through the child tile. Collision uses real rect overlap after a bbox/Y-strip reject. The parent-connecting stub is not collided against the parent trunk (T-junction); trunk pad may touch the parent card edge.
-
-Placement degrees of freedom per child: origin X and stub length.
-
-1. **Bus-gap (expensive):** extra origin above `MIN_BRANCH_GAP` is last resort.
-2. **Stub-stretch (cheap):** extra `GAP_Y` slots open a pocket so the next child can stay at min pitch.
-3. **Footprint:** minimize width, then height; 5:3 cap for groups with 4+ buses.
-
-Hard rule: pack and post-passes **refuse** any move that leaves card/trunk/stub ink overlapping (except T-junction / attachment pads).
-
-Chronological **order** is kept. Origin packing does not spread children by `DATE_SCALE`.
+Chronological **order** is kept; spacing is one column per child, not date distance.
 
 ### Return payload
 
 ```javascript
 {
-  positions: { id: { x, y, side? } },
+  positions: { id: { x, y, row, col, side? } },
   primary_edges: [{ source, target }, ...],
   buses: [{
-    source, timeline_y, timeline_start_x, timeline_end_x,
+    source, timeline_y, timeline_start_x,   // trunk end computed by the router
     targets: [{ target, side, origin_x }, ...],
   }],
   layout_node_ids: [...],
   first_clergy_ids: [...],
-  bounds: { width, height, min_y },
+  bounds: { width, height, min_y, rows, cols },
   metrics: { id: { direct_count, total_descendants } },
-  grid_metrics: { CARD_W, CARD_H, GAP_X, GAP_Y, PAD, ... },
+  grid_metrics: { CARD_W, CARD_H, ROW_H, CARD_ROWS, BUS_OFFSET_ROWS, GAP_X, GAP_Y, PAD, MULTI_STUB_GAP },
 }
 ```
 
@@ -141,8 +122,7 @@ Chronological **order** is kept. Origin packing does not spread children by `DAT
 | Cycle break | O(cycles · (V+E)) | One DFS per cycle; remove newest edge |
 | Descendant metrics | O(N) | Post-order memo on forest |
 | Link indexing | O(L) once | `buildLinksByPair` for routing |
-| Collision | O(C² · members) worst case | Occupancy bbox rejects most pairs; Y-strips for ink overlap |
-| Occupancy queries | O(rects · Y-slots) | Strip interval overlap, not fat subtree AABB |
+| Grid layout | O(N · depth) | Per-column contour merge; ~2 ms for the real data, ~100–150 ms for 50k nodes |
 
 ---
 
@@ -163,16 +143,12 @@ Chronological **order** is kept. Origin packing does not spread children by `DAT
 
 ### Geometry
 
-- [x] Every first clergy at left (`x = PAD`)
+- [x] Largest lineage at top-left; others packed beside/below with a `LINEAGE_GAP` cell margin
+- [x] Every card on a grid cell; siblings in consecutive columns
 - [x] Children LTR by `event_sort_key`; alternate above/below
-- [x] Leaf-only branches: even minimal bus origin pitch
-- [x] Hub branches: sequential min origin gap
 - [x] Same-rail cards never overlap
-- [x] Nested occupancy; `GAP_Y` default card-edge clearance; stubs may stretch past default
 - [x] No overlapping cards after occupancy pass
-- [x] No card/trunk/stub ink overlap (T-junction + attachment pads only)
-- [x] Stretch-n-squeeze / occupancy pack keep min bus gaps; extra origin is last resort
-- [x] Interlocking C-shapes may share X-range without card or bus-ink overlap
+- [x] No trunk or stub passes through a card (by construction; asserted in tests)
 - [x] Repeat run → identical positions
 
 ### Coverage
@@ -194,7 +170,7 @@ Chronological **order** is kept. Origin packing does not spread children by `DAT
 
 ### Cards
 
-- Absolute `(x, y)` from layout; size from `--grid-card-w` / `--grid-card-h`
+- CSS grid items: `grid-area: row / col / span CARD_ROWS`; tracks from `--grid-card-w`, `--grid-row-h`, `--grid-gap-x/y`, `--grid-pad`
 - Sprites applied after first paint when `/api/sprite-sheet` returns
 
 ### Bus edges
@@ -213,15 +189,19 @@ Co-consecration and gutter routing are not used.
 
 | Key | Default | Role |
 |-----|---------|------|
-| `CARD_W` | 168 | Card width (px) |
-| `CARD_H` | 136 | Card height (px) |
-| `GAP_X` | 52 | Min horizontal gap |
-| `GAP_Y` | 64 | Card-edge vertical clearance |
+| `CARD_W` | 170 | Card width / column track (px) |
+| `ROW_H` | 20 | Grid row track (px) |
+| `CARD_ROWS` | 3 | Rows a card spans; trunk on the middle row |
+| `BUS_OFFSET_ROWS` | 1 | Rows between a trunk and its children's near card edge |
+| `GAP_X` | 22 | Column gap (px) |
+| `GAP_Y` | 22 | Row gap (px) |
 | `PAD` | 48 | Canvas padding |
-| `DATE_SCALE` | 8 | Kept in metrics; origin packing uses min bus gap, not date distance |
-| `MIN_BRANCH_GAP` | `CARD_W + GAP_X / 2` (194) | Min spacing between bus stub origin groups (derived in JS) |
-| `ASPECT_CAP` | `5 / 3` | Max height/width ratio for stretch in groups with 4+ buses (derived in JS) |
+| `LINEAGE_GAP` | 1 | Empty cells kept between separate lineages |
+| `PACK_ASPECT` | 1.6 | Target canvas width / height (px) for lineage packing |
+| `CARD_H` | 104 | Derived in JS: `CARD_ROWS·ROW_H + (CARD_ROWS−1)·GAP_Y` |
 | `MULTI_STUB_GAP` | 14 | Offset between ordination/consecration stubs |
+
+Values were tuned visually on real data in the "Succession Grid Tuner" artifact.
 
 ---
 
@@ -238,7 +218,8 @@ node tests/test_lineage_grid_router.js
 
 | File | Purpose |
 |------|---------|
-| [`static/js/lineage-grid.js`](../static/js/lineage-grid.js) | Layout, routing, page render |
+| [`static/js/lineage-grid.js`](../static/js/lineage-grid.js) | Forest, layout glue, routing, page render |
+| [`static/js/matrix-builder.js`](../static/js/matrix-builder.js) | Collision-free cell layout |
 | [`static/config/grid-metrics.json`](../static/config/grid-metrics.json) | Shared dimensions |
 | [`static/css/lineage-grid.css`](../static/css/lineage-grid.css) | Grid page styles |
 | [`templates/lineage_grid.html`](../templates/lineage_grid.html) | Template + JSON bootstrap |
@@ -256,4 +237,5 @@ node tests/test_lineage_grid_router.js
 4. **First clergy left edge:** Visible-only payload; no hidden reparenting.
 5. **Succession buses:** Bus-only stubs; bishop consecration-only incoming.
 6. **Consolidation:** Single JS file; dead gutter router removed; simplified cycle/seeds/metrics; in-place priest toggle.
-7. **Occupancy packing (current):** Bus-piece LTR attach; hard zero ink overlap (cards + trunks + stubs); stub-stretch then extra origin; ink-aware heal / inter-cluster Y pockets.
+7. **Occupancy packing:** Bus-piece LTR attach; hard zero ink overlap (cards + trunks + stubs); stub-stretch then extra origin; ink-aware heal / inter-cluster Y pockets.
+8. **Matrix grid (current):** `MatrixBuilder` contour stacking on a CSS grid; one pass, no repair passes; metrics tuned on real data.

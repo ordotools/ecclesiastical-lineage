@@ -176,16 +176,21 @@ body ::-moz-selection {
 .lineage-grid-cards {
   position: relative;
   z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--grid-cols, 1), var(--grid-card-w));
+  grid-template-rows: repeat(var(--grid-rows, 1), var(--grid-row-h));
+  column-gap: var(--grid-gap-x);
+  row-gap: var(--grid-gap-y);
+  padding: var(--grid-pad);
 }
 
 .lineage-grid-card {
-  position: absolute;
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  width: var(--grid-card-w, 168px);
-  height: var(--grid-card-h, 136px);
-  min-height: var(--grid-card-h, 136px);
+  min-width: 0;
+  min-height: 0;
   box-sizing: border-box;
   padding: 10px 10px 10px 14px;
   border: none;

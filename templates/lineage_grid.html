@@ -3,7 +3,7 @@
 {% block title %}Succession Grid - Episcopal Lineage{% endblock %}
 
 {% block extra_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=17">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=18">
 {% endblock %}
 
 {% block full_content %}
@@ -44,5 +44,5 @@
     window.showPriests = {{ 'true' if show_priests else 'false' }};
 </script>
 <script src="{{ url_for('static', filename='js/sprite-sheet-cache.js') }}"></script>
-<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=22"></script>
+<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=24"></script>
 {% endblock %}

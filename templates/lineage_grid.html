@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block extra_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=19">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=21">
 {% endblock %}
 
 {% block full_content %}
@@ -13,6 +13,10 @@
                 <input type="checkbox" id="lineage-grid-show-priests" {% if show_priests %}checked{% endif %}>
                 Show priests
             </label>
+            <label class="lineage-grid-toggle">
+                <input type="checkbox" id="lineage-grid-experimental" {% if request.args.get('experimental') in ('1', 'true', 'yes') %}checked{% endif %}>
+                Experimental view
+            </label>
         </div>
     </header>
 
@@ -22,6 +26,7 @@
     <div id="lineage-grid-viewport" class="lineage-grid-viewport">
         <div id="lineage-grid-stage" class="lineage-grid-stage"></div>
     </div>
+    <details id="lineage-grid-legend" class="lineage-grid-legend" open hidden></details>
     {% endif %}
 </div>
 {% endblock %}
@@ -33,5 +38,5 @@
     window.showPriests = {{ 'true' if show_priests else 'false' }};
 </script>
 <script src="{{ url_for('static', filename='js/sprite-sheet-cache.js') }}"></script>
-<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=25"></script>
+<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=27"></script>
 {% endblock %}

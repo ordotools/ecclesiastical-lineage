@@ -435,6 +435,43 @@ export function buildSuccessionTrees(nodes, links, { showPriests = false } = {})
   return seeds.map((id) => nestTree(id, children));
 }
 
+/** Experimental view: leaf siblings of one organization collapse into a group card at this size. */
+export const GROUP_MIN = 5;
+
+/**
+ * Replace runs of GROUP_MIN+ leaf children sharing an organization with one group entry
+ * (id `group:<parent>:<org>`), placed where the first member was. Groups in `expanded` stay open.
+ */
+function groupLeafSiblings(children, nodeById, expanded) {
+  const groups = {};
+  const grouped = new Map();
+  children.forEach((list, parentId) => {
+    const leavesByOrg = new Map();
+    list.forEach(([cid]) => {
+      if ((children.get(cid) || []).length) return;
+      const org = nodeById.get(cid)?.organization || '';
+      if (!leavesByOrg.has(org)) leavesByOrg.set(org, []);
+      leavesByOrg.get(org).push(cid);
+    });
+    const out = [];
+    list.forEach((entry) => {
+      const org = nodeById.get(entry[0])?.organization || '';
+      const members = leavesByOrg.get(org);
+      const gid = `group:${parentId}:${org}`;
+      if (!members?.includes(entry[0]) || members.length < GROUP_MIN || expanded.has(gid)) {
+        out.push(entry);
+        return;
+      }
+      if (groups[gid]) return;
+      const first = nodeById.get(members[0]) || {};
+      groups[gid] = { parent: parentId, members, organization: org, org_color: first.org_color };
+      out.push([gid, entry[1]]);
+    });
+    grouped.set(parentId, out);
+  });
+  return { children: grouped, groups };
+}
+
 const colX = (col) => PAD + col * (CARD_W + GAP_X);
 const rowY = (row) => PAD + row * (ROW_H + GAP_Y);
 
@@ -460,14 +497,23 @@ function computeBounds(positions) {
  * @param {object[]} links - Display links (both endpoints visible)
  * @param {object} [options]
  * @param {boolean} [options.showPriests=false]
+ * @param {boolean} [options.groupSiblings=false] - Collapse large same-organization leaf runs
+ * @param {Set<string>} [options.expandedGroups] - Group ids to keep expanded
  */
 export function computeLineageGridLayout(nodes, links, options = {}) {
-  const { showPriests = false } = options;
+  const { showPriests = false, groupSiblings = false, expandedGroups = new Set() } = options;
   const {
     layoutNodeIds, children, layoutEdges, firstClergyIds, directCount, totalDescendants, seeds,
   } = prepareLayoutGraph(nodes, links, showPriests);
 
-  const builder = new MatrixBuilder(seeds.map((id) => nestTree(id, children)), {
+  let treeChildren = children;
+  let groups = {};
+  if (groupSiblings) {
+    const nodeById = new Map(nodes.map((n) => [n.id, n]));
+    ({ children: treeChildren, groups } = groupLeafSiblings(children, nodeById, expandedGroups));
+  }
+
+  const builder = new MatrixBuilder(seeds.map((id) => nestTree(id, treeChildren)), {
     cardRows: CARD_ROWS,
     busOffset: BUS_OFFSET_ROWS,
     lineageGap: LINEAGE_GAP,
@@ -512,6 +558,7 @@ export function computeLineageGridLayout(nodes, links, options = {}) {
     first_clergy_ids: firstClergyIds,
     bounds: computeBounds(positions),
     metrics,
+    groups,
     grid_metrics: { ...GRID_METRICS },
   };
 }
@@ -555,7 +602,7 @@ function routeBuses(buses, linksByPair, positions, metrics) {
       : positionY(hubPos, metrics) + metrics.CARD_H / 2;
 
     const targetEntries = (bus.targets || []).map((entry) => {
-      const targetId = Number(entry.target);
+      const targetId = entry.target; // numeric clergy id, or a `group:` id in the experimental view
       const targetPos = positions[targetId];
       if (!targetPos) return null;
 
@@ -675,6 +722,247 @@ function validityLabel(link) {
   return '';
 }
 
+// ---------------------------------------------------------------------------
+// Experimental view (toolbar toggle): year-first cards, validity seals and line glyphs,
+// other-consecrator chips, grouped mass consecrations, legend.
+// ---------------------------------------------------------------------------
+
+const VALIDITY_ORDER = ['bad', 'doubt', 'info', 'ok'];
+const VALIDITY_GLYPH = { bad: '×', doubt: '?', info: 's', ok: '✓' };
+const VALIDITY_COLOR = { bad: RED_COLOR, doubt: ORANGE_COLOR, info: '#4d6a8a', ok: GREEN_COLOR };
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+
+function linkValidityKind(link) {
+  if (!link) return null;
+  if (link.is_invalid) return 'bad';
+  if (link.is_doubtfully_valid || link.is_doubtful_event) return 'doubt';
+  if (link.is_sub_conditione) return 'info';
+  return null;
+}
+
+function linkValidityText(link) {
+  return [
+    link.is_invalid && 'Invalid',
+    link.is_doubtfully_valid && 'Doubtfully valid',
+    link.is_doubtful_event && 'Doubtful event',
+    link.is_sub_conditione && 'Sub conditione',
+  ].filter(Boolean).join(', ');
+}
+
+/** Color carries the validity, dash pattern repeats it so it survives color blindness. */
+function experimentalEdgeStyle(link) {
+  const opacity = link.is_inherited ? 0.55 : 1;
+  if (link.type === 'ordination') {
+    return {
+      stroke: ORDINATION_STROKE, strokeWidth: 1.25, strokeDasharray: link.is_invalid ? '2 3' : '', opacity,
+      marker: 'grid-arrow-ordination',
+    };
+  }
+  if (link.is_invalid) return { stroke: RED_COLOR, strokeWidth: 2.5, strokeDasharray: '', opacity, marker: 'grid-arrow-red' };
+  if (link.is_doubtfully_valid || link.is_doubtful_event) {
+    return {
+      stroke: ORANGE_COLOR, strokeWidth: 2.5, strokeDasharray: link.is_doubtfully_valid ? '6 3' : '1.5 3', opacity,
+      marker: 'grid-arrow-orange',
+    };
+  }
+  return { stroke: GREEN_COLOR, strokeWidth: 2.5, strokeDasharray: '', opacity, marker: 'grid-arrow-green' };
+}
+
+function nodeValidityMarks(node, primaryLink) {
+  const marks = [];
+  (node.tags || []).forEach(({ label = '' }) => {
+    if (/invalid/i.test(label)) marks.push({ label, kind: 'bad' });
+    else if (/doubt/i.test(label)) marks.push({ label, kind: 'doubt' });
+    else if (/valid/i.test(label)) marks.push({ label, kind: 'ok' });
+  });
+  const kind = linkValidityKind(primaryLink);
+  if (kind) marks.push({ label: linkValidityText(primaryLink), kind });
+  return marks;
+}
+
+const worstKind = (marks) => VALIDITY_ORDER.find((k) => marks.some((m) => m.kind === k)) || null;
+
+function buildExperimentalContext(nodes, links) {
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  const primaryByTarget = new Map(
+    selectPrimarySuccessionLinks(links, nodeById).map((l) => [linkEndpoint(l.target), l]),
+  );
+  const consecratorsByTarget = new Map();
+  links.forEach((link) => {
+    if (link.type !== 'consecration' && link.type !== 'co-consecration') return;
+    const { source, target } = linkEndpoints(link);
+    if (!consecratorsByTarget.has(target)) consecratorsByTarget.set(target, new Set());
+    consecratorsByTarget.get(target).add(source);
+  });
+  return { nodeById, primaryByTarget, consecratorsByTarget };
+}
+
+function otherConsecrators(id, ctx) {
+  const primarySource = linkEndpoint(ctx.primaryByTarget.get(id)?.source);
+  return [...(ctx.consecratorsByTarget.get(id) || [])].filter((s) => s !== primarySource);
+}
+
+function eventYear(node) {
+  return (node.consecration_date || node.ordination_date || '').slice(0, 4);
+}
+
+function initials(name) {
+  const words = (name || '').split(/[\s,]+/).filter((w) => w && !w.includes('.') && /^\p{Lu}/u.test(w));
+  if (!words.length) return '';
+  return words.length === 1 ? words[0][0] : words[0][0] + words[words.length - 1][0];
+}
+
+/** Pale org colors vanish as a stripe on the cream card; those get an outline. */
+function isLightColor(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return false;
+  const v = parseInt(m[1], 16);
+  return (0.2126 * ((v >> 16) & 255) + 0.7152 * ((v >> 8) & 255) + 0.0722 * (v & 255)) / 255 > 0.72;
+}
+
+function appendSeal(card, marks) {
+  const kind = worstKind(marks);
+  if (!kind) return;
+  const seal = el('span', `lineage-grid-card__seal lineage-grid-card__seal--${kind}`, VALIDITY_GLYPH[kind]);
+  seal.title = marks.map((m) => m.label).join(', ');
+  card.appendChild(seal);
+}
+
+function renderExperimentalCard(card, node, ctx) {
+  card.classList.add('lineage-grid-card--exp');
+  if (isLightColor(node.org_color)) card.classList.add('is-light-org');
+
+  const body = el('div', 'lineage-grid-card__body');
+  const row = el('div', 'lineage-grid-card__row');
+  const photo = el('div', 'lineage-grid-card__photo lineage-grid-card__photo--mono', initials(node.name));
+  photo.setAttribute('aria-hidden', 'true');
+  const metaStack = el('div', 'lineage-grid-card__meta-stack');
+  metaStack.append(el('p', 'lineage-grid-card__rank', node.rank || ''), el('p', 'lineage-grid-card__org', node.organization || ''));
+  row.append(photo, metaStack);
+  body.append(row, el('h2', 'lineage-grid-card__name', node.name || ''));
+
+  const others = otherConsecrators(node.id, ctx);
+  if (others.length) {
+    const chip = el('span', 'lineage-grid-card__chip', `+${others.length} other consecrator${others.length > 1 ? 's' : ''}`);
+    chip.title = `Also consecrated by ${others.map((id) => ctx.nodeById.get(id)?.name || id).join(', ')}`;
+    const chips = el('div', 'lineage-grid-card__chips');
+    chips.appendChild(chip);
+    body.appendChild(chips);
+  }
+
+  card.append(el('span', 'lineage-grid-card__year', eventYear(node)), body);
+  appendSeal(card, nodeValidityMarks(node, ctx.primaryByTarget.get(node.id)));
+}
+
+function renderGroupCard(gid, group, pos, metrics, ctx) {
+  const members = group.members.map((id) => ctx.nodeById.get(id)).filter(Boolean);
+  const years = [...new Set(members.map(eventYear).filter(Boolean))].sort();
+  const doubtful = members.filter((m) => linkValidityKind(ctx.primaryByTarget.get(m.id))).length;
+  const noun = members.every(isBishopNode) ? 'bishops' : 'clergy';
+
+  const card = el('article', 'lineage-grid-card lineage-grid-card--exp lineage-grid-card--group');
+  card.dataset.groupId = gid;
+  card.tabIndex = 0;
+  card.setAttribute('role', 'button');
+  card.setAttribute('aria-label', `Expand ${members.length} ${group.organization} ${noun}`);
+  card.style.gridArea = `${pos.row + 1} / ${pos.col + 1} / span ${metrics.CARD_ROWS} / span 1`;
+  card.style.setProperty('--org-color', group.org_color || '#2c3e50');
+  if (isLightColor(group.org_color)) card.classList.add('is-light-org');
+
+  const body = el('div', 'lineage-grid-card__body');
+  body.append(
+    el('p', 'lineage-grid-card__rank', 'Click to expand'),
+    el('h2', 'lineage-grid-card__name', `${members.length} ${group.organization || 'unaffiliated'} ${noun}`),
+  );
+  if (doubtful) {
+    const chips = el('div', 'lineage-grid-card__chips');
+    chips.appendChild(el('span', 'lineage-grid-card__chip lineage-grid-card__chip--doubt', `${doubtful} questionable`));
+    body.appendChild(chips);
+  }
+  const yearText = years.length > 1 ? `${years[0]}–${years[years.length - 1].slice(2)}` : (years[0] || '');
+  card.append(el('span', 'lineage-grid-card__year', yearText), body);
+  return card;
+}
+
+function appendValidityGlyph(edgesGroup, pathData, kind, title) {
+  const seg = lastPathSegment(pathData);
+  if (!seg || !kind) return;
+  const ns = 'http://www.w3.org/2000/svg';
+  const g = document.createElementNS(ns, 'g');
+  g.setAttribute('class', `lineage-grid-glyph lineage-grid-glyph--${kind}`);
+  const cx = seg.x2 + 11;
+  const cy = (seg.y1 + seg.y2) / 2;
+  const t = document.createElementNS(ns, 'title');
+  t.textContent = title;
+  const circle = document.createElementNS(ns, 'circle');
+  circle.setAttribute('cx', String(cx));
+  circle.setAttribute('cy', String(cy));
+  circle.setAttribute('r', '7');
+  circle.setAttribute('stroke', VALIDITY_COLOR[kind]);
+  const text = document.createElementNS(ns, 'text');
+  text.setAttribute('x', String(cx));
+  text.setAttribute('y', String(cy + 3.5));
+  text.setAttribute('fill', VALIDITY_COLOR[kind]);
+  text.textContent = VALIDITY_GLYPH[kind];
+  g.append(t, circle, text);
+  edgesGroup.appendChild(g);
+}
+
+const LEGEND_LINES = [
+  [GREEN_COLOR, '', 2.5, 'Consecration'],
+  [ORANGE_COLOR, '6 3', 2.5, 'Doubtfully valid'],
+  [ORANGE_COLOR, '1.5 3', 2.5, 'Doubtful event'],
+  [RED_COLOR, '', 2.5, 'Invalid'],
+  [ORDINATION_STROKE, '', 1.25, 'Ordination'],
+];
+const LEGEND_MARKS = [['ok', 'Tagged valid'], ['doubt', 'Doubtful'], ['bad', 'Invalid'], ['info', 'Sub conditione']];
+
+function renderLegend(legend, visibleNodes, groups) {
+  const orgs = new Map();
+  const count = (org, color) => {
+    if (!org) return;
+    const entry = orgs.get(org) || { color, n: 0 };
+    entry.n += 1;
+    orgs.set(org, entry);
+  };
+  visibleNodes.forEach((n) => count(n.organization, n.org_color));
+  Object.values(groups).forEach((g) => count(g.organization, g.org_color));
+
+  const body = el('div', 'lineage-grid-legend__body');
+  const lines = el('div', 'lineage-grid-legend__section');
+  lines.appendChild(el('h3', null, 'Lines'));
+  LEGEND_LINES.forEach(([stroke, dash, w, label]) => {
+    const item = el('span', 'lineage-grid-legend__item');
+    item.innerHTML = `<svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="${stroke}" stroke-width="${w}"${dash ? ` stroke-dasharray="${dash}"` : ''}/></svg>`;
+    item.append(label);
+    lines.appendChild(item);
+  });
+  const marks = el('div', 'lineage-grid-legend__section');
+  marks.appendChild(el('h3', null, 'Validity marks'));
+  LEGEND_MARKS.forEach(([kind, label]) => {
+    const item = el('span', 'lineage-grid-legend__item');
+    item.append(el('span', `lineage-grid-card__seal lineage-grid-card__seal--${kind}`, VALIDITY_GLYPH[kind]), label);
+    marks.appendChild(item);
+  });
+  const orgSection = el('div', 'lineage-grid-legend__section');
+  orgSection.appendChild(el('h3', null, 'Organizations'));
+  [...orgs.entries()].sort((a, b) => b[1].n - a[1].n).forEach(([org, { color }]) => {
+    const item = el('span', 'lineage-grid-legend__item');
+    const swatch = el('span', 'lineage-grid-legend__swatch');
+    swatch.style.background = color || '#2c3e50';
+    item.append(swatch, org);
+    orgSection.appendChild(item);
+  });
+  body.append(lines, marks, orgSection);
+  legend.replaceChildren(el('summary', null, 'Legend'), body);
+}
+
 function spritePosition(mapping, id) {
   if (!mapping) return null;
   const pos = mapping[id] ?? mapping[String(id)] ?? mapping[Number(id)];
@@ -686,6 +974,9 @@ function applySpritePhoto(photoEl, nodeId, spriteSheetData) {
   if (!spriteSheetData?.success || !spriteSheetData.url) return;
   const pos = spritePosition(spriteSheetData.mapping, nodeId);
   if (!pos) return;
+  // Sprite cell (0,0) is the shared placeholder silhouette; monogram cards keep their initials.
+  if (photoEl.classList.contains('lineage-grid-card__photo--mono') && pos[0] === 0 && pos[1] === 0) return;
+  photoEl.classList.add('has-photo');
   const sw = spriteSheetData.sprite_width;
   const sh = spriteSheetData.sprite_height;
   if (!sw || !sh) return;
@@ -703,7 +994,7 @@ function applySpritesToCards(cardsLayer, spriteSheetData) {
   });
 }
 
-function renderCards(stage, nodes, positions, bounds, metrics) {
+function renderCards(stage, nodes, positions, bounds, metrics, ctx = null, groups = {}) {
   const cardsLayer = document.createElement('div');
   cardsLayer.className = 'lineage-grid-cards';
   cardsLayer.style.setProperty('--grid-cols', String(bounds.cols || 1));
@@ -719,6 +1010,12 @@ function renderCards(stage, nodes, positions, bounds, metrics) {
     card.dataset.clergyId = String(node.id);
     card.style.gridArea = `${pos.row + 1} / ${pos.col + 1} / span ${metrics.CARD_ROWS} / span 1`;
     card.style.setProperty('--org-color', node.org_color || '#2c3e50');
+
+    if (ctx) {
+      renderExperimentalCard(card, node, ctx);
+      fragment.appendChild(card);
+      return;
+    }
 
     const row = document.createElement('div');
     row.className = 'lineage-grid-card__row';
@@ -751,6 +1048,12 @@ function renderCards(stage, nodes, positions, bounds, metrics) {
     card.appendChild(name);
     fragment.appendChild(card);
   });
+
+  if (ctx) {
+    Object.entries(groups).forEach(([gid, group]) => {
+      if (positions[gid]) fragment.appendChild(renderGroupCard(gid, group, positions[gid], metrics, ctx));
+    });
+  }
 
   cardsLayer.appendChild(fragment);
   stage.appendChild(cardsLayer);
@@ -786,7 +1089,7 @@ function appendBusTCap(edgesGroup, pathData) {
   edgesGroup.appendChild(cap);
 }
 
-function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics) {
+function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics, ctx = null) {
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
   ['grid-arrow-green', 'grid-arrow-ordination', 'grid-arrow-red', 'grid-arrow-orange'].forEach((id) => {
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
@@ -830,7 +1133,7 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics) {
     const pathData = routedPaths.get(pathKey) || routedPaths.get(edgeKey);
     if (!pathData) return;
 
-    const style = edgeStyle(link);
+    const style = ctx ? experimentalEdgeStyle(link) : edgeStyle(link);
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', pathData);
     path.setAttribute('fill', 'none');
@@ -846,13 +1149,18 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics) {
     if (link.type === 'ordination') markerId = 'grid-arrow-ordination';
     if (link.is_invalid) markerId = 'grid-arrow-red';
     else if (link.is_doubtfully_valid) markerId = 'grid-arrow-orange';
-    path.setAttribute('marker-end', `url(#${markerId})`);
+    path.setAttribute('marker-end', `url(#${style.marker || markerId})`);
 
     path.classList.add('lineage-grid-edge');
     path.classList.add(`lineage-grid-edge--${link.type.replace(/[^a-z]+/g, '-')}`);
     if (primaryEdgeSet.has(edgeKey)) path.classList.add('lineage-grid-edge--primary');
     if (link.is_sub_conditione) path.classList.add('lineage-grid-edge--sub-conditione');
     edgesGroup.appendChild(path);
+
+    if (ctx) {
+      if (link.type !== 'ordination') appendValidityGlyph(edgesGroup, pathData, linkValidityKind(link), linkValidityText(link));
+      return;
+    }
 
     const label = validityLabel(link);
     if (label && link.type !== 'ordination') {
@@ -867,6 +1175,29 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics) {
     }
   });
 
+  if (ctx) {
+    // Group cards have no link of their own: style the stub by the least valid member.
+    Object.entries(layout.groups || {}).forEach(([gid, group]) => {
+      const pathData = routedPaths.get(`${group.parent}->${gid}`);
+      if (!pathData) return;
+      const worst = group.members
+        .map((id) => ctx.primaryByTarget.get(id))
+        .filter(Boolean)
+        .sort((a, b) => linkValidityRank(a) - linkValidityRank(b))[0] || { type: 'consecration' };
+      const style = experimentalEdgeStyle(worst);
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', pathData);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', style.stroke);
+      path.setAttribute('stroke-width', String(style.strokeWidth));
+      if (style.strokeDasharray) path.setAttribute('stroke-dasharray', style.strokeDasharray);
+      path.setAttribute('marker-end', `url(#${style.marker})`);
+      path.classList.add('lineage-grid-edge');
+      edgesGroup.appendChild(path);
+      appendValidityGlyph(edgesGroup, pathData, linkValidityKind(worst), `Least valid in group: ${linkValidityText(worst)}`);
+    });
+  }
+
   (layout.buses || []).forEach((bus) => {
     const trunkKey = `bus-trunk:${Number(bus.source)}`;
     const pathData = routedPaths.get(trunkKey);
@@ -878,6 +1209,127 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics) {
     edgesGroup.appendChild(path);
     appendBusTCap(edgesGroup, pathData);
   });
+}
+
+// ---------------------------------------------------------------------------
+// Focus overlay: click a card to enlarge it and show every order it received
+// as mini-cards pointing into it (node.orders from the server).
+// ---------------------------------------------------------------------------
+
+export const FOCUS = { SCALE: 1.6, MINI_W: 190, MINI_H: 46, CO_H: 28, CO_INDENT: 18, GAP: 8, COL_GAP: 64 };
+
+/** Pure geometry: enlarged card rect, mini-card rects (left column), arrows into the card's left edge. */
+export function focusLayout(orders, cardRect, f = FOCUS) {
+  const w = cardRect.w * f.SCALE;
+  const h = cardRect.h * f.SCALE;
+  const big = { x: cardRect.x + cardRect.w / 2 - w / 2, y: cardRect.y + cardRect.h / 2 - h / 2, w, h };
+
+  const sorted = [...(orders || [])].sort(
+    (a, b) => (a.sort_key ?? Infinity) - (b.sort_key ?? Infinity) || (a.kind === 'ordination' ? -1 : 1),
+  );
+  const entries = [];
+  sorted.forEach((order) => {
+    entries.push({ order, bishop: order.bishop, isCo: false, link: { ...order, type: order.kind } });
+    (order.co || []).forEach((co) => {
+      entries.push({ order, bishop: co, isCo: true, link: { ...order, type: 'co-consecration' } });
+    });
+  });
+
+  const heights = entries.map((e) => (e.isCo ? f.CO_H : f.MINI_H));
+  const total = heights.reduce((s, v) => s + v, 0) + f.GAP * Math.max(0, entries.length - 1);
+  const colX = big.x - f.COL_GAP - f.MINI_W;
+  let y = big.y + big.h / 2 - total / 2;
+
+  const items = entries.map((entry, i) => {
+    const indent = entry.isCo ? f.CO_INDENT : 0;
+    const rect = { x: colX + indent, y, w: f.MINI_W - indent, h: heights[i] };
+    y += heights[i] + f.GAP;
+    const x1 = rect.x + rect.w;
+    const y1 = rect.y + rect.h / 2;
+    const ty = big.y + (big.h * (i + 1)) / (entries.length + 1);
+    return { ...entry, rect, arrow: `M${x1},${y1} L${big.x},${ty}` };
+  });
+  return { big, items };
+}
+
+function orderLabel(entry) {
+  const base = entry.isCo ? 'Co-consecrator' : entry.order.kind === 'ordination' ? 'Ordained' : 'Consecrated';
+  return entry.order.is_sub_conditione ? `${base} · s.c.` : base;
+}
+
+function renderFocus(stage, nodeId, nodeById, positions, metrics) {
+  const node = nodeById.get(nodeId);
+  const pos = positions[nodeId];
+  const card = stage.querySelector(`.lineage-grid-card[data-clergy-id="${nodeId}"]`);
+  if (!node || !pos || !card) return null;
+
+  const cardRect = { x: positionX(pos, metrics), y: positionY(pos, metrics), w: metrics.CARD_W, h: metrics.CARD_H };
+  const { big, items } = focusLayout(node.orders, cardRect);
+
+  const layer = el('div', 'lineage-grid-focus');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'lineage-grid-focus__svg');
+  layer.appendChild(svg);
+
+  items.forEach((item) => {
+    const style = experimentalEdgeStyle(item.link);
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', item.arrow);
+    path.setAttribute('stroke', style.stroke);
+    path.setAttribute('stroke-width', String(style.strokeWidth));
+    path.setAttribute('opacity', String(style.opacity));
+    path.setAttribute('fill', 'none');
+    if (style.strokeDasharray) path.setAttribute('stroke-dasharray', style.strokeDasharray);
+    path.setAttribute('marker-end', `url(#${style.marker})`); // markers live in the main grid SVG
+    svg.appendChild(path);
+
+    const bishopId = item.bishop?.id;
+    const reachable = bishopId != null && positions[bishopId];
+    const mini = el(reachable ? 'button' : 'div', `lineage-grid-focus__mini${item.isCo ? ' is-co' : ''}`);
+    if (reachable) {
+      mini.type = 'button';
+      mini.dataset.focusTarget = String(bishopId);
+    }
+    Object.assign(mini.style, {
+      left: `${item.rect.x}px`, top: `${item.rect.y}px`, width: `${item.rect.w}px`, height: `${item.rect.h}px`,
+      '--org-color': nodeById.get(bishopId)?.org_color || '#7b90a4',
+    });
+    const o = item.order;
+    mini.title = [
+      `${orderLabel(item)} ${o.date}`,
+      linkValidityText(o),
+      o.details_unknown && 'Details unknown',
+      o.is_inherited && 'Inherited',
+      o.is_other && 'Other',
+      !reachable && (bishopId != null ? 'Not shown on chart' : null),
+    ].filter(Boolean).join(' — ');
+    mini.append(
+      el('span', 'lineage-grid-focus__label', `${orderLabel(item)}${item.isCo ? '' : ` · ${(o.date || '').slice(0, 4) || '?'}`}`),
+      el('span', 'lineage-grid-focus__name', item.bishop?.name || 'Unknown bishop'),
+    );
+    const kind = linkValidityKind(o);
+    if (kind) appendSeal(mini, [{ label: linkValidityText(o), kind }]);
+    layer.appendChild(mini);
+  });
+
+  const bigCard = card.cloneNode(true);
+  bigCard.classList.add('lineage-grid-focus__card');
+  bigCard.style.gridArea = '';
+  Object.assign(bigCard.style, {
+    left: `${cardRect.x}px`, top: `${cardRect.y}px`, width: `${cardRect.w}px`, height: `${cardRect.h}px`,
+    transform: `scale(${FOCUS.SCALE})`,
+  });
+  if (!items.length) bigCard.title = 'No orders recorded';
+  layer.appendChild(bigCard);
+
+  card.parentElement.classList.add('is-focus-dim');
+  stage.appendChild(layer);
+  return { center: { x: big.x + big.w / 2, y: big.y + big.h / 2 } };
+}
+
+function closeFocus(stage) {
+  stage.querySelector('.lineage-grid-focus')?.remove();
+  stage.querySelector('.lineage-grid-cards')?.classList.remove('is-focus-dim');
 }
 
 function computeStageSize(positions, layout, metrics) {
@@ -945,6 +1397,14 @@ function initPanZoom(viewport, stage) {
   });
 
   apply();
+  return {
+    /** Pan so stage point (x, y) sits in the middle of the viewport; zoom unchanged. */
+    centerOn(x, y) {
+      translateX = viewport.clientWidth / 2 - x * scale;
+      translateY = viewport.clientHeight / 2 - y * scale;
+      apply();
+    },
+  };
 }
 
 async function loadSpriteSheetData() {
@@ -964,10 +1424,13 @@ async function loadSpriteSheetData() {
   }
 }
 
-function renderGrid(viewport, stage, nodes, links, showPriests, spriteSheetData) {
+function renderGrid(stage, nodes, links, { showPriests, experimental, expandedGroups, legend }) {
   stage.replaceChildren();
 
-  const layout = computeLineageGridLayout(nodes, links, { showPriests });
+  const layout = computeLineageGridLayout(nodes, links, {
+    showPriests, groupSiblings: experimental, expandedGroups,
+  });
+  const ctx = experimental ? buildExperimentalContext(nodes, links) : null;
   const positions = layout.positions || {};
   const activeMetrics = activeMetricsFromLayout(layout);
 
@@ -979,6 +1442,7 @@ function renderGrid(viewport, stage, nodes, links, showPriests, spriteSheetData)
     root.style.setProperty('--grid-gap-x', `${activeMetrics.GAP_X}px`);
     root.style.setProperty('--grid-gap-y', `${activeMetrics.GAP_Y}px`);
     root.style.setProperty('--grid-pad', `${activeMetrics.PAD}px`);
+    root.classList.toggle('is-experimental', !!experimental);
   }
 
   const layoutIds = new Set(layout.layout_node_ids || Object.keys(positions).map(Number));
@@ -996,12 +1460,13 @@ function renderGrid(viewport, stage, nodes, links, showPriests, spriteSheetData)
   stage.appendChild(svg);
 
   const primaryEdgeSet = buildPrimaryEdgeSet(layout.primary_edges);
-  renderEdges(svg, links, positions, layout, primaryEdgeSet, activeMetrics);
-  const cardsLayer = renderCards(stage, visibleNodes, positions, layout.bounds, activeMetrics);
+  renderEdges(svg, links, positions, layout, primaryEdgeSet, activeMetrics, ctx);
+  const cardsLayer = renderCards(stage, visibleNodes, positions, layout.bounds, activeMetrics, ctx, layout.groups);
 
-  if (spriteSheetData) applySpritesToCards(cardsLayer, spriteSheetData);
-
-  initPanZoom(viewport, stage);
+  if (legend) {
+    legend.hidden = !experimental;
+    if (experimental) renderLegend(legend, visibleNodes, layout.groups);
+  }
   return { layout, cardsLayer };
 }
 
@@ -1019,29 +1484,85 @@ export async function initializeLineageGrid() {
   }
 
   let showPriests = window.showPriests === true || window.showPriests === 'true';
+  const experimentalToggle = document.getElementById('lineage-grid-experimental');
+  let experimental = !!experimentalToggle?.checked;
+  const expandedGroups = new Set();
+  const legend = document.getElementById('lineage-grid-legend');
   const spritePromise = loadSpriteSheetData();
 
-  const state = renderGrid(viewport, stage, nodes, links, showPriests, null);
-  spritePromise.then((spriteSheetData) => {
-    if (spriteSheetData) applySpritesToCards(state.cardsLayer, spriteSheetData);
-  });
+  // Once per page: pan/zoom listeners live on viewport/window, so re-renders keep the view.
+  const panZoom = initPanZoom(viewport, stage);
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  let gridState = null;
+
+  const draw = () => {
+    const state = renderGrid(stage, nodes, links, { showPriests, experimental, expandedGroups, legend });
+    gridState = state; // re-render wipes the stage, so any focus overlay is already gone
+    spritePromise.then((spriteSheetData) => {
+      if (spriteSheetData) applySpritesToCards(state.cardsLayer, spriteSheetData);
+    });
+  };
+  draw();
+
+  const setQueryFlag = (name, on) => {
+    const url = new URL(window.location.href);
+    if (on) url.searchParams.set(name, '1');
+    else url.searchParams.delete(name);
+    window.history.replaceState(null, '', url.toString());
+  };
 
   const priestToggle = document.getElementById('lineage-grid-show-priests');
   if (priestToggle) {
     priestToggle.addEventListener('change', () => {
       showPriests = priestToggle.checked;
-      const url = new URL(window.location.href);
-      if (showPriests) url.searchParams.set('show_priests', '1');
-      else url.searchParams.delete('show_priests');
-      window.history.replaceState(null, '', url.toString());
+      setQueryFlag('show_priests', showPriests);
       window.showPriests = showPriests;
-
-      const next = renderGrid(viewport, stage, nodes, links, showPriests, null);
-      spritePromise.then((spriteSheetData) => {
-        if (spriteSheetData) applySpritesToCards(next.cardsLayer, spriteSheetData);
-      });
+      draw();
     });
   }
+
+  if (experimentalToggle) {
+    experimentalToggle.addEventListener('change', () => {
+      experimental = experimentalToggle.checked;
+      expandedGroups.clear();
+      setQueryFlag('experimental', experimental);
+      draw();
+    });
+  }
+
+  // Expand a group card on click (not at the end of a pan drag) or Enter/Space.
+  let downX = 0;
+  let downY = 0;
+  viewport.addEventListener('mousedown', (event) => { downX = event.clientX; downY = event.clientY; });
+  const expandGroup = (card) => {
+    expandedGroups.add(card.dataset.groupId);
+    draw();
+  };
+  const openFocus = (id, { pan = false } = {}) => {
+    closeFocus(stage);
+    const focus = renderFocus(stage, id, nodeById, gridState.layout.positions || {}, activeMetricsFromLayout(gridState.layout));
+    if (focus && pan) panZoom.centerOn(focus.center.x, focus.center.y);
+  };
+  viewport.addEventListener('click', (event) => {
+    if (Math.hypot(event.clientX - downX, event.clientY - downY) >= 5) return; // end of a pan drag
+    const group = event.target.closest('[data-group-id]');
+    if (group) return expandGroup(group);
+    const mini = event.target.closest('[data-focus-target]');
+    if (mini) return openFocus(Number(mini.dataset.focusTarget), { pan: true });
+    const card = event.target.closest('.lineage-grid-cards [data-clergy-id]');
+    if (card) return openFocus(Number(card.dataset.clergyId));
+    if (!event.target.closest('.lineage-grid-focus__card')) closeFocus(stage);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeFocus(stage);
+  });
+  stage.addEventListener('keydown', (event) => {
+    const card = event.target.closest('[data-group-id]');
+    if (card && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      expandGroup(card);
+    }
+  });
 }
 
 if (typeof document !== 'undefined') {

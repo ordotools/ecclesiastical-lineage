@@ -21,6 +21,7 @@ body ::-moz-selection {
   --grid-bus: #7b90a4;
   --grid-bus-width: 6.75px;
   --grid-ordination: #c8d4dc;
+  position: relative;
   min-height: 100vh;
   background: var(--grid-surface);
   color: var(--grid-text);
@@ -207,8 +208,293 @@ body ::-moz-selection {
   color: var(--grid-muted);
 }
 
+/* ---- Experimental view (toolbar toggle) ---- */
+
+.lineage-grid-card--exp {
+  flex-direction: row;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+}
+
+.lineage-grid-card--exp.is-light-org::before {
+  width: 6px;
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--org-color) 50%, #000);
+}
+
+.lineage-grid-card__year {
+  flex-shrink: 0;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-align: center;
+  font: 600 0.95rem/1 ui-monospace, Menlo, Consolas, monospace;
+  letter-spacing: 0.03em;
+  color: #2c3e50;
+  padding-left: 6px;
+  border-left: 1px solid rgba(93, 109, 126, 0.3);
+}
+
+.lineage-grid-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.lineage-grid-card--exp .lineage-grid-card__row {
+  padding-right: 18px; /* room for the validity seal */
+}
+
+.lineage-grid-card--exp .lineage-grid-card__name {
+  margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.lineage-grid-card__photo--mono {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  background-color: color-mix(in srgb, var(--org-color) 70%, #1d2230);
+}
+
+.lineage-grid-card__photo--mono.has-photo {
+  color: transparent;
+}
+
+.lineage-grid-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: auto;
+}
+
+.lineage-grid-card__chip {
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: #5d6d7e;
+  box-shadow: inset 0 0 0 1px currentColor;
+  white-space: nowrap;
+}
+
+.lineage-grid-card__chip--doubt {
+  color: #b86e00;
+}
+
+.lineage-grid-card__seal {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.lineage-grid-card__seal--bad { background: #e74c3c; }
+.lineage-grid-card__seal--doubt { background: #f39c12; }
+.lineage-grid-card__seal--info { background: #4d6a8a; }
+.lineage-grid-card__seal--ok { background: #0b9f2f; }
+
+.lineage-grid-card--group {
+  cursor: pointer;
+  box-shadow:
+    4px 4px 0 -1px var(--grid-card-bg), 4px 4px 0 0 #5d6d7e,
+    8px 8px 0 -1px var(--grid-card-bg), 8px 8px 0 0 #5d6d7e,
+    0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.lineage-grid-card--group:focus-visible {
+  outline: 2px solid #f5f3ed;
+  outline-offset: 3px;
+}
+
+.lineage-grid-glyph circle {
+  fill: var(--grid-card-bg);
+  stroke-width: 1.5;
+}
+
+.lineage-grid-glyph text {
+  font: 700 10px Inter, sans-serif;
+  text-anchor: middle;
+}
+
+.lineage-grid-legend {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 2;
+  max-width: min(360px, calc(100% - 32px));
+  max-height: 60vh;
+  overflow: auto;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(20, 20, 20, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.75rem;
+  color: var(--grid-text);
+  user-select: none;
+}
+
+.lineage-grid-legend summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.lineage-grid-legend__body {
+  display: grid;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.lineage-grid-legend__section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.lineage-grid-legend__section h3 {
+  width: 100%;
+  margin: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grid-muted);
+}
+
+.lineage-grid-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lineage-grid-legend__item .lineage-grid-card__seal {
+  position: static;
+}
+
+.lineage-grid-legend__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
 @media (max-width: 640px) {
   .lineage-grid-toolbar h1 {
     font-size: 0.9rem;
   }
+}
+
+/* Focus overlay: enlarged card + mini-cards for every order received */
+.lineage-grid-cards.is-focus-dim .lineage-grid-card {
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+
+.lineage-grid-focus {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.lineage-grid-focus__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.lineage-grid-focus__card {
+  position: absolute;
+  z-index: 1;
+  transform-origin: center;
+  box-shadow: 0 0 0 2px var(--org-color, #2c3e50), 0 12px 40px rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+
+.lineage-grid-focus__mini {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 22px 4px 10px;
+  border: none;
+  border-left: 4px solid var(--org-color);
+  background: var(--grid-card-bg);
+  color: #2c3e50;
+  font: inherit;
+  text-align: left;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+}
+
+button.lineage-grid-focus__mini {
+  cursor: pointer;
+}
+
+button.lineage-grid-focus__mini:hover,
+button.lineage-grid-focus__mini:focus-visible {
+  outline: 2px solid #f5f3ed;
+}
+
+div.lineage-grid-focus__mini {
+  opacity: 0.85;
+  font-style: italic;
+}
+
+.lineage-grid-focus__mini.is-co {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.lineage-grid-focus__label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5d6d7e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lineage-grid-focus__name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lineage-grid-focus__mini.is-co .lineage-grid-focus__label {
+  display: none;
+}
+
+.lineage-grid-focus__mini .lineage-grid-card__seal {
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%) scale(0.8);
+}
+
+.lineage-grid-focus__mini.is-co .lineage-grid-focus__name::before {
+  content: 'co · ';
+  color: #5d6d7e;
+  font-weight: 400;
 }

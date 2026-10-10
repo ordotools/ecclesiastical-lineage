@@ -12,6 +12,7 @@ import {
   routeAllEdges,
   parseTrunkPath,
   GRID_METRICS,
+  focusLayout,
 } from '../static/js/lineage-grid.js';
 
 const {
@@ -779,6 +780,58 @@ const tests = [
   ['testNoCardOverlapOnFixture', testNoCardOverlapOnFixture],
   ['testTwoTrueRootsStackVertically', testTwoTrueRootsStackVertically],
 ];
+
+function testExperimentalGroupsLeafSiblings() {
+  const nodes = [{ id: 1, name: 'Root', is_bishop: true, organization: 'A' }];
+  const links = [];
+  for (let i = 2; i <= 7; i += 1) {
+    nodes.push({ id: i, name: `Leaf ${i}`, is_bishop: true, organization: 'Palmarian' });
+    links.push({ source: 1, target: i, type: 'consecration', event_sort_key: 19760000 + i });
+  }
+  nodes.push({ id: 8, name: 'Hub', is_bishop: true, organization: 'Palmarian' }, { id: 9, name: 'Kid', is_bishop: true });
+  links.push({ source: 1, target: 8, type: 'consecration', event_sort_key: 19760001 }, { source: 8, target: 9, type: 'consecration', event_sort_key: 19800000 });
+
+  const plain = computeLineageGridLayout(nodes, links);
+  assert.deepEqual(plain.groups, {});
+
+  const grouped = computeLineageGridLayout(nodes, links, { groupSiblings: true });
+  const gid = 'group:1:Palmarian';
+  assert.deepEqual(Object.keys(grouped.groups), [gid]);
+  assert.deepEqual(grouped.groups[gid].members, [2, 3, 4, 5, 6, 7], 'hub with children is never grouped');
+  assert.ok(grouped.positions[gid] && grouped.positions[8] && !grouped.positions[2]);
+  const paths = routeAllEdges(links, grouped.positions, grouped);
+  assert.ok(paths.has(`1->${gid}`), 'group card gets a stub');
+
+  const expanded = computeLineageGridLayout(nodes, links, { groupSiblings: true, expandedGroups: new Set([gid]) });
+  assert.deepEqual(expanded.groups, {});
+  assert.ok(expanded.positions[2]);
+}
+
+tests.push(['testExperimentalGroupsLeafSiblings', testExperimentalGroupsLeafSiblings]);
+
+function testFocusLayoutPlacesEveryOrder() {
+  const card = { x: 500, y: 300, w: CARD_W, h: CARD_H };
+  const orders = [
+    { kind: 'consecration', sort_key: 19750101, bishop: { id: 2, name: 'B' }, co: [{ id: 3, name: 'C' }, { id: 4, name: 'D' }] },
+    { kind: 'ordination', sort_key: 19680101, bishop: null, co: [] },
+    { kind: 'ordination', sort_key: 19760101, bishop: { id: 5, name: 'E' }, co: [], is_sub_conditione: true },
+  ];
+  const { big, items } = focusLayout(orders, card);
+  assert.equal(items.length, 5, 'one mini-card per order plus one per co-consecrator');
+  assert.deepEqual(items.map((i) => (i.isCo ? 'co' : i.order.kind)),
+    ['ordination', 'consecration', 'co', 'co', 'ordination'], 'chronological, co-consecrators after their rite');
+  assert.ok(big.w > card.w && Math.abs(big.x + big.w / 2 - (card.x + card.w / 2)) < 1e-9, 'enlarged about its centre');
+  items.forEach((a, i) => {
+    assert.ok(a.rect.x + a.rect.w < big.x, 'mini-cards sit left of the card');
+    items.slice(i + 1).forEach((b) => assert.ok(a.rect.y + a.rect.h <= b.rect.y, 'no vertical overlap'));
+    const [, endX, endY] = /L(-?[\d.]+),(-?[\d.]+)$/.exec(a.arrow).map(Number);
+    assert.equal(endX, big.x, 'arrow ends on the card left edge');
+    assert.ok(endY > big.y && endY < big.y + big.h);
+  });
+  assert.deepEqual(focusLayout([], card).items, []);
+}
+
+tests.push(['testFocusLayoutPlacesEveryOrder', testFocusLayoutPlacesEveryOrder]);
 
 let failures = 0;
 tests.forEach(([name, fn]) => {

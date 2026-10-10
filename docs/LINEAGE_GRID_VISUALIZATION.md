@@ -44,8 +44,21 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 - Lineage packing is bottom-left skyline: a lineage never tucks under another's overhang, so some pockets stay empty
 - Rigid per-column contours don't interlock C-shapes, so some subtrees use more rows than a gap-filling packer would
 - Nested descendant buses may extend past parent trunk (by design)
-- Static JS long-cached in production; bump `?v=` on changes (currently JS `?v=25`, also on the `matrix-builder.js` and `grid-metrics.json` imports; CSS `?v=19`)
+- Static JS long-cached in production; bump `?v=` on changes (currently template JS `?v=27`, `matrix-builder.js` / `grid-metrics.json` imports `?v=25`; CSS `?v=21`)
 - `LineageRoot` table vs `exclude_from_visualization` — later migration/cleanup
+
+---
+
+## Experimental view
+
+Toolbar toggle **Experimental view** (`?experimental=1`). Off by default; the standard view is unchanged.
+
+- Year-first cards (consecration year, else ordination), org-colored monogram when the sprite is the placeholder, outline on pale org colors
+- Validity seal on the card (node tags + primary incoming link) and a glyph on the stub, replacing the text labels at the trunk start
+- Lines: color + dash pattern (amber dashed = doubtfully valid, amber dotted = doubtful event, red = invalid)
+- `+N other consecrators` chip for non-primary consecration / co-consecration sources
+- `GROUP_MIN`+ leaf siblings of one organization collapse into a group card (`group:<parent>:<org>`); click to expand
+- Legend (collapsible) built from the organizations in view
 
 ---
 

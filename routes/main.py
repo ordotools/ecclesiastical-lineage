@@ -77,6 +77,25 @@ def chapel_view():
                                error_message=f"Error loading chapel view visualization: {str(e)}", user=None)
 
 
+def _order_payload(kind, event, bishop, co, sort_key_fn):
+    """One ordination/consecration for the grid focus overlay. Flag names match link keys."""
+    ref = lambda c: {'id': c.id, 'name': resolve_clergy_name(c)}
+    return {
+        'kind': kind,
+        'date': event.display_date,
+        'sort_key': sort_key_fn(event.date, event.year),
+        'bishop': ref(bishop) if bishop and not bishop.is_deleted else None,
+        'co': [ref(c) for c in co if not c.is_deleted],
+        'is_invalid': event.is_invalid,
+        'is_doubtfully_valid': event.is_doubtfully_valid,
+        'is_doubtful_event': event.is_doubtful_event,
+        'is_sub_conditione': event.is_sub_conditione,
+        'details_unknown': event.details_unknown,
+        'is_inherited': event.is_inherited,
+        'is_other': event.is_other,
+    }
+
+
 def _lineage_nodes_links():
     """Load clergy, build nodes/links. Returns (nodes, links, user)."""
     from sqlalchemy.orm import joinedload, selectinload
@@ -187,6 +206,14 @@ def _lineage_nodes_links():
             # Used by lineage-table DFS to build consecration windows per parent
             'own_consecration_sort_keys': sorted(set(own_consecration_sort_keys)),
             'tags': tags_data,
+            # Every order received (incl. sub conditione / doubtful / unknown bishop) for the focus overlay
+            'orders': [
+                _order_payload('ordination', o, o.ordaining_bishop, [], _event_sort_key)
+                for o in clergy.get_all_ordinations()
+            ] + [
+                _order_payload('consecration', c, c.consecrator, c.co_consecrators, _event_sort_key)
+                for c in clergy.get_all_consecrations()
+            ],
         })
     for clergy in all_clergy:
         for ordination in clergy.ordinations:

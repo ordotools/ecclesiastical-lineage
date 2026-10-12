@@ -16,7 +16,7 @@ def health():
 @main_bp.route('/')
 def index():
     """Landing page: grid-based apostolic succession view."""
-    show_priests = request.args.get('show_priests') in ('1', 'true', 'yes')
+    show_priests = request.args.get('show_priests') not in ('0', 'false', 'no')
     try:
         nodes, links, user = _lineage_nodes_links()
         return render_template(
@@ -25,6 +25,7 @@ def index():
             links_json=json.dumps(links),
             show_priests=show_priests,
             user=user,
+            can_edit=bool(user and user.can_edit_clergy()),
         )
     except Exception as e:
         current_app.logger.error(f"Error in lineage grid: {e}")
@@ -36,6 +37,13 @@ def index():
             user=None,
             error_message=f"Unable to load lineage grid. Error: {str(e)}",
         )
+
+
+@main_bp.route('/lineage-grid.json')
+def lineage_grid_json():
+    """Grid data for in-place refresh after an admin edit."""
+    nodes, links, _ = _lineage_nodes_links()
+    return jsonify({'nodes': nodes, 'links': links})
 
 
 @main_bp.route('/chapel-view')
@@ -75,6 +83,25 @@ def chapel_view():
         current_app.logger.error(f"Error in chapel view visualization: {e}")
         return render_template('chapel_view.html', nodes_json='[]', links_json='[]',
                                error_message=f"Error loading chapel view visualization: {str(e)}", user=None)
+
+
+def _order_payload(kind, event, bishop, co, sort_key_fn):
+    """One ordination/consecration for the grid focus overlay. Flag names match link keys."""
+    ref = lambda c: {'id': c.id, 'name': resolve_clergy_name(c)}
+    return {
+        'kind': kind,
+        'date': event.display_date,
+        'sort_key': sort_key_fn(event.date, event.year),
+        'bishop': ref(bishop) if bishop and not bishop.is_deleted else None,
+        'co': [ref(c) for c in co if not c.is_deleted],
+        'is_invalid': event.is_invalid,
+        'is_doubtfully_valid': event.is_doubtfully_valid,
+        'is_doubtful_event': event.is_doubtful_event,
+        'is_sub_conditione': event.is_sub_conditione,
+        'details_unknown': event.details_unknown,
+        'is_inherited': event.is_inherited,
+        'is_other': event.is_other,
+    }
 
 
 def _lineage_nodes_links():
@@ -187,6 +214,14 @@ def _lineage_nodes_links():
             # Used by lineage-table DFS to build consecration windows per parent
             'own_consecration_sort_keys': sorted(set(own_consecration_sort_keys)),
             'tags': tags_data,
+            # Every order received (incl. sub conditione / doubtful / unknown bishop) for the focus overlay
+            'orders': [
+                _order_payload('ordination', o, o.ordaining_bishop, [], _event_sort_key)
+                for o in clergy.get_all_ordinations()
+            ] + [
+                _order_payload('consecration', c, c.consecrator, c.co_consecrators, _event_sort_key)
+                for c in clergy.get_all_consecrations()
+            ],
         })
     for clergy in all_clergy:
         for ordination in clergy.ordinations:

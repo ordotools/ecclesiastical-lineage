@@ -1453,6 +1453,15 @@ function initPanZoom(viewport, stage) {
 
   apply();
   return {
+    /** Scale and center the whole stage inside the viewport (never enlarged past 1:1). */
+    fit() {
+      const w = stage.offsetWidth, h = stage.offsetHeight;
+      if (!w || !h) return;
+      scale = Math.min(1, Math.max(MIN_ZOOM, Math.min(viewport.clientWidth / w, viewport.clientHeight / h)));
+      translateX = (viewport.clientWidth - w * scale) / 2;
+      translateY = (viewport.clientHeight - h * scale) / 2;
+      apply();
+    },
     /** Pan so stage point (x, y) sits in the middle of the viewport; zoom unchanged. */
     centerOn(x, y) {
       translateX = viewport.clientWidth / 2 - x * scale;
@@ -1558,6 +1567,7 @@ export async function initializeLineageGrid() {
     });
   };
   draw();
+  panZoom.fit(); // first load shows the whole lineage
 
   // Both toggles default on, so only the opt-out goes in the URL.
   const setQueryFlag = (name, on) => {

@@ -1,0 +1,10 @@
+{% extends "editor_v2/base.html" %}
+{% block title %}Editor{% endblock %}
+{% block content %}
+  <div id="editor-panel-center" class="editor-panel-center editor-panel--embed"
+       hx-get="{{ url_for('editor.panel_center', clergy_id=clergy_id) if clergy_id else url_for('editor.panel_center') }}"
+       hx-trigger="load"
+       hx-swap="innerHTML"></div>
+  {% include "editor_v2/snippets/photo_crop_overlay.html" %}
+  {% include "editor_v2/snippets/tag_management_overlay.html" %}
+{% endblock %}

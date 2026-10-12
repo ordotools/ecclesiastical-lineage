@@ -30,7 +30,8 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 | **Vertical stub routing** | Pure vertical segments to real card edge |
 | **Shared metrics** | [`static/config/grid-metrics.json`](../static/config/grid-metrics.json) |
 | **In-place priest toggle** | Re-layout without full page reload |
-| **Tests** | 35 layout (incl. random-forest invariants + 5k timing) + 8 router tests |
+| **Ghost cards** | Each non-primary consecration / co-consecration → dashed `ghost:<src>:<tgt>` leaf in the consecrator's bus (date order); click pans to the real card and opens its focus overlay |
+| **Tests** | 36 layout (incl. random-forest invariants + 5k timing) + 8 router tests |
 
 ### Intentionally not done (yet)
 
@@ -38,27 +39,30 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 - Global calendar axis across whole chart
 - Changing co-consecration display on other visualizations
 - Ghost cards for excluded clergy
+- **Admin "group by default" per lineage**: sibling grouping (`groupSiblings` / `groupLeafSiblings`) is off on the page. Planned: an admin-set flag on chosen lineages (e.g. large Palmarian runs) that groups their leaf siblings by default; the code path and click-to-expand are kept for that.
 
 ### Known limitations / follow-ups
 
 - Lineage packing is bottom-left skyline: a lineage never tucks under another's overhang, so some pockets stay empty
 - Rigid per-column contours don't interlock C-shapes, so some subtrees use more rows than a gap-filling packer would
 - Nested descendant buses may extend past parent trunk (by design)
-- Static JS long-cached in production; bump `?v=` on changes (currently template JS `?v=27`, `matrix-builder.js` / `grid-metrics.json` imports `?v=25`; CSS `?v=21`)
+- Static JS long-cached in production; bump `?v=` on changes (currently template JS `?v=29`, `matrix-builder.js` / `grid-metrics.json` imports `?v=25`; CSS `?v=23`)
 - `LineageRoot` table vs `exclude_from_visualization` — later migration/cleanup
 
 ---
 
 ## Experimental view
 
-Toolbar toggle **Experimental view** (`?experimental=1`). Off by default; the standard view is unchanged.
+Toolbar toggle **Experimental view**. On by default; `?experimental=0` turns it off. Priests are also shown by default (`?show_priests=0` hides them).
+
+Users with `edit_clergy` get admin controls in the toolbar (Add clergy, Full editor, Log out). Clicking a card opens editor v2's form in the right half of the page. It's an iframe on `/editor/embed`, so the form isn't duplicated. After a save, the grid refetches `/lineage-grid.json` and redraws in place.
 
 - Year-first cards (consecration year, else ordination), org-colored monogram when the sprite is the placeholder, outline on pale org colors
 - Validity seal on the card (node tags + primary incoming link) and a glyph on the stub, replacing the text labels at the trunk start
 - Lines: color + dash pattern (amber dashed = doubtfully valid, amber dotted = doubtful event, red = invalid)
 - `+N other consecrators` chip for non-primary consecration / co-consecration sources
-- `GROUP_MIN`+ leaf siblings of one organization collapse into a group card (`group:<parent>:<org>`); click to expand
-- Legend (collapsible) built from the organizations in view
+- Sibling grouping is off (see "Admin group by default" above)
+- Legend (collapsed by default) built from the organizations in view
 
 ---
 
@@ -103,6 +107,7 @@ Entry: `computeLineageGridLayout(nodes, links, { showPriests })`.
    - `measure()` (post-order) records each subtree's min/max row per column and stacks sibling blocks **nearest-first** (later siblings hug the trunk, earlier ones sit further out), so trunks and stubs never cross a card.
    - Lineages are skyline-packed side by side (largest first, top-left): each takes the column where its contour sits highest, with `LINEAGE_GAP` empty cells between lineages; canvas width targets `PACK_ASPECT` (pixel width / height).
    - No shifting, retries or repair passes: a second write to a cell throws.
+   - Ghost cards (`ghostCards: true`, on for the page): `addGhostChildren()` appends a `ghost:<src>:<tgt>` leaf to the consecrator's children for every consecration / co-consecration that is not the target's layout edge (before sibling grouping: a consecrator with ghosts is no longer a leaf, and grouping skips ghost entries). MatrixBuilder places them like any leaf.
 5. **Pixels** — `x = PAD + col·(CARD_W + GAP_X)`, `y = PAD + row·(ROW_H + GAP_Y)`; `timeline_y` = centre of the trunk row. These match the CSS grid tracks exactly.
 6. **Draw** — cards are CSS grid items (`grid-area` from row/col); SVG overlay draws grey trunks and vertical stubs to real card edges (multi-relation stubs offset by `MULTI_STUB_GAP`).
 
@@ -188,7 +193,7 @@ Chronological **order** is kept; spacing is one column per child, not date dista
 
 ### Bus edges
 
-1. **Trunk (grey):** horizontal LTR at `timeline_y` (parent midline)
+1. **Trunk (grey, 2.5px, no end cap):** horizontal LTR at `timeline_y` (parent midline)
 2. **Stubs:** single vertical segment from trunk to card top/bottom edge
 3. **Multi-relation:** `attachX_i = origin_x + (i − (n−1)/2) × MULTI_STUB_GAP`
 

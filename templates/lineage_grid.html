@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block extra_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=21">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=24">
 {% endblock %}
 
 {% block full_content %}
@@ -14,19 +14,37 @@
                 Show priests
             </label>
             <label class="lineage-grid-toggle">
-                <input type="checkbox" id="lineage-grid-experimental" {% if request.args.get('experimental') in ('1', 'true', 'yes') %}checked{% endif %}>
+                <input type="checkbox" id="lineage-grid-experimental" {% if request.args.get('experimental') not in ('0', 'false', 'no') %}checked{% endif %}>
                 Experimental view
             </label>
+            {% if can_edit %}
+            <span class="lineage-grid-admin-actions">
+                <button type="button" id="lineage-grid-add-clergy" class="lineage-grid-btn">Add clergy</button>
+                <a id="lineage-grid-full-editor" class="lineage-grid-btn" href="{{ url_for('editor.editor') }}" target="_blank" rel="noopener">Full editor ↗</a>
+                <a class="lineage-grid-btn" href="{{ url_for('auth.logout') }}">Log out</a>
+            </span>
+            {% endif %}
         </div>
     </header>
 
     {% if error_message %}
     <p class="lineage-grid-empty" role="alert">{{ error_message }}</p>
     {% else %}
-    <div id="lineage-grid-viewport" class="lineage-grid-viewport">
-        <div id="lineage-grid-stage" class="lineage-grid-stage"></div>
+    <div class="lineage-grid-body">
+        <div id="lineage-grid-viewport" class="lineage-grid-viewport">
+            <div id="lineage-grid-stage" class="lineage-grid-stage"></div>
+        </div>
+        {% if can_edit %}
+        <aside id="lineage-grid-admin-panel" class="lineage-grid-admin-panel" hidden>
+            <header class="lineage-grid-admin-panel__header">
+                <span id="lineage-grid-admin-title">Edit clergy</span>
+                <button type="button" id="lineage-grid-admin-close" class="lineage-grid-btn" aria-label="Close editor">✕</button>
+            </header>
+            <iframe id="lineage-grid-admin-frame" title="Clergy editor"></iframe>
+        </aside>
+        {% endif %}
     </div>
-    <details id="lineage-grid-legend" class="lineage-grid-legend" open hidden></details>
+    <details id="lineage-grid-legend" class="lineage-grid-legend" hidden></details>
     {% endif %}
 </div>
 {% endblock %}
@@ -36,7 +54,8 @@
     window.nodesData = {{ nodes_json|safe }};
     window.linksData = {{ links_json|safe }};
     window.showPriests = {{ 'true' if show_priests else 'false' }};
+    window.canEdit = {{ 'true' if can_edit else 'false' }};
 </script>
 <script src="{{ url_for('static', filename='js/sprite-sheet-cache.js') }}"></script>
-<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=27"></script>
+<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=30"></script>
 {% endblock %}

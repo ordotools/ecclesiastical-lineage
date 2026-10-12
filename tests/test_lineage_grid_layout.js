@@ -833,6 +833,40 @@ function testFocusLayoutPlacesEveryOrder() {
 
 tests.push(['testFocusLayoutPlacesEveryOrder', testFocusLayoutPlacesEveryOrder]);
 
+function testGhostCardsForNonPrimaryConsecrators() {
+  const nodes = [1, 2, 3, 4].map((id) => ({ id, name: `B${id}`, is_bishop: true }));
+  const links = [
+    { source: 1, target: 3, type: 'consecration', event_sort_key: 19800000 },
+    { source: 2, target: 3, type: 'co-consecration', event_sort_key: 19800000 },
+    { source: 2, target: 4, type: 'consecration', event_sort_key: 19700000 },
+  ];
+  assert.deepEqual(computeLineageGridLayout(nodes, links).ghosts, {}, 'off by default');
+
+  const layout = computeLineageGridLayout(nodes, links, { ghostCards: true });
+  assert.deepEqual(Object.keys(layout.ghosts), ['ghost:2:3'], 'only the non-primary line gets a ghost');
+  const ghost = layout.positions['ghost:2:3'];
+  assert.ok(ghost && layout.positions[3], 'ghost and real card both placed');
+  const bus = layout.buses.find((b) => b.source === 2);
+  assert.deepEqual(bus.targets.map((t) => t.target), [4, 'ghost:2:3'], 'ghost sits in the consecrator bus, by date');
+  const cells = Object.values(layout.positions).map((p) => `${p.row}:${p.col}`);
+  assert.equal(new Set(cells).size, cells.length, 'no shared cells');
+  assert.ok(routeAllEdges(links, layout.positions, layout).has('2->ghost:2:3'), 'ghost gets a stub');
+
+  // A leaf consecrator that would otherwise fold into a group keeps its card and its ghost.
+  const gNodes = [{ id: 10, name: 'Root', is_bishop: true }, { id: 20, name: 'Target', is_bishop: true }];
+  const gLinks = [{ source: 10, target: 20, type: 'consecration', event_sort_key: 19900000 }];
+  for (let i = 11; i <= 16; i += 1) {
+    gNodes.push({ id: i, name: `L${i}`, is_bishop: true, organization: 'P' });
+    gLinks.push({ source: 10, target: i, type: 'consecration', event_sort_key: 19800000 + i });
+  }
+  gLinks.push({ source: 11, target: 20, type: 'co-consecration', event_sort_key: 19900000 });
+  const grouped = computeLineageGridLayout(gNodes, gLinks, { ghostCards: true, groupSiblings: true });
+  assert.ok(grouped.positions[11] && grouped.positions['ghost:11:20'], 'consecrator with a ghost is not grouped');
+  assert.deepEqual(grouped.groups['group:10:P'].members, [12, 13, 14, 15, 16]);
+}
+
+tests.push(['testGhostCardsForNonPrimaryConsecrators', testGhostCardsForNonPrimaryConsecrators]);
+
 let failures = 0;
 tests.forEach(([name, fn]) => {
   try {

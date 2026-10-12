@@ -176,6 +176,13 @@ def shell():
     return render_template('editor_v2/shell.html', clergy_id=clergy_id)
 
 
+@editor.route('/embed')
+@require_permission('edit_clergy')
+def embed():
+    """Center panel only, for the iframe on the lineage grid page."""
+    return render_template('editor_v2/embed.html', clergy_id=request.args.get('clergy_id'))
+
+
 def _all_clergy_list():
     """Return list of { id, name, rank, organization } for non-deleted clergy, ordered by name."""
     all_clergy = Clergy.active_query().order_by(Clergy.name).all()

@@ -19,7 +19,6 @@ const GREEN_COLOR = '#0b9f2f';
 const RED_COLOR = '#e74c3c';
 const ORANGE_COLOR = '#f39c12';
 const ORDINATION_STROKE = '#c8d4dc';
-const BUS_T_CAP_HALF = 10;
 const MIN_ZOOM = 0.08;
 
 const {
@@ -448,7 +447,7 @@ function groupLeafSiblings(children, nodeById, expanded) {
   children.forEach((list, parentId) => {
     const leavesByOrg = new Map();
     list.forEach(([cid]) => {
-      if ((children.get(cid) || []).length) return;
+      if ((children.get(cid) || []).length || String(cid).startsWith('ghost:')) return;
       const org = nodeById.get(cid)?.organization || '';
       if (!leavesByOrg.has(org)) leavesByOrg.set(org, []);
       leavesByOrg.get(org).push(cid);
@@ -470,6 +469,35 @@ function groupLeafSiblings(children, nodeById, expanded) {
     grouped.set(parentId, out);
   });
   return { children: grouped, groups };
+}
+
+/**
+ * Ghost cards: every consecration / co-consecration that is not a target's primary line becomes a
+ * leaf `ghost:<source>:<target>` in the consecrator's bus, in date order, pointing to the real card.
+ * MatrixBuilder places ghosts like any child, so the grid stays collision-free.
+ */
+function addGhostChildren(children, links, layoutEdges, layoutNodeIds) {
+  const primary = new Set(layoutEdges.map(([s, t]) => `${s}:${t}`));
+  const ghosts = {};
+  links.forEach((link) => {
+    if (link.type !== 'consecration' && link.type !== 'co-consecration') return;
+    const { source, target } = linkEndpoints(link);
+    if (!layoutNodeIds.has(source) || !layoutNodeIds.has(target) || primary.has(`${source}:${target}`)) return;
+    const gid = `ghost:${source}:${target}`;
+    if (ghosts[gid] && ghosts[gid].link.type === 'consecration') return; // consecrator outranks co-consecrator
+    ghosts[gid] = { source, target, link };
+  });
+  if (!Object.keys(ghosts).length) return { children, ghosts };
+
+  const out = new Map(children);
+  Object.entries(ghosts).forEach(([gid, { source, link }]) => {
+    out.set(source, [...(out.get(source) || []), [gid, link]]);
+  });
+  new Set(Object.values(ghosts).map((g) => g.source)).forEach((source) => {
+    // Stable sort: date first; equal dates keep real children ahead of ghosts.
+    out.set(source, out.get(source).sort((a, b) => compareEventSort(a[1], b[1])));
+  });
+  return { children: out, ghosts };
 }
 
 const colX = (col) => PAD + col * (CARD_W + GAP_X);
@@ -501,16 +529,21 @@ function computeBounds(positions) {
  * @param {Set<string>} [options.expandedGroups] - Group ids to keep expanded
  */
 export function computeLineageGridLayout(nodes, links, options = {}) {
-  const { showPriests = false, groupSiblings = false, expandedGroups = new Set() } = options;
+  const {
+    showPriests = false, groupSiblings = false, expandedGroups = new Set(), ghostCards = false,
+  } = options;
   const {
     layoutNodeIds, children, layoutEdges, firstClergyIds, directCount, totalDescendants, seeds,
   } = prepareLayoutGraph(nodes, links, showPriests);
 
   let treeChildren = children;
   let groups = {};
+  let ghosts = {};
+  // Before grouping: a consecrator with ghosts is no longer a leaf, so it never folds into a group.
+  if (ghostCards) ({ children: treeChildren, ghosts } = addGhostChildren(treeChildren, links, layoutEdges, layoutNodeIds));
   if (groupSiblings) {
     const nodeById = new Map(nodes.map((n) => [n.id, n]));
-    ({ children: treeChildren, groups } = groupLeafSiblings(children, nodeById, expandedGroups));
+    ({ children: treeChildren, groups } = groupLeafSiblings(treeChildren, nodeById, expandedGroups));
   }
 
   const builder = new MatrixBuilder(seeds.map((id) => nestTree(id, treeChildren)), {
@@ -559,6 +592,7 @@ export function computeLineageGridLayout(nodes, links, options = {}) {
     bounds: computeBounds(positions),
     metrics,
     groups,
+    ghosts,
     grid_metrics: { ...GRID_METRICS },
   };
 }
@@ -994,7 +1028,27 @@ function applySpritesToCards(cardsLayer, spriteSheetData) {
   });
 }
 
-function renderCards(stage, nodes, positions, bounds, metrics, ctx = null, groups = {}) {
+/** Dashed reference card in a consecrator's bus; clicking it pans to the real card (data-focus-target). */
+function renderGhostCard(gid, ghost, pos, metrics, nodeById) {
+  const target = nodeById.get(ghost.target) || {};
+  const verb = ghost.link.type === 'co-consecration' ? 'Co-consecrated' : 'Consecrated';
+  const year = String(ghost.link.event_sort_key ?? '').slice(0, 4);
+  const card = el('article', 'lineage-grid-card lineage-grid-card--ghost');
+  card.dataset.ghostId = gid;
+  card.dataset.focusTarget = String(ghost.target);
+  card.tabIndex = 0;
+  card.setAttribute('role', 'button');
+  card.setAttribute('aria-label', `${verb} ${target.name || ''}${year ? ` in ${year}` : ''}; go to card`);
+  card.style.gridArea = `${pos.row + 1} / ${pos.col + 1} / span ${metrics.CARD_ROWS} / span 1`;
+  card.style.setProperty('--org-color', target.org_color || '#2c3e50');
+  card.append(
+    el('p', 'lineage-grid-card__rank', `${verb}${year ? ` ${year}` : ''}`),
+    el('h2', 'lineage-grid-card__name', `→ ${target.name || ''}`),
+  );
+  return card;
+}
+
+function renderCards(stage, nodes, positions, bounds, metrics, ctx = null, groups = {}, ghosts = {}) {
   const cardsLayer = document.createElement('div');
   cardsLayer.className = 'lineage-grid-cards';
   cardsLayer.style.setProperty('--grid-cols', String(bounds.cols || 1));
@@ -1054,6 +1108,10 @@ function renderCards(stage, nodes, positions, bounds, metrics, ctx = null, group
       if (positions[gid]) fragment.appendChild(renderGroupCard(gid, group, positions[gid], metrics, ctx));
     });
   }
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  Object.entries(ghosts).forEach(([gid, ghost]) => {
+    if (positions[gid]) fragment.appendChild(renderGhostCard(gid, ghost, positions[gid], metrics, nodeById));
+  });
 
   cardsLayer.appendChild(fragment);
   stage.appendChild(cardsLayer);
@@ -1069,24 +1127,6 @@ function lastPathSegment(pathD) {
     x2: nums[nums.length - 2],
     y2: nums[nums.length - 1],
   };
-}
-
-function appendBusTCap(edgesGroup, pathData) {
-  const seg = lastPathSegment(pathData);
-  if (!seg) return;
-  const dx = seg.x2 - seg.x1;
-  const dy = seg.y2 - seg.y1;
-  const len = Math.hypot(dx, dy) || 1;
-  const nx = -dy / len;
-  const ny = dx / len;
-  const cap = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  cap.setAttribute(
-    'd',
-    `M ${seg.x2 + nx * BUS_T_CAP_HALF} ${seg.y2 + ny * BUS_T_CAP_HALF} L ${seg.x2 - nx * BUS_T_CAP_HALF} ${seg.y2 - ny * BUS_T_CAP_HALF}`,
-  );
-  cap.setAttribute('fill', 'none');
-  cap.classList.add('lineage-grid-edge', 'lineage-grid-edge--bus-trunk', 'lineage-grid-edge--bus-cap');
-  edgesGroup.appendChild(cap);
 }
 
 function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics, ctx = null) {
@@ -1198,6 +1238,22 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics, ctx
     });
   }
 
+  // Ghost stubs carry the real link's style, always dashed (they point elsewhere).
+  Object.entries(layout.ghosts || {}).forEach(([gid, { source, link }]) => {
+    const pathData = routedPaths.get(`${source}->${gid}`);
+    if (!pathData) return;
+    const style = ctx ? experimentalEdgeStyle(link) : edgeStyle(link);
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathData);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', style.stroke);
+    path.setAttribute('stroke-width', String(style.strokeWidth));
+    path.setAttribute('stroke-dasharray', style.strokeDasharray || '4 4');
+    path.setAttribute('marker-end', `url(#${style.marker || 'grid-arrow-green'})`);
+    path.classList.add('lineage-grid-edge', 'lineage-grid-edge--ghost');
+    edgesGroup.appendChild(path);
+  });
+
   (layout.buses || []).forEach((bus) => {
     const trunkKey = `bus-trunk:${Number(bus.source)}`;
     const pathData = routedPaths.get(trunkKey);
@@ -1207,7 +1263,6 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics, ctx
     path.setAttribute('fill', 'none');
     path.classList.add('lineage-grid-edge', 'lineage-grid-edge--bus-trunk');
     edgesGroup.appendChild(path);
-    appendBusTCap(edgesGroup, pathData);
   });
 }
 
@@ -1428,7 +1483,7 @@ function renderGrid(stage, nodes, links, { showPriests, experimental, expandedGr
   stage.replaceChildren();
 
   const layout = computeLineageGridLayout(nodes, links, {
-    showPriests, groupSiblings: experimental, expandedGroups,
+    showPriests, expandedGroups, ghostCards: true,
   });
   const ctx = experimental ? buildExperimentalContext(nodes, links) : null;
   const positions = layout.positions || {};
@@ -1461,7 +1516,7 @@ function renderGrid(stage, nodes, links, { showPriests, experimental, expandedGr
 
   const primaryEdgeSet = buildPrimaryEdgeSet(layout.primary_edges);
   renderEdges(svg, links, positions, layout, primaryEdgeSet, activeMetrics, ctx);
-  const cardsLayer = renderCards(stage, visibleNodes, positions, layout.bounds, activeMetrics, ctx, layout.groups);
+  const cardsLayer = renderCards(stage, visibleNodes, positions, layout.bounds, activeMetrics, ctx, layout.groups, layout.ghosts);
 
   if (legend) {
     legend.hidden = !experimental;
@@ -1475,8 +1530,8 @@ export async function initializeLineageGrid() {
   const stage = document.getElementById('lineage-grid-stage');
   if (!viewport || !stage) return;
 
-  const nodes = window.nodesData || [];
-  const links = window.linksData || [];
+  let nodes = window.nodesData || [];
+  let links = window.linksData || [];
 
   if (!nodes.length) {
     viewport.innerHTML = '<p class="lineage-grid-empty">No clergy data available.</p>';
@@ -1492,7 +1547,7 @@ export async function initializeLineageGrid() {
 
   // Once per page: pan/zoom listeners live on viewport/window, so re-renders keep the view.
   const panZoom = initPanZoom(viewport, stage);
-  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  let nodeById = new Map(nodes.map((n) => [n.id, n]));
   let gridState = null;
 
   const draw = () => {
@@ -1504,10 +1559,11 @@ export async function initializeLineageGrid() {
   };
   draw();
 
+  // Both toggles default on, so only the opt-out goes in the URL.
   const setQueryFlag = (name, on) => {
     const url = new URL(window.location.href);
-    if (on) url.searchParams.set(name, '1');
-    else url.searchParams.delete(name);
+    if (on) url.searchParams.delete(name);
+    else url.searchParams.set(name, '0');
     window.history.replaceState(null, '', url.toString());
   };
 
@@ -1550,19 +1606,72 @@ export async function initializeLineageGrid() {
     const mini = event.target.closest('[data-focus-target]');
     if (mini) return openFocus(Number(mini.dataset.focusTarget), { pan: true });
     const card = event.target.closest('.lineage-grid-cards [data-clergy-id]');
-    if (card) return openFocus(Number(card.dataset.clergyId));
+    if (card) {
+      const id = Number(card.dataset.clergyId);
+      openFocus(id);
+      return admin?.open(id, nodeById.get(id)?.name);
+    }
     if (!event.target.closest('.lineage-grid-focus__card')) closeFocus(stage);
   });
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeFocus(stage);
+    if (event.key !== 'Escape') return;
+    if (stage.querySelector('.lineage-grid-focus')) closeFocus(stage);
+    else admin?.close();
   });
+
+  // After a save in the embedded editor: refetch the data and redraw in place (pan/zoom kept).
+  const reload = async (focusId) => {
+    const response = await fetch('/lineage-grid.json', { credentials: 'same-origin' });
+    if (!response.ok) return;
+    ({ nodes, links } = await response.json());
+    nodeById = new Map(nodes.map((n) => [n.id, n]));
+    draw();
+    if (nodeById.has(focusId)) openFocus(focusId);
+  };
+  const admin = window.canEdit ? initAdminPanel(reload) : null;
   stage.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
     const card = event.target.closest('[data-group-id]');
-    if (card && (event.key === 'Enter' || event.key === ' ')) {
-      event.preventDefault();
-      expandGroup(card);
-    }
+    const ghost = event.target.closest('[data-ghost-id]');
+    if (!card && !ghost) return;
+    event.preventDefault();
+    if (card) expandGroup(card);
+    else openFocus(Number(ghost.dataset.focusTarget), { pan: true });
   });
+}
+
+/** Right-half editor panel: an iframe on /editor/embed, so the form is editor v2's own. */
+function initAdminPanel(onSaved) {
+  const page = document.querySelector('.lineage-grid-page');
+  const panel = document.getElementById('lineage-grid-admin-panel');
+  const frame = document.getElementById('lineage-grid-admin-frame');
+  const title = document.getElementById('lineage-grid-admin-title');
+  const fullEditor = document.getElementById('lineage-grid-full-editor');
+  if (!panel || !frame) return null;
+
+  const open = (id, name) => {
+    const query = id != null ? `?clergy_id=${id}` : '';
+    title.textContent = id != null ? `Edit: ${name || `#${id}`}` : 'Add clergy';
+    if (fullEditor) fullEditor.href = `/editor/${query}`;
+    frame.src = `/editor/embed${query}`;
+    panel.hidden = false;
+    page?.classList.add('has-admin-panel');
+  };
+  const close = () => {
+    panel.hidden = true;
+    frame.removeAttribute('src');
+    page?.classList.remove('has-admin-panel');
+  };
+
+  // editor v2's app.js dispatches this on body after every successful save.
+  frame.addEventListener('load', () => {
+    frame.contentDocument?.body?.addEventListener('editor:validityChanged', (event) => {
+      onSaved(Number(event.detail?.clergyId));
+    });
+  });
+  document.getElementById('lineage-grid-admin-close')?.addEventListener('click', close);
+  document.getElementById('lineage-grid-add-clergy')?.addEventListener('click', () => open(null));
+  return { open, close };
 }
 
 if (typeof document !== 'undefined') {

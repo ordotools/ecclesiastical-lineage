@@ -19,7 +19,7 @@ body ::-moz-selection {
   --grid-text: #f5f3ed;
   --grid-muted: #a8b0ba;
   --grid-bus: #7b90a4;
-  --grid-bus-width: 6.75px;
+  --grid-bus-width: 2.5px;
   --grid-ordination: #c8d4dc;
   position: relative;
   min-height: 100vh;
@@ -79,8 +79,10 @@ body ::-moz-selection {
   fill: none;
 }
 
-.lineage-grid-edge--bus-cap {
-  stroke-linecap: square;
+.lineage-grid-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
 }
 
 .lineage-grid-viewport {
@@ -133,7 +135,7 @@ body ::-moz-selection {
   border-radius: 0;
   background: var(--grid-card-bg);
   color: #2c3e50;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   overflow: hidden;
   transition: none;
 }
@@ -321,6 +323,28 @@ body ::-moz-selection {
   outline-offset: 3px;
 }
 
+/* Ghost: reference to a card placed elsewhere (non-primary consecration). */
+.lineage-grid-card--ghost {
+  cursor: pointer;
+  justify-content: center;
+  background: color-mix(in srgb, var(--org-color, var(--grid-muted)) 22%, var(--grid-surface));
+  color: var(--grid-text);
+  border: 1.5px dashed color-mix(in srgb, var(--org-color, var(--grid-muted)) 60%, var(--grid-text));
+  box-shadow: none;
+  opacity: 0.85;
+}
+
+.lineage-grid-card--ghost::before { display: none; }
+
+.lineage-grid-card--ghost:hover,
+.lineage-grid-card--ghost:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--grid-text);
+  outline-offset: 3px;
+}
+
+.lineage-grid-card--ghost .lineage-grid-card__rank { color: inherit; opacity: 0.75; }
+
 .lineage-grid-glyph circle {
   fill: var(--grid-card-bg);
   stroke-width: 1.5;
@@ -497,4 +521,67 @@ div.lineage-grid-focus__mini {
   content: 'co · ';
   color: #5d6d7e;
   font-weight: 400;
+}
+
+/* Admin controls: toolbar buttons + right-half editor panel (iframe on /editor/embed). */
+.lineage-grid-admin-actions {
+  display: inline-flex;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.lineage-grid-btn {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: var(--grid-text);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.lineage-grid-btn:hover,
+.lineage-grid-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.lineage-grid-admin-panel {
+  flex: 0 0 50%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #fff;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.lineage-grid-admin-panel[hidden] {
+  display: none;
+}
+
+.lineage-grid-admin-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(20, 20, 20, 0.92);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.lineage-grid-admin-panel iframe {
+  flex: 1;
+  width: 100%;
+  border: 0;
+}
+
+@media (max-width: 900px) {
+  .lineage-grid-admin-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+  }
 }

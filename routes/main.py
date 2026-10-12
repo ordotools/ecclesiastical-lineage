@@ -16,7 +16,7 @@ def health():
 @main_bp.route('/')
 def index():
     """Landing page: grid-based apostolic succession view."""
-    show_priests = request.args.get('show_priests') in ('1', 'true', 'yes')
+    show_priests = request.args.get('show_priests') not in ('0', 'false', 'no')
     try:
         nodes, links, user = _lineage_nodes_links()
         return render_template(
@@ -25,6 +25,7 @@ def index():
             links_json=json.dumps(links),
             show_priests=show_priests,
             user=user,
+            can_edit=bool(user and user.can_edit_clergy()),
         )
     except Exception as e:
         current_app.logger.error(f"Error in lineage grid: {e}")
@@ -36,6 +37,13 @@ def index():
             user=None,
             error_message=f"Unable to load lineage grid. Error: {str(e)}",
         )
+
+
+@main_bp.route('/lineage-grid.json')
+def lineage_grid_json():
+    """Grid data for in-place refresh after an admin edit."""
+    nodes, links, _ = _lineage_nodes_links()
+    return jsonify({'nodes': nodes, 'links': links})
 
 
 @main_bp.route('/chapel-view')

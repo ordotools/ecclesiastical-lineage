@@ -115,6 +115,11 @@
                 return;
             }
             const sortKey = eventSortKeyFromEntry(entry);
+            // The form renders a blank placeholder entry when none exist; it is not an event.
+            const bishopIdEl = entry.querySelector('input[name$="[consecrator_id]"], input[name$="[ordaining_bishop_id]"]');
+            if (!sortKey.known && !(bishopIdEl && bishopIdEl.value)) {
+                return;
+            }
             events.push({ type, status, sortKey });
         });
         events.sort((a, b) => {

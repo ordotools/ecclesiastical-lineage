@@ -947,7 +947,10 @@
           var id = el.getAttribute('data-id');
           var name = el.getAttribute('data-display-name') || '';
           textInput.value = name;
-          if (hiddenInput) hiddenInput.value = id || '';
+          if (hiddenInput) {
+            hiddenInput.value = id || '';
+            hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+          }
           dropdown.style.display = 'none';
         });
         dropdown.appendChild(el);
@@ -986,7 +989,10 @@
           var id = el.getAttribute('data-id');
           var name = el.getAttribute('data-display-name') || '';
           textInput.value = name;
-          if (hiddenInput) hiddenInput.value = id || '';
+          if (hiddenInput) {
+            hiddenInput.value = id || '';
+            hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+          }
           dropdown.style.display = 'none';
         });
         dropdown.appendChild(el);

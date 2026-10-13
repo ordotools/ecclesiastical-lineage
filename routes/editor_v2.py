@@ -217,6 +217,17 @@ def _serialize_tag(tag):
     }
 
 
+@editor.route('/api/bishop-validity/<int:bishop_id>')
+@require_permission('edit_clergy')
+def api_bishop_validity(bishop_id):
+    """Bishop validity summary (all events) used to restrict validity dropdowns of orders he gives."""
+    from services.validation_cascade import _bishop_summary_at_date
+    bishop = Clergy.query.options(
+        joinedload(Clergy.ordinations), joinedload(Clergy.consecrations)
+    ).get_or_404(bishop_id)
+    return jsonify(_bishop_summary_at_date(bishop, (None, False)))
+
+
 @editor.route('/api/tags', methods=['GET'])
 @require_permission('edit_clergy')
 def api_tags_list():

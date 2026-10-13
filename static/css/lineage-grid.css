@@ -165,15 +165,21 @@ body ::-moz-selection {
 }
 
 .lineage-grid-card__photo {
-  width: 48px;
-  height: 48px;
+  --photo-size: 48px;
+  width: var(--photo-size);
+  height: var(--photo-size);
   flex-shrink: 0;
   border-radius: 50%;
   overflow: hidden;
   background-color: #dfe4ea;
   background-image: var(--sprite-url, none);
-  background-position: var(--sprite-x, 0) var(--sprite-y, 0);
-  background-size: var(--sprite-size, auto);
+  /* Sprite cells are scaled to --photo-size, so one whole face fills the circle at any size. */
+  background-position:
+    calc(var(--sprite-col, 0) * -1 * var(--photo-size))
+    calc(var(--sprite-row, 0) * -1 * var(--photo-size));
+  background-size:
+    calc(var(--sprite-cols, 1) * var(--photo-size))
+    calc(var(--sprite-rows, 1) * var(--photo-size));
   background-repeat: no-repeat;
 }
 
@@ -265,8 +271,7 @@ body ::-moz-selection {
 }
 
 .lineage-grid-card__photo--mono {
-  width: 32px;
-  height: 32px;
+  --photo-size: 32px;
   display: grid;
   place-items: center;
   font-size: 0.72rem;

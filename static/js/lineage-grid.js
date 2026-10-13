@@ -1014,10 +1014,13 @@ function applySpritePhoto(photoEl, nodeId, spriteSheetData) {
   const sw = spriteSheetData.sprite_width;
   const sh = spriteSheetData.sprite_height;
   if (!sw || !sh) return;
+  // In cell units, so CSS scales the sheet to whatever size the photo circle is.
+  const cell = spriteSheetData.thumbnail_size || 48;
   photoEl.style.setProperty('--sprite-url', `url(${JSON.stringify(spriteSheetData.url)})`);
-  photoEl.style.setProperty('--sprite-x', `${-pos[0]}px`);
-  photoEl.style.setProperty('--sprite-y', `${-pos[1]}px`);
-  photoEl.style.setProperty('--sprite-size', `${sw}px ${sh}px`);
+  photoEl.style.setProperty('--sprite-col', String(pos[0] / cell));
+  photoEl.style.setProperty('--sprite-row', String(pos[1] / cell));
+  photoEl.style.setProperty('--sprite-cols', String(sw / cell));
+  photoEl.style.setProperty('--sprite-rows', String(sh / cell));
 }
 
 function applySpritesToCards(cardsLayer, spriteSheetData) {

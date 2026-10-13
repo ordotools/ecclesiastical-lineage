@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block extra_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=25">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=26">
 {% endblock %}
 
 {% block full_content %}
@@ -65,5 +65,5 @@
     window.canEdit = {{ 'true' if can_edit else 'false' }};
 </script>
 <script src="{{ url_for('static', filename='js/sprite-sheet-cache.js') }}"></script>
-<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=31"></script>
+<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=32"></script>
 {% endblock %}

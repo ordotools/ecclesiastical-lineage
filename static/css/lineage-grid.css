@@ -23,6 +23,7 @@ body ::-moz-selection {
   --grid-ordination: #c8d4dc;
   position: relative;
   min-height: 100vh;
+  min-height: 100dvh; /* mobile: excludes the browser's address bar */
   background: var(--grid-surface);
   color: var(--grid-text);
   display: flex;
@@ -102,6 +103,14 @@ body ::-moz-selection {
   top: 0;
   left: 0;
   transform-origin: 0 0;
+}
+
+.lineage-grid-stage.is-animating {
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lineage-grid-stage.is-animating { transition: none; }
 }
 
 .lineage-grid-svg {
@@ -417,9 +426,86 @@ body ::-moz-selection {
 }
 
 @media (max-width: 640px) {
+  .lineage-grid-toolbar {
+    flex-wrap: wrap;
+  }
+
   .lineage-grid-toolbar h1 {
     font-size: 0.9rem;
   }
+
+  .lineage-grid-toolbar-actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* Clergy search (Cmd/Ctrl+F): results are clones of the grid cards */
+.lineage-grid-search {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 8vh 16px 16px;
+  background: rgba(10, 10, 10, 0.55);
+}
+
+.lineage-grid-search__box {
+  width: 100%;
+  max-width: 640px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #232323;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.lineage-grid-search__input {
+  font: inherit;
+  font-size: 1rem;
+  padding: 14px 16px;
+  color: var(--grid-text);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+.lineage-grid-search__status {
+  margin: 0;
+  padding: 0 16px;
+  font-size: 0.85rem;
+  color: var(--grid-muted);
+}
+
+.lineage-grid-search__status:not(:empty) {
+  padding: 14px 16px;
+}
+
+.lineage-grid-search__results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--grid-card-w, 170px), 1fr));
+  gap: 10px;
+  padding: 12px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.lineage-grid-search__results:empty {
+  display: none;
+}
+
+.lineage-grid-search__results .lineage-grid-card {
+  height: var(--grid-card-h, 104px);
+  cursor: pointer;
+}
+
+.lineage-grid-search__results .lineage-grid-card.is-active {
+  box-shadow: 0 0 0 3px #f2c14e, 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 /* Focus overlay: enlarged card + mini-cards for every order received */

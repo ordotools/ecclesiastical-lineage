@@ -1400,27 +1400,38 @@ function computeStageSize(positions, layout, metrics) {
   return { width: maxX + metrics.PAD, height: maxY + metrics.PAD };
 }
 
+/** Pointer events, so mouse and touch share one path: one pointer pans, two pinch-zoom. */
 function initPanZoom(viewport, stage) {
   let scale = 1;
   let translateX = 0;
   let translateY = 0;
-  let dragging = false;
-  let lastX = 0;
-  let lastY = 0;
+  const pointers = new Map(); // pointerId -> { x, y } in viewport coords
+  let gesture = null; // view + pointer midpoint/spread when the current pan or pinch began
 
+  const clampZoom = (s) => Math.min(2.5, Math.max(MIN_ZOOM, s));
   const apply = () => {
     stage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+  };
+  const local = (event) => {
+    const rect = viewport.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+  const startGesture = () => {
+    const [a, b = a] = pointers.values();
+    gesture = {
+      mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, dist: Math.hypot(a.x - b.x, a.y - b.y),
+      scale, translateX, translateY,
+    };
   };
 
   viewport.addEventListener(
     'wheel',
     (event) => {
       event.preventDefault();
+      stage.classList.remove('is-animating');
       const delta = event.deltaY > 0 ? 0.92 : 1.08;
-      const next = Math.min(2.5, Math.max(MIN_ZOOM, scale * delta));
-      const rect = viewport.getBoundingClientRect();
-      const px = event.clientX - rect.left;
-      const py = event.clientY - rect.top;
+      const next = clampZoom(scale * delta);
+      const { x: px, y: py } = local(event);
       translateX = px - ((px - translateX) * next) / scale;
       translateY = py - ((py - translateY) * next) / scale;
       scale = next;
@@ -1429,27 +1440,37 @@ function initPanZoom(viewport, stage) {
     { passive: false },
   );
 
-  viewport.addEventListener('mousedown', (event) => {
-    if (event.button !== 0) return;
-    dragging = true;
-    lastX = event.clientX;
-    lastY = event.clientY;
+  viewport.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || pointers.size >= 2) return;
+    stage.classList.remove('is-animating');
+    pointers.set(event.pointerId, local(event));
+    startGesture();
     viewport.classList.add('is-dragging');
   });
 
-  window.addEventListener('mousemove', (event) => {
-    if (!dragging) return;
-    translateX += event.clientX - lastX;
-    translateY += event.clientY - lastY;
-    lastX = event.clientX;
-    lastY = event.clientY;
+  window.addEventListener('pointermove', (event) => {
+    if (!pointers.has(event.pointerId)) return;
+    pointers.set(event.pointerId, local(event));
+    const [a, b = a] = pointers.values();
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    const next = pointers.size > 1 && gesture.dist
+      ? clampZoom((gesture.scale * Math.hypot(a.x - b.x, a.y - b.y)) / gesture.dist)
+      : gesture.scale;
+    // Keep the stage point that was under the starting midpoint under the current midpoint.
+    translateX = mx - ((gesture.mx - gesture.translateX) * next) / gesture.scale;
+    translateY = my - ((gesture.my - gesture.translateY) * next) / gesture.scale;
+    scale = next;
     apply();
   });
 
-  window.addEventListener('mouseup', () => {
-    dragging = false;
-    viewport.classList.remove('is-dragging');
-  });
+  const endPointer = (event) => {
+    if (!pointers.delete(event.pointerId)) return;
+    if (pointers.size) startGesture(); // pinch -> pan with the remaining finger, no jump
+    else viewport.classList.remove('is-dragging');
+  };
+  window.addEventListener('pointerup', endPointer);
+  window.addEventListener('pointercancel', endPointer);
 
   apply();
   return {
@@ -1462,8 +1483,10 @@ function initPanZoom(viewport, stage) {
       translateY = (viewport.clientHeight - h * scale) / 2;
       apply();
     },
-    /** Pan so stage point (x, y) sits in the middle of the viewport; zoom unchanged. */
-    centerOn(x, y) {
+    /** Glide so stage point (x, y) sits in the middle of the viewport, zooming in to at least minScale. */
+    centerOn(x, y, minScale = 0) {
+      stage.classList.add('is-animating');
+      scale = Math.max(scale, minScale);
       translateX = viewport.clientWidth / 2 - x * scale;
       translateY = viewport.clientHeight / 2 - y * scale;
       apply();
@@ -1599,16 +1622,17 @@ export async function initializeLineageGrid() {
   // Expand a group card on click (not at the end of a pan drag) or Enter/Space.
   let downX = 0;
   let downY = 0;
-  viewport.addEventListener('mousedown', (event) => { downX = event.clientX; downY = event.clientY; });
+  viewport.addEventListener('pointerdown', (event) => { downX = event.clientX; downY = event.clientY; });
   const expandGroup = (card) => {
     expandedGroups.add(card.dataset.groupId);
     draw();
   };
-  const openFocus = (id, { pan = false } = {}) => {
+  const openFocus = (id, { pan = false, minScale = 0 } = {}) => {
     closeFocus(stage);
     const focus = renderFocus(stage, id, nodeById, gridState.layout.positions || {}, activeMetricsFromLayout(gridState.layout));
-    if (focus && pan) panZoom.centerOn(focus.center.x, focus.center.y);
+    if (focus && pan) panZoom.centerOn(focus.center.x, focus.center.y, minScale);
   };
+  initSearch(() => gridState.cardsLayer, () => nodeById, (id) => openFocus(id, { pan: true, minScale: 0.6 }));
   viewport.addEventListener('click', (event) => {
     if (Math.hypot(event.clientX - downX, event.clientY - downY) >= 5) return; // end of a pan drag
     const group = event.target.closest('[data-group-id]');
@@ -1647,6 +1671,128 @@ export async function initializeLineageGrid() {
     event.preventDefault();
     if (card) expandGroup(card);
     else openFocus(Number(ghost.dataset.focusTarget), { pan: true });
+  });
+}
+
+/**
+ * Cmd/Ctrl+F or Cmd/Ctrl+K clergy search: editor v2's fuzzy search over the clergy on the chart,
+ * results shown as clones of the grid's own cards. Arrow keys: down enters the results grid, then
+ * arrows move by card; up from the top row returns to the text field (left/right edit text there).
+ */
+function initSearch(getCardsLayer, getNodeById, onSelect) {
+  const overlay = document.getElementById('lineage-grid-search');
+  const input = document.getElementById('lineage-grid-search-input');
+  const list = document.getElementById('lineage-grid-search-results');
+  const status = document.getElementById('lineage-grid-search-status');
+  if (!overlay || !input || !list) return;
+  let index = null; // rebuilt when a redraw replaces the cards layer
+  let results = [];
+  let active = -1;
+
+  const ensureIndex = async () => {
+    const layer = getCardsLayer();
+    if (index?.layer === layer) return index;
+    const { createClergyFuseIndex, searchClergy } = await import('/static/js/fuzzySearchV2.js');
+    const byId = getNodeById();
+    const shown = [...layer.querySelectorAll('.lineage-grid-card[data-clergy-id]')]
+      .map((card) => byId.get(Number(card.dataset.clergyId)))
+      .filter(Boolean);
+    index = { layer, fuse: createClergyFuseIndex(shown).fuse, searchClergy };
+    return index;
+  };
+
+  const setActive = (i) => {
+    active = i;
+    [...list.children].forEach((card, j) => {
+      card.classList.toggle('is-active', j === i);
+      card.setAttribute('aria-selected', String(j === i));
+    });
+    const card = list.children[i];
+    if (card) {
+      input.setAttribute('aria-activedescendant', card.id);
+      card.scrollIntoView({ block: 'nearest' });
+    } else {
+      input.removeAttribute('aria-activedescendant');
+    }
+  };
+
+  const render = async () => {
+    const query = input.value;
+    const { layer, fuse, searchClergy } = await ensureIndex();
+    if (query !== input.value) return; // a newer keystroke already rendered
+    results = searchClergy(fuse, query, 30);
+    list.replaceChildren(...results.map((item) => {
+      const card = layer.querySelector(`.lineage-grid-card[data-clergy-id="${item.id}"]`).cloneNode(true);
+      card.style.gridArea = '';
+      card.id = `lineage-grid-search-${item.id}`;
+      card.setAttribute('role', 'option');
+      return card;
+    }));
+    status.textContent = results.length ? ''
+      : query.trim() ? `No clergy on the chart match “${query.trim()}”.` : 'Type a name, rank or organization.';
+    setActive(-1);
+  };
+
+  const open = () => {
+    overlay.hidden = false;
+    input.focus();
+    input.select();
+    render();
+  };
+  const close = () => {
+    overlay.hidden = true;
+    input.blur();
+  };
+  const choose = (i) => {
+    const item = results[i];
+    if (!item) return;
+    close();
+    onSelect(item.id);
+  };
+
+  input.addEventListener('input', render);
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation(); // don't also close the focus overlay / editor panel
+      return close();
+    }
+    const n = results.length;
+    if (!n) return;
+    const cols = getComputedStyle(list).gridTemplateColumns.split(' ').length;
+    const move = {
+      ArrowDown: active < 0 ? 0 : Math.min(n - 1, active + cols),
+      ArrowUp: active - cols < 0 ? -1 : active - cols,
+      ArrowRight: Math.min(n - 1, active + 1),
+      ArrowLeft: Math.max(0, active - 1),
+    }[event.key];
+    if (move !== undefined && (active >= 0 || event.key === 'ArrowDown')) {
+      event.preventDefault();
+      setActive(move);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      choose(Math.max(active, 0));
+    }
+  });
+  // Mouse and keys share one highlight.
+  list.addEventListener('pointermove', (event) => {
+    const card = event.target.closest('[role="option"]');
+    const i = [...list.children].indexOf(card);
+    if (card && i !== active) setActive(i);
+  });
+  list.addEventListener('click', (event) => {
+    const card = event.target.closest('[role="option"]');
+    if (card) choose([...list.children].indexOf(card));
+  });
+  overlay.addEventListener('pointerdown', (event) => {
+    if (event.target === overlay) close();
+  });
+  document.getElementById('lineage-grid-search-open')?.addEventListener('click', open);
+  document.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && (event.key === 'f' || event.key === 'k')) {
+      event.preventDefault();
+      open();
+    }
   });
 }
 

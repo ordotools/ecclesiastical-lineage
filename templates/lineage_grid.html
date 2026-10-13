@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block extra_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=24">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=25">
 {% endblock %}
 
 {% block full_content %}
@@ -9,6 +9,7 @@
     <header class="lineage-grid-toolbar">
         <h1>Episcopal Lineage</h1>
         <div class="lineage-grid-toolbar-actions">
+            <button type="button" id="lineage-grid-search-open" class="lineage-grid-btn" aria-keyshortcuts="Meta+K Control+K">Search</button>
             <label class="lineage-grid-toggle">
                 <input type="checkbox" id="lineage-grid-show-priests" {% if show_priests %}checked{% endif %}>
                 Show priests
@@ -44,6 +45,13 @@
         </aside>
         {% endif %}
     </div>
+    <div id="lineage-grid-search" class="lineage-grid-search" hidden>
+        <div class="lineage-grid-search__box" role="dialog" aria-label="Search clergy">
+            <input id="lineage-grid-search-input" class="lineage-grid-search__input" type="search" placeholder="Search clergy by name, rank or organization" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="lineage-grid-search-results">
+            <p id="lineage-grid-search-status" class="lineage-grid-search__status" aria-live="polite"></p>
+            <div id="lineage-grid-search-results" class="lineage-grid-search__results" role="listbox"></div>
+        </div>
+    </div>
     <details id="lineage-grid-legend" class="lineage-grid-legend" hidden></details>
     {% endif %}
 </div>
@@ -57,5 +65,5 @@
     window.canEdit = {{ 'true' if can_edit else 'false' }};
 </script>
 <script src="{{ url_for('static', filename='js/sprite-sheet-cache.js') }}"></script>
-<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=30"></script>
+<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=31"></script>
 {% endblock %}

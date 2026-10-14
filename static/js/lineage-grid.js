@@ -159,13 +159,12 @@ function incomingSuccessionType(node) {
   return isBishopNode(node) ? 'consecration' : 'ordination';
 }
 
-function comparePrimarySuccession(a, b) {
-  const rankDiff = linkValidityRank(b) - linkValidityRank(a);
-  if (rankDiff !== 0) return rankDiff;
-  const ka = eventSortKey(a);
-  const kb = eventSortKey(b);
-  if (ka[0] !== kb[0]) return ka[0] ? -1 : 1;
-  return kb[1] - ka[1];
+/**
+ * Placement rule: most valid order wins; among equally valid ones the earliest (undated last).
+ * A later, less valid order never displaces an earlier, more valid one.
+ */
+export function comparePrimarySuccession(a, b) {
+  return linkValidityRank(b) - linkValidityRank(a) || compareEventSort(a, b);
 }
 
 function selectPrimarySuccessionLinks(links, nodeById) {
@@ -472,18 +471,20 @@ function groupLeafSiblings(children, nodeById, expanded) {
 }
 
 /**
- * Ghost cards: every consecration / co-consecration that is not a target's primary line becomes a
- * leaf `ghost:<source>:<target>` in the consecrator's bus, in date order, pointing to the real card.
- * MatrixBuilder places ghosts like any child, so the grid stays collision-free.
+ * Ghost cards: every consecration / co-consecration (and, with `ordinations`, ordination) that is not
+ * a target's primary line becomes a leaf `ghost:<source>:<target>` (`…:o` for ordinations) in the
+ * giver's bus, in date order, pointing to the real card. Pairs already joined by the primary line get
+ * no ghost (the real stub shows every relation). MatrixBuilder places ghosts like any child.
  */
-function addGhostChildren(children, links, layoutEdges, layoutNodeIds) {
+function addGhostChildren(children, links, layoutEdges, layoutNodeIds, ordinations = false) {
   const primary = new Set(layoutEdges.map(([s, t]) => `${s}:${t}`));
   const ghosts = {};
   links.forEach((link) => {
-    if (link.type !== 'consecration' && link.type !== 'co-consecration') return;
+    if (link.type !== 'consecration' && link.type !== 'co-consecration' && !(ordinations && link.type === 'ordination')) return;
     const { source, target } = linkEndpoints(link);
     if (!layoutNodeIds.has(source) || !layoutNodeIds.has(target) || primary.has(`${source}:${target}`)) return;
-    const gid = `ghost:${source}:${target}`;
+    const gid = `ghost:${source}:${target}${link.type === 'ordination' ? ':o' : ''}`;
+    if (ghosts[gid] && link.type === 'ordination' && compareEventSort(ghosts[gid].link, link) <= 0) return; // earliest ordination
     if (ghosts[gid] && ghosts[gid].link.type === 'consecration') return; // consecrator outranks co-consecrator
     ghosts[gid] = { source, target, link };
   });
@@ -531,6 +532,7 @@ function computeBounds(positions) {
 export function computeLineageGridLayout(nodes, links, options = {}) {
   const {
     showPriests = false, groupSiblings = false, expandedGroups = new Set(), ghostCards = false,
+    ordinationGhosts = false,
   } = options;
   const {
     layoutNodeIds, children, layoutEdges, firstClergyIds, directCount, totalDescendants, seeds,
@@ -540,7 +542,7 @@ export function computeLineageGridLayout(nodes, links, options = {}) {
   let groups = {};
   let ghosts = {};
   // Before grouping: a consecrator with ghosts is no longer a leaf, so it never folds into a group.
-  if (ghostCards) ({ children: treeChildren, ghosts } = addGhostChildren(treeChildren, links, layoutEdges, layoutNodeIds));
+  if (ghostCards) ({ children: treeChildren, ghosts } = addGhostChildren(treeChildren, links, layoutEdges, layoutNodeIds, ordinationGhosts));
   if (groupSiblings) {
     const nodeById = new Map(nodes.map((n) => [n.id, n]));
     ({ children: treeChildren, groups } = groupLeafSiblings(treeChildren, nodeById, expandedGroups));
@@ -890,7 +892,9 @@ function renderExperimentalCard(card, node, ctx) {
     body.appendChild(chips);
   }
 
-  card.append(el('span', 'lineage-grid-card__year', eventYear(node)), body);
+  // Year of the order the card is placed at, so the year always matches the card's spot on its bus.
+  const placedYear = String(ctx.primaryByTarget.get(node.id)?.event_sort_key ?? '').slice(0, 4);
+  card.append(el('span', 'lineage-grid-card__year', placedYear || eventYear(node)), body);
   appendSeal(card, nodeValidityMarks(node, ctx.primaryByTarget.get(node.id)));
 }
 
@@ -1034,7 +1038,7 @@ function applySpritesToCards(cardsLayer, spriteSheetData) {
 /** Dashed reference card in a consecrator's bus; clicking it pans to the real card (data-focus-target). */
 function renderGhostCard(gid, ghost, pos, metrics, nodeById) {
   const target = nodeById.get(ghost.target) || {};
-  const verb = ghost.link.type === 'co-consecration' ? 'Co-consecrated' : 'Consecrated';
+  const verb = { 'co-consecration': 'Co-consecrated', ordination: 'Ordained' }[ghost.link.type] || 'Consecrated';
   const year = String(ghost.link.event_sort_key ?? '').slice(0, 4);
   const card = el('article', 'lineage-grid-card lineage-grid-card--ghost');
   card.dataset.ghostId = gid;
@@ -1287,7 +1291,7 @@ export function focusLayout(orders, cardRect, f = FOCUS) {
   );
   const entries = [];
   sorted.forEach((order) => {
-    entries.push({ order, bishop: order.bishop, isCo: false, link: { ...order, type: order.kind } });
+    entries.push({ order, bishop: order.bishop, isCo: false, link: { ...order, type: order.kind, event_sort_key: order.sort_key } });
     (order.co || []).forEach((co) => {
       entries.push({ order, bishop: co, isCo: true, link: { ...order, type: 'co-consecration' } });
     });
@@ -1315,7 +1319,24 @@ function orderLabel(entry) {
   return entry.order.is_sub_conditione ? `${base} · s.c.` : base;
 }
 
-function renderFocus(stage, nodeId, nodeById, positions, metrics) {
+/**
+ * The focus mini-card the card is placed on (layout parent's order of the incoming type, best by the
+ * placement rule) and a one-line reason, so "why is this card here?" is answered in the overlay.
+ */
+function placedItem(items, node, placedSource) {
+  const candidates = items
+    .filter((i) => !i.isCo && i.order.kind === incomingSuccessionType(node) && i.bishop?.id != null)
+    .sort((a, b) => comparePrimarySuccession(a.link, b.link));
+  const placed = candidates.find((i) => i.bishop.id === placedSource);
+  if (!placed) return {};
+  const tied = candidates.filter((i) => i !== placed && linkValidityRank(i.link) === linkValidityRank(placed.link));
+  const reason = candidates.length === 1 ? 'its only recorded order of this kind'
+    : tied.length ? `the earliest of ${tied.length + 1} equally valid orders`
+      : `the most valid of ${candidates.length} orders`;
+  return { placed, reason: `Card placed on this order: ${reason}.` };
+}
+
+function renderFocus(stage, nodeId, nodeById, positions, metrics, placedSource = null) {
   const node = nodeById.get(nodeId);
   const pos = positions[nodeId];
   const card = stage.querySelector(`.lineage-grid-card[data-clergy-id="${nodeId}"]`);
@@ -1323,6 +1344,7 @@ function renderFocus(stage, nodeId, nodeById, positions, metrics) {
 
   const cardRect = { x: positionX(pos, metrics), y: positionY(pos, metrics), w: metrics.CARD_W, h: metrics.CARD_H };
   const { big, items } = focusLayout(node.orders, cardRect);
+  const { placed, reason } = placedItem(items, node, placedSource);
 
   const layer = el('div', 'lineage-grid-focus');
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -1343,7 +1365,7 @@ function renderFocus(stage, nodeId, nodeById, positions, metrics) {
 
     const bishopId = item.bishop?.id;
     const reachable = bishopId != null && positions[bishopId];
-    const mini = el(reachable ? 'button' : 'div', `lineage-grid-focus__mini${item.isCo ? ' is-co' : ''}`);
+    const mini = el(reachable ? 'button' : 'div', `lineage-grid-focus__mini${item.isCo ? ' is-co' : ''}${item === placed ? ' is-placed' : ''}`);
     if (reachable) {
       mini.type = 'button';
       mini.dataset.focusTarget = String(bishopId);
@@ -1360,6 +1382,7 @@ function renderFocus(stage, nodeId, nodeById, positions, metrics) {
       o.is_inherited && 'Inherited',
       o.is_other && 'Other',
       !reachable && (bishopId != null ? 'Not shown on chart' : null),
+      item === placed && reason,
     ].filter(Boolean).join(' — ');
     mini.append(
       el('span', 'lineage-grid-focus__label', `${orderLabel(item)}${item.isCo ? '' : ` · ${(o.date || '').slice(0, 4) || '?'}`}`),
@@ -1367,6 +1390,7 @@ function renderFocus(stage, nodeId, nodeById, positions, metrics) {
     );
     const kind = linkValidityKind(o);
     if (kind) appendSeal(mini, [{ label: linkValidityText(o), kind }]);
+    if (item === placed) mini.appendChild(el('span', 'lineage-grid-focus__placed', 'Placed here'));
     layer.appendChild(mini);
   });
 
@@ -1518,7 +1542,7 @@ function renderGrid(stage, nodes, links, { showPriests, experimental, expandedGr
   stage.replaceChildren();
 
   const layout = computeLineageGridLayout(nodes, links, {
-    showPriests, expandedGroups, ghostCards: true,
+    showPriests, expandedGroups, ghostCards: true, ordinationGhosts: true,
   });
   const ctx = experimental ? buildExperimentalContext(nodes, links) : null;
   const positions = layout.positions || {};
@@ -1632,7 +1656,8 @@ export async function initializeLineageGrid() {
   };
   const openFocus = (id, { pan = false, minScale = 0 } = {}) => {
     closeFocus(stage);
-    const focus = renderFocus(stage, id, nodeById, gridState.layout.positions || {}, activeMetricsFromLayout(gridState.layout));
+    const placedSource = gridState.layout.primary_edges?.find((e) => e.target === id)?.source ?? null;
+    const focus = renderFocus(stage, id, nodeById, gridState.layout.positions || {}, activeMetricsFromLayout(gridState.layout), placedSource);
     if (focus && pan) panZoom.centerOn(focus.center.x, focus.center.y, minScale);
   };
   initSearch(() => gridState.cardsLayer, () => nodeById, (id) => openFocus(id, { pan: true, minScale: 0.6 }));

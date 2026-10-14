@@ -23,14 +23,14 @@ Grid-based apostolic succession view. Layout, routing, and render run entirely i
 | **Orphan bishop coverage** | Bishops / `consecrations_count > 0` stay on chart |
 | **Descendant ranking** | `direct_count`, `total_descendants`; largest trees first |
 | **Timeline buses** | Grey horizontal trunk; children alternate above/below |
-| **Succession forest** | One primary incoming edge per clergy; best validity then latest date |
+| **Succession forest** | One primary incoming edge per clergy; most valid, then earliest date (a later, less valid order never displaces an earlier one) |
 | **Bus-only succession lines** | Ordination/consecration stubs from buses only |
 | **Chronological branch order** | Direct children sorted by `event_sort_key`; origins advance LTR |
 | **Multi-relation stubs** | Separate offset arrows for ordination + consecration on same pair |
 | **Vertical stub routing** | Pure vertical segments to real card edge |
 | **Shared metrics** | [`static/config/grid-metrics.json`](../static/config/grid-metrics.json) |
 | **In-place priest toggle** | Re-layout without full page reload |
-| **Ghost cards** | Each non-primary consecration / co-consecration → dashed `ghost:<src>:<tgt>` leaf in the consecrator's bus (date order); click pans to the real card and opens its focus overlay |
+| **Ghost cards** | Each non-primary consecration / co-consecration / ordination → dashed `ghost:<src>:<tgt>` (`…:o` for ordinations) leaf in the giver's bus (date order); click pans to the real card and opens its focus overlay |
 | **Tests** | 36 layout (incl. random-forest invariants + 5k timing) + 8 router tests |
 
 ### Intentionally not done (yet)
@@ -99,7 +99,7 @@ static/css/lineage-grid.css
 Entry: `computeLineageGridLayout(nodes, links, { showPriests })`.
 
 1. **Layout nodes** — bishops / consecration participants; all visible nodes if `showPriests`.
-2. **Forest** — one incoming succession link per target (bishop → consecration, priest → ordination); best validity then latest `event_sort_key`; co-consecration excluded; cycles broken by removing newest edge on each cycle. Children sorted by `event_sort_key`.
+2. **Forest** — one incoming succession link per target (bishop → consecration, priest → ordination); most valid, then earliest `event_sort_key` (undated last); co-consecration excluded; cycles broken by removing newest edge on each cycle. Children sorted by `event_sort_key`.
 3. **First clergy** — layout nodes with no layout parent; lineages sorted by `total_descendants` (largest first). `buildSuccessionTrees()` returns this forest as nested `{ id, children }` trees.
 4. **Grid** — `MatrixBuilder` (`static/js/matrix-builder.js`) places each card in a cell:
    - A card spans `CARD_ROWS` rows in one column; its bus trunk runs along the card's middle row.

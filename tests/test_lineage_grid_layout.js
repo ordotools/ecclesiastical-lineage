@@ -866,6 +866,42 @@ function testGhostCardsForNonPrimaryConsecrators() {
 }
 
 tests.push(['testGhostCardsForNonPrimaryConsecrators', testGhostCardsForNonPrimaryConsecrators]);
+tests.push(['testPlacementMostValidThenEarliest', testPlacementMostValidThenEarliest]);
+tests.push(['testOrdinationGhosts', testOrdinationGhosts]);
+
+function testPlacementMostValidThenEarliest() {
+  const nodes = [1, 2, 3, 4].map((id) => ({ id, name: `B${id}`, is_bishop: true }));
+  const parentOf = (links) => computeLineageGridLayout(nodes, links).primary_edges.find((e) => e.target === 4)?.source;
+  // Valid 1990 beats a later invalid one: a later invalid order never undoes an earlier valid one.
+  assert.equal(parentOf([
+    { source: 1, target: 4, type: 'consecration', event_sort_key: 19900000 },
+    { source: 2, target: 4, type: 'consecration', event_sort_key: 20000000, is_invalid: true },
+  ]), 1);
+  // A later, more valid order wins over an earlier doubtful one.
+  assert.equal(parentOf([
+    { source: 1, target: 4, type: 'consecration', event_sort_key: 19900000, is_doubtfully_valid: true },
+    { source: 2, target: 4, type: 'consecration', event_sort_key: 20000000, is_sub_conditione: true },
+  ]), 2);
+  // Equally invalid: earliest; undated loses to dated.
+  assert.equal(parentOf([
+    { source: 3, target: 4, type: 'consecration', event_sort_key: null, is_invalid: true },
+    { source: 2, target: 4, type: 'consecration', event_sort_key: 20000000, is_invalid: true },
+    { source: 1, target: 4, type: 'consecration', event_sort_key: 19900000, is_invalid: true },
+  ]), 1);
+}
+
+function testOrdinationGhosts() {
+  const nodes = [1, 2, 3].map((id) => ({ id, name: `B${id}`, is_bishop: true }));
+  const links = [
+    { source: 1, target: 3, type: 'ordination', event_sort_key: 19700000 },
+    { source: 2, target: 3, type: 'consecration', event_sort_key: 19800000 },
+    { source: 2, target: 3, type: 'ordination', event_sort_key: 19650000 }, // same pair as the primary line: no ghost
+  ];
+  assert.deepEqual(Object.keys(computeLineageGridLayout(nodes, links, { ghostCards: true }).ghosts), [], 'off by default');
+  const layout = computeLineageGridLayout(nodes, links, { ghostCards: true, ordinationGhosts: true });
+  assert.deepEqual(Object.keys(layout.ghosts), ['ghost:1:3:o']);
+  assert.ok(layout.positions['ghost:1:3:o'], 'ordination ghost placed in the ordaining bishop bus');
+}
 
 let failures = 0;
 tests.forEach(([name, fn]) => {

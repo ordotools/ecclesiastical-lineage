@@ -590,6 +590,38 @@ div.lineage-grid-focus__mini {
   text-overflow: ellipsis;
 }
 
+.lineage-grid-focus__mini.is-placed {
+  box-shadow: 0 0 0 2px #f5f3ed, 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+/* Tag in the empty space left of the placement order; the label line is too narrow to hold it. */
+.lineage-grid-focus__placed {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f5f3ed;
+  color: #1b2631;
+  font-size: 0.6rem;
+  font-weight: 700;
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.lineage-grid-focus__placed::after {
+  content: '';
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-left-color: #f5f3ed;
+}
+
 .lineage-grid-focus__name {
   font-size: 0.75rem;
   font-weight: 600;

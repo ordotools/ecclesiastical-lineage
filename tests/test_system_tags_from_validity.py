@@ -158,8 +158,27 @@ def test_doubtful_ord_invalid_cons_keeps_invalid_bishop_only():
     assert _names(c) == {'doubtful_priest', 'invalid_bishop'}, _names(c)
 
 
+def _bishop_worst(clergy):
+    from services.validation_cascade import _bishop_summary_at_date, _get_bishop_worst_status
+    return _get_bishop_worst_status(_bishop_summary_at_date(clergy, (None, False)))
+
+
+def test_bishop_doubtful_cons_no_ord_record():
+    """Doubtful cons with no ordination recorded → doubtfully_valid (empty side is not 'invalid')."""
+    c = _clergy(consecrations=[_cons(date(1950, 1, 1), doubtful=True)])
+    assert _bishop_worst(c) == 'doubtfully_valid', _bishop_worst(c)
+
+
+def test_bishop_doubtful_ord_no_cons_record():
+    """Doubtful ord with no consecration recorded → doubtfully_valid."""
+    c = _clergy(ordinations=[_ord(date(1940, 1, 1), doubtful=True)])
+    assert _bishop_worst(c) == 'doubtfully_valid', _bishop_worst(c)
+
+
 def main():
     tests = [
+        test_bishop_doubtful_cons_no_ord_record,
+        test_bishop_doubtful_ord_no_cons_record,
         test_invalid_then_valid_ord,
         test_valid_then_invalid_ord,
         test_doubtful_then_valid_ord,

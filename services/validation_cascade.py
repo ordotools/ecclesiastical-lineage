@@ -37,14 +37,23 @@ _SYSTEM_TAG_SPECS = {
 _SYSTEM_TAG_CACHE = {}
 
 
-def _get_effective_status(record):
-    """Effective status from record (Table A)."""
-    if record is None:
-        return 'valid'
+def _record_validity(record):
+    """Dropdown validity stored on the record: 'invalid' | 'doubtfully_valid' | 'valid'."""
     if getattr(record, 'is_invalid', False):
         return 'invalid'
     if getattr(record, 'is_doubtfully_valid', False):
         return 'doubtfully_valid'
+    return 'valid'
+
+
+def _get_effective_status(record, validity=None):
+    """Effective status from record (Table A). validity overrides the stored dropdown value."""
+    if record is None:
+        return 'valid'
+    if validity is None:
+        validity = _record_validity(record)
+    if validity != 'valid':
+        return validity
     if getattr(record, 'is_doubtful_event', False):
         return 'doubtful_event'
     if getattr(record, 'is_sub_conditione', False):
@@ -53,14 +62,14 @@ def _get_effective_status(record):
 
 
 def _get_worst_status(statuses):
-    """Worst status by Table A priority."""
+    """Worst status by Table A priority. No events = nothing to downgrade ('valid')."""
     if not statuses:
-        return 'invalid'
+        return 'valid'
     worst = None
     for s in statuses:
         if worst is None or STATUS_PRIORITY.get(s, 0) > STATUS_PRIORITY.get(worst, 0):
             worst = s
-    return worst or 'invalid'
+    return worst
 
 
 def _event_sort_key(record):
@@ -91,42 +100,80 @@ def _strictly_before(sort_key, event_date_key):
     return t < t_evt
 
 
-def _bishop_summary_at_date(bishop, event_date_key):
+def event_date_key(d=None, year=None):
+    """Date key for an order being given. No date/year (incl. details unknown) = unknown,
+    so every event of the giving bishop counts as before it. Year only = end of that year,
+    so the bishop's own orders earlier in the same year count as before it."""
+    if d:
+        return (d, True)
+    if year is not None:
+        try:
+            return (date(int(year), 12, 31), True)
+        except (TypeError, ValueError):
+            pass
+    return (None, False)
+
+
+def _received_before(record, event_key):
+    """Bishop's own event counts if strictly before event_key. Undated events are presumed
+    earlier (reliable-data presumption, same as details unknown)."""
+    key = _event_sort_key(record)
+    return not key[1] or _strictly_before(key, event_key)
+
+
+def _not_after(earlier, later):
+    """Rule 1a order check between two sort keys; unknown dates presume ordination first."""
+    if not earlier[1] or not later[1]:
+        return True
+    return earlier[0] <= later[0]
+
+
+def _bishop_summary_at_date(bishop, event_date_key, overrides=None):
     """
     Bishop validity summary considering only ordinations/consecrations before the event date.
+    overrides: {('ordination'|'consecration', id): validity} pending cascade changes not yet saved.
     Returns has_valid_ordination, has_valid_consecration, worst_ordination_status, worst_consecration_status.
+
+    Presumptions: a clergy with no orders recorded at all (a lineage root entered without
+    his own orders) is presumed a valid bishop; a bishop with consecration(s) but no
+    ordination recorded is presumed validly ordained. Otherwise a valid consecration needs
+    a valid ordination not after it (Rule 1a).
     """
-    ordination_statuses = [
-        _get_effective_status(o) for o in (bishop.ordinations or [])
-        if _strictly_before(_event_sort_key(o), event_date_key)
+    def status(kind, rec):
+        return _get_effective_status(rec, overrides.get((kind, rec.id)) if overrides else None)
+
+    all_ords = bishop.ordinations or []
+    all_cons = bishop.consecrations or []
+    ords = [(o, status('ordination', o)) for o in all_ords if _received_before(o, event_date_key)]
+    cons = [(c, status('consecration', c)) for c in all_cons if _received_before(c, event_date_key)]
+    no_records = not all_ords and not all_cons
+
+    valid_ord_keys = [
+        _event_sort_key(o) for o, st in ords if st in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS
     ]
-    consecration_statuses = [
-        _get_effective_status(c) for c in (bishop.consecrations or [])
-        if _strictly_before(_event_sort_key(c), event_date_key)
-    ]
-    has_valid_ordination = (
-        not ordination_statuses
-        or any(s in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS for s in ordination_statuses)
-    )
-    has_valid_consecration = (
-        not consecration_statuses
-        or any(s in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS for s in consecration_statuses)
+    has_valid_ordination = not all_ords or bool(valid_ord_keys)
+    has_valid_consecration = no_records or any(
+        st in EFFECTIVE_STATUS_VALID_FOR_GIVING_ORDERS
+        and (not all_ords or any(_not_after(k, _event_sort_key(c)) for k in valid_ord_keys))
+        for c, st in cons
     )
     return {
         'has_valid_ordination': has_valid_ordination,
         'has_valid_consecration': has_valid_consecration,
-        'worst_ordination_status': _get_worst_status(ordination_statuses),
-        'worst_consecration_status': _get_worst_status(consecration_statuses),
+        'worst_ordination_status': _get_worst_status([st for _, st in ords]),
+        'worst_consecration_status': _get_worst_status([st for _, st in cons]),
     }
 
 
 def _map_worst_to_new_validity(worst_status):
-    """Table C: presumed validity for orders given when bishop is invalid (Rule 6/8)."""
-    if worst_status == 'invalid':
-        return 'invalid'
+    """
+    Table C: presumed validity for orders given when bishop is invalid (Rule 6/8).
+    Only called when the bishop lacks a valid ordination + consecration; if nothing
+    recorded is doubtful (e.g. never consecrated, or consecrated before ordination) → invalid.
+    """
     if worst_status in ('doubtfully_valid', 'doubtful_event'):
         return 'doubtfully_valid'
-    return 'valid'
+    return 'invalid'
 
 
 def _get_bishop_worst_status(summary):
@@ -333,14 +380,66 @@ def _descendant_clergy_ids(root_clergy_id):
     return seen
 
 
+def _cascaded_validity(summary, current, inherited):
+    """
+    New validity for an order given by a bishop with this summary (Rule 6/8).
+    Inherited records follow the bishop (so they can be cleared when the bishop
+    becomes valid); explicitly set records keep their own status unless the bishop
+    caps them lower. Orders are never better than the giver.
+    """
+    if summary['has_valid_ordination'] and summary['has_valid_consecration']:
+        cap = 'valid'
+    else:
+        cap = _map_worst_to_new_validity(_get_bishop_worst_status(summary))
+    if inherited:
+        return cap
+    return _get_worst_status([current, cap])
+
+
+def _propagate_validity(events, bishops):
+    """
+    events: [(kind, record, bishop_id)] for descendant ordinations/consecrations.
+    bishops: {id: Clergy} with ordinations/consecrations loaded.
+    Returns the change list for compute_cascade_impact.
+    """
+    # Pending validity per event. Repeat until stable so a change to a child's own
+    # orders reaches the grandchildren in the same save (Rule 6 across generations).
+    # Bounded by len(events) + 1 passes in case the data contains a lineage cycle.
+    overrides = {}
+    for _ in range(len(events) + 1):
+        changed = False
+        for kind, rec, bishop_id in events:
+            bishop = bishops.get(bishop_id)
+            if not bishop:
+                continue
+            key = (kind, rec.id)
+            current = overrides.get(key, _record_validity(rec))
+            inherited = rec.is_inherited if key not in overrides else current != 'valid'
+            new_validity = _cascaded_validity(
+                _bishop_summary_at_date(bishop, event_date_key(rec.date, rec.year), overrides),
+                current,
+                inherited,
+            )
+            if new_validity != current:
+                overrides[key] = new_validity
+                changed = True
+        if not changed:
+            break
+
+    return [
+        {'type': kind, 'id': rec.id, 'new_validity': overrides[(kind, rec.id)]}
+        for kind, rec, _ in events
+        if (kind, rec.id) in overrides and overrides[(kind, rec.id)] != _record_validity(rec)
+    ]
+
+
 def compute_cascade_impact(root_clergy_id):
     """
     Compute list of ordination/consecration records that should be updated when root's
     validity changes. BFS from root to all descendants; for each descendant event,
     compute bishop status at the event date and add a change with new_validity
-    per Rule 6/8 (Table C). When the bishop has both valid ordination and valid
-    consecration at the event date, descendants receive new_validity='valid' so
-    inherited invalidity can be cleared.
+    per Rule 6/8 (Table C), see _cascaded_validity. Changes are propagated through
+    all generations before returning; only records whose validity changes are listed.
 
     Returns list of dicts: [{ 'type': 'ordination'|'consecration', 'id': int, 'new_validity': str }].
     """
@@ -375,38 +474,10 @@ def compute_cascade_impact(root_clergy_id):
         ).filter(Clergy.id.in_(bishop_ids)).all():
             bishops[bishop.id] = bishop
 
-    changes = []
-    for rec in ordinations:
-        bishop_id = rec.ordaining_bishop_id
-        bishop = bishops.get(bishop_id) if bishop_id else None
-        if not bishop:
-            continue
-        event_date_key = _event_sort_key(rec)
-        summary = _bishop_summary_at_date(bishop, event_date_key)
-        if summary['has_valid_ordination'] and summary['has_valid_consecration']:
-            new_validity = 'valid'
-        else:
-            new_validity = _map_worst_to_new_validity(_get_bishop_worst_status(summary))
-        if new_validity not in VALID_VALIDITY_VALUES:
-            new_validity = 'doubtfully_valid'
-        changes.append({'type': 'ordination', 'id': rec.id, 'new_validity': new_validity})
+    events = [('ordination', rec, rec.ordaining_bishop_id) for rec in ordinations]
+    events += [('consecration', rec, rec.consecrator_id) for rec in consecrations]
 
-    for rec in consecrations:
-        bishop_id = rec.consecrator_id
-        bishop = bishops.get(bishop_id) if bishop_id else None
-        if not bishop:
-            continue
-        event_date_key = _event_sort_key(rec)
-        summary = _bishop_summary_at_date(bishop, event_date_key)
-        if summary['has_valid_ordination'] and summary['has_valid_consecration']:
-            new_validity = 'valid'
-        else:
-            new_validity = _map_worst_to_new_validity(_get_bishop_worst_status(summary))
-        if new_validity not in VALID_VALIDITY_VALUES:
-            new_validity = 'doubtfully_valid'
-        changes.append({'type': 'consecration', 'id': rec.id, 'new_validity': new_validity})
-
-    return changes
+    return _propagate_validity(events, bishops)
 
 
 def apply_cascade_changes(changes):
@@ -445,10 +516,8 @@ def apply_cascade_changes(changes):
         elif new_validity == 'invalid':
             record.is_invalid = True
             record.is_doubtfully_valid = False
-        if new_validity in ('invalid', 'doubtfully_valid'):
-            record.is_inherited = True
-        elif new_validity == 'valid':
-            record.is_inherited = False
+        # Any status the cascade sets came from the bishop, so it is inherited.
+        record.is_inherited = new_validity != 'valid'
         updated += 1
     if updated:
         db.session.commit()

@@ -1,6 +1,6 @@
 # Validity rules (canonical)
 
-Canonical reference for lineage/validity rules. Code should implement these rules; see `static/js/validity-rules.js` and `routes/editor.py`.
+Canonical reference for lineage/validity rules. Code should implement these rules; see `editor_v2/static/v2-scripts/validity-rules.js` and `services/validation_cascade.py`.
 
 ---
 
@@ -63,7 +63,20 @@ If at the time of giving orders the bishop has at least one valid ordination and
 
 ### Rule 8 – When bishop does not satisfy rule 7 (presumed validity)
 
-If the bishop does **not** have at least one valid ordination and one valid consecration at the time of giving orders, the presumed validity of the orders given is the "most valid" of the invalid options: **doubtfully_valid > doubtful_event > invalid**. So when restricting what validity an ordination/consecration can have when the bishop is invalid: allow only one value — invalid → [invalid]; doubtfully_valid or doubtful_event → [doubtfully_valid].
+If the bishop does **not** have at least one valid ordination and one valid consecration at the time of giving orders, the presumed validity of the orders given is the "most valid" of the invalid options: **doubtfully_valid > doubtful_event > invalid**. That presumed value is also the best value the orders can have: orders given can be no better than the giver, but may always be worse (e.g. a defect of form or intention in the act itself). So when restricting what validity an ordination/consecration can have when the bishop is invalid: invalid → [invalid]; doubtfully_valid or doubtful_event → [doubtfully_valid, invalid].
+
+A side with no recorded events (e.g. a bishop whose priestly ordination was never entered) does not count toward the bishop's worst status; only recorded events can downgrade it.
+
+### Descendant cascade ("update descendants")
+
+For each descendant ordination/consecration, the bishop's status at that date gives a **cap** (valid, or Rule 8's presumed value).
+
+| Record                                   | Result                                                     |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| `is_inherited` (status came from bishop) | Follows the cap, so it can be cleared when the bishop is restored |
+| Set explicitly (not inherited)           | Keeps its own status unless the cap is worse; never upgraded |
+
+Any status the cascade writes is marked `is_inherited` (cleared when it writes `valid`). Changes propagate through all generations in one save. Implementation: `services/validation_cascade._propagate_validity`.
 
 ---
 
@@ -81,7 +94,7 @@ When a record has `details_unknown=True` and no date/year for an ordination or c
 | 5   | **Fixed positions in orders history**                     | In a clergy member's orders history, a details-unknown ordination with no date/year is treated as the **first** record; a details-unknown consecration with no date/year is treated as the **second** record **when at least one ordination exists**, and always before any other consecration. |
 
 
-Implementation: backend (`services/validation_cascade.py`) and frontend (`static/js/editor-ranges-validity.js`) treat details-unknown with no date/year as earliest in sort order so ordination is considered before consecration and before any child event, and the orders history consistently places such an ordination in the first slot and such a consecration in the second slot (when an ordination exists) and before any other consecration.
+Implementation: backend (`services/validation_cascade.py`) and frontend (`editor_v2/static/v2-scripts/validity-rules.js`, `EditorRangesValidity`) treat details-unknown with no date/year as earliest in sort order so ordination is considered before consecration and before any child event, and the orders history consistently places such an ordination in the first slot and such a consecration in the second slot (when an ordination exists) and before any other consecration.
 
 ---
 
@@ -110,7 +123,17 @@ Implementation: backend (`services/validation_cascade.py`) and frontend (`static
 | Otherwise                                                                                                              | false            | false                |
 
 
-Current code: `canValidlyOrdain` = has valid ordination in range; `canValidlyConsecrate` = has valid ordination **and** valid consecration in range. Timeline is date-ordered so ordination-before-consecration is implicit. Confirm "prior" means strictly before the range.
+Backend (`_bishop_summary_at_date`) applies the same test at the date of the order given, with these presumptions:
+
+| Situation | Treated as |
+| --- | --- |
+| Clergy with no orders recorded at all (lineage root) | Valid bishop |
+| Consecration(s) recorded, no ordination recorded | Validly ordained before the consecration |
+| Ordination recorded, no consecration recorded | Not a bishop: orders given are invalid |
+| Bishop's own event with no date/year | Before the order given |
+| Order given with no date/year (incl. details unknown) | After all the bishop's own events |
+| Order given with year only | End of that year (bishop's events earlier that year count as before) |
+| Ordination and consecration with unknown/same dates | Ordination first (Rule 1a satisfied) |
 
 ### C. Presumed validity when bishop is invalid (rules 6, 8)
 
@@ -118,16 +141,23 @@ Current code: `canValidlyOrdain` = has valid ordination in range; `canValidlyCon
 | Bishop's worst status  | Allowed validity for orders they give          |
 | ---------------------- | ---------------------------------------------- |
 | invalid                | invalid only                                   |
-| doubtfully_valid       | doubtfully_valid only                          |
-| doubtful_event         | doubtfully_valid only                          |
-| valid / sub_conditione | (bishop valid; all options allowed per rule 7) |
+| doubtfully_valid       | doubtfully_valid or invalid                    |
+| doubtful_event         | doubtfully_valid or invalid                    |
+| valid / sub_conditione | all options if the bishop is valid (rule 7); otherwise invalid only (e.g. never consecrated, or consecrated before ordained) |
 
 
 ### D. Where the rules live (reference)
 
 
-| Location                                                                          | What it defines                                                                                                                                 |
-| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Location | What it defines |
+| --- | --- |
+| [editor_v2/static/v2-scripts/validity-rules.js](../editor_v2/static/v2-scripts/validity-rules.js) | Frontend: Tables A–C (`EditorV2Validity`), ranges (`EditorRangesValidity`) |
+| [editor_v2/static/v2-scripts/bishop-restrictions.js](../editor_v2/static/v2-scripts/bishop-restrictions.js) | Validity dropdown restriction per ordaining bishop/consecrator at the event date |
+| [services/validation_cascade.py](../services/validation_cascade.py) | Backend: effective status, bishop summary at a date, descendant cascade, system tags |
+| [routes/editor_v2.py](../routes/editor_v2.py) | `/editor/api/bishop-validity/<id>?date=&year=` |
+
+
+--------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | [static/js/status-inheritance.js](../static/js/status-inheritance.js)             | Frontend: STATUS_PRIORITY, getEffectiveStatus, getWorstStatus, mapWorstStatusToAllowedEffective, getAllowed*Statuses, applyValidityRestrictions |
 | [static/js/editor-validation-impact.js](../static/js/editor-validation-impact.js) | computeValidityPerRange, canClergyValidlyOrdain/Consecrate, buildSyntheticBishopSummaryFromForm                                                 |
 | [routes/editor.py](../routes/editor.py)                                           | Backend: _get_effective_status, _get_bishop_summary, _get_worst_status, bulk validity update                                                    |

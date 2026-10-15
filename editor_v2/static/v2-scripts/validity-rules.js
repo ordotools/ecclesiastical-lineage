@@ -68,12 +68,13 @@
 
     /**
      * Worst (lowest validity) among statuses by Table A priority.
+     * No events = nothing to downgrade, so 'valid' (an empty side must not outweigh the other).
      * @param {string[]} statuses - Effective statuses
      * @returns {string} One of ALL_EFFECTIVE_STATUSES
      */
     function getWorstStatus(statuses) {
         if (!statuses || statuses.length === 0) {
-            return 'invalid';
+            return 'valid';
         }
         return statuses.reduce((worst, current) => {
             if (!worst) {
@@ -290,6 +291,24 @@
     }
 
     /**
+     * Canonical order of a clergy's orders history (VALIDITY_RULES "Details unknown" #5):
+     * date/type order, except that an ordination with no date/year is first and a
+     * consecration with no date/year is second (after the first ordination, if any).
+     * Extra undated records keep their date/type position.
+     * @param {Array<{ type: string, dateInfo: object, sortKey: object }>} list
+     * @returns {Array} New sorted array
+     */
+    function sortOrders(list) {
+        const byDate = list.slice().sort((a, b) => (a.sortKey.t - b.sortKey.t) || (a.sortKey.typeOrder - b.sortKey.typeOrder));
+        const noDate = o => o.dateInfo.dateUnknown && o.dateInfo.year == null;
+        const pinnedOrd = byDate.find(o => o.type === 'ordination' && noDate(o));
+        const pinnedCons = byDate.find(o => o.type === 'consecration' && noDate(o));
+        const firstOrd = pinnedOrd || byDate.find(o => o.type === 'ordination');
+        const head = (pinnedCons ? [firstOrd, pinnedCons] : [pinnedOrd]).filter(Boolean);
+        return head.concat(byDate.filter(o => !head.includes(o)));
+    }
+
+    /**
      * Build date-ordered orders array from a clergy record.
      * @param {object} clergy
      * @returns {Array<{ type: 'ordination'|'consecration', record: object, dateInfo: object, sortKey: object }>}
@@ -318,14 +337,7 @@
             });
         });
 
-        orders.sort((a, b) => {
-            if (a.sortKey.t !== b.sortKey.t) {
-                return a.sortKey.t - b.sortKey.t;
-            }
-            /* typeOrder: ordination 0, consecration 1 — same-t events sort ordination before consecration */
-            return a.sortKey.typeOrder - b.sortKey.typeOrder;
-        });
-        return orders;
+        return sortOrders(orders);
     }
 
     /**
@@ -412,7 +424,7 @@
         const explicitOrders = source && source.orders;
 
         if (explicitOrders && explicitOrders.length) {
-            const orders = explicitOrders.map(o => {
+            const orders = sortOrders(explicitOrders.map(o => {
                 const dateInfo = o.dateInfo || getDateFromRecord(o.record);
                 return {
                     type: o.type,
@@ -420,13 +432,7 @@
                     dateInfo,
                     sortKey: getOrderSortKey(dateInfo, o.type)
                 };
-            }).sort((a, b) => {
-                if (a.sortKey.t !== b.sortKey.t) {
-                    return a.sortKey.t - b.sortKey.t;
-                }
-                /* typeOrder: ordination 0, consecration 1 — same-t events sort ordination before consecration */
-                return a.sortKey.typeOrder - b.sortKey.typeOrder;
-            });
+            }));
 
             if (orders.length === 0) {
                 return { orders: [], ranges: [{ index: 0, start: null, end: null, canValidlyOrdain: false, canValidlyConsecrate: false }] };
@@ -458,21 +464,18 @@
     // --- Table C: Presumed validity when bishop is invalid (rules 6, 8) ---
     /**
      * Allowed effective statuses for orders given by a bishop with this worst status (Table C).
-     * invalid → [invalid]; doubtfully_valid / doubtful_event → [doubtfully_valid]; valid / sub_conditione → all.
+     * Orders given can be no better than the giver:
+     * Only used when the bishop lacks a valid ordination + consecration:
+     * doubtfully_valid / doubtful_event → [doubtfully_valid, invalid]; otherwise (invalid, or nothing
+     * doubtful recorded, e.g. never consecrated / consecrated before ordination) → [invalid].
      * @param {string} worstStatus - Bishop's worst effective status
      * @returns {string[]} Subset of ALL_EFFECTIVE_STATUSES
      */
     function mapWorstStatusToAllowedEffective(worstStatus) {
-        switch (worstStatus) {
-            case 'invalid':
-                return ['invalid'];
-            case 'doubtfully_valid':
-                return ['doubtfully_valid'];
-            case 'doubtful_event':
-                return ['doubtfully_valid'];
-            default:
-                return ALL_EFFECTIVE_STATUSES.slice();
+        if (worstStatus === 'doubtfully_valid' || worstStatus === 'doubtful_event') {
+            return ['doubtfully_valid', 'invalid'];
         }
+        return ['invalid'];
     }
 
     /**

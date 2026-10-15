@@ -201,6 +201,16 @@ function testMultipleDetailsUnknownEdgeCases() {
     assert.ok(seen.has(cons2), 'second details-unknown consecration should still appear in history');
 }
 
+function testDatedOrdinationWithDetailsUnknownConsecration() {
+    const ord = makeDated('ordination', '1950-06-01');
+    const cons = makeDetailsUnknown('consecration');
+    const result = EditorRangesValidity.buildRangesWithValidity({
+        orders: [{ type: 'consecration', record: cons }, { type: 'ordination', record: ord }]
+    });
+    assertOrdersTypes(result, ['ordination', 'consecration'], 'details-unknown consecration should follow the dated ordination');
+    assert.strictEqual(result.ranges[2].canValidlyOrdain, true, 'range after both orders should be valid');
+}
+
 function testRightPanelGroupingUsesUpdatedOrdering() {
     if (!RightPanel || typeof RightPanel.groupOrdainedConsecratedByRange !== 'function') {
         throw new Error('Right panel API not available on window');
@@ -269,25 +279,19 @@ function testPatrickTaylorStyleRangesAndValidity() {
     assert.deepStrictEqual(
         simple,
         [
-            { index: 0, start: null, end: null },
-            { index: 1, start: null, end: null },
-            { index: 2, start: null, end: null }
+            { index: 0, start: null, end: 'unknown' },
+            { index: 1, start: 'unknown', end: 'unknown' },
+            { index: 2, start: 'unknown', end: null }
         ],
-        'Taylor-style: ranges should use null boundaries for details-unknown parent orders'
+        'Taylor-style: ranges should use unknown boundaries for details-unknown parent orders'
     );
 
-    ranges.forEach((r, idx) => {
-        assert.strictEqual(
-            r.canValidlyOrdain,
-            true,
-            `Taylor-style: range ${idx} should be valid for ordination with stub ValidityRules`
-        );
-        assert.strictEqual(
-            r.canValidlyConsecrate,
-            true,
-            `Taylor-style: range ${idx} should be valid for consecration with stub ValidityRules`
-        );
-    });
+    // Table B: valid only after both the ordination and the consecration (range 2).
+    assert.deepStrictEqual(
+        ranges.map(r => [r.canValidlyOrdain, r.canValidlyConsecrate]),
+        [[false, false], [false, false], [true, true]],
+        'Taylor-style: only the range after both details-unknown orders is valid'
+    );
 }
 
 function testPatrickTaylorStyleRightPanelGrouping() {
@@ -344,11 +348,11 @@ function testPatrickTaylorStyleRightPanelGrouping() {
     assert.deepStrictEqual(
         simpleRanges,
         [
-            { index: 0, start: null, end: null },
-            { index: 1, start: null, end: null },
-            { index: 2, start: null, end: null }
+            { index: 0, start: null, end: 'unknown' },
+            { index: 1, start: 'unknown', end: 'unknown' },
+            { index: 2, start: 'unknown', end: null }
         ],
-        'Taylor-style grouping: ranges should mirror null-boundary representation from buildRangesWithValidity'
+        'Taylor-style grouping: ranges should mirror boundary representation from buildRangesWithValidity'
     );
 
     assert.ok(Array.isArray(grouped.groups), 'Taylor-style grouping: groups array should be present');
@@ -358,7 +362,7 @@ function testPatrickTaylorStyleRightPanelGrouping() {
     assert.strictEqual(group.rangeIndex, 2, 'Taylor-style grouping: dated descendants should be placed in the last range (after unknown consecration)');
     assert.strictEqual(
         group.rangeLabel,
-        'Range 2 — Around orders with unknown details (valid)',
+        'Range 2 — After unknown date (valid)',
         'Taylor-style grouping: range label should describe around-unknown band and validity'
     );
 
@@ -389,6 +393,7 @@ function main() {
         testPinnedUnknownEventsBeforeDatedEvents,
         testDetailsUnknownConsecrationOnly,
         testMultipleDetailsUnknownEdgeCases,
+        testDatedOrdinationWithDetailsUnknownConsecration,
         testRightPanelGroupingUsesUpdatedOrdering,
         testPatrickTaylorStyleRangesAndValidity,
         testPatrickTaylorStyleRightPanelGrouping

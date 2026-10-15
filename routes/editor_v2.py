@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, request, session, jsonify, current_app
 from sqlalchemy.orm import joinedload
 from sqlalchemy import text
-from datetime import datetime
+from datetime import date, datetime
 
 from models import (
     Clergy,
@@ -181,12 +181,17 @@ def _serialize_tag(tag):
 @editor.route('/api/bishop-validity/<int:bishop_id>')
 @require_permission('edit_clergy')
 def api_bishop_validity(bishop_id):
-    """Bishop validity summary (all events) used to restrict validity dropdowns of orders he gives."""
-    from services.validation_cascade import _bishop_summary_at_date
+    """Bishop validity summary at ?date=YYYY-MM-DD or ?year= (all events if neither),
+    used to restrict validity dropdowns of orders he gives."""
+    from services.validation_cascade import _bishop_summary_at_date, event_date_key
     bishop = Clergy.query.options(
         joinedload(Clergy.ordinations), joinedload(Clergy.consecrations)
     ).get_or_404(bishop_id)
-    return jsonify(_bishop_summary_at_date(bishop, (None, False)))
+    try:
+        d = date.fromisoformat(request.args['date']) if request.args.get('date') else None
+    except ValueError:
+        d = None
+    return jsonify(_bishop_summary_at_date(bishop, event_date_key(d, request.args.get('year'))))
 
 
 @editor.route('/api/tags', methods=['GET'])

@@ -1,0 +1,72 @@
+<div id="editorV2OrgOverlay"
+     class="editor-tag-overlay editor-tag-overlay--hidden"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="editor-v2-org-overlay-title"
+     aria-hidden="true">
+  <div class="editor-tag-overlay-backdrop"></div>
+  <div class="editor-tag-overlay-container">
+    <div class="editor-tag-overlay-box">
+      <h2 id="editor-v2-org-overlay-title" class="editor-tag-overlay-title">
+        Manage Organizations
+      </h2>
+
+      <div class="editor-tag-overlay-section">
+        <h3 class="editor-tag-overlay-section-title">Existing organizations (click to edit)</h3>
+        <div id="editorV2OrgList"
+             class="editor-tag-overlay-tag-list"
+             aria-live="polite">
+          <!-- Organization pills rendered by JavaScript -->
+        </div>
+      </div>
+
+      <div class="editor-tag-overlay-section">
+        <h3 id="editorV2OrgFormTitle" class="editor-tag-overlay-section-title">Add organization</h3>
+        <form id="editorV2OrgForm" class="editor-tag-overlay-form">
+          <input type="hidden" id="editorV2OrgId" name="id">
+          <div class="editor-tag-overlay-field">
+            <label for="editorV2OrgName" class="editor-tag-overlay-label">Name</label>
+            <input type="text" id="editorV2OrgName" name="name" class="editor-tag-overlay-input"
+                   maxlength="200" required autocomplete="off">
+          </div>
+
+          <div class="editor-tag-overlay-field">
+            <label for="editorV2OrgAbbr" class="editor-tag-overlay-label">Abbreviation</label>
+            <input type="text" id="editorV2OrgAbbr" name="abbreviation" class="editor-tag-overlay-input"
+                   maxlength="20" autocomplete="off">
+          </div>
+
+          <div class="editor-tag-overlay-field editor-tag-overlay-field-color">
+            <div class="editor-tag-overlay-field-color-input">
+              <label for="editorV2OrgColor" class="editor-tag-overlay-label">Color</label>
+              <input type="color" id="editorV2OrgColor" name="color"
+                     class="editor-tag-overlay-color-input" value="#27ae60">
+            </div>
+            <div class="editor-tag-overlay-field-color-preview">
+              <span class="editor-tag-overlay-label">Preview</span>
+              <div id="editorV2OrgPreview" class="editor-tag-overlay-preview"
+                   aria-label="Organization color preview">Org</div>
+            </div>
+          </div>
+
+          <div class="editor-tag-overlay-field">
+            <label for="editorV2OrgDescription" class="editor-tag-overlay-label">Description</label>
+            <textarea id="editorV2OrgDescription" name="description" rows="3"
+                      class="editor-tag-overlay-input"></textarea>
+          </div>
+
+          <div id="editorV2OrgError" class="editor-tag-overlay-empty" role="alert"></div>
+
+          <div class="editor-tag-overlay-actions">
+            <button type="button" id="editorV2OrgCancel"
+                    class="editor-tag-overlay-button editor-tag-overlay-button-cancel">Close</button>
+            <button type="button" id="editorV2OrgNew"
+                    class="editor-tag-overlay-button">New</button>
+            <button type="submit" id="editorV2OrgSave"
+                    class="editor-tag-overlay-button editor-tag-overlay-button-apply">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

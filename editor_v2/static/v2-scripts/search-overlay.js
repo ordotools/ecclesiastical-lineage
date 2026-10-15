@@ -23,6 +23,14 @@ const COMMANDS = [
       }
     },
   },
+  {
+    type: 'command',
+    id: 'organization-management',
+    name: 'Organization Management',
+    run() {
+      window.EDITOR_V2_ORGS?.openOrgModal();
+    },
+  },
 ];
 
 const overlay = () => document.getElementById('search-overlay');

@@ -285,28 +285,56 @@ def api_tags_delete(tag_id):
     return jsonify({'success': True}), 200
 
 
-@editor.route('/api/organizations', methods=['POST'])
+def _serialize_organization(org):
+    return {
+        'id': org.id,
+        'name': org.name,
+        'abbreviation': org.abbreviation,
+        'color': org.color,
+        'description': org.description,
+    }
+
+
+@editor.route('/api/organizations', methods=['GET'])
 @require_permission('edit_clergy')
-def api_organizations_create():
-    """JSON API: create an organization (or return the existing one with that name)."""
+def api_organizations_list():
+    """JSON API: list all organizations for the Editor v2 organization modal."""
+    orgs = Organization.query.order_by(Organization.name.asc()).all()
+    return jsonify([_serialize_organization(o) for o in orgs])
+
+
+@editor.route('/api/organizations', methods=['POST'])
+@editor.route('/api/organizations/<int:org_id>', methods=['PUT'])
+@require_permission('edit_clergy')
+def api_organizations_save(org_id=None):
+    """JSON API: create (POST) or update (PUT) an organization. Renames propagate to clergy."""
     payload = request.get_json(silent=True) or {}
     name = (payload.get('name') or '').strip()
     abbreviation = (payload.get('abbreviation') or '').strip() or None
+    color = (payload.get('color') or '').strip() or '#27ae60'
+    description = (payload.get('description') or '').strip() or None
     if not name or len(name) > 200:
         return jsonify({'success': False, 'message': 'Organization name is required (max 200 characters).'}), 400
-    org = Organization.query.filter(db.func.lower(Organization.name) == name.lower()).first()
-    status = 200
-    if not org:
-        if abbreviation and Organization.query.filter_by(abbreviation=abbreviation).first():
-            abbreviation = None
-        org = Organization(name=name, abbreviation=abbreviation)
-        db.session.add(org)
-        db.session.commit()
-        status = 201
-    return jsonify({
-        'success': True,
-        'organization': {'id': org.id, 'name': org.name, 'abbreviation': org.abbreviation},
-    }), status
+    if abbreviation and len(abbreviation) > 20:
+        return jsonify({'success': False, 'message': 'Abbreviation is too long (max 20 characters).'}), 400
+    if not (len(color) == 7 and color.startswith('#')):
+        return jsonify({'success': False, 'message': 'Color must be a #rrggbb hex value.'}), 400
+
+    org = Organization.query.get_or_404(org_id) if org_id else Organization()
+    others = Organization.query.filter(Organization.id != org.id) if org.id else Organization.query
+    if others.filter(db.func.lower(Organization.name) == name.lower()).first():
+        return jsonify({'success': False, 'message': 'An organization with that name already exists.'}), 400
+    if abbreviation and others.filter_by(abbreviation=abbreviation).first():
+        return jsonify({'success': False, 'message': 'That abbreviation is already in use.'}), 400
+
+    # Clergy store the organization by name, so a rename must follow through.
+    if org.id and org.name != name:
+        Clergy.query.filter_by(organization=org.name).update({'organization': name})
+    org.name, org.abbreviation, org.color, org.description = name, abbreviation, color, description
+    status = 200 if org.id else 201
+    db.session.add(org)
+    db.session.commit()
+    return jsonify({'success': True, 'organization': _serialize_organization(org)}), status
 
 
 @editor.route('/panel/left')

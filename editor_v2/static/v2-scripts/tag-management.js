@@ -373,6 +373,7 @@
   window.EDITOR_V2_TAGS.openTagModal = openTagModal;
   window.EDITOR_V2_TAGS.closeTagModal = closeTagModal;
   window.EDITOR_V2_TAGS.reloadTags = reloadTags;
+  window.EDITOR_V2_TAGS.textColorForBg = textColorForBg;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {

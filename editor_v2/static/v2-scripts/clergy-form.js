@@ -290,32 +290,17 @@
     }
   }
 
+  /** Opens the organization modal; the saved organization becomes this form's selection. */
   function addOrganization(form) {
     var select = form.querySelector('#organization');
-    var name = (window.prompt('Organization name') || '').trim();
-    if (!select || !name) return;
-    fetch('/editor/api/organizations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ name: name })
-    })
-      .then(function(r) { return r.json(); })
-      .then(function(body) {
-        if (!body || !body.success) {
-          window.alert((body && body.message) || 'Failed to add organization.');
-          return;
-        }
-        var org = body.organization;
-        var option = Array.prototype.find.call(select.options, function(o) { return o.value === org.name; });
-        if (!option) {
-          option = new Option(org.name + (org.abbreviation ? ' (' + org.abbreviation + ')' : ''), org.name);
-          select.add(option);
-        }
+    if (!select || !window.EDITOR_V2_ORGS) return;
+    window.EDITOR_V2_ORGS.openOrgModal({
+      onSaved: function(org) {
         select.value = org.name;
         select.dispatchEvent(new Event('change', { bubbles: true }));
         form.dataset.dirty = 'true';
-      })
-      .catch(function() { window.alert('Failed to add organization.'); });
+      }
+    });
   }
 
   function initClergyFormV2() {

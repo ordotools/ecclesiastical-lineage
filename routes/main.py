@@ -132,6 +132,8 @@ def _lineage_nodes_links():
     ).all()
     if not hasattr(g, 'organizations'):
         g.organizations = {org.name: org.color for org in Organization.query.all()}
+    if not hasattr(g, 'org_abbreviations'):
+        g.org_abbreviations = {org.name: org.abbreviation for org in Organization.query.all()}
     if not hasattr(g, 'ranks') or not hasattr(g, 'rank_is_bishop'):
         all_ranks = Rank.query.all()
         if not hasattr(g, 'ranks'):
@@ -198,6 +200,7 @@ def _lineage_nodes_links():
             'rank': clergy.rank,
             'is_bishop': rank_is_bishop.get(clergy.rank, False),
             'organization': clergy.organization,
+            'org_abbreviation': g.org_abbreviations.get(clergy.organization),
             'org_color': org_color,
             'rank_color': rank_color,
             'image_url': image_url,

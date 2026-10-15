@@ -37,11 +37,12 @@ window.ValidityRules = {
     }
 };
 
-const EditorRangesValidity = require('../static/js/editor-ranges-validity.js');
+require('../editor_v2/static/v2-scripts/validity-rules.js');
+const EditorRangesValidity = window.EditorRangesValidity;
 window.EditorRangesValidity = EditorRangesValidity;
 
 // Load right-panel grouping helpers into window.EditorRightPanelOrdained.
-require('../static/js/editor-right-panel-ordained.js');
+require('../editor_v2/static/v2-scripts/editor-right-panel-ordained.js');
 
 const RightPanel = window.EditorRightPanelOrdained;
 

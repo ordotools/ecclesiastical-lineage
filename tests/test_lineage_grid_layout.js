@@ -277,13 +277,13 @@ function testUniquePositions() {
 function testGridMetricsMatchFrontend() {
   const layout = computeLineageGridLayout(FIXTURE_NODES, FIXTURE_LINKS);
   const gm = layout.grid_metrics;
-  assert.equal(gm.CARD_W, 170);
-  assert.equal(gm.ROW_H, 20);
+  assert.equal(gm.CARD_W, 182);
+  assert.equal(gm.ROW_H, 19);
   assert.equal(gm.CARD_ROWS, 3);
-  assert.equal(gm.BUS_OFFSET_ROWS, 1);
-  assert.equal(gm.CARD_H, 104, 'CARD_H derives from rows: 3 * 20 + 2 * 22');
-  assert.equal(gm.GAP_X, 22);
-  assert.equal(gm.GAP_Y, 22);
+  assert.equal(gm.BUS_OFFSET_ROWS, 3);
+  assert.equal(gm.CARD_H, 83, 'CARD_H derives from rows: 3 * 19 + 2 * 13');
+  assert.equal(gm.GAP_X, 26);
+  assert.equal(gm.GAP_Y, 13);
   assert.equal(gm.PAD, 48);
   assert.equal(gm.MULTI_STUB_GAP, 14);
   assert.equal(gm.LINEAGE_GAP, 1);

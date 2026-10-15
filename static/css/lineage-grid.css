@@ -14,13 +14,25 @@ body ::-moz-selection {
 }
 
 .lineage-grid-page {
-  --grid-card-bg: rgba(252, 250, 245, 0.96);
-  --grid-surface: #1a1a1a;
-  --grid-text: #f5f3ed;
-  --grid-muted: #a8b0ba;
-  --grid-bus: #7b90a4;
-  --grid-bus-width: 2.5px;
-  --grid-ordination: #c8d4dc;
+  --grid-card-bg: rgba(252, 250, 245, 0.96); /* classic (non-experimental) cards */
+  --grid-surface: #101317;
+  --grid-panel: #171b21;
+  --grid-line: #262c35;
+  --grid-text: #e8ecf1;
+  --grid-muted: #8d97a5;
+  --grid-bus: #c9d2dd;
+  --grid-card: #1b2028;
+  --grid-card-line: #2a313b;
+  --grid-card-ink: #eef1f5;
+  --grid-card-ink-2: #9aa4b2;
+  --grid-card-ink-3: #6f7a89;
+  --grid-chip: #262d37;
+  --grid-font: 'IBM Plex Sans', system-ui, sans-serif;
+  --grid-font-name: 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif;
+  --grid-font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  --grid-lw: 1.5; /* line weight multiplier */
+  --grid-zk: 1; /* set by JS: keeps lines visible when zoomed out */
+  font-family: var(--grid-font);
   position: relative;
   min-height: 100vh;
   min-height: 100dvh; /* mobile: excludes the browser's address bar */
@@ -46,8 +58,8 @@ body ::-moz-selection {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(20, 20, 20, 0.92);
+  border-bottom: 1px solid var(--grid-line);
+  background: var(--grid-panel);
 }
 
 .lineage-grid-toolbar h1 {
@@ -73,10 +85,17 @@ body ::-moz-selection {
   user-select: none;
 }
 
+.lineage-grid-edge {
+  stroke-width: calc(var(--sw, 2) * var(--grid-lw) * var(--grid-zk) * 1px);
+}
+
+/* Trunk in its consecrator's org color, lightness clamped so dark orgs still show on the canvas. */
 .lineage-grid-edge--bus-trunk {
+  --sw: 2.5;
   stroke: var(--grid-bus);
-  stroke-width: var(--grid-bus-width);
+  stroke: oklch(from var(--org-color, var(--grid-bus)) clamp(0.66, l, 0.84) c h);
   stroke-linecap: butt;
+  stroke-linejoin: round;
   fill: none;
 }
 
@@ -225,63 +244,77 @@ body ::-moz-selection {
   color: var(--grid-muted);
 }
 
-/* ---- Experimental view (toolbar toggle) ---- */
+/* ---- Experimental view (toolbar toggle): compact dark cards ---- */
 
 .lineage-grid-card--exp {
-  flex-direction: row;
-  gap: 8px;
-  padding: 8px 8px 8px 12px;
+  --ring: oklch(from var(--org-color) clamp(0.55, l, 0.8) c h);
+  --bus-color: oklch(from var(--org-color) clamp(0.66, l, 0.84) c h);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
+  padding: 10px 12px 9px 10px;
+  overflow: visible;
+  background: var(--grid-card);
+  color: var(--grid-card-ink);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--grid-card-line), 0 1px 2px rgba(0, 0, 0, 0.45);
+  font-family: var(--grid-font);
 }
 
-.lineage-grid-card--exp.is-light-org::before {
-  width: 6px;
-  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--org-color) 50%, #000);
+.lineage-grid-card--exp::before { display: none; }
+
+.lineage-grid-card__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.lineage-grid-card__photo--mono {
+  --photo-size: 40px;
+  display: grid;
+  place-items: center;
+  font: 600 13px/1 var(--grid-font);
+  color: #fff;
+  background-color: color-mix(in oklab, var(--org-color) 60%, #333);
+  box-shadow: 0 0 0 2px var(--grid-card), 0 0 0 4px var(--ring);
+}
+
+.lineage-grid-card__photo--mono.has-photo {
+  color: transparent;
 }
 
 .lineage-grid-card__year {
-  flex-shrink: 0;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  text-align: center;
-  font: 600 0.95rem/1 ui-monospace, Menlo, Consolas, monospace;
-  letter-spacing: 0.03em;
-  color: #2c3e50;
-  padding-left: 6px;
-  border-left: 1px solid rgba(93, 109, 126, 0.3);
+  font: 500 11px/1 var(--grid-font-mono);
+  color: var(--grid-card-ink-3);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .lineage-grid-card__body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
-  flex: 1;
-}
-
-.lineage-grid-card--exp .lineage-grid-card__row {
-  padding-right: 18px; /* room for the validity seal */
+  padding-right: 10px; /* room for the validity seal */
 }
 
 .lineage-grid-card--exp .lineage-grid-card__name {
   margin: 0;
+  font: 600 14px/1.18 var(--grid-font-name);
+  color: var(--grid-card-ink);
+  text-wrap: pretty;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
-.lineage-grid-card__photo--mono {
-  --photo-size: 32px;
-  display: grid;
-  place-items: center;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #fff;
-  background-color: color-mix(in srgb, var(--org-color) 70%, #1d2230);
-}
-
-.lineage-grid-card__photo--mono.has-photo {
-  color: transparent;
+.lineage-grid-card--exp .lineage-grid-card__org,
+.lineage-grid-card--exp .lineage-grid-card__rank {
+  font: 600 10.5px/1.3 var(--grid-font);
+  letter-spacing: 0.06em;
+  color: var(--ring);
 }
 
 .lineage-grid-card__chips {
@@ -289,21 +322,106 @@ body ::-moz-selection {
   flex-wrap: wrap;
   gap: 3px;
   margin-top: auto;
+  min-width: 0;
 }
 
 .lineage-grid-card__chip {
-  font-size: 0.6rem;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 999px;
-  color: #5d6d7e;
-  box-shadow: inset 0 0 0 1px currentColor;
+  font: 500 10px/1 var(--grid-font);
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: var(--grid-card-ink-2);
+  background: var(--grid-chip);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .lineage-grid-card__chip--doubt {
-  color: #b86e00;
+  color: #ffb020;
 }
+
+.lineage-grid-card--exp .lineage-grid-card__seal {
+  top: 7px;
+  right: 7px;
+  width: 14px;
+  height: 14px;
+  font-size: 0.56rem;
+}
+
+/* Name of a large lineage's head, shown over its photo at overview zoom (kept readable on screen). */
+.lineage-grid-card__landmark {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.3em);
+  z-index: 3;
+  transform: translateX(-50%);
+  font: 700 var(--grid-landmark-fs, 14px)/1.05 var(--grid-font-name);
+  color: var(--grid-text);
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
+  text-shadow: 0 0 0.2em var(--grid-surface), 0 0 0.2em var(--grid-surface), 0 0 0.5em var(--grid-surface);
+}
+
+.lineage-grid-card__landmark small {
+  display: block;
+  margin-top: 0.2em;
+  font: 500 0.62em/1 var(--grid-font-mono);
+  color: var(--grid-muted);
+}
+
+/* Zoom tier "names": photo + bigger name only */
+[data-zoom-tier="names"] .lineage-grid-cards > .lineage-grid-card--exp { align-items: center; }
+[data-zoom-tier="names"] .lineage-grid-cards > .lineage-grid-card--exp :is(.lineage-grid-card__org, .lineage-grid-card__chips, .lineage-grid-card__year) { display: none; }
+[data-zoom-tier="names"] .lineage-grid-cards > .lineage-grid-card--exp .lineage-grid-card__body { padding-right: 0; }
+[data-zoom-tier="names"] .lineage-grid-cards > .lineage-grid-card--exp .lineage-grid-card__photo { --photo-size: 34px; }
+[data-zoom-tier="names"] .lineage-grid-cards > .lineage-grid-card--exp .lineage-grid-card__name {
+  font-size: var(--grid-name-fs);
+  line-height: 1.08;
+  -webkit-line-clamp: 3;
+  hyphens: auto;
+}
+[data-zoom-tier="names"] .lineage-grid-cards > .lineage-grid-card--ghost .lineage-grid-card__rank { display: none; }
+[data-zoom-tier="names"] .lineage-grid-cards > .lineage-grid-card--ghost .lineage-grid-card__name { font-size: calc(var(--grid-name-fs) * 0.85); }
+
+/* Zoom tier "overview": no card, just the photo in an org-colored ring */
+[data-zoom-tier="overview"] .lineage-grid-cards > .lineage-grid-card--exp {
+  grid-template-columns: 1fr;
+  place-items: center;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+[data-zoom-tier="overview"] .lineage-grid-cards > .lineage-grid-card--exp :is(.lineage-grid-card__body, .lineage-grid-card__seal, .lineage-grid-card__year) { display: none; }
+[data-zoom-tier="overview"] .lineage-grid-cards > .lineage-grid-card--exp .lineage-grid-card__photo {
+  --photo-size: calc(var(--grid-card-h) - 14px);
+  position: relative;
+  z-index: 1;
+  font-size: 22px;
+  box-shadow: 0 0 0 6px var(--ring), 0 0 0 9px var(--grid-surface);
+}
+/* The trunk starts at the card's right edge; bridge the gap from the photo in the trunk's color. */
+[data-zoom-tier="overview"] .lineage-grid-cards > .lineage-grid-card--exp[data-bus]::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  right: 0;
+  top: 50%;
+  height: calc(2.5px * var(--grid-lw) * var(--grid-zk));
+  transform: translateY(-50%);
+  background: var(--bus-color);
+}
+[data-zoom-tier="overview"] .lineage-grid-cards > .lineage-grid-card--exp .lineage-grid-card__landmark { display: block; }
+[data-zoom-tier="overview"] .lineage-grid-cards > .lineage-grid-card--ghost {
+  place-self: center;
+  width: calc(var(--grid-card-h) - 20px);
+  height: calc(var(--grid-card-h) - 20px);
+  padding: 0;
+  border: 4px dashed color-mix(in oklab, var(--grid-muted) 70%, transparent);
+  border-radius: 50%;
+}
+[data-zoom-tier="overview"] .lineage-grid-cards > .lineage-grid-card--ghost > * { display: none; }
 
 .lineage-grid-card__seal {
   position: absolute;
@@ -319,10 +437,10 @@ body ::-moz-selection {
   color: #fff;
 }
 
-.lineage-grid-card__seal--bad { background: #e74c3c; }
-.lineage-grid-card__seal--doubt { background: #f39c12; }
-.lineage-grid-card__seal--info { background: #4d6a8a; }
-.lineage-grid-card__seal--ok { background: #0b9f2f; }
+.lineage-grid-card__seal--bad { background: #ff5d5d; }
+.lineage-grid-card__seal--doubt { background: #ffb020; }
+.lineage-grid-card__seal--info { background: #5aa9ff; }
+.lineage-grid-card__seal--ok { background: #3ddc84; }
 
 .lineage-grid-card--group {
   cursor: pointer;
@@ -341,26 +459,27 @@ body ::-moz-selection {
 .lineage-grid-card--ghost {
   cursor: pointer;
   justify-content: center;
-  background: color-mix(in srgb, var(--org-color, var(--grid-muted)) 22%, var(--grid-surface));
-  color: var(--grid-text);
-  border: 1.5px dashed color-mix(in srgb, var(--org-color, var(--grid-muted)) 60%, var(--grid-text));
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--grid-muted);
+  border: 1px dashed color-mix(in oklab, var(--grid-muted) 55%, transparent);
+  border-radius: 6px;
   box-shadow: none;
-  opacity: 0.85;
 }
 
 .lineage-grid-card--ghost::before { display: none; }
 
 .lineage-grid-card--ghost:hover,
 .lineage-grid-card--ghost:focus-visible {
-  opacity: 1;
   outline: 2px solid var(--grid-text);
   outline-offset: 3px;
 }
 
-.lineage-grid-card--ghost .lineage-grid-card__rank { color: inherit; opacity: 0.75; }
+.lineage-grid-card--ghost .lineage-grid-card__rank { color: var(--grid-muted); font-weight: 500; }
+.lineage-grid-card--ghost .lineage-grid-card__name { margin-top: 4px; color: var(--grid-text); font: 600 13px/1.2 var(--grid-font-name); }
 
 .lineage-grid-glyph circle {
-  fill: var(--grid-card-bg);
+  fill: var(--grid-surface);
   stroke-width: 1.5;
 }
 
@@ -379,8 +498,8 @@ body ::-moz-selection {
   overflow: auto;
   padding: 8px 12px;
   border-radius: 8px;
-  background: rgba(20, 20, 20, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--grid-panel);
+  border: 1px solid var(--grid-line);
   font-size: 0.75rem;
   color: var(--grid-text);
   user-select: none;
@@ -462,8 +581,8 @@ body ::-moz-selection {
   max-height: 100%;
   display: flex;
   flex-direction: column;
-  background: #232323;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--grid-panel);
+  border: 1px solid var(--grid-line);
   border-radius: 6px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
   overflow: hidden;
@@ -552,8 +671,8 @@ body ::-moz-selection {
   padding: 4px 22px 4px 10px;
   border: none;
   border-left: 4px solid var(--org-color);
-  background: var(--grid-card-bg);
-  color: #2c3e50;
+  background: var(--grid-card);
+  color: var(--grid-card-ink);
   font: inherit;
   text-align: left;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
@@ -584,7 +703,7 @@ div.lineage-grid-focus__mini {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #5d6d7e;
+  color: var(--grid-card-ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -642,7 +761,7 @@ div.lineage-grid-focus__mini {
 
 .lineage-grid-focus__mini.is-co .lineage-grid-focus__name::before {
   content: 'co · ';
-  color: #5d6d7e;
+  color: var(--grid-card-ink-2);
   font-weight: 400;
 }
 

@@ -8,18 +8,22 @@
  * 4. Grid — MatrixBuilder places every card in a grid cell (collision-free by construction).
  * 5. Draw — cards as CSS grid items; grey trunk on the card's middle row; vertical stubs to card edges.
  */
-import gridMetrics from '../config/grid-metrics.json?v=25' with { type: 'json' };
+import gridMetrics from '../config/grid-metrics.json?v=26' with { type: 'json' };
 import { MatrixBuilder } from './matrix-builder.js?v=25';
 
 export const GRID_METRICS = { ...gridMetrics };
 GRID_METRICS.CARD_H = GRID_METRICS.CARD_ROWS * GRID_METRICS.ROW_H
   + (GRID_METRICS.CARD_ROWS - 1) * GRID_METRICS.GAP_Y;
 
-const GREEN_COLOR = '#0b9f2f';
-const RED_COLOR = '#e74c3c';
-const ORANGE_COLOR = '#f39c12';
-const ORDINATION_STROKE = '#c8d4dc';
+const GREEN_COLOR = '#3ddc84';
+const RED_COLOR = '#ff5d5d';
+const ORANGE_COLOR = '#ffb020';
+const ORDINATION_STROKE = '#6b7888';
 const MIN_ZOOM = 0.08;
+const CORNER_RADIUS = 9;
+const LANDMARK_COUNT = 12;
+/** Zoom-dependent styling: lines keep LINE_FLOOR x their weight on screen; cards switch tier below each scale. */
+export const ZOOM_DETAIL = { LINE_FLOOR: 0.4, OVERVIEW_BELOW: 0.42, NAMES_BELOW: 0.74 };
 
 const {
   CARD_W,
@@ -90,6 +94,26 @@ export function positionX(position, metrics = GRID_METRICS) {
 export function positionY(position, metrics = GRID_METRICS) {
   const y = Number(position.y);
   return Number.isFinite(y) ? y : metrics.PAD;
+}
+
+/** Orthogonal M/L route with each elbow replaced by a quadratic curve of radius r. */
+export function roundCorners(d, r = CORNER_RADIUS) {
+  const n = (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+  if (/[^ML\d\s.,-]/.test(d) || n.length < 6) return d;
+  const p = [];
+  for (let i = 0; i + 1 < n.length; i += 2) p.push([n[i], n[i + 1]]);
+  let out = `M ${p[0]}`;
+  for (let i = 1; i < p.length - 1; i += 1) {
+    const [a, b, c] = [p[i - 1], p[i], p[i + 1]];
+    const l1 = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const l2 = Math.hypot(c[0] - b[0], c[1] - b[1]);
+    const k = Math.min(r, l1 / 2, l2 / 2);
+    if (!k) { out += ` L ${b}`; continue; }
+    const start = [b[0] - ((b[0] - a[0]) / l1) * k, b[1] - ((b[1] - a[1]) / l1) * k];
+    const end = [b[0] + ((c[0] - b[0]) / l2) * k, b[1] + ((c[1] - b[1]) / l2) * k];
+    out += ` L ${start} Q ${b} ${end}`;
+  }
+  return `${out} L ${p[p.length - 1]}`;
 }
 
 function pointsToPath(points) {
@@ -765,7 +789,7 @@ function validityLabel(link) {
 
 const VALIDITY_ORDER = ['bad', 'doubt', 'info', 'ok'];
 const VALIDITY_GLYPH = { bad: '×', doubt: '?', info: 's', ok: '✓' };
-const VALIDITY_COLOR = { bad: RED_COLOR, doubt: ORANGE_COLOR, info: '#4d6a8a', ok: GREEN_COLOR };
+const VALIDITY_COLOR = { bad: RED_COLOR, doubt: ORANGE_COLOR, info: '#5aa9ff', ok: GREEN_COLOR };
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -845,7 +869,7 @@ function otherConsecrators(id, ctx) {
 }
 
 function eventYear(node) {
-  return (node.consecration_date || node.ordination_date || '').slice(0, 4);
+  return /^\d{4}/.exec(node.consecration_date || node.ordination_date || '')?.[0] || ''; // dates may read 'Date unknown'
 }
 
 function initials(name) {
@@ -870,32 +894,48 @@ function appendSeal(card, marks) {
   card.appendChild(seal);
 }
 
+/** Rank is left off on purpose; the org shows as its abbreviation so the name gets the room. */
 function renderExperimentalCard(card, node, ctx) {
   card.classList.add('lineage-grid-card--exp');
-  if (isLightColor(node.org_color)) card.classList.add('is-light-org');
-
-  const body = el('div', 'lineage-grid-card__body');
-  const row = el('div', 'lineage-grid-card__row');
   const photo = el('div', 'lineage-grid-card__photo lineage-grid-card__photo--mono', initials(node.name));
   photo.setAttribute('aria-hidden', 'true');
-  const metaStack = el('div', 'lineage-grid-card__meta-stack');
-  metaStack.append(el('p', 'lineage-grid-card__rank', node.rank || ''), el('p', 'lineage-grid-card__org', node.organization || ''));
-  row.append(photo, metaStack);
-  body.append(row, el('h2', 'lineage-grid-card__name', node.name || ''));
+  const side = el('div', 'lineage-grid-card__side');
+  side.appendChild(photo);
+  // Year of the order the card is placed at, so the year always matches the card's spot on its bus.
+  const year = String(ctx.primaryByTarget.get(node.id)?.event_sort_key ?? '').slice(0, 4) || eventYear(node);
+  if (year) side.appendChild(el('span', 'lineage-grid-card__year', year));
 
+  const org = el('p', 'lineage-grid-card__org', node.org_abbreviation || node.organization || '');
+  if (node.organization) org.title = node.organization;
+  const body = el('div', 'lineage-grid-card__body');
+  body.append(el('h2', 'lineage-grid-card__name', node.name || ''), org);
   const others = otherConsecrators(node.id, ctx);
   if (others.length) {
-    const chip = el('span', 'lineage-grid-card__chip', `+${others.length} other consecrator${others.length > 1 ? 's' : ''}`);
+    const chip = el('span', 'lineage-grid-card__chip', `+${others.length} consecrator${others.length > 1 ? 's' : ''}`);
     chip.title = `Also consecrated by ${others.map((id) => ctx.nodeById.get(id)?.name || id).join(', ')}`;
     const chips = el('div', 'lineage-grid-card__chips');
     chips.appendChild(chip);
     body.appendChild(chips);
   }
-
-  // Year of the order the card is placed at, so the year always matches the card's spot on its bus.
-  const placedYear = String(ctx.primaryByTarget.get(node.id)?.event_sort_key ?? '').slice(0, 4);
-  card.append(el('span', 'lineage-grid-card__year', placedYear || eventYear(node)), body);
+  card.append(side, body);
   appendSeal(card, nodeValidityMarks(node, ctx.primaryByTarget.get(node.id)));
+
+  if (ctx.busSources?.has(node.id)) card.dataset.bus = ''; // overview draws the bus out to the photo
+  const lineageSize = ctx.landmarks?.get(node.id);
+  if (lineageSize) {
+    const label = el('span', 'lineage-grid-card__landmark', node.name);
+    label.appendChild(el('small', null, `${lineageSize} in lineage`));
+    card.appendChild(label);
+  }
+}
+
+/** The largest lineages, labeled at overview zoom: Map(id -> descendant count). */
+function topLineages(layout) {
+  return new Map(Object.entries(layout.metrics || {})
+    .map(([id, m]) => [Number(id), m.total_descendants])
+    .filter(([, n]) => n > 1)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, LANDMARK_COUNT));
 }
 
 function renderGroupCard(gid, group, pos, metrics, ctx) {
@@ -1136,7 +1176,7 @@ function lastPathSegment(pathD) {
   };
 }
 
-function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics, ctx = null) {
+function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics, ctx = null, nodeById = new Map()) {
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
   ['grid-arrow-green', 'grid-arrow-ordination', 'grid-arrow-red', 'grid-arrow-orange'].forEach((id) => {
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
@@ -1182,10 +1222,10 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics, ctx
 
     const style = ctx ? experimentalEdgeStyle(link) : edgeStyle(link);
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', pathData);
+    path.setAttribute('d', roundCorners(pathData));
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', style.stroke);
-    path.setAttribute('stroke-width', String(style.strokeWidth));
+    path.style.setProperty('--sw', style.strokeWidth);
     path.setAttribute('opacity', String(style.opacity));
     if (style.strokeDasharray) path.setAttribute('stroke-dasharray', style.strokeDasharray);
     if (link.is_sub_conditione && link.type !== 'ordination') {
@@ -1233,10 +1273,10 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics, ctx
         .sort((a, b) => linkValidityRank(a) - linkValidityRank(b))[0] || { type: 'consecration' };
       const style = experimentalEdgeStyle(worst);
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', pathData);
+      path.setAttribute('d', roundCorners(pathData));
       path.setAttribute('fill', 'none');
       path.setAttribute('stroke', style.stroke);
-      path.setAttribute('stroke-width', String(style.strokeWidth));
+      path.style.setProperty('--sw', style.strokeWidth);
       if (style.strokeDasharray) path.setAttribute('stroke-dasharray', style.strokeDasharray);
       path.setAttribute('marker-end', `url(#${style.marker})`);
       path.classList.add('lineage-grid-edge');
@@ -1251,10 +1291,10 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics, ctx
     if (!pathData) return;
     const style = ctx ? experimentalEdgeStyle(link) : edgeStyle(link);
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', pathData);
+    path.setAttribute('d', roundCorners(pathData));
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', style.stroke);
-    path.setAttribute('stroke-width', String(style.strokeWidth));
+    path.style.setProperty('--sw', style.strokeWidth);
     path.setAttribute('stroke-dasharray', style.strokeDasharray || '4 4');
     path.setAttribute('marker-end', `url(#${style.marker || 'grid-arrow-green'})`);
     path.classList.add('lineage-grid-edge', 'lineage-grid-edge--ghost');
@@ -1266,9 +1306,11 @@ function renderEdges(svg, links, positions, layout, primaryEdgeSet, metrics, ctx
     const pathData = routedPaths.get(trunkKey);
     if (!pathData) return;
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', pathData);
+    path.setAttribute('d', roundCorners(pathData));
     path.setAttribute('fill', 'none');
     path.classList.add('lineage-grid-edge', 'lineage-grid-edge--bus-trunk');
+    const org = nodeById.get(Number(bus.source))?.org_color;
+    if (org) path.style.setProperty('--org-color', org);
     edgesGroup.appendChild(path);
   });
 }
@@ -1428,7 +1470,7 @@ function computeStageSize(positions, layout, metrics) {
 }
 
 /** Pointer events, so mouse and touch share one path: one pointer pans, two pinch-zoom. */
-function initPanZoom(viewport, stage) {
+function initPanZoom(viewport, stage, onZoom = () => {}) {
   let scale = 1;
   let translateX = 0;
   let translateY = 0;
@@ -1438,6 +1480,7 @@ function initPanZoom(viewport, stage) {
   const clampZoom = (s) => Math.min(2.5, Math.max(MIN_ZOOM, s));
   const apply = () => {
     stage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    onZoom(scale);
   };
   const local = (event) => {
     const rect = viewport.getBoundingClientRect();
@@ -1521,6 +1564,16 @@ function initPanZoom(viewport, stage) {
   };
 }
 
+/** Lines keep a minimum on-screen weight; cards drop detail as they shrink (CSS reads data-zoom-tier). */
+function applyZoomDetail(page, scale) {
+  if (!page) return;
+  page.style.setProperty('--grid-zk', String(Math.min(7, Math.max(1, ZOOM_DETAIL.LINE_FLOOR / scale))));
+  page.style.setProperty('--grid-name-fs', `${Math.min(22, Math.max(14, 11.5 / scale))}px`);
+  page.style.setProperty('--grid-landmark-fs', `${Math.min(150, 14 / scale)}px`);
+  const tier = scale < ZOOM_DETAIL.OVERVIEW_BELOW ? 'overview' : scale < ZOOM_DETAIL.NAMES_BELOW ? 'names' : 'detail';
+  if (page.dataset.zoomTier !== tier) page.dataset.zoomTier = tier;
+}
+
 async function loadSpriteSheetData() {
   try {
     if (typeof window.getSpriteSheetData === 'function') {
@@ -1545,6 +1598,10 @@ function renderGrid(stage, nodes, links, { showPriests, experimental, expandedGr
     showPriests, expandedGroups, ghostCards: true, ordinationGhosts: true,
   });
   const ctx = experimental ? buildExperimentalContext(nodes, links) : null;
+  if (ctx) {
+    ctx.landmarks = topLineages(layout);
+    ctx.busSources = new Set((layout.buses || []).map((bus) => Number(bus.source)));
+  }
   const positions = layout.positions || {};
   const activeMetrics = activeMetricsFromLayout(layout);
 
@@ -1574,7 +1631,7 @@ function renderGrid(stage, nodes, links, { showPriests, experimental, expandedGr
   stage.appendChild(svg);
 
   const primaryEdgeSet = buildPrimaryEdgeSet(layout.primary_edges);
-  renderEdges(svg, links, positions, layout, primaryEdgeSet, activeMetrics, ctx);
+  renderEdges(svg, links, positions, layout, primaryEdgeSet, activeMetrics, ctx, new Map(nodes.map((n) => [n.id, n])));
   const cardsLayer = renderCards(stage, visibleNodes, positions, layout.bounds, activeMetrics, ctx, layout.groups, layout.ghosts);
 
   if (legend) {
@@ -1605,7 +1662,8 @@ export async function initializeLineageGrid() {
   const spritePromise = loadSpriteSheetData();
 
   // Once per page: pan/zoom listeners live on viewport/window, so re-renders keep the view.
-  const panZoom = initPanZoom(viewport, stage);
+  const page = document.querySelector('.lineage-grid-page');
+  const panZoom = initPanZoom(viewport, stage, (scale) => applyZoomDetail(page, scale));
   let nodeById = new Map(nodes.map((n) => [n.id, n]));
   let gridState = null;
 

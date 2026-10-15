@@ -92,7 +92,6 @@ body {
   text-decoration: underline;
 }
 
-.statusbar-logout:hover,
 .statusbar-logout:focus {
   text-decoration: none;
 }
@@ -213,27 +212,59 @@ body {
 
 .panel-left-filters-form {
   display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.panel-left-filters-row {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5em;
+  gap: 0.25em;
 }
 
 .panel-left-filters-label {
   font-weight: 600;
-  margin-right: 0.25em;
+  width: 3.5em;
 }
 
-.panel-left-filters-select {
-  min-width: 6em;
-  max-width: 12em;
+/* Checkbox rendered as a toggle chip: outlined off, inverted on. */
+.filter-chip {
+  border: 1px solid #000;
+  border-radius: 1em;
+  padding: 0.1em 0.6em;
+  cursor: pointer;
+  user-select: none;
+}
+
+.filter-chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.filter-chip:has(input:checked) {
+  background: #000;
+  color: #fff;
+}
+
+.filter-chip:has(input:focus-visible) {
+  outline: 1px dotted #000;
+  outline-offset: 1px;
 }
 
 .panel-left-filters-input {
-  width: 4em;
+  width: 5em;
 }
 
-.panel-left-filters-apply {
-  margin-left: 0.25em;
+.panel-left-filters-clear {
+  margin-left: auto;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* Left panel: clergy tags */
@@ -391,7 +422,6 @@ body {
   text-decoration: none;
 }
 
-.right-panel-clergy-name:hover,
 .right-panel-clergy-name:focus {
   text-decoration: underline;
 }
@@ -455,10 +485,6 @@ body {
 .bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result:last-child,
 .bishop-autocomplete-field .autocomplete-dropdown .dropdown-item:last-child {
   border-bottom: none;
-}
-
-.bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result:hover {
-  background: rgba(0, 123, 255, 0.1);
 }
 
 .bishop-autocomplete-field .autocomplete-dropdown .dropdown-item.text-muted {
@@ -685,11 +711,8 @@ body {
   background: none;
 }
 
-.editor-button--save:hover,
 .editor-button--save:focus,
-.editor-button--danger:hover,
 .editor-button--danger:focus,
-.editor-button--action:hover,
 .editor-button--action:focus {
   outline: none;
   text-decoration: underline;
@@ -915,9 +938,7 @@ body {
   cursor: pointer;
 }
 
-#clergyForm .date-unknown-link:hover,
 #clergyForm .date-unknown-link:focus,
-#clergyForm .specify-date-link:hover,
 #clergyForm .specify-date-link:focus {
   color: #000;
 }
@@ -1006,7 +1027,6 @@ body {
   border-bottom: 0;
 }
 
-.search-overlay-result-item:hover,
 .search-overlay-result-item:focus {
   background: #f2f2f2;
 }
@@ -1099,7 +1119,6 @@ body {
   color: #005c1a;
 }
 
-.editor-photo-overlay-button:hover,
 .editor-photo-overlay-button:focus {
   text-decoration: underline;
 }

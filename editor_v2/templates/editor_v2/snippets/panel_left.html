@@ -1,28 +1,37 @@
 <div class="panel-left-content">
+  {% set active_filters = (selected_ranks|length) + (selected_tag_ids|length) + (1 if year_min else 0) + (1 if year_max else 0) %}
   <form class="panel-left-filters panel-left-filters-form"
         method="get"
         action="{{ url_for('editor.panel_left') }}"
         hx-get="{{ url_for('editor.panel_left') }}"
         hx-target="#editor-panel-left"
         hx-swap="innerHTML"
-        hx-trigger="submit">
-      <label class="panel-left-filters-label">Rank</label>
-      <select name="rank" multiple class="panel-left-filters-select">
-        {% for r in all_ranks %}
-        <option value="{{ r.name }}" {% if r.name in selected_ranks %}selected{% endif %}>{{ r.name }}</option>
-        {% endfor %}
-      </select>
-      <label class="panel-left-filters-label">Tag</label>
-      <select name="tag_ids" multiple class="panel-left-filters-select">
-        {% for t in all_tags %}
-        <option value="{{ t.id }}" {% if (t.id | string) in selected_tag_ids %}selected{% endif %}>{{ t.label }}</option>
-        {% endfor %}
-      </select>
-      <label class="panel-left-filters-label">Year from</label>
-      <input type="number" name="year_min" value="{{ year_min or '' }}" placeholder="Year" class="panel-left-filters-input" min="1" max="9999" />
-      <label class="panel-left-filters-label">Year to</label>
-      <input type="number" name="year_max" value="{{ year_max or '' }}" placeholder="Year" class="panel-left-filters-input" min="1" max="9999" />
-    <button type="submit" class="panel-left-filters-apply">Apply</button>
+        hx-trigger="change, submit">
+    <div class="panel-left-filters-row">
+      <span class="panel-left-filters-label">Rank</span>
+      {% for r in all_ranks %}
+      <label class="filter-chip"><input type="checkbox" name="rank" value="{{ r.name }}" {% if r.name in selected_ranks %}checked{% endif %}>{{ r.name }}</label>
+      {% endfor %}
+    </div>
+    <div class="panel-left-filters-row">
+      <span class="panel-left-filters-label">Tag</span>
+      {% for t in all_tags %}
+      <label class="filter-chip"><input type="checkbox" name="tag_ids" value="{{ t.id }}" {% if (t.id | string) in selected_tag_ids %}checked{% endif %}>{{ t.label }}</label>
+      {% endfor %}
+    </div>
+    <div class="panel-left-filters-row">
+      <span class="panel-left-filters-label">Years</span>
+      <input type="number" name="year_min" value="{{ year_min or '' }}" placeholder="from" class="panel-left-filters-input" min="1" max="9999" aria-label="Year from">
+      <span>–</span>
+      <input type="number" name="year_max" value="{{ year_max or '' }}" placeholder="to" class="panel-left-filters-input" min="1" max="9999" aria-label="Year to">
+      {% if active_filters %}
+      <button type="button"
+              class="panel-left-filters-clear"
+              hx-get="{{ url_for('editor.panel_left') }}"
+              hx-target="#editor-panel-left"
+              hx-swap="innerHTML">Clear filters ({{ active_filters }})</button>
+      {% endif %}
+    </div>
   </form>
   <ul class="panel-left-clergy-list">
     {% if user and user.can_edit_clergy() %}

@@ -84,14 +84,8 @@ def _flat_clergy_list_for_panel_left(nodes, request_args, clergy_tag_ids):
     # Filters
     selected_ranks = request_args.getlist('rank')
     selected_tag_ids = [int(x) for x in request_args.getlist('tag_ids') if x.isdigit()]
-    try:
-        year_min = request_args.get('year_min', type=int)
-    except (TypeError, ValueError):
-        year_min = None
-    try:
-        year_max = request_args.get('year_max', type=int)
-    except (TypeError, ValueError):
-        year_max = None
+    year_min = request_args.get('year_min', type=int)
+    year_max = request_args.get('year_max', type=int)
 
     filtered = []
     for row in rows:
@@ -124,39 +118,6 @@ def _flat_clergy_list_for_panel_left(nodes, request_args, clergy_tag_ids):
         r.pop('_sort_cons', None)
         r.pop('_sort_ord', None)
     return filtered
-
-
-def _rows_to_tree(rows):
-    """Convert flat DFS-ordered rows (with depth) into a nested tree.
-
-    Data contract:
-    - Input ``rows`` is an iterable of mapping-like objects where each row
-      at minimum exposes:
-        - ``id``: ``int`` clergy ID (normalized upstream; see ``panel_left``)
-        - ``depth``: ``int`` depth from the root (0-based)
-        - other display fields used by the template (e.g. ``name``, ``rank``,
-          ``organization``).
-    - Return value is a list of tree nodes where each node is a dict with:
-        - ``'row'``: the original row mapping
-        - ``'children'``: ``list`` of child nodes using the same shape.
-
-    The ``children`` field is always present and is always a list (possibly
-    empty) so that the Jinja template can safely recurse without additional
-    ``None`` checks.
-    """
-    stack = []
-    root_list = []
-    for row in rows:
-        depth = row['depth']
-        while stack and stack[-1]['row']['depth'] >= depth:
-            stack.pop()
-        node = {'row': row, 'children': []}
-        if stack:
-            stack[-1]['children'].append(node)
-        else:
-            root_list.append(node)
-        stack.append(node)
-    return root_list
 
 
 editor = Blueprint(
@@ -319,6 +280,30 @@ def api_tags_delete(tag_id):
     return jsonify({'success': True}), 200
 
 
+@editor.route('/api/organizations', methods=['POST'])
+@require_permission('edit_clergy')
+def api_organizations_create():
+    """JSON API: create an organization (or return the existing one with that name)."""
+    payload = request.get_json(silent=True) or {}
+    name = (payload.get('name') or '').strip()
+    abbreviation = (payload.get('abbreviation') or '').strip() or None
+    if not name or len(name) > 200:
+        return jsonify({'success': False, 'message': 'Organization name is required (max 200 characters).'}), 400
+    org = Organization.query.filter(db.func.lower(Organization.name) == name.lower()).first()
+    status = 200
+    if not org:
+        if abbreviation and Organization.query.filter_by(abbreviation=abbreviation).first():
+            abbreviation = None
+        org = Organization(name=name, abbreviation=abbreviation)
+        db.session.add(org)
+        db.session.commit()
+        status = 201
+    return jsonify({
+        'success': True,
+        'organization': {'id': org.id, 'name': org.name, 'abbreviation': org.abbreviation},
+    }), status
+
+
 @editor.route('/panel/left')
 @require_permission('edit_clergy')
 def panel_left():
@@ -354,16 +339,6 @@ def panel_left():
     selected_tag_ids = [x for x in request.args.getlist('tag_ids') if x.isdigit()]
     year_min = request.args.get('year_min', type=int)
     year_max = request.args.get('year_max', type=int)
-    if year_min is None and request.args.get('year_min') is not None:
-        try:
-            year_min = int(request.args.get('year_min'))
-        except (TypeError, ValueError):
-            year_min = None
-    if year_max is None and request.args.get('year_max') is not None:
-        try:
-            year_max = int(request.args.get('year_max'))
-        except (TypeError, ValueError):
-            year_max = None
     return render_template(
         'editor_v2/snippets/panel_left.html',
         clergy_list=clergy_list,
@@ -732,8 +707,10 @@ def ordained_consecrated_data():
     direct_consecrated_ids = {c_obj.id for c_obj, _ in consecrated_rows}
 
     protected_ids = direct_ordained_ids | direct_consecrated_ids
+    nodes_count = [0]  # one cap for the whole response, shared by every subtree
 
-    # Co-consecrated clergy where this bishop served as a co-consecrator
+    # Bishops who co-consecrated *this* clergy; they and their descendants are
+    # excluded from the list below (unless directly ordained/consecrated here).
     co_consecrated = []
     for consecration in clergy.consecrations:
         for co in consecration.co_consecrators:
@@ -755,7 +732,7 @@ def ordained_consecrated_data():
                 'role': 'ordinand',
                 'lineType': 'ordination',
                 'descendants': _build_descendants_tree(
-                    c_obj.id, 0, MAX_LINEAGE_DEPTH, MAX_LINEAGE_NODES, [0]
+                    c_obj.id, 0, MAX_LINEAGE_DEPTH, MAX_LINEAGE_NODES, nodes_count
                 ),
             }
         )
@@ -767,7 +744,7 @@ def ordained_consecrated_data():
                 'role': 'consecrand',
                 'lineType': 'consecration',
                 'descendants': _build_descendants_tree(
-                    c_obj.id, 0, MAX_LINEAGE_DEPTH, MAX_LINEAGE_NODES, [0]
+                    c_obj.id, 0, MAX_LINEAGE_DEPTH, MAX_LINEAGE_NODES, nodes_count
                 ),
             }
         )
@@ -775,7 +752,7 @@ def ordained_consecrated_data():
         cid = item['clergy']['id']
         item['lineType'] = 'consecration'
         item['descendants'] = _build_descendants_tree(
-            cid, 0, MAX_LINEAGE_DEPTH, MAX_LINEAGE_NODES, [0]
+            cid, 0, MAX_LINEAGE_DEPTH, MAX_LINEAGE_NODES, [0]  # exclusion-only, not in the payload
         )
 
     def _compute_excluded_ids_for_co_consecrators(co_items):
@@ -956,28 +933,22 @@ def api_wiki_save_for_clergy():
     return jsonify({'success': True, 'wiki_saved': wiki_saved, 'page_id': page.id})
 
 
+def _unpack_handler_result(result):
+    """Clergy handlers return a bare response, (clergy, response) or (clergy, response, status)."""
+    if isinstance(result, tuple):
+        if len(result) == 2:
+            return result[0], result[1], None
+        if len(result) >= 3:
+            return result[0], result[1], result[2]
+        return None, None, None
+    return None, result, None
+
+
 @editor.route('/clergy/add', methods=['POST'])
 @require_permission('edit_clergy')
 def clergy_add_v2():
     """Editor v2: add clergy via JSON API, reusing core service logic."""
-    result = clergy_service.add_clergy_handler()
-
-    clergy = None
-    response = None
-    status_code = None
-
-    # Handler may return:
-    # - (clergy, response)
-    # - (clergy, response, status_code)
-    # - bare response
-    if isinstance(result, tuple):
-        if len(result) == 2:
-            clergy, response = result
-        elif len(result) >= 3:
-            clergy, response, status_code = result[0], result[1], result[2]
-    else:
-        response = result
-
+    clergy, response, status_code = _unpack_handler_result(clergy_service.add_clergy_handler())
     return _normalize_clergy_save_result(clergy, response, status_code)
 
 
@@ -985,23 +956,7 @@ def clergy_add_v2():
 @require_permission('edit_clergy')
 def clergy_edit_v2(clergy_id):
     """Editor v2: edit clergy via JSON API, reusing core service logic."""
-    result = clergy_service.edit_clergy_handler(clergy_id)
-
-    clergy = None
-    response = None
-    status_code = None
-
-    # Handler may eventually mirror add_clergy_handler and return:
-    # - (clergy, response)
-    # - (clergy, response, status_code)
-    # - bare response (current behavior)
-    if isinstance(result, tuple):
-        if len(result) == 2:
-            clergy, response = result
-        elif len(result) >= 3:
-            clergy, response, status_code = result[0], result[1], result[2]
-    else:
-        response = result
+    clergy, response, status_code = _unpack_handler_result(clergy_service.edit_clergy_handler(clergy_id))
 
     update_descendants = request.values.get('update_descendants') in ('1', 'true', 'on')
     if update_descendants and response and getattr(response, 'get_json', None):

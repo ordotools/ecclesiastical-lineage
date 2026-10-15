@@ -191,7 +191,6 @@ body ::-moz-selection {
   border-radius: 50%;
   overflow: hidden;
   background-color: #dfe4ea;
-  background-image: var(--sprite-url, none);
   /* Sprite cells are scaled to --photo-size, so one whole face fills the circle at any size. */
   background-position:
     calc(var(--sprite-col, 0) * -1 * var(--photo-size))
@@ -268,6 +267,11 @@ body ::-moz-selection {
   flex-direction: column;
   align-items: center;
   gap: 7px;
+}
+
+/* --sprite-url is set on the page; it becomes the high-res sheet once that has downloaded. */
+.lineage-grid-card__photo.has-photo {
+  background-image: var(--sprite-url, none);
 }
 
 .lineage-grid-card__photo--mono {

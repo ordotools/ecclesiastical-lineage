@@ -704,7 +704,7 @@ class ImageUploadService:
         
         return img
     
-    def create_sprite_sheet(self, clergy_list, images_per_row=20, thumbnail_size=48):
+    def create_sprite_sheet(self, clergy_list, images_per_row=20, thumbnail_size=48, hires_size=160):
         """
         Create an optimized sprite sheet from clergy thumbnail images
         
@@ -712,6 +712,8 @@ class ImageUploadService:
             clergy_list: List of Clergy objects with image_data or image_url
             images_per_row (int): Number of thumbnails per row in sprite sheet
             thumbnail_size (int): Size of each thumbnail in pixels
+            hires_size (int): Tile size of the high-res sheet the grid swaps in when zoomed;
+                same layout as the main sheet, so the mapping works for both
             
         Returns:
             dict: Contains 'success', 'url', 'error', 'mapping' keys
@@ -732,7 +734,8 @@ class ImageUploadService:
                 if clergy.image_data:
                     try:
                         image_data = json.loads(clergy.image_data)
-                        thumbnail_url = image_data.get('lineage', image_data.get('detail', image_data.get('original', '')))
+                        # Cropped 320px detail first: it feeds both sheets. Original is uncropped, so last.
+                        thumbnail_url = image_data.get('detail') or image_data.get('lineage') or image_data.get('original', '')
                         if thumbnail_url == '':
                             thumbnail_url = None
                     except (json.JSONDecodeError, AttributeError):
@@ -765,10 +768,10 @@ class ImageUploadService:
                     response = requests.get(thumbnail_url, timeout=10)
                     response.raise_for_status()
                     img = Image.open(BytesIO(response.content))
-                    if img.size != (thumbnail_size, thumbnail_size):
-                        img = img.resize((thumbnail_size, thumbnail_size), Image.Resampling.LANCZOS)
                     if img.mode != 'RGB':
                         img = img.convert('RGB')
+                    if img.size != (hires_size, hires_size):  # bounds memory; both sheets resize from here
+                        img = img.resize((hires_size, hires_size), Image.Resampling.LANCZOS)
                     successfully_processed_images.append((clergy_id, img))
                 except Exception as e:
                     current_app.logger.warning(f"Failed to process thumbnail for clergy {clergy_id} ({thumbnail_url}): {e}")
@@ -779,15 +782,28 @@ class ImageUploadService:
             rows = (num_images_in_sprite + images_per_row - 1) // images_per_row
             sprite_width = images_per_row * thumbnail_size
             sprite_height = rows * thumbnail_size
-            sprite = Image.new('RGB', (sprite_width, sprite_height), (255, 255, 255))
-            sprite.paste(placeholder_img, placeholder_position)
 
-            for idx, (clergy_id, img) in enumerate(successfully_processed_images):
-                sprite_idx = idx + 1
-                x = (sprite_idx % images_per_row) * thumbnail_size
-                y = (sprite_idx // images_per_row) * thumbnail_size
-                sprite.paste(img, (x, y))
-                position_mapping[clergy_id] = (x, y)
+            def tile_sheet(size, placeholder):
+                sheet = Image.new('RGB', (images_per_row * size, rows * size), (255, 255, 255))
+                sheet.paste(placeholder, (0, 0))
+                for idx, (_, img) in enumerate(successfully_processed_images, start=1):
+                    tile = img if img.size == (size, size) else img.resize((size, size), Image.Resampling.LANCZOS)
+                    sheet.paste(tile, ((idx % images_per_row) * size, (idx // images_per_row) * size))
+                return sheet
+
+            def upload_sheet(sheet, object_key, **save_opts):
+                output = BytesIO()
+                sheet.save(output, 'JPEG', optimize=True, progressive=True, **save_opts)
+                data = output.getvalue()
+                self.s3_client.put_object(Bucket=self.bucket_name, Key=object_key, Body=data, ContentType='image/jpeg')
+                return self.config.get_public_url(object_key), len(data)
+
+            sprite = tile_sheet(thumbnail_size, placeholder_img)
+            for idx, (clergy_id, _) in enumerate(successfully_processed_images, start=1):
+                position_mapping[clergy_id] = (
+                    (idx % images_per_row) * thumbnail_size,
+                    (idx // images_per_row) * thumbnail_size,
+                )
 
             for clergy_id in clergy_without_images:
                 position_mapping[clergy_id] = placeholder_position
@@ -796,32 +812,26 @@ class ImageUploadService:
             sprite = sprite.filter(ImageFilter.SMOOTH)
             sprite = sprite.convert('P', palette=Image.ADAPTIVE, colors=128)
             sprite = sprite.convert('RGB')
-            output = BytesIO()
-            sprite.save(
-                output,
-                'JPEG',
-                quality=90,  # Higher quality to avoid pixelation
-                optimize=True,
-                progressive=True,
-                subsampling='4:4:4'  # No chroma subsampling for best quality
-            )
-            sprite_data = output.getvalue()
             object_key = f"sprites/clergy_sprite_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-            
-            self.s3_client.put_object(
-                Bucket=self.bucket_name,
-                Key=object_key,
-                Body=sprite_data,
-                ContentType='image/jpeg'
-            )
-            sprite_url = self.config.get_public_url(object_key)
+            # quality 90 / 4:4:4 avoids pixelation at this tiny tile size
+            sprite_url, sprite_bytes = upload_sheet(sprite, object_key, quality=90, subsampling='4:4:4')
             num_actual_in_sprite = len(clergy_with_images) - (placeholder_count - len(clergy_without_images))
-            current_app.logger.info(f"Created optimized sprite sheet: {sprite_url} ({len(sprite_data)} bytes, {num_images_in_sprite} tiles in sprite [{num_actual_in_sprite} images + 1 placeholder], {num_images} total clergy, {placeholder_count} using placeholder)")
+            current_app.logger.info(f"Created optimized sprite sheet: {sprite_url} ({sprite_bytes} bytes, {num_images_in_sprite} tiles in sprite [{num_actual_in_sprite} images + 1 placeholder], {num_images} total clergy, {placeholder_count} using placeholder)")
+
+            # ponytail: one sheet for everyone; at ~1000 photos it reaches 3200x8000 (heavy decode on phones), split into pages then.
+            hires_url = None
+            try:
+                hires = tile_sheet(hires_size, self._create_placeholder_silhouette(hires_size))
+                hires_url, hires_bytes = upload_sheet(hires, object_key.replace('.jpg', f'@{hires_size}.jpg'), quality=82)
+                current_app.logger.info(f"Created high-res sprite sheet: {hires_url} ({hires_bytes} bytes)")
+            except Exception as e:
+                current_app.logger.warning(f"High-res sprite sheet failed; grid stays on the {thumbnail_size}px sheet: {e}")
 
             from models import SpriteSheet, ClergySpritePosition, db
             SpriteSheet.query.update({SpriteSheet.is_current: False})
             sprite_sheet = SpriteSheet(
                 url=sprite_url,
+                hires_url=hires_url,
                 object_key=object_key,
                 thumbnail_size=thumbnail_size,
                 images_per_row=images_per_row,
@@ -849,6 +859,7 @@ class ImageUploadService:
             return {
                 'success': True,
                 'url': sprite_url,
+                'hires_url': hires_url,
                 'mapping': position_mapping,
                 'object_key': object_key,
                 'sprite_width': sprite_width,

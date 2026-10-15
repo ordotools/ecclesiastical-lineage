@@ -1060,11 +1060,31 @@ function applySpritePhoto(photoEl, nodeId, spriteSheetData) {
   if (!sw || !sh) return;
   // In cell units, so CSS scales the sheet to whatever size the photo circle is.
   const cell = spriteSheetData.thumbnail_size || 48;
-  photoEl.style.setProperty('--sprite-url', `url(${JSON.stringify(spriteSheetData.url)})`);
   photoEl.style.setProperty('--sprite-col', String(pos[0] / cell));
   photoEl.style.setProperty('--sprite-row', String(pos[1] / cell));
   photoEl.style.setProperty('--sprite-cols', String(sw / cell));
   photoEl.style.setProperty('--sprite-rows', String(sh / cell));
+}
+
+/**
+ * The sheet URL lives on the page, so swapping in the high-res sheet (same layout, bigger tiles)
+ * is one property change that also covers cards drawn later.
+ */
+function useSpriteSheets(page, spriteSheetData) {
+  if (!page || !spriteSheetData?.url) return;
+  const cssUrl = (url) => `url(${JSON.stringify(url)})`;
+  page.style.setProperty('--sprite-url', cssUrl(spriteSheetData.url));
+  const hires = spriteSheetData.hires_url;
+  if (!hires) return;
+  const start = () => {
+    const img = new Image();
+    img.src = hires;
+    // decode() first, so the swap never flashes blank circles
+    img.decode().then(() => page.style.setProperty('--sprite-url', cssUrl(hires)), () => {});
+  };
+  // Wait for the first paint's work to settle before spending bandwidth on the big sheet.
+  if ('requestIdleCallback' in window) requestIdleCallback(start, { timeout: 2000 });
+  else setTimeout(start, 500);
 }
 
 function applySpritesToCards(cardsLayer, spriteSheetData) {
@@ -1666,6 +1686,7 @@ export async function initializeLineageGrid() {
   const panZoom = initPanZoom(viewport, stage, (scale) => applyZoomDetail(page, scale));
   let nodeById = new Map(nodes.map((n) => [n.id, n]));
   let gridState = null;
+  spritePromise.then((spriteSheetData) => useSpriteSheets(page, spriteSheetData));
 
   const draw = () => {
     const state = renderGrid(stage, nodes, links, { showPriests, experimental, expandedGroups, legend });

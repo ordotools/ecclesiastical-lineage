@@ -460,6 +460,7 @@ class SpriteSheet(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     url = db.Column(db.Text, nullable=False)  # Public URL of the sprite sheet
+    hires_url = db.Column(db.Text, nullable=True)  # Same layout at larger tiles; the grid swaps it in after load
     object_key = db.Column(db.String(500), nullable=False)  # Backblaze object key
     thumbnail_size = db.Column(db.Integer, nullable=False, default=48)  # Size of each thumbnail
     images_per_row = db.Column(db.Integer, nullable=False, default=20)  # Thumbnails per row

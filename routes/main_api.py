@@ -305,6 +305,7 @@ def get_sprite_sheet():
         return jsonify({
             'success': True,
             'url': sprite_sheet.url,
+            'hires_url': sprite_sheet.hires_url,
             'mapping': mapping,
             'thumbnail_size': sprite_sheet.thumbnail_size,
             'images_per_row': sprite_sheet.images_per_row,

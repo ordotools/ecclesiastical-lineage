@@ -11,11 +11,16 @@ import base64
 import json
 import requests
 from io import BytesIO
-from PIL import Image, ImageFilter, ImageDraw
+from PIL import Image, ImageFilter, ImageDraw, ImageOps
 from flask import current_app
 from botocore.exceptions import ClientError
 from datetime import datetime
 from .backblaze_config import get_backblaze_config
+
+
+# Where the automatic square crop sits on a non-square upload (x, y; 0 = left/top). Portraits put
+# faces high, so a tall photo keeps more of its top. Tune here if heads get clipped.
+AUTO_CROP_CENTERING = (0.5, 0.35)
 
 
 class ImageUploadService:
@@ -123,7 +128,7 @@ class ImageUploadService:
                     image_data = base64.b64decode(file_data)
                     file_type = 'image/jpeg'
                 file_size = len(image_data)
-                filename = 'image.jpg'
+                filename = 'image' + self._get_file_extension_from_base64(file_data)
 
             if file_size > self.max_original_size:
                 return {
@@ -155,6 +160,7 @@ class ImageUploadService:
             return {
                 'success': True,
                 'url': public_url,
+                'bytes': image_data,
                 'size': file_size,
                 'object_key': object_key,
                 'image_data': {
@@ -175,180 +181,91 @@ class ImageUploadService:
                 'size': 0
             }
 
-    def process_cropped_image(self, cropped_image_data, clergy_id, original_object_key=None):
+    def save_clergy_image(self, clergy_id, original=None, cropped_image_data=None):
         """
-        Process a cropped image and generate small (lineage) and large (detail) versions
-        
+        Store a clergy photo: the original plus the lineage and detail sizes, which come from the
+        user's square crop if there is one, else from an automatic square crop of the original.
+
+        Called when the clergy form is saved (or by the legacy crop endpoint). Nothing is deleted
+        here; the edit handler prunes the replaced files once the row is committed.
+
         Args:
-            cropped_image_data (str): Base64-encoded cropped image data
             clergy_id (int): ID of the clergy member
-            original_object_key (str): Object key of the original image to delete previous edits
-            
+            original: a newly chosen original (FileStorage or base64 data URL); None keeps the stored one
+            cropped_image_data (str): base64 data URL of the user's square crop; None to auto-crop
+
         Returns:
-            dict: Contains 'success', 'urls', 'error' keys
+            dict: {'success', 'urls'} where urls holds only bucket URLs (original, lineage, detail) and metadata
         """
         try:
-            current_app.logger.info(f"=== PROCESS_CROPPED_IMAGE SERVICE CALLED ===")
-            current_app.logger.info(f"clergy_id: {clergy_id}")
-            current_app.logger.info(f"original_object_key: {original_object_key}")
-            current_app.logger.info(f"cropped_image_data length: {len(cropped_image_data) if cropped_image_data else 'None'}")
-            current_app.logger.info(f"cropped_image_data starts with: {cropped_image_data[:50] if cropped_image_data else 'None'}")
-            current_app.logger.info(f"Backblaze configured: {self.backblaze_configured}")
-
             if not self.backblaze_configured:
-                current_app.logger.error("Backblaze B2 not configured - cannot process images")
                 return {
                     'success': False,
                     'error': 'Image storage not configured. Please set up Backblaze B2 environment variables.'
                 }
+            if original is None and not cropped_image_data:
+                return {'success': False, 'error': 'No image given'}
 
-            if original_object_key:
-                current_app.logger.info("Deleting previous cropped versions")
-                self._delete_previous_cropped_versions(clergy_id)
-
-            current_app.logger.info("Decoding cropped image data")
-            if cropped_image_data.startswith('data:'):
-                header, data = cropped_image_data.split(',', 1)
-                image_data = base64.b64decode(data)
-                current_app.logger.info(f"Decoded data URL, header: {header}")
+            original_bytes = None
+            if original is not None:
+                result = self.upload_original_image(original, clergy_id)
+                if not result['success']:
+                    return {'success': False, 'error': result['error']}
+                original_url, original_bytes = result['url'], result['bytes']
             else:
-                image_data = base64.b64decode(cropped_image_data)
-                current_app.logger.info("Decoded raw base64 data")
-            
-            current_app.logger.info(f"Decoded image data size: {len(image_data)} bytes")
+                original_url = self._current_original_url(clergy_id)
+                if not original_url:
+                    # No original anywhere: the crop is the best we have, and re-cropping needs one.
+                    original_url = self.upload_image_from_base64(cropped_image_data, clergy_id, 'original')
 
-            current_app.logger.info("Opening image with PIL")
-            image = Image.open(BytesIO(image_data))
-            current_app.logger.info(f"Image opened successfully: {image.width}x{image.height}, mode: {image.mode}")
-
-            from models import Clergy
-            current_app.logger.info("Getting current image data to preserve original URL")
-            clergy = Clergy.query.get(clergy_id)
-            original_url = None
-            if clergy and clergy.image_data:
-                try:
-                    import json
-                    current_image_data = json.loads(clergy.image_data)
-                    original_url = current_image_data.get('original')
-                    current_app.logger.info(f"Found original URL in current data: {original_url}")
-                except (json.JSONDecodeError, AttributeError) as e:
-                    current_app.logger.warning(f"Could not parse current image data: {e}")
-            
-            if not original_url and clergy and clergy.image_url:
-                if 'original_' in clergy.image_url:
-                    original_url = clergy.image_url
-                    current_app.logger.info(f"Using clergy.image_url as original URL: {original_url}")
-                else:
-                    try:
-                        response = self.s3_client.list_objects_v2(
-                            Bucket=self.bucket_name,
-                            Prefix=f"clergy/{clergy_id}/"
-                        )
-                        for obj in response.get('Contents', []):
-                            key = obj['Key']
-                            if 'original_' in key and not 'lineage_' in key and not 'detail_' in key:
-                                original_url = self.config.get_public_url(key)
-                                current_app.logger.info(f"Found original image in storage: {original_url}")
-                                break
-                    except Exception as e:
-                        current_app.logger.warning(f"Could not search for original image in storage: {e}")
-
-            urls = {}
-
-            if not original_url:
-                current_app.logger.warning("No original URL found in image_data - searching storage")
-                try:
-                    response = self.s3_client.list_objects_v2(
-                        Bucket=self.bucket_name,
-                        Prefix=f"clergy/{clergy_id}/"
-                    )
-                    original_objects = []
-                    for obj in response.get('Contents', []):
-                        key = obj['Key']
-                        if 'original_' in key and 'lineage_' not in key and 'detail_' not in key:
-                            original_objects.append((obj['LastModified'], key))
-                    
-                    if original_objects:
-                        original_objects.sort(key=lambda x: x[0], reverse=True)
-                        most_recent_key = original_objects[0][1]
-                        original_url = self.config.get_public_url(most_recent_key)
-                        current_app.logger.info(f"Found original image in storage: {original_url}")
-                except Exception as e:
-                    current_app.logger.warning(f"Could not find original image in storage: {e}")
-
-            if not original_url:
-                current_app.logger.warning("No original URL found - uploading cropped image as new original")
-                try:
-                    output = BytesIO()
-                    image.save(output, format='JPEG', quality=95, optimize=True)
-                    cropped_bytes = output.getvalue()
-                    object_key = self._generate_object_key(clergy_id, 'original', '.jpg')
-                    self.s3_client.put_object(
-                        Bucket=self.bucket_name,
-                        Key=object_key,
-                        Body=cropped_bytes,
-                        ContentType='image/jpeg'
-                    )
-                    
-                    original_url = self.config.get_public_url(object_key)
-                    current_app.logger.info(f"Uploaded cropped image as new original: {original_url}")
-                except Exception as e:
-                    current_app.logger.error(f"Failed to upload cropped image as original: {e}")
-
-            if original_url:
-                urls['original'] = original_url
-                current_app.logger.info(f"Using original URL: {original_url}")
+            if cropped_image_data:
+                image = Image.open(BytesIO(_decode_data_url(cropped_image_data)))
             else:
-                current_app.logger.error("CRITICAL: Failed to establish original URL - future edits may fail!")
+                # Phone photos store rotation in EXIF; the browser cropper applies it, PIL doesn't.
+                image = ImageOps.exif_transpose(Image.open(BytesIO(original_bytes)))
+                side = min(image.size)
+                image = ImageOps.fit(image, (side, side), centering=AUTO_CROP_CENTERING)
 
-            current_app.logger.info("Creating lineage version")
-            lineage_url = self._create_resized_version(image, clergy_id, 'lineage', self.image_sizes['lineage'])
-            if lineage_url:
-                urls['lineage'] = lineage_url
-                current_app.logger.info(f"Lineage URL created: {lineage_url}")
-            else:
-                current_app.logger.error("Failed to create lineage version")
+            urls = {'original': original_url} if original_url else {}
+            for size_type in ('lineage', 'detail'):
+                url = self._create_resized_version(image, clergy_id, size_type, self.image_sizes[size_type])
+                if not url:
+                    return {'success': False, 'error': f'Failed to create {size_type} version'}
+                urls[size_type] = url
 
-            current_app.logger.info("Creating detail version")
-            detail_url = self._create_resized_version(image, clergy_id, 'detail', self.image_sizes['detail'])
-            if detail_url:
-                urls['detail'] = detail_url
-                current_app.logger.info(f"Detail URL created: {detail_url}")
-            else:
-                current_app.logger.error("Failed to create detail version")
-            
-            if not urls:
-                current_app.logger.error("No URLs created")
-                return {
-                    'success': False,
-                    'error': 'Failed to create any image versions'
-                }
-
-            from datetime import datetime
             urls['metadata'] = {
-                'original_size': len(image_data),
                 'cropped_dimensions': f"{image.width}x{image.height}",
+                'auto_cropped': not cropped_image_data,
                 'timestamp': datetime.now().isoformat(),
-                'quality_settings': self.quality_settings,
-                'compression_optimized': True,
-                'progressive_jpeg': True
             }
-            
-            current_app.logger.info(f"Processed cropped image for clergy {clergy_id}: {list(urls.keys())}")
-            
-            return {
-                'success': True,
-                'urls': urls
-            }
-            
+            current_app.logger.info(f"Saved image for clergy {clergy_id}: {urls}")
+            return {'success': True, 'urls': urls}
+
         except Exception as e:
-            current_app.logger.error(f"Failed to process cropped image for clergy {clergy_id}: {e}")
-            import traceback
-            current_app.logger.error(f"Traceback: {traceback.format_exc()}")
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            current_app.logger.exception(f"Failed to save image for clergy {clergy_id}")
+            return {'success': False, 'error': str(e)}
+
+    def _current_original_url(self, clergy_id):
+        """The bucket URL of the original the clergy row points at, else the newest original_ in the bucket."""
+        from models import Clergy
+        clergy = Clergy.query.get(clergy_id)
+        if clergy:
+            try:
+                saved = (json.loads(clergy.image_data) if clergy.image_data else {}).get('original')
+            except (json.JSONDecodeError, AttributeError):
+                saved = None
+            for url in (saved, clergy.image_url):
+                key = self.config.get_object_key(url)
+                if key and '/original_' in key:
+                    return url
+        try:
+            objects = self.s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=self._clergy_prefix(clergy_id)).get('Contents', [])
+            originals = sorted((o['LastModified'], o['Key']) for o in objects if '/original_' in o['Key'])
+            if originals:
+                return self.config.get_public_url(originals[-1][1])
+        except Exception as e:
+            current_app.logger.warning(f"Could not search storage for clergy {clergy_id}'s original: {e}")
+        return None
 
     def _create_resized_version(self, image, clergy_id, size_type, target_size):
         """Create a resized version of the image with optimized compression"""
@@ -420,58 +337,6 @@ class ImageUploadService:
             current_app.logger.error(f"Traceback: {traceback.format_exc()}")
             return None
 
-    def _delete_previous_cropped_versions(self, clergy_id):
-        """Delete previous lineage and detail versions when editing"""
-        try:
-            response = self.s3_client.list_objects_v2(
-                Bucket=self.bucket_name,
-                Prefix=f"clergy/{clergy_id}/"
-            )
-            for obj in response.get('Contents', []):
-                key = obj['Key']
-                if 'lineage_' in key or 'detail_' in key:
-                    self.s3_client.delete_object(
-                        Bucket=self.bucket_name,
-                        Key=key
-                    )
-                    current_app.logger.info(f"Deleted previous cropped version: {key}")
-                    
-        except Exception as e:
-            current_app.logger.error(f"Failed to delete previous cropped versions for clergy {clergy_id}: {e}")
-    
-    def upload_image_from_file(self, file_data, clergy_id, image_type='original'):
-        """
-        Upload a file object to Backblaze B2
-        
-        Args:
-            file_data: File object from Flask request
-            clergy_id (int): ID of the clergy member
-            image_type (str): Type of image (lineage, detail, thumbnail, original)
-            
-        Returns:
-            str: Public URL of the uploaded image, or None if failed
-        """
-        try:
-            # Generate unique filename
-            file_extension = self._get_file_extension_from_filename(file_data.filename)
-            object_key = self._generate_object_key(clergy_id, image_type, file_extension)
-            
-            file_data.seek(0)
-            self.s3_client.put_object(
-                Bucket=self.bucket_name,
-                Key=object_key,
-                Body=file_data.read(),
-                ContentType=file_data.content_type or self._get_content_type(file_extension)
-            )
-            public_url = self.config.get_public_url(object_key)
-            current_app.logger.info(f"Uploaded {image_type} image for clergy {clergy_id}: {public_url}")
-            
-            return public_url
-            
-        except Exception as e:
-            current_app.logger.error(f"Failed to upload {image_type} image for clergy {clergy_id}: {e}")
-            return None
-    
     def process_and_upload_comprehensive_image(self, image_data_json, clergy_id):
         """
         Process comprehensive image data and upload all sizes to Backblaze B2
@@ -508,47 +373,6 @@ class ImageUploadService:
             current_app.logger.error(f"Failed to process comprehensive image for clergy {clergy_id}: {e}")
             return None
     
-    def resize_and_upload_image(self, base64_data, clergy_id, target_size, image_type):
-        """
-        Resize an image and upload to Backblaze B2
-        
-        Args:
-            base64_data (str): Base64-encoded image data
-            clergy_id (int): ID of the clergy member
-            target_size (tuple): Target size as (width, height)
-            image_type (str): Type of image
-            
-        Returns:
-            str: Public URL of the uploaded image, or None if failed
-        """
-        try:
-            if base64_data.startswith('data:'):
-                header, data = base64_data.split(',', 1)
-                image_data = base64.b64decode(data)
-            else:
-                image_data = base64.b64decode(base64_data)
-
-            image = Image.open(BytesIO(image_data))
-            resized_image = image.resize(target_size, Image.Resampling.LANCZOS)
-            output = BytesIO()
-            resized_image.save(output, format='JPEG', quality=85, optimize=True)
-            resized_data = output.getvalue()
-            object_key = self._generate_object_key(clergy_id, image_type, '.jpg')
-            self.s3_client.put_object(
-                Bucket=self.bucket_name,
-                Key=object_key,
-                Body=resized_data,
-                ContentType='image/jpeg'
-            )
-            public_url = self.config.get_public_url(object_key)
-            current_app.logger.info(f"Uploaded resized {image_type} image for clergy {clergy_id}: {public_url}")
-            
-            return public_url
-            
-        except Exception as e:
-            current_app.logger.error(f"Failed to resize and upload {image_type} image for clergy {clergy_id}: {e}")
-            return None
-    
     def delete_image(self, object_key):
         """
         Delete an image from Backblaze B2
@@ -568,33 +392,27 @@ class ImageUploadService:
             return False
     
     def delete_clergy_images(self, clergy_id):
+        """Delete every image this app stored for a clergy member. Returns True on success."""
+        return self.prune_clergy_images(clergy_id, keep_urls=())
+
+    def prune_clergy_images(self, clergy_id, keep_urls):
         """
-        Delete all images for a clergy member
-        
-        Args:
-            clergy_id (int): ID of the clergy member
-            
-        Returns:
-            bool: True if successful, False otherwise
+        Delete the clergy member's bucket files that keep_urls doesn't reference: sizes replaced
+        by a saved re-crop, and crops whose form was never saved. Call only after the row is committed.
         """
+        keep = {self.config.get_object_key(u) for u in keep_urls}
         try:
-            prefix = f"clergy/{clergy_id}/"
-            response = self.s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=prefix)
-            
-            if 'Contents' in response:
-                for obj in response['Contents']:
-                    self.delete_image(obj['Key'])
-                
-                current_app.logger.info(f"Deleted all images for clergy {clergy_id}")
-                return True
-            else:
-                current_app.logger.info(f"No images found for clergy {clergy_id}")
-                return True
-                
+            objects = self.s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=self._clergy_prefix(clergy_id)).get('Contents', [])
+            # ponytail: one list page (1000 keys) per clergy is plenty; paginate if that ever stops holding
+            stale = [{'Key': o['Key']} for o in objects if o['Key'] not in keep]
+            if stale:
+                self.s3_client.delete_objects(Bucket=self.bucket_name, Delete={'Objects': stale, 'Quiet': True})
+                current_app.logger.info(f"Pruned {len(stale)} unreferenced image(s) for clergy {clergy_id}")
+            return True
         except Exception as e:
-            current_app.logger.error(f"Failed to delete images for clergy {clergy_id}: {e}")
+            current_app.logger.error(f"Failed to prune images for clergy {clergy_id}: {e}")
             return False
-    
+
     WIKI_ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
     def upload_wiki_image(self, file):
@@ -615,7 +433,7 @@ class ImageUploadService:
         if ext not in self.WIKI_ALLOWED_EXTENSIONS:
             return None
         base = ''.join(c for c in (file.filename.rsplit('.', 1)[0][:50] or 'img') if c.isalnum() or c in '-_') or 'img'
-        object_key = f"wiki/img/{base}_{uuid.uuid4().hex[:8]}.{ext}"
+        object_key = f"{self.config.key_prefix}wiki/img/{base}_{uuid.uuid4().hex[:8]}.{ext}"
         content_type = file.content_type or self._get_content_type(f'.{ext}')
         try:
             file.seek(0)
@@ -635,7 +453,10 @@ class ImageUploadService:
     def _generate_object_key(self, clergy_id, image_type, file_extension):
         """Generate a unique object key for the image"""
         unique_id = str(uuid.uuid4())[:8]
-        return f"clergy/{clergy_id}/{image_type}_{unique_id}{file_extension}"
+        return f"{self._clergy_prefix(clergy_id)}{image_type}_{unique_id}{file_extension}"
+
+    def _clergy_prefix(self, clergy_id):
+        return f"{self.config.key_prefix}clergy/{clergy_id}/"
     
     def _get_file_extension_from_base64(self, base64_data):
         """Extract file extension from base64 data URL"""
@@ -730,26 +551,21 @@ class ImageUploadService:
             clergy_without_images = []
 
             for clergy in clergy_list:
-                thumbnail_url = None
+                image_data = {}
                 if clergy.image_data:
                     try:
-                        image_data = json.loads(clergy.image_data)
-                        # Cropped 320px detail first: it feeds both sheets. Original is uncropped, so last.
-                        thumbnail_url = image_data.get('detail') or image_data.get('lineage') or image_data.get('original', '')
-                        if thumbnail_url == '':
-                            thumbnail_url = None
+                        image_data = json.loads(clergy.image_data) or {}
                     except (json.JSONDecodeError, AttributeError):
                         pass
+                # Tried in order until one loads (bucket files can go missing; some records only
+                # hold base64). Cropped 320px detail first: it feeds both sheets. Original is uncropped, so last.
+                sources = [image_data.get(k) for k in ('detail', 'lineage', 'cropped', 'original')] + [clergy.image_url]
+                sources = list(dict.fromkeys(u for u in sources if isinstance(u, str) and u))
 
-                if not thumbnail_url:
-                    thumbnail_url = clergy.image_url if clergy.image_url else None
-                    if thumbnail_url == '':
-                        thumbnail_url = None
-
-                if thumbnail_url is None or thumbnail_url == '':
-                    clergy_without_images.append(clergy.id)
+                if sources:
+                    clergy_with_images.append((clergy.id, sources))
                 else:
-                    clergy_with_images.append((clergy.id, thumbnail_url))
+                    clergy_without_images.append(clergy.id)
 
             if not clergy_list:
                 return {
@@ -763,20 +579,33 @@ class ImageUploadService:
             placeholder_count = len(clergy_without_images)
             successfully_processed_images = []
 
-            for clergy_id, thumbnail_url in clergy_with_images:
-                try:
-                    response = requests.get(thumbnail_url, timeout=10)
-                    response.raise_for_status()
-                    img = Image.open(BytesIO(response.content))
-                    if img.mode != 'RGB':
-                        img = img.convert('RGB')
-                    if img.size != (hires_size, hires_size):  # bounds memory; both sheets resize from here
-                        img = img.resize((hires_size, hires_size), Image.Resampling.LANCZOS)
-                    successfully_processed_images.append((clergy_id, img))
-                except Exception as e:
-                    current_app.logger.warning(f"Failed to process thumbnail for clergy {clergy_id} ({thumbnail_url}): {e}")
+            def load_image(source):
+                if source.startswith('data:'):
+                    return Image.open(BytesIO(_decode_data_url(source)))
+                response = requests.get(source, timeout=10)
+                response.raise_for_status()
+                return Image.open(BytesIO(response.content))
+
+            for clergy_id, sources in clergy_with_images:
+                failures = []
+                for source in sources:
+                    try:
+                        img = load_image(source)
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        if img.size != (hires_size, hires_size):  # bounds memory; both sheets resize from here
+                            img = img.resize((hires_size, hires_size), Image.Resampling.LANCZOS)
+                        successfully_processed_images.append((clergy_id, img))
+                        break
+                    except Exception as e:
+                        failures.append(f"{source[:80]}: {e}")
+                else:
+                    current_app.logger.warning(f"Failed to process thumbnail for clergy {clergy_id}; tried {failures}")
                     clergy_without_images.append(clergy_id)
                     placeholder_count += 1
+                    continue
+                if failures:
+                    current_app.logger.warning(f"Clergy {clergy_id} sprite used a fallback image; broken: {failures}")
 
             num_images_in_sprite = len(successfully_processed_images) + 1
             rows = (num_images_in_sprite + images_per_row - 1) // images_per_row
@@ -812,7 +641,7 @@ class ImageUploadService:
             sprite = sprite.filter(ImageFilter.SMOOTH)
             sprite = sprite.convert('P', palette=Image.ADAPTIVE, colors=128)
             sprite = sprite.convert('RGB')
-            object_key = f"sprites/clergy_sprite_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            object_key = f"{self.config.key_prefix}sprites/clergy_sprite_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.jpg"
             # quality 90 / 4:4:4 avoids pixelation at this tiny tile size
             sprite_url, sprite_bytes = upload_sheet(sprite, object_key, quality=90, subsampling='4:4:4')
             num_actual_in_sprite = len(clergy_with_images) - (placeholder_count - len(clergy_without_images))
@@ -855,6 +684,7 @@ class ImageUploadService:
             db.session.commit()
             
             current_app.logger.info(f"Saved sprite sheet {sprite_sheet.id} with {len(position_mapping)} positions to database")
+            self.prune_sprite_sheets()
             
             return {
                 'success': True,
@@ -878,6 +708,32 @@ class ImageUploadService:
                 'success': False,
                 'error': str(e)
             }
+
+    def prune_sprite_sheets(self, keep=2):
+        """Drop all but the newest `keep` sheets (rows, positions, bucket files); open pages may still use the previous one."""
+        from models import SpriteSheet, ClergySpritePosition, db
+        try:
+            stale = SpriteSheet.query.order_by(SpriteSheet.id.desc()).offset(keep).all()
+            if not stale:
+                return
+            ids = [sheet.id for sheet in stale]
+            # Only our own prefix: a dev DB holds prod's sheet rows, but must not delete prod's files.
+            keys = [key for sheet in stale for key in map(self.config.get_object_key, (sheet.url, sheet.hires_url))
+                    if key and key.startswith(f"{self.config.key_prefix}sprites/")]
+            ClergySpritePosition.query.filter(ClergySpritePosition.sprite_sheet_id.in_(ids)).delete(synchronize_session=False)
+            SpriteSheet.query.filter(SpriteSheet.id.in_(ids)).delete(synchronize_session=False)
+            db.session.commit()
+            for i in range(0, len(keys), 1000):  # DeleteObjects takes at most 1000 keys
+                self.s3_client.delete_objects(Bucket=self.bucket_name, Delete={'Objects': [{'Key': k} for k in keys[i:i + 1000]], 'Quiet': True})
+            current_app.logger.info(f"Pruned {len(ids)} old sprite sheet(s), {len(keys)} file(s)")
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.warning(f"Old sprite sheet cleanup failed (harmless, retried next build): {e}")
+
+
+def _decode_data_url(data):
+    """Bytes from a base64 data URL (or bare base64)."""
+    return base64.b64decode(data.split(',', 1)[1] if data.startswith('data:') else data)
 
 
 # Global instance

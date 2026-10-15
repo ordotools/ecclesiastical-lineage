@@ -547,16 +547,6 @@ class ImageEditor {
                 throw new Error('Cropped image must be square');
             }
             
-            this.showProcessingStatus('Creating small version (lineage)...', 30);
-            
-            // Create small version (lineage) - as small as possible for quick loading
-            const lineageCanvas = await this.createResizedImage(croppedCanvas, 48, 48, 0.95);
-            
-            this.showProcessingStatus('Creating large version (detail)...', 60);
-            
-            // Create large version (detail) - full resolution of the crop
-            const detailCanvas = await this.createResizedImage(croppedCanvas, 320, 320, 0.95);
-            
             this.showProcessingStatus('Uploading to server...', 80);
             
             // Send cropped image to server for processing
@@ -593,7 +583,8 @@ class ImageEditor {
                 body: JSON.stringify({
                     cropped_image_data: croppedImageData,
                     clergy_id: this.clergyId,
-                    original_object_key: this.originalObjectKey
+                    // A new original goes up with the crop; one re-opened from the bucket is already there.
+                    original_image_data: /^https?:/.test(this.originalImageUrl || '') ? null : this.originalImageData
                 })
             });
             
@@ -609,24 +600,8 @@ class ImageEditor {
             
             this.showProcessingStatus('Finalizing...', 100);
             
-            // Store the server-processed images
-            const processedImages = {
-                ...result.image_data,
-                cropped: croppedImageData, // Keep local cropped version for preview
-                original: this.originalImageData, // Keep reference to original
-                metadata: {
-                    originalSize: this.originalImageFile ? this.originalImageFile.size : 0,
-                    originalType: this.originalImageFile ? this.originalImageFile.type : '',
-                    croppedDimensions: `${croppedCanvas.width}x${croppedCanvas.height}`,
-                    quality: 95,
-                    timestamp: new Date().toISOString(),
-                    workflow: 'new_square_crop_only',
-                    server_processed: true
-                }
-            };
-            
-            // Store processed images for form submission
-            this.storeProcessedImages(processedImages);
+            // Bucket URLs only (original, detail, lineage); base64 here used to end up in the DB.
+            this.storeProcessedImages(result.image_data);
             
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('imageEditorModal'));
@@ -1115,7 +1090,8 @@ class ImageEditor {
             
             // Extract clergy ID from the current form or URL
             this.extractClergyId();
-            
+            this.originalImageUrl = null; // a new file, not the stored original
+
             // Load original file directly without compression for high-res cropping
             const originalDataUrl = await this.loadOriginalImage(processedFile);
             await this.openEditor(originalDataUrl, processedFile);

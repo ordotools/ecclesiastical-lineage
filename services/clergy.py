@@ -7,7 +7,7 @@ import threading
 from .image_upload import get_image_upload_service
 from services.validation_cascade import compute_system_tags_for_clergy, merge_user_and_system_tags
 
-# Background task status tracking
+# Sprite rebuild single-flight state: {'running': bool, 'again': bool}
 _sprite_sheet_status = {}
 _sprite_sheet_lock = threading.Lock()
 
@@ -132,81 +132,71 @@ def _apply_tags_for_clergy_from_raw_input(clergy, raw_value):
     clergy.tags = merge_user_and_system_tags(clergy, system_tags)
 
 
-def _regenerate_sprite_sheet():
-    """Helper function to regenerate the sprite sheet after clergy changes"""
+def _apply_image_data_json(clergy, image_data_json):
+    """Save the bucket URLs /api/process-cropped-image returned. Anything else (base64 originals
+    and crops from older editor code) is dropped: it once grew rows to 1.4MB and rode along on every clergy query."""
     try:
-        image_upload_service = get_image_upload_service()
-        if not image_upload_service.backblaze_configured:
-            return
+        data = json.loads(image_data_json)
+    except json.JSONDecodeError as e:
+        current_app.logger.warning("Failed to parse image data JSON: %s", e)
+        return
+    config = get_image_upload_service().config
+    kept = {k: data[k] for k in ('original', 'detail', 'lineage') if config and config.get_object_key(data.get(k))}
+    if 'detail' not in kept:
+        current_app.logger.warning("Ignoring image_data_json without a bucket detail URL (clergy_id=%s)", clergy.id)
+        return
+    if isinstance(data.get('metadata'), dict):
+        kept['metadata'] = data['metadata']
+    clergy.image_data = json.dumps(kept)
+    clergy.image_url = kept.get('original', kept['detail'])
 
-        all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
-        if not all_clergy:
-            return
 
-        result = image_upload_service.create_sprite_sheet(all_clergy)
-        
-        if result['success']:
-            current_app.logger.info("Sprite sheet regenerated: %s (saved to database)", result['url'])
-        else:
-            current_app.logger.warning("Failed to regenerate sprite sheet: %s", result.get('error', 'Unknown error'))
-    except Exception as e:
-        current_app.logger.exception("Error in sprite sheet regeneration")
+def _save_image_upload(clergy, original, cropped_image_data):
+    """Store the form's newly chosen file and/or square crop (sizes auto-cropped when there's no crop)."""
+    result = get_image_upload_service().save_clergy_image(clergy.id, original, cropped_image_data or None)
+    if not result['success']:
+        current_app.logger.warning("Failed to save image for clergy %s: %s", clergy.id, result['error'])
+        return
+    clergy.image_data = json.dumps(result['urls'])
+    clergy.image_url = result['urls'].get('original', result['urls']['detail'])
+
 
 def _regenerate_sprite_sheet_background(clergy_id=None):
-    """Regenerate sprite sheet in background thread"""
+    """Rebuild the sprite sheet in a background thread. One build at a time: saves that land
+    mid-build just flag one more pass, so the last save is always in the sheet that ends up current."""
+    # ponytail: lock is per process; with several gunicorn workers two builds can still overlap (harmless, newest id wins)
+    with _sprite_sheet_lock:
+        if _sprite_sheet_status.get('running'):
+            _sprite_sheet_status['again'] = True
+            return True
+        _sprite_sheet_status.update(running=True, again=False)
     app = current_app._get_current_object()
 
     def background_task():
-        try:
-            with app.app_context():
+        with app.app_context():
+            while True:
+                try:
+                    image_upload_service = get_image_upload_service()
+                    all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
+                    if image_upload_service.backblaze_configured and all_clergy:
+                        result = image_upload_service.create_sprite_sheet(all_clergy)
+                        if result['success']:
+                            current_app.logger.info("Sprite sheet regenerated in background: %s", result['url'])
+                        else:
+                            current_app.logger.warning("Failed to regenerate sprite sheet: %s", result.get('error', 'Unknown error'))
+                except Exception:
+                    current_app.logger.exception("Error in background sprite sheet regeneration")
+                finally:
+                    db.session.remove()  # next pass must see rows committed meanwhile
                 with _sprite_sheet_lock:
-                    _sprite_sheet_status['status'] = 'in_progress'
-                    _sprite_sheet_status['clergy_id'] = clergy_id
-                    _sprite_sheet_status['started_at'] = datetime.utcnow().isoformat()
-
-                image_upload_service = get_image_upload_service()
-                if not image_upload_service.backblaze_configured:
-                    with _sprite_sheet_lock:
-                        _sprite_sheet_status['status'] = 'error'
-                        _sprite_sheet_status['error'] = 'Backblaze B2 not configured'
-                    return
-
-                all_clergy = Clergy.query.filter(Clergy.is_deleted != True).all()
-                if not all_clergy:
-                    with _sprite_sheet_lock:
-                        _sprite_sheet_status['status'] = 'error'
-                        _sprite_sheet_status['error'] = 'No clergy found'
-                    return
-
-                result = image_upload_service.create_sprite_sheet(all_clergy)
-                
-                if result['success']:
-                    with _sprite_sheet_lock:
-                        _sprite_sheet_status['status'] = 'completed'
-                        _sprite_sheet_status['sprite_sheet_id'] = result.get('sprite_sheet_id')
-                        _sprite_sheet_status['url'] = result.get('url')
-                        _sprite_sheet_status['mapping'] = result.get('mapping', {})
-                        _sprite_sheet_status['completed_at'] = datetime.utcnow().isoformat()
-                    current_app.logger.info("Sprite sheet regenerated in background: %s", result['url'])
-                else:
-                    with _sprite_sheet_lock:
-                        _sprite_sheet_status['status'] = 'error'
-                        _sprite_sheet_status['error'] = result.get('error', 'Unknown error')
-                    current_app.logger.warning("Failed to regenerate sprite sheet: %s", result.get('error', 'Unknown error'))
-        except Exception as e:
-            with _sprite_sheet_lock:
-                _sprite_sheet_status['status'] = 'error'
-                _sprite_sheet_status['error'] = str(e)
-            current_app.logger.exception("Error in background sprite sheet regeneration")
+                    if not _sprite_sheet_status['again']:
+                        _sprite_sheet_status['running'] = False
+                        return
+                    _sprite_sheet_status['again'] = False
 
     thread = threading.Thread(target=background_task, daemon=True)
     thread.start()
     return True
-
-def get_sprite_sheet_status():
-    """Get current sprite sheet generation status"""
-    with _sprite_sheet_lock:
-        return _sprite_sheet_status.copy()
 
 def resolve_clergy_name(clergy):
     """Return the display name for clergy based on rank and optional name fields."""
@@ -275,48 +265,10 @@ def create_clergy_from_form(form):
         image_upload_service = get_image_upload_service()
         
         if image_data_json:
-            try:
-                image_data = json.loads(image_data_json)
-                original_url = image_data.get('original')
-                if not original_url:
-                    try:
-                        response = image_upload_service.s3_client.list_objects_v2(
-                            Bucket=image_upload_service.bucket_name,
-                            Prefix=f"clergy/{clergy.id}/"
-                        )
-                        for obj in response.get('Contents', []):
-                            key = obj['Key']
-                            if 'original_' in key and 'lineage_' not in key and 'detail_' not in key:
-                                    original_url = image_upload_service.config.get_public_url(key)
-                                    image_data['original'] = original_url
-                                    break
-                    except Exception as e:
-                        current_app.logger.debug("Could not find original in storage: %s", e)
+            _apply_image_data_json(clergy, image_data_json)
 
-                if original_url:
-                    clergy.image_url = original_url
-                else:
-                    current_app.logger.warning(
-                        "No original URL found, using detail as fallback for clergy.image_url (clergy_id=%s)",
-                        clergy.id,
-                    )
-                    clergy.image_url = image_data.get('detail', image_data.get('lineage', ''))
-
-                clergy.image_data = json.dumps(image_data)
-            except json.JSONDecodeError as e:
-                current_app.logger.warning("Failed to parse image data JSON: %s", e)
-
-        elif file_upload:
-            result = image_upload_service.upload_original_image(file_upload, clergy.id)
-            
-            if result['success']:
-                clergy.image_url = result['url']
-                clergy.image_data = json.dumps(result['image_data'])
-            else:
-                current_app.logger.warning(
-                    "Failed to upload original image for clergy %s: %s",
-                    clergy.id, result['error'],
-                )
+        elif file_upload or form.get('cropped_image_data'):
+            _save_image_upload(clergy, file_upload, form.get('cropped_image_data'))
 
         elif processed_image_data:
             image_url = image_upload_service.upload_image_from_base64(processed_image_data, clergy.id, 'original')
@@ -803,6 +755,7 @@ def edit_clergy_handler(clergy_id):
                 
                 # Handle image upload or removal using Backblaze B2
                 image_removed = request.form.get('image_removed') == 'true'
+                image_changed = False
                 if image_removed:
                     # Delete existing images from Backblaze B2 and clear database
                     try:
@@ -825,53 +778,14 @@ def edit_clergy_handler(clergy_id):
                         # Check for file upload
                         if 'clergy_image' in request.files and request.files['clergy_image'].filename:
                             file_upload = request.files['clergy_image']
+                        cropped_image_data = request.form.get('cropped_image_data')
+                        image_changed = bool(image_data_json or file_upload or cropped_image_data or processed_image_data)
                         
                         if image_data_json:
-                            try:
-                                image_data = json.loads(image_data_json)
-                                original_url = image_data.get('original')
-                                if not original_url:
-                                    if clergy.image_url and 'original_' in clergy.image_url:
-                                        original_url = clergy.image_url
-                                        image_data['original'] = original_url
-                                    else:
-                                        try:
-                                            response = image_upload_service.s3_client.list_objects_v2(
-                                                Bucket=image_upload_service.bucket_name,
-                                                Prefix=f"clergy/{clergy.id}/"
-                                            )
-                                            for obj in response.get('Contents', []):
-                                                key = obj['Key']
-                                                if 'original_' in key and 'lineage_' not in key and 'detail_' not in key:
-                                                    original_url = image_upload_service.config.get_public_url(key)
-                                                    image_data['original'] = original_url
-                                                    break
-                                        except Exception as e:
-                                            current_app.logger.debug("Could not find original in storage: %s", e)
+                            _apply_image_data_json(clergy, image_data_json)
 
-                                if original_url:
-                                    clergy.image_url = original_url
-                                else:
-                                    current_app.logger.warning(
-                                        "No original URL found, using detail as fallback for clergy.image_url (clergy_id=%s)",
-                                        clergy.id,
-                                    )
-                                    clergy.image_url = image_data.get('detail', image_data.get('lineage', ''))
-
-                                clergy.image_data = json.dumps(image_data)
-                            except json.JSONDecodeError as e:
-                                current_app.logger.warning("Failed to parse image data JSON: %s", e)
-
-                        elif file_upload:
-                            result = image_upload_service.upload_original_image(file_upload, clergy.id)
-                            if result['success']:
-                                clergy.image_url = result['url']
-                                clergy.image_data = json.dumps(result['image_data'])
-                            else:
-                                current_app.logger.warning(
-                                    "Failed to upload original image for clergy %s: %s",
-                                    clergy.id, result['error'],
-                                )
+                        elif file_upload or cropped_image_data:
+                            _save_image_upload(clergy, file_upload, cropped_image_data)
 
                         elif processed_image_data:
                             image_url = image_upload_service.upload_image_from_base64(processed_image_data, clergy.id, 'original')
@@ -928,7 +842,15 @@ def edit_clergy_handler(clergy_id):
                     _apply_tags_for_clergy_from_raw_input(clergy, raw_tags)
 
                 db.session.commit()
-                
+
+                if image_changed:
+                    # Only now that the row points at the new files is it safe to drop the old ones.
+                    try:
+                        saved = json.loads(clergy.image_data) if clergy.image_data else {}
+                        get_image_upload_service().prune_clergy_images(clergy.id, [clergy.image_url, *saved.values()])
+                    except Exception as e:
+                        current_app.logger.warning("Image prune skipped for clergy %s: %s", clergy.id, e)
+
                 # Generate sprite sheet in background (non-blocking)
                 try:
                     _regenerate_sprite_sheet_background(clergy_id)

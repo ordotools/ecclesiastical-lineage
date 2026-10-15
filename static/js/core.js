@@ -341,24 +341,19 @@ export async function initializeVisualization() {
   // Node dimensions from shared CSS (used for clipPaths, drag threshold, status badges)
   const nodeDims = getNodeDimensions();
 
-  // Load sprite sheet and create patterns (before creating nodes) - using cache
+  // Load sprite sheet and create patterns (before creating nodes). Fetched fresh each load so a new
+  // photo shows up; the sheet image itself is cached by its (per-build) URL.
   let spriteSheetData = null;
   try {
-    // Use cached sprite sheet data if available
-    if (typeof window.getSpriteSheetData === 'function') {
-      spriteSheetData = await window.getSpriteSheetData();
-    } else {
-      // Fallback to direct fetch if cache utility not available
-      const spriteResponse = await fetch('/api/sprite-sheet');
-      if (spriteResponse.ok) {
-        const contentType = spriteResponse.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          const text = await spriteResponse.text();
-          console.warn('Sprite sheet endpoint returned non-JSON response:', contentType, text.substring(0, 200));
-          throw new Error('Invalid response type');
-        }
-        spriteSheetData = await spriteResponse.json();
+    const spriteResponse = await fetch('/api/sprite-sheet');
+    if (spriteResponse.ok) {
+      const contentType = spriteResponse.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await spriteResponse.text();
+        console.warn('Sprite sheet endpoint returned non-JSON response:', contentType, text.substring(0, 200));
+        throw new Error('Invalid response type');
       }
+      spriteSheetData = await spriteResponse.json();
     }
     
     if (spriteSheetData && spriteSheetData.success) {

@@ -10,8 +10,6 @@
     originalImageFile: null,
     originalImageDataUrl: null,
     clergyId: null,
-    originalObjectKey: null,
-    isProcessing: false,
     overlayInited: false
   };
 
@@ -150,20 +148,6 @@
     imagePreview.appendChild(span);
   }
 
-  function createResizedDataUrl(sourceCanvas, size) {
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      return null;
-    }
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(sourceCanvas, 0, 0, size, size);
-    return canvas.toDataURL('image/jpeg', 0.95);
-  }
-
   function destroyCropper() {
     if (PHOTO_STATE.cropper && typeof PHOTO_STATE.cropper.destroy === 'function') {
       PHOTO_STATE.cropper.destroy();
@@ -178,7 +162,6 @@
       overlay.setAttribute('aria-hidden', 'true');
     }
     destroyCropper();
-    PHOTO_STATE.isProcessing = false;
   }
 
   function initOverlayOnce() {
@@ -211,8 +194,7 @@
 
     if (applyButton) {
       applyButton.addEventListener('click', () => {
-        const form = getClergyForm();
-        applyCropAndSave(form);
+        applyCrop(getClergyForm());
       });
     }
 
@@ -234,7 +216,6 @@
     destroyCropper();
 
     PHOTO_STATE.clergyId = (opts && opts.clergyId != null) ? opts.clergyId : getClergyIdFromFormOrWindow(form);
-    PHOTO_STATE.originalObjectKey = opts && opts.originalObjectKey ? opts.originalObjectKey : null;
 
     editorImage.onload = () => {
       destroyCropper();
@@ -259,95 +240,31 @@
     overlay.setAttribute('aria-hidden', 'false');
   }
 
-  function applyCropAndSave(form) {
-    if (!form) {
+  // The crop rides along with the form and is processed on save (with the newly chosen file, if
+  // any, as the original). Uploading nothing until then means an abandoned edit leaves no files.
+  function applyCrop(form) {
+    if (!form || !PHOTO_STATE.cropper || typeof PHOTO_STATE.cropper.getCroppedCanvas !== 'function') {
       return;
     }
-    if (!PHOTO_STATE.cropper || typeof PHOTO_STATE.cropper.getCroppedCanvas !== 'function') {
-      return;
-    }
-    if (PHOTO_STATE.isProcessing) {
-      return;
-    }
-    PHOTO_STATE.isProcessing = true;
-
+    // The largest stored size is 320px; 960 leaves room without a multi-MB request.
     const croppedCanvas = PHOTO_STATE.cropper.getCroppedCanvas({
+      maxWidth: 960,
+      maxHeight: 960,
       imageSmoothingEnabled: true,
       imageSmoothingQuality: 'high'
     });
     if (!croppedCanvas) {
-      PHOTO_STATE.isProcessing = false;
       return;
     }
+    const croppedData = croppedCanvas.toDataURL('image/jpeg', 0.92);
+    const previewImg = form.querySelector('#imagePreview img');
+    const originalSrc = PHOTO_STATE.originalImageDataUrl
+      || (previewImg && previewImg.getAttribute('data-original-image')) || croppedData;
 
-    const lineageData = createResizedDataUrl(croppedCanvas, 48);
-    const detailData = createResizedDataUrl(croppedCanvas, 320);
-    const croppedData = croppedCanvas.toDataURL('image/jpeg', 0.98);
-
-    const payload = {
-      cropped_image_data: croppedData,
-      clergy_id: PHOTO_STATE.clergyId,
-      original_object_key: PHOTO_STATE.originalObjectKey
-    };
-
-    function finishWithImageData(imageData) {
-      ensureHiddenInput(form, 'image_data_json', JSON.stringify(imageData));
-      removeHiddenInput(form, 'image_removed');
-      updatePreviewImage(form, imageData);
-      hideOverlay();
-    }
-
-    if (!PHOTO_STATE.clergyId) {
-      const localImageData = {
-        lineage: lineageData,
-        detail: detailData,
-        original: PHOTO_STATE.originalImageDataUrl || croppedData,
-        cropped: croppedData
-      };
-      finishWithImageData(localImageData);
-      PHOTO_STATE.isProcessing = false;
-      return;
-    }
-
-    fetch('/api/process-cropped-image', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      body: JSON.stringify(payload)
-    })
-      .then((response) => {
-        if (!response.ok) {
-          return null;
-        }
-        return response.json();
-      })
-      .then((data) => {
-        if (!data || data.success !== true || !data.image_data) {
-          const fallback = {
-            lineage: lineageData,
-            detail: detailData,
-            original: PHOTO_STATE.originalImageDataUrl || croppedData,
-            cropped: croppedData
-          };
-          finishWithImageData(fallback);
-          return;
-        }
-        finishWithImageData(data.image_data);
-      })
-      .catch(() => {
-        const fallback = {
-          lineage: lineageData,
-          detail: detailData,
-          original: PHOTO_STATE.originalImageDataUrl || croppedData,
-          cropped: croppedData
-        };
-        finishWithImageData(fallback);
-      })
-      .finally(() => {
-        PHOTO_STATE.isProcessing = false;
-      });
+    ensureHiddenInput(form, 'cropped_image_data', croppedData);
+    removeHiddenInput(form, 'image_removed');
+    updatePreviewImage(form, { detail: croppedData, original: originalSrc });
+    hideOverlay();
   }
 
   function handleFileSelected(form, file) {
@@ -359,6 +276,9 @@
     }
     PHOTO_STATE.originalImageFile = file;
     PHOTO_STATE.clergyId = getClergyIdFromFormOrWindow(form);
+    // Saved as-is (auto square crop) unless the user crops it; a crop of the previous photo no longer applies.
+    removeHiddenInput(form, 'cropped_image_data');
+    removeHiddenInput(form, 'image_removed');
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -414,8 +334,7 @@
 
         if (PHOTO_STATE.originalImageDataUrl) {
           openCropOverlayWithSource(form, PHOTO_STATE.originalImageDataUrl, {
-            clergyId: getClergyIdFromFormOrWindow(form),
-            originalObjectKey: null
+            clergyId: getClergyIdFromFormOrWindow(form)
           });
           return;
         }
@@ -430,11 +349,8 @@
           return;
         }
         const proxied = getProxyUrl(src);
-        const clergyId = getClergyIdFromFormOrWindow(form);
-        const objectKey = previewImg.getAttribute('data-object-key') || null;
         openCropOverlayWithSource(form, proxied, {
-          clergyId: clergyId,
-          originalObjectKey: objectKey
+          clergyId: getClergyIdFromFormOrWindow(form)
         });
       });
     }
@@ -449,6 +365,7 @@
         PHOTO_STATE.originalImageDataUrl = null;
         const formEl = form;
         removeHiddenInput(formEl, 'image_data_json');
+        removeHiddenInput(formEl, 'cropped_image_data');
         ensureHiddenInput(formEl, 'image_removed', 'true');
         showPlaceholder(formEl);
       });
@@ -505,6 +422,12 @@
     const form = getClergyForm(root);
     if (!form) {
       return;
+    }
+    if (!form._editorV2PhotoInit) {
+      // A freshly rendered form (another clergy, or after a save): forget the last file picked.
+      form._editorV2PhotoInit = true;
+      PHOTO_STATE.originalImageFile = null;
+      PHOTO_STATE.originalImageDataUrl = null;
     }
     wireUploadControls(form);
   }

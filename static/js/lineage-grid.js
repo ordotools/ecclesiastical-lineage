@@ -1596,9 +1596,6 @@ function applyZoomDetail(page, scale) {
 
 async function loadSpriteSheetData() {
   try {
-    if (typeof window.getSpriteSheetData === 'function') {
-      return await window.getSpriteSheetData();
-    }
     const response = await fetch('/api/sprite-sheet', {
       method: 'GET',
       headers: { 'Cache-Control': 'no-cache' },

@@ -65,6 +65,5 @@
     window.showPriests = {{ 'true' if show_priests else 'false' }};
     window.canEdit = {{ 'true' if can_edit else 'false' }};
 </script>
-<script src="{{ url_for('static', filename='js/sprite-sheet-cache.js') }}"></script>
 <script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=37"></script>
 {% endblock %}

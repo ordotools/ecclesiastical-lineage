@@ -98,6 +98,10 @@ else
   fi
 fi
 
+# The dump above carries the remote schema; bring it up to this branch's migrations.
+echo "🗄️  Applying migrations..."
+./env/bin/flask db upgrade || exit 1
+
 # Start the Flask application
 echo "🌐 Starting Flask development server..."
 echo "   Server will be available at: http://localhost:5001"

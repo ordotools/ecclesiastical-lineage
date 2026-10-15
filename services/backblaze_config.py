@@ -20,7 +20,10 @@ class BackblazeConfig:
         self.access_key_id = os.getenv('BACKBLAZE_ACCESS_KEY_ID')
         self.secret_access_key = os.getenv('BACKBLAZE_SECRET_ACCESS_KEY')
         self.region_name = os.getenv('BACKBLAZE_REGION', 'us-west-004')
-        
+        # Every key this app writes, lists or deletes starts with this ('dev/' locally), so a dev
+        # server sharing prod's bucket can read prod's images but never overwrite or delete them.
+        self.key_prefix = os.getenv('BACKBLAZE_KEY_PREFIX', '')
+
         # Validate required configuration
         self._validate_config()
         
@@ -86,10 +89,17 @@ class BackblazeConfig:
         """Generate a public URL for an object in the bucket"""
         if not object_key:
             return None
-        
+        return self._public_base() + object_key
+
+    def get_object_key(self, url):
+        """Inverse of get_public_url; None for anything that isn't in this bucket (data: URLs, other hosts)."""
+        base = self._public_base()
+        return url[len(base):] if isinstance(url, str) and url.startswith(base) else None
+
+    def _public_base(self):
         # Backblaze B2 public URL format: https://<bucket-name>.<endpoint>/<object-key>
         endpoint_domain = self.endpoint_url.replace('https://', '').replace('http://', '')
-        return f"https://{self.bucket_name}.{endpoint_domain}/{object_key}"
+        return f"https://{self.bucket_name}.{endpoint_domain}/"
     
     def is_configured(self):
         """Check if Backblaze B2 is properly configured"""

@@ -132,12 +132,11 @@ def process_cropped_image():
             return jsonify({'success': False, 'error': 'No data provided'}), 400
         cropped_image_data = data.get('cropped_image_data')
         clergy_id = data.get('clergy_id')
-        original_object_key = data.get('original_object_key')
         if not cropped_image_data or not clergy_id:
             return jsonify({'success': False, 'error': 'Missing required parameters'}), 400
         from services.image_upload import get_image_upload_service
         image_upload_service = get_image_upload_service()
-        result = image_upload_service.process_cropped_image(cropped_image_data, clergy_id, original_object_key)
+        result = image_upload_service.save_clergy_image(clergy_id, data.get('original_image_data') or None, cropped_image_data)
         if result['success']:
             return jsonify({'success': True, 'image_data': result['urls']})
         return jsonify({'success': False, 'error': result['error']}), 500
@@ -293,7 +292,7 @@ def api_living_clergy():
 def get_sprite_sheet():
     """Current sprite sheet URL and clergy tile mapping."""
     try:
-        sprite_sheet = SpriteSheet.query.filter_by(is_current=True).first()
+        sprite_sheet = SpriteSheet.query.filter_by(is_current=True).order_by(SpriteSheet.id.desc()).first()
         if not sprite_sheet:
             return jsonify({
                 'success': False,

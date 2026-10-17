@@ -17,18 +17,20 @@ Do not use existing editor JavaScript or templates. Editor v2 is self-contained.
 
 ## Styling
 
-- **Black and white**, minimal.
-- **Sans-serif**, **10px**, **system font** (no Google Fonts).
+- **Black and white**, minimal. Colors, spacing and radius come from the `:root` tokens in `editor.css`; do not hard-code new ones.
+- **Sans-serif**, **13px**, **system font** (no Google Fonts).
 - **No animations**, no hover events, no transitions.
+- **Keyboard first**: every control is reachable with Tab in visual order, and focus is always visible (`:focus-visible` ring). Never set `outline: none` without a replacement.
+- **Shortcuts** (listed in the statusbar): ⌘K search/commands, ⌘S or ⌘Enter save, ⌘E wiki overlay, ⌥↑/⌥↓ previous/next clergy, Esc closes the innermost open thing. Shortcuts do nothing while a dialog is open.
 
 ## Layout
 
-- Three equal panels across; one small statusbar at bottom.
+- Narrow clergy list on the left (`--left-w`), two equal work panels (form, lineage); one small statusbar at bottom.
 - All panels and statusbar are **HTMX-reloadable** (snippet endpoints).
 
 ## Directory layout
 
 - `editor_v2/RULES.md` — this file.
-- `editor_v2/templates/` — `base.html`, `editor.html`, `snippets/*.html`.
-- `editor_v2/static/v2-scripts/` — `app.js`.
-- `editor_v2/static/v2-styles/` — `editor.css`.
+- `editor_v2/templates/editor_v2/` — `base.html`, `shell.html`, `embed.html`, `snippets/*.html`.
+- `editor_v2/static/v2-scripts/` — one file per feature; `app.js` is the HTMX glue.
+- `editor_v2/static/v2-styles/` — `editor.css` (tokens + layout) and per-feature sheets.

@@ -171,40 +171,88 @@
     searchClergy = makeSearch(window.EDITOR_V2_FORM.all_clergy);
   }
 
+  /**
+   * Keyboard-first autocomplete: ↑/↓ move, Enter or Tab picks the highlighted
+   * result, Esc closes. Typing clears the stored id, because the server uses the
+   * id first and would otherwise keep a bishop whose name was typed over.
+   */
   function attachAutocomplete(textInput, hiddenInput, dropdown, search, showRank) {
     if (textInput.getAttribute('data-autocomplete-inited') === 'true') return;
     textInput.setAttribute('data-autocomplete-inited', 'true');
 
-    textInput.addEventListener('input', function() {
-      var query = textInput.value.trim();
-      var results = query.length < 2 ? [] : search(query, 10);
-      if (!results.length) {
-        dropdown.style.display = 'none';
-        return;
-      }
+    var results = [];
+    var active = -1;
+
+    function close() {
+      dropdown.style.display = 'none';
+      results = [];
+      active = -1;
+    }
+
+    function render() {
       dropdown.innerHTML = '';
-      results.forEach(function(clergy) {
+      results.forEach(function(clergy, i) {
         var el = document.createElement('div');
-        el.className = 'bishop-search-result';
+        el.className = 'bishop-search-result' + (i === active ? ' is-active' : '');
+        el.setAttribute('data-index', String(i));
         var display = clergy.name + (clergy.organization ? ' — ' + clergy.organization : '');
         if (showRank && clergy.rank) display += ' (' + clergy.rank + ')';
         el.textContent = display;
-        el.addEventListener('click', function() {
-          textInput.value = clergy.name || '';
-          if (hiddenInput) {
-            hiddenInput.value = clergy.id || '';
-            hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-          dropdown.style.display = 'none';
-        });
         dropdown.appendChild(el);
       });
-      dropdown.style.display = 'block';
+      dropdown.style.display = results.length ? 'block' : 'none';
+      var current = dropdown.querySelector('.is-active');
+      if (current) current.scrollIntoView({ block: 'nearest' });
+    }
+
+    function pick(i) {
+      var clergy = results[i];
+      if (!clergy) return;
+      textInput.value = clergy.name || '';
+      if (hiddenInput) {
+        hiddenInput.value = clergy.id || '';
+        hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      close();
+    }
+
+    textInput.addEventListener('input', function() {
+      if (hiddenInput && hiddenInput.value) {
+        hiddenInput.value = '';
+        hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      var query = textInput.value.trim();
+      results = query.length < 2 ? [] : search(query, 10);
+      active = results.length ? 0 : -1;
+      render();
     });
 
-    textInput.addEventListener('blur', function() {
-      setTimeout(function() { dropdown.style.display = 'none'; }, 200);
+    textInput.addEventListener('keydown', function(e) {
+      var open = dropdown.style.display === 'block' && results.length > 0;
+      if (!open) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        active = (active + (e.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length;
+        render();
+      } else if (e.key === 'Enter') {
+        e.preventDefault(); // pick, don't submit the form
+        pick(active);
+      } else if (e.key === 'Tab') {
+        pick(active); // focus moves on as usual
+      } else if (e.key === 'Escape') {
+        e.stopPropagation();
+        close();
+      }
     });
+
+    // mousedown + preventDefault keeps focus in the input, so blur cannot close the list first.
+    dropdown.addEventListener('mousedown', function(e) {
+      var el = e.target.closest('.bishop-search-result');
+      e.preventDefault();
+      if (el) pick(Number(el.getAttribute('data-index')));
+    });
+
+    textInput.addEventListener('blur', close);
   }
 
   function ensureDropdown(parentEl) {
@@ -351,7 +399,7 @@
       }
     });
 
-    var cancelLink = form.querySelector('a.editor-v2-cancel');
+    var cancelLink = form.querySelector('.editor-v2-cancel');
     if (cancelLink) {
       cancelLink.addEventListener('click', function(e) {
         e.preventDefault();
@@ -371,7 +419,12 @@
       if (target.classList.contains('date-unknown-link') || target.classList.contains('specify-date-link')) {
         e.preventDefault();
         if (entry) {
-          toggleDateUnknown(entry.querySelector('.' + kind + '-date-block'), target.classList.contains('date-unknown-link'));
+          var block = entry.querySelector('.' + kind + '-date-block');
+          var unknown = target.classList.contains('date-unknown-link');
+          toggleDateUnknown(block, unknown);
+          // The clicked button is now hidden; keep focus on the input that replaced it.
+          var next = block && block.querySelector(unknown ? 'input[name*="[year]"]' : 'input[type="date"]');
+          if (next) next.focus();
         }
       } else if (target.id === 'addOrdinationBtn') {
         e.preventDefault();

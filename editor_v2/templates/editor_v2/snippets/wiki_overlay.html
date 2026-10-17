@@ -1,0 +1,13 @@
+<div id="wiki-overlay" class="wiki-overlay" hidden>
+  <div class="wiki-overlay__header">
+    <span class="wiki-overlay__title">Wiki · <span data-wiki-title></span></span>
+    <label><input type="checkbox" id="wiki_is_visible" checked> Visible on wiki page</label>
+  </div>
+  <textarea id="wiki_markdown" class="wiki-overlay__text" placeholder="Write wiki content in markdown…" aria-label="Wiki markdown"></textarea>
+  <div class="wiki-overlay__footer">
+    <span class="wiki-overlay__status" data-wiki-status role="status"></span>
+    <span class="wiki-overlay__hint">Esc cancel · ⌘S save</span>
+    <button type="button" class="editor-button" data-wiki-cancel>Cancel</button>
+    <button type="button" class="editor-button editor-button--save" data-wiki-save>Save wiki</button>
+  </div>
+</div>

@@ -1,49 +1,99 @@
-/* Tag picker — RULES.md: black/white minimal, 10px sans-serif, no animations */
+/* Tag picker: chips + search box styled as one input (tag-picker.js). Tokens from editor.css. */
+
+.tag-field {
+  position: relative;
+}
 
 .tag-picker {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5em;
-  min-height: 2.25em;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 10px;
+  align-items: center;
+  gap: 0.3em;
+  min-height: var(--control-h);
+  padding: 0.2em 0.3em;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+  cursor: text;
 }
 
-.tag-picker-empty {
-  color: #555;
-  font-size: 1em;
+.tag-picker:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+
+/* The search box sits inside the bordered .tag-picker, which shows focus for it. */
+#clergyForm .tag-picker__input {
+  flex: 1 1 8em;
+  width: auto;
+  min-width: 8em;
+  height: 1.8em;
+  padding: 0 0.2em;
+  border: 0;
+  outline: none;
+  background: transparent;
+}
+
+.tag-picker__suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 16em;
+  overflow-y: auto;
+  margin-top: 2px;
+  padding: 0.25em;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.tag-picker__suggestions[hidden] {
+  display: none;
+}
+
+.tag-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.3em 0.4em;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.tag-suggestion.is-active {
+  background: var(--bg-soft);
+  box-shadow: inset 2px 0 0 var(--fg);
+}
+
+.tag-suggestion__swatch {
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
 }
 
 .tag-pill {
   display: inline-flex;
   align-items: center;
-  padding: 0.2em 0.5em;
-  border: 1px solid #000;
+  gap: 0.25em;
+  padding: 0.1em 0.5em;
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
-  background: transparent;
-  color: #000;
   font: inherit;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.tag-pill__remove {
+  padding: 0 0.1em;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  opacity: 0.7;
   cursor: pointer;
-  box-sizing: border-box;
-}
-
-.tag-pill:focus {
-  outline: none;
-}
-
-.tag-pill__label {
-  flex: 0 0 auto;
-}
-
-.tag-pill--selected {
-  border-color: #000;
-  border-width: 2px;
-}
-
-.tag-pill--system {
-  cursor: default;
-}
-
-.tag-pill--display {
-  cursor: default;
 }

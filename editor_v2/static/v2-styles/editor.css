@@ -1,4 +1,17 @@
-/* Editor v2: 3 columns + statusbar, 10px sans-serif, black/white, no animation */
+/* Editor v2: narrow list + 2 work columns + statusbar, 13px system sans, black/white, no animation */
+
+:root {
+  --fg: #111;
+  --muted: #666;
+  --line: #e2e2e2;
+  --line-strong: #bbb;
+  --bg: #fff;
+  --bg-soft: #f6f6f6;
+  --focus: #2563eb;
+  --radius: 4px;
+  --control-h: 2.3em;
+  --left-w: 16rem;
+}
 
 * {
   box-sizing: border-box;
@@ -7,9 +20,34 @@
 body {
   margin: 0;
   font-family: system-ui, -apple-system, sans-serif;
-  font-size: 10px;
-  color: #000;
-  background: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+/* One visible focus style everywhere: the editor is driven from the keyboard. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+input:not([type="checkbox"]):not([type="hidden"]),
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 0.3em 0.5em;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
 }
 
 .editor-shell {
@@ -21,37 +59,33 @@ body {
 .editor-panels-row {
   flex: 1 1 0;
   min-height: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--left-w) 1fr 1fr;
 }
 
 .editor-shell .editor-panel {
   min-width: 0;
-  border: 1px solid #000;
-  padding: 1em;
+  border-right: 1px solid var(--line);
+  padding: 1em 1.25em;
   overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
 }
 
-.editor-shell .editor-panel::-webkit-scrollbar {
-  display: none;
+.editor-shell .editor-panel-left {
+  padding: 0.75em;
+  background: var(--bg-soft);
 }
 
-.editor-panels-row .editor-panel-left,
-.editor-panels-row .editor-panel-center,
-.editor-panels-row .editor-panel-right {
-  flex: 1 1 0;
+.editor-shell .editor-panel-right {
+  border-right: 0;
 }
 
 .editor-shell .editor-statusbar {
   flex: 0 0 auto;
-  border: 1px solid #000;
-  border-top: 1px solid #000;
-  height: 2em;
-  padding: .5em 1em;
-  background: #fff;
-  color: #000;
-  font-size: 10px;
+  border-top: 1px solid var(--line);
+  padding: 0.35em 1em;
+  background: var(--bg-soft);
+  font-size: 0.9em;
 }
 
 .editor-statusbar {
@@ -88,7 +122,7 @@ body {
 }
 
 .statusbar-logout {
-  color: #000;
+  color: var(--fg);
   text-decoration: underline;
 }
 
@@ -112,7 +146,7 @@ body {
   width: 0.6em;
   height: 0.6em;
   border-radius: 50%;
-  border: 1px solid #000;
+  border: 1px solid var(--line-strong);
   background: transparent;
 }
 
@@ -144,10 +178,24 @@ body {
   justify-content: flex-end;
 }
 
+.statusbar-keys {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.statusbar-keys kbd {
+  padding: 0 0.3em;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--bg);
+  font: inherit;
+  font-size: 0.9em;
+}
+
 .statusbar-env-badge {
   display: inline-block;
   padding: 0.05em 0.4em;
-  border: 1px solid #000;
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
   font-size: 0.85em;
   text-transform: uppercase;
@@ -174,22 +222,19 @@ body {
 .panel-left-clergy-item {
   margin: 0;
   padding: 0;
-  border-bottom: 1px solid #ccc;
 }
 
 .panel-left-clergy-item--selected .panel-left-link {
   font-weight: 600;
-  background: #f2f2f2;
-}
-
-.panel-left-clergy-item:last-child {
-  border-bottom: 0;
+  background: var(--bg);
+  box-shadow: inset 2px 0 0 var(--fg);
 }
 
 .panel-left-link {
   display: block;
-  padding: 0.75em 0;
-  color: #000;
+  padding: 0.35em 0.5em;
+  border-radius: var(--radius);
+  color: inherit;
   text-decoration: none;
 }
 
@@ -203,58 +248,83 @@ body {
   color: #666;
 }
 
-/* Left panel: filters */
+/* Left panel: filters as dropdowns (native <details>; app.js closes them on outside click / Esc) */
 .panel-left-filters {
-  margin-bottom: 0.75em;
-  padding-bottom: 0.75em;
-  border-bottom: 1px solid #ccc;
-}
-
-.panel-left-filters-form {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 0.5em;
-}
-
-.panel-left-filters-row {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.25em;
+  gap: 0.35em;
+  margin-bottom: 0.6em;
+  padding-bottom: 0.6em;
+  border-bottom: 1px solid var(--line);
 }
 
-.panel-left-filters-label {
-  font-weight: 600;
-  width: 3.5em;
-}
-
-/* Checkbox rendered as a toggle chip: outlined off, inverted on. */
-.filter-chip {
-  border: 1px solid #000;
-  border-radius: 1em;
-  padding: 0.1em 0.6em;
+.filter-dropdown > summary {
+  list-style: none;
+  padding: 0.2em 0.6em;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
   cursor: pointer;
   user-select: none;
 }
 
-.filter-chip input {
+.filter-dropdown > summary::-webkit-details-marker {
+  display: none;
+}
+
+.filter-dropdown > summary::after {
+  content: " ▾";
+  color: var(--muted);
+}
+
+/* Active filter: inverted summary, so it shows while closed. */
+.filter-dropdown:has(input:checked) > summary,
+.filter-dropdown:has(input[type="number"]:not(:placeholder-shown)) > summary {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+
+.filter-dropdown:has(input:checked) > summary::after,
+.filter-dropdown:has(input[type="number"]:not(:placeholder-shown)) > summary::after {
+  color: inherit;
+}
+
+.filter-dropdown__menu {
   position: absolute;
-  opacity: 0;
-  pointer-events: none;
+  top: calc(100% - 0.3em);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 0.4em;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
 }
 
-.filter-chip:has(input:checked) {
-  background: #000;
-  color: #fff;
+.filter-dropdown__menu label {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.25em 0.3em;
+  border-radius: var(--radius);
+  cursor: pointer;
 }
 
-.filter-chip:has(input:focus-visible) {
-  outline: 1px dotted #000;
-  outline-offset: 1px;
+.filter-dropdown__menu--years {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4em;
 }
 
-.panel-left-filters-input {
-  width: 5em;
+.filter-dropdown__menu--years input {
+  width: 6em;
 }
 
 .panel-left-filters-clear {
@@ -263,8 +333,13 @@ body {
   background: none;
   padding: 0;
   font: inherit;
+  color: var(--muted);
   text-decoration: underline;
   cursor: pointer;
+}
+
+.panel-left-filters:not(:has(input:checked, input[type="number"]:not(:placeholder-shown))) .panel-left-filters-clear {
+  display: none;
 }
 
 /* Left panel: clergy tags */
@@ -308,7 +383,7 @@ body {
 }
 
 .right-panel-section--ordained {
-  border: 1px solid #000;
+  border: 1px solid var(--line-strong);
   padding: 0.75em;
 }
 
@@ -349,7 +424,7 @@ body {
 .right-panel-range-badge {
   padding: 0.1em 0.4em;
   border-radius: 999px;
-  border: 1px solid #000;
+  border: 1px solid var(--line-strong);
   font-size: 0.9em;
   white-space: nowrap;
 }
@@ -377,48 +452,10 @@ body {
   border-top: none;
 }
 
-.right-panel-clergy-item--ordination {
-  /* subtle marker for ordinations */
-}
-
-.right-panel-clergy-item--consecration {
-  /* subtle marker for consecrations */
-}
-
-/* Lineage tree: one wrapper per node; indent by depth */
-.right-panel-lineage-node {
-  margin: 0;
-  padding: 0;
-}
-
-.right-panel-lineage-depth-0 {
-  padding-left: 0;
-}
-
-.right-panel-lineage-depth-1 {
-  padding-left: 1.25em;
-}
-
-.right-panel-lineage-depth-2 {
-  padding-left: 2.5em;
-}
-
-.right-panel-lineage-depth-3 {
-  padding-left: 3.75em;
-}
-
-.right-panel-lineage-depth-4 {
-  padding-left: 5em;
-}
-
-.right-panel-lineage-depth-5 {
-  padding-left: 6.25em;
-}
-
 .right-panel-clergy-name {
   display: inline-block;
   font-weight: 600;
-  color: #000;
+  color: var(--fg);
   text-decoration: none;
 }
 
@@ -467,14 +504,13 @@ body {
   z-index: 20;
   max-height: 200px;
   overflow-y: auto;
-  background: #fff;
+  background: var(--bg);
   border: 1px solid #ccc;
   border-radius: 3px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result,
-.bishop-autocomplete-field .autocomplete-dropdown .dropdown-item {
+.bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result {
   padding: 0.4em 0.6em;
   cursor: pointer;
   border-bottom: 1px solid #eee;
@@ -482,14 +518,13 @@ body {
   color: #333;
 }
 
-.bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result:last-child,
-.bishop-autocomplete-field .autocomplete-dropdown .dropdown-item:last-child {
-  border-bottom: none;
+.bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result.is-active {
+  background: var(--bg-soft);
+  color: var(--fg);
 }
 
-.bishop-autocomplete-field .autocomplete-dropdown .dropdown-item.text-muted {
-  color: #666;
-  cursor: default;
+.bishop-autocomplete-field .autocomplete-dropdown .bishop-search-result:last-child {
+  border-bottom: none;
 }
 
 /* Clergy form */
@@ -508,24 +543,23 @@ body {
 
 #clergyForm .form-field .form-label {
   display: block;
-  text-align: left;
-  margin-bottom: 0.25em;
+  margin-bottom: 0.2em;
+  font-size: 0.85em;
+  font-weight: 500;
+  color: var(--muted);
 }
 
 #clergyForm input:not([type="checkbox"]):not([type="hidden"]),
 #clergyForm select,
 #clergyForm textarea {
-  padding: 0.25em;
-  border: 1px solid #d3d3d3;
   width: 100%;
-  box-sizing: border-box;
 }
 
 #clergyForm input[type="text"],
 #clergyForm input[type="date"],
 #clergyForm input[type="number"],
 #clergyForm select {
-  height: 2.25em;
+  height: var(--control-h);
 }
 
 #clergyForm textarea {
@@ -562,28 +596,24 @@ body {
   min-width: 0;
 }
 
-/* Photo + Rank/DoB/DoD two-column grid */
+/* Rank / Organization / Born / Died down the left, photo column on the right. */
 #clergyForm .form-grid--photo-fields {
-  grid-template-columns: 200px 1fr;
-  grid-template-rows: auto auto auto;
+  grid-template-columns: 1fr 180px;
   align-items: start;
 }
 
-/* Notes field inside photo grid spans full width below photo/rank/date rows to keep notes aligned with the photo block */
-#clergyForm .form-grid--photo-fields .notes-field {
-  grid-column: 1 / -1;
+#clergyForm .form-grid--photo-fields > .form-field {
+  grid-column: 1;
 }
 
-/* Photo section - left column, spans 3 rows, fills full height */
+#clergyForm .form-grid--photo-fields > #photoField {
+  grid-column: 2;
+  grid-row: 1 / span 4;
+}
+
 #clergyForm .photo-section {
   display: flex;
   flex-direction: column;
-  align-self: start;
-}
-
-#clergyForm #photoField {
-  grid-column: 1;
-  grid-row: 1 / 4;
   align-self: start;
 }
 
@@ -596,29 +626,32 @@ body {
 .photo-container {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  border: 1px solid #000;
-  padding: 10px;
-  background: #fff;
+  gap: 0.5em;
 }
 
-.photo-container.drag-over {
-  border-color: #000;
-  background: #f5f5f5;
+.photo-container.drag-over #imagePreview {
+  border-color: var(--fg);
+  background: var(--bg-soft);
 }
 
 #imagePreview {
   height: 180px;
-  border: 1px solid #ccc;
-  background: #fff;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
 }
 
+#imagePreview:has(img) {
+  border-style: solid;
+  border-color: var(--line);
+  background: var(--bg);
+}
+
 #imagePreview .image-preview-placeholder {
-  font-size: 10px;
   color: #666;
 }
 
@@ -632,47 +665,43 @@ body {
 
 .photo-controls {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 10px;
+  gap: 0.35em;
 }
 
-.photo-controls button {
-  font-size: 10px;
-  padding: 0.25em 0.5em;
-  border: 1px solid #000;
-  background: #fff;
-  color: #000;
-  cursor: pointer;
+.photo-controls .editor-button {
+  flex: 1 1 0;
+  padding: 0.25em 0.4em;
+  text-align: center;
 }
 
-#clergyForm #rankField {
-  grid-column: 2;
-  grid-row: 1;
-}
-
-#clergyForm #birthField {
-  grid-column: 2;
-  grid-row: 2;
-}
-
-#clergyForm #deathField {
-  grid-column: 2;
-  grid-row: 3;
-}
-
-#clergyForm button,
-#clergyForm .editor-v2-cancel {
-  padding: 0.25em 0.5em;
-  cursor: pointer;
+/* Crop and Remove only make sense with a photo. */
+.photo-container:not(:has(#imagePreview img)) .photo-crop,
+.photo-container:not(:has(#imagePreview img)) .photo-remove {
+  display: none;
 }
 
 #clergyForm .form-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 1em;
+  gap: 0.6em;
   margin-top: 0.5em;
+}
+
+#clergyForm .form-actions #permanentDeleteClergyBtn {
+  margin-left: auto;
+}
+
+/* A button that looks like a small inline link (e.g. "date unknown"). */
+.link-button {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .editor-button--compact {
@@ -684,38 +713,31 @@ body {
 
 .editor-button {
   display: inline-block;
-  padding: 0.25em 0.75em;
+  padding: 0.3em 0.8em;
   font: inherit;
-  background: none;
-  border: none;
-  color: #000;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  color: inherit;
   text-decoration: none;
+  cursor: pointer;
 }
 
+/* Primary action: the only filled button. */
 .editor-button--save {
-  color: #005c1a;            /* muted green text */
-  border: 1px solid #005c1a; /* green outline on white */
-  background: #fff;
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
 }
 
 .editor-button--danger {
-  color: #a00000;            /* muted red text */
-  border: 1px solid #a00000; /* red outline on white */
-  background: #fff;
+  color: #a00000;
+  border-color: #e3b3b3;
 }
 
 .editor-button--action {
-  color: #004c99;            /* muted blue text */
-  text-decoration: underline;
-  border: none;
-  background: none;
-}
-
-.editor-button--save:focus,
-.editor-button--danger:focus,
-.editor-button--action:focus {
-  outline: none;
-  text-decoration: underline;
+  border-style: dashed;
+  color: var(--muted);
 }
 
 .editor-button--update-descendants:disabled,
@@ -730,9 +752,9 @@ body {
 /* Form sections (Ordinations, Consecrations, Status Indicators, Admin) */
 
 #clergyForm .form-section {
-  margin-top: 1.25em;
+  margin-top: 1em;
   padding-top: 1em;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--line);
 }
 
 #clergyForm .form-section:first-of-type {
@@ -742,52 +764,12 @@ body {
 }
 
 #clergyForm .form-section h5 {
-  margin: 0 0 0.5em 0;
+  margin: 0 0 0.6em 0;
+  font-size: 0.8em;
   font-weight: 600;
-}
-
-/* Wiki section */
-#clergyForm .wiki-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6em;
-}
-
-#clergyForm .wiki-section .wiki-visibility-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
-  width: fit-content;
-}
-
-#clergyForm .wiki-section .wiki-visibility-row .form-label {
-  margin: 0;
-}
-
-#clergyForm #wiki_markdown {
-  min-height: 8em;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  line-height: 1.35;
-  border: 1px solid #000;
-  background: #fff;
-}
-
-#clergyForm .wiki-status {
-  margin: 0;
-  font-size: 0.9em;
-  color: #555;
-}
-
-#clergyForm .wiki-status--ok {
-  color: #1f4d1f;
-}
-
-#clergyForm .wiki-status--warning {
-  color: #7a5c00;
-}
-
-#clergyForm .wiki-status--error {
-  color: #8b0000;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 #clergyForm #ordinationsContainer,
@@ -803,8 +785,9 @@ body {
   flex-direction: column;
   gap: 0.5em;
   padding: 0.75em;
-  border: 1px solid #e8e8e8;
-  background: #fafafa;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
 }
 
 #clergyForm .ordination-entry .form-field,
@@ -933,17 +916,73 @@ body {
 #clergyForm .specify-date-link {
   margin-top: 0.25em;
   font-size: 0.9em;
-  color: #555;
-  text-decoration: underline;
-  cursor: pointer;
 }
 
-#clergyForm .date-unknown-link:focus,
-#clergyForm .specify-date-link:focus {
-  color: #000;
+/* Wiki overlay: covers the lineage panel while editing; lineage shows again on close. */
+.editor-shell .editor-panel-right {
+  position: relative;
 }
 
-/* Search overlay (Cmd/Ctrl+F) */
+.editor-panel-right:has(.wiki-overlay:not([hidden])) {
+  overflow: hidden;
+}
+
+.wiki-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  padding: 1em 1.25em;
+  background: var(--bg);
+}
+
+/* Embed page has no right panel: the overlay takes the window. */
+body > .wiki-overlay {
+  position: fixed;
+}
+
+.wiki-overlay[hidden] {
+  display: none;
+}
+
+.wiki-overlay__header,
+.wiki-overlay__footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+}
+
+.wiki-overlay__title {
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+
+.wiki-overlay__text {
+  flex: 1 1 auto;
+  width: 100%;
+  resize: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1.5;
+}
+
+.wiki-overlay__status {
+  flex: 1 1 auto;
+  color: var(--muted);
+}
+
+.wiki-overlay__hint,
+.form-hint {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.form-hint {
+  margin-left: 0.6em;
+}
+
+/* Search overlay (Cmd/Ctrl+K) */
 .search-overlay.search-overlay--hidden {
   display: none;
 }
@@ -952,8 +991,6 @@ body {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 10px;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -977,8 +1014,8 @@ body {
 .search-overlay-box {
   width: 100%;
   max-width: 26em; /* narrower than any single panel */
-  background: #fff;
-  border: 1px solid #000;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   border-radius: 4px;
   overflow: hidden;
@@ -987,16 +1024,11 @@ body {
 .search-overlay-input {
   padding: 1em;
   border: none;
-  border-bottom: 1px solid #000;
+  border-bottom: 1px solid var(--line);
   font: inherit;
   width: 100%;
   box-sizing: border-box;
   outline: none;
-}
-
-.search-overlay-input:focus {
-  outline: none;
-  box-shadow: none;
 }
 
 .search-overlay-results {
@@ -1018,7 +1050,7 @@ body {
   padding: 0.5em 1em;
   border-bottom: 1px solid #ccc;
   cursor: pointer;
-  color: #000;
+  color: var(--fg);
   text-decoration: none;
   display: block;
 }
@@ -1044,8 +1076,6 @@ body {
   position: fixed;
   inset: 0;
   z-index: 1100;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1070,8 +1100,8 @@ body {
 }
 
 .editor-photo-overlay-box {
-  border: 1px solid #000;
-  background: #fff;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -1083,7 +1113,7 @@ body {
   width: 100%;
   max-height: 65vh;
   border: 1px solid #ccc;
-  background: #fff;
+  background: var(--bg);
   object-fit: contain;
 }
 
@@ -1098,9 +1128,9 @@ body {
   flex: 0 0 auto;
   padding: 0.25em 0.75em;
   font: inherit;
-  border: 1px solid #000;
-  background: #fff;
-  color: #000;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--fg);
   cursor: pointer;
 }
 
@@ -1108,10 +1138,6 @@ body {
   border: none;
   color: #555;
   text-decoration: underline;
-}
-
-.editor-photo-overlay-button-cancel {
-  /* uses base black/white button styling */
 }
 
 .editor-photo-overlay-button-apply {

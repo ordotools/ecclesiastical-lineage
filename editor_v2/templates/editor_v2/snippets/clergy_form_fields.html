@@ -17,8 +17,8 @@
         <input type="hidden" name="{{ p }}[{{ idx }}][date_unknown]" value="{{ '1' if ev_unknown else '' }}">
         <input type="number" name="{{ p }}[{{ idx }}][year]" min="1" max="9999" placeholder="Year" value="{{ ev_year if ev_year is not none else '' }}">
       </div>
-      <a href="#" class="date-unknown-link">date unknown</a>
-      <a href="#" class="specify-date-link">specify date</a>
+      <button type="button" class="link-button date-unknown-link">date unknown</button>
+      <button type="button" class="link-button specify-date-link">specify date</button>
     </div>
     <div class="form-field bishop-autocomplete-field">
       <label class="form-label">{{ 'Consecrator' if is_cons else 'Ordaining bishop' }}</label>
@@ -116,7 +116,20 @@
       <input type="text" id="papal_name" name="papal_name" value="{{ clergy.papal_name if (edit_mode and clergy and clergy.papal_name is not none and clergy.papal_name != 'None') else '' }}" placeholder="e.g., Pope Francis">
     </div>
 
-    <div class="form-field full-width">
+  </div>
+
+  {# DOM order is tab order: fields down the left column, then the photo column. #}
+  <div class="form-grid form-grid--photo-fields">
+    <div id="rankField" class="form-field">
+      <label for="rank" class="form-label">Rank</label>
+      <select id="rank" name="rank" required>
+      <option value="">Select Rank</option>
+      {% for rank in fields.ranks %}
+      <option value="{{ rank.name }}" data-is-bishop="{{ 'true' if rank.is_bishop else 'false' }}" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>{{ rank.name }}</option>
+      {% endfor %}
+    </select>
+    </div>
+    <div id="organizationField" class="form-field">
       <label for="organization" class="form-label">Organization</label>
       <div class="organization-input-group">
         <select id="organization" name="organization">
@@ -128,17 +141,14 @@
         <button type="button" class="editor-button editor-button--action add-organization">Add</button>
       </div>
     </div>
-    <div class="form-field full-width">
-      <label class="form-label">Tags</label>
-      <div id="tagPicker" class="tag-picker">
-        <!-- Rendered by JS: one pill per available tag, togglable -->
-      </div>
-      <input type="hidden" id="tags_selected" name="tags_selected"
-       value="{{ clergy_tag_ids|join(',') if clergy_tag_ids else '' }}">
+    <div id="birthField" class="form-field">
+      <label for="date_of_birth" class="form-label">Date of Birth</label>
+      <input type="date" id="date_of_birth" name="date_of_birth" value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}">
     </div>
-  </div>
-
-  <div class="form-grid form-grid--photo-fields">
+    <div id="deathField" class="form-field">
+      <label for="date_of_death" class="form-label">Date of Death</label>
+      <input type="date" id="date_of_death" name="date_of_death" value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}">
+    </div>
     <div id="photoField" class="form-field photo-section">
       <label class="form-label">Photo</label>
       <div id="photoContainer" class="photo-container">
@@ -166,30 +176,27 @@
         </div>
         <input type="file" id="clergyImage" name="clergy_image" accept="image/*" hidden>
         <div class="photo-controls">
-          <button type="button" class="photo-upload">Upload</button>
-          <button type="button" class="photo-crop">Crop</button>
-          <button type="button" class="photo-remove">Remove</button>
+          <button type="button" class="editor-button photo-upload">Upload</button>
+          <button type="button" class="editor-button photo-crop">Crop</button>
+          <button type="button" class="editor-button editor-button--danger photo-remove">Remove</button>
         </div>
       </div>
     </div>
-    <div id="rankField" class="form-field">
-      <label for="rank" class="form-label">Rank</label>
-      <select id="rank" name="rank" required>
-      <option value="">Select Rank</option>
-      {% for rank in fields.ranks %}
-      <option value="{{ rank.name }}" data-is-bishop="{{ 'true' if rank.is_bishop else 'false' }}" {% if edit_mode and clergy and clergy.rank == rank.name %}selected{% endif %}>{{ rank.name }}</option>
-      {% endfor %}
-    </select>
+  </div>
+
+  <div class="form-grid form-grid--identity">
+    <div class="form-field full-width tag-field">
+      <label for="tagSearch" class="form-label">Tags</label>
+      <div id="tagPicker" class="tag-picker">
+        {# Chips for selected tags are inserted before this input by tag-picker.js #}
+        <input type="text" id="tagSearch" class="tag-picker__input" placeholder="Add tag…" autocomplete="off"
+               role="combobox" aria-expanded="false" aria-controls="tagSuggestions" data-no-dirty>
+      </div>
+      <div id="tagSuggestions" class="tag-picker__suggestions" role="listbox" hidden></div>
+      <input type="hidden" id="tags_selected" name="tags_selected"
+       value="{{ clergy_tag_ids|join(',') if clergy_tag_ids else '' }}">
     </div>
-    <div id="birthField" class="form-field">
-      <label for="date_of_birth" class="form-label">Date of Birth</label>
-      <input type="date" id="date_of_birth" name="date_of_birth" value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}">
-    </div>
-    <div id="deathField" class="form-field">
-      <label for="date_of_death" class="form-label">Date of Death</label>
-      <input type="date" id="date_of_death" name="date_of_death" value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}">
-    </div>
-    <div id="notesField" class="form-field notes-field">
+    <div id="notesField" class="form-field full-width">
       <label for="notes" class="form-label">Notes</label>
       <textarea id="notes" name="notes" rows="3" placeholder="Additional notes...">{{ clergy.notes if edit_mode and clergy else '' }}</textarea>
     </div>
@@ -217,30 +224,12 @@
 
   <div class="form-section wiki-section">
     <h5>Wiki</h5>
-    <div class="form-field">
-      <label>
-        <input
-          type="checkbox"
-          id="wiki_is_visible"
-          data-wiki-visibility-toggle="true"
-          checked>
-        Visible on wiki page
-      </label>
-    </div>
-    <div class="form-field">
-      <label for="wiki_markdown" class="form-label">Markdown</label>
-      <textarea
-        id="wiki_markdown"
-        rows="8"
-        data-wiki-markdown="true"
-        placeholder="Write wiki content in markdown..."></textarea>
-    </div>
-    <div class="form-field">
-      <p
-        class="wiki-save-status"
-        data-wiki-save-status="true"
-        hidden></p>
-    </div>
+    {% if edit_mode and clergy %}
+    <button type="button" class="editor-button" data-wiki-open data-no-dirty>Edit wiki page</button>
+    <span class="form-hint">Opens over the lineage panel · ⌘E</span>
+    {% else %}
+    <span class="form-hint">Save the record first to write its wiki page.</span>
+    {% endif %}
   </div>
 
   {% if fields.statuses %}
@@ -276,11 +265,11 @@
   {% endif %}
 
   <div class="form-actions">
-    <a href="#" class="editor-button editor-button--danger editor-v2-cancel">Cancel</a>
     <button type="submit" class="editor-button editor-button--save">{% if edit_mode %}Save Changes{% else %}Save Clergy Record{% endif %}</button>
     {% if edit_mode and clergy %}
     <button type="submit" name="update_descendants" value="1" class="editor-button editor-button--save editor-button--update-descendants" disabled>Save and update descendants</button>
     {% endif %}
+    <button type="button" class="editor-button editor-v2-cancel" data-no-dirty>Cancel</button>
     {% if edit_mode and clergy and user and user.can_delete_clergy() %}
     <button
       type="button"

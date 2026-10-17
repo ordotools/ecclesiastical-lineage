@@ -1,38 +1,45 @@
 <div class="panel-left-content">
-  {% set active_filters = (selected_ranks|length) + (selected_tag_ids|length) + (1 if year_min else 0) + (1 if year_max else 0) %}
+  {# Filter changes swap only #panel-left-results, so an open dropdown stays open while ticking boxes. #}
   <form class="panel-left-filters panel-left-filters-form"
         method="get"
         action="{{ url_for('editor.panel_left') }}"
         hx-get="{{ url_for('editor.panel_left') }}"
-        hx-target="#editor-panel-left"
-        hx-swap="innerHTML"
+        hx-target="#panel-left-results"
+        hx-select="#panel-left-results"
+        hx-swap="outerHTML"
         hx-trigger="change, submit">
-    <div class="panel-left-filters-row">
-      <span class="panel-left-filters-label">Rank</span>
-      {% for r in all_ranks %}
-      <label class="filter-chip"><input type="checkbox" name="rank" value="{{ r.name }}" {% if r.name in selected_ranks %}checked{% endif %}>{{ r.name }}</label>
-      {% endfor %}
-    </div>
-    <div class="panel-left-filters-row">
-      <span class="panel-left-filters-label">Tag</span>
-      {% for t in all_tags %}
-      <label class="filter-chip"><input type="checkbox" name="tag_ids" value="{{ t.id }}" {% if (t.id | string) in selected_tag_ids %}checked{% endif %}>{{ t.label }}</label>
-      {% endfor %}
-    </div>
-    <div class="panel-left-filters-row">
-      <span class="panel-left-filters-label">Years</span>
-      <input type="number" name="year_min" value="{{ year_min or '' }}" placeholder="from" class="panel-left-filters-input" min="1" max="9999" aria-label="Year from">
-      <span>–</span>
-      <input type="number" name="year_max" value="{{ year_max or '' }}" placeholder="to" class="panel-left-filters-input" min="1" max="9999" aria-label="Year to">
-      {% if active_filters %}
-      <button type="button"
-              class="panel-left-filters-clear"
-              hx-get="{{ url_for('editor.panel_left') }}"
-              hx-target="#editor-panel-left"
-              hx-swap="innerHTML">Clear filters ({{ active_filters }})</button>
-      {% endif %}
-    </div>
+    <details class="filter-dropdown">
+      <summary>Rank</summary>
+      <div class="filter-dropdown__menu">
+        {% for r in all_ranks %}
+        <label><input type="checkbox" name="rank" value="{{ r.name }}" {% if r.name in selected_ranks %}checked{% endif %}> {{ r.name }}</label>
+        {% endfor %}
+      </div>
+    </details>
+    <details class="filter-dropdown">
+      <summary>Tag</summary>
+      <div class="filter-dropdown__menu">
+        {% for t in all_tags %}
+        <label><input type="checkbox" name="tag_ids" value="{{ t.id }}" {% if (t.id | string) in selected_tag_ids %}checked{% endif %}> {{ t.label }}</label>
+        {% endfor %}
+      </div>
+    </details>
+    <details class="filter-dropdown">
+      <summary>Years</summary>
+      <div class="filter-dropdown__menu filter-dropdown__menu--years">
+        <input type="number" name="year_min" value="{{ year_min or '' }}" placeholder="from" min="1" max="9999" aria-label="Year from">
+        <span>–</span>
+        <input type="number" name="year_max" value="{{ year_max or '' }}" placeholder="to" min="1" max="9999" aria-label="Year to">
+      </div>
+    </details>
+    <button type="button"
+            class="panel-left-filters-clear"
+            hx-get="{{ url_for('editor.panel_left') }}"
+            hx-target="#editor-panel-left"
+            hx-select=".panel-left-content"
+            hx-swap="innerHTML">Clear</button>
   </form>
+  <div id="panel-left-results">
   <ul class="panel-left-clergy-list">
     {% if user and user.can_edit_clergy() %}
     <li class="panel-left-clergy-item panel-left-add">
@@ -75,4 +82,5 @@
     {% if selected_ranks or selected_tag_ids or year_min or year_max %}No clergy match the current filters.{% else %}No clergy in lineage.{% endif %}
   </p>
   {% endif %}
+  </div>
 </div>

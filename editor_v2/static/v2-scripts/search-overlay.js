@@ -1,5 +1,5 @@
 /**
- * Editor v2: Cmd/Ctrl+F clergy search overlay.
+ * Editor v2: Cmd/Ctrl+K clergy search and command overlay.
  * Uses window.EDITOR_V2_FORM.all_clergy (or GET /editor/api/clergy-list),
  * fuzzySearchV2.js for Fuse-based search, and HTMX to load selected clergy.
  */
@@ -9,6 +9,14 @@ const DEBOUNCE_MS = 150;
 const SEARCH_LIMIT = 30;
 
 const COMMANDS = [
+  {
+    type: 'command',
+    id: 'add-clergy',
+    name: 'Add Clergy',
+    run() {
+      window.htmx?.ajax('GET', '/editor/panel/center', { target: '#editor-panel-center', swap: 'innerHTML' });
+    },
+  },
   {
     type: 'command',
     id: 'tag-management',
@@ -288,7 +296,7 @@ function init() {
       return;
     }
     const isMod = e.metaKey || e.ctrlKey;
-    if (isMod && (e.key === 'f' || e.key === 's' || e.key === 'k')) {
+    if (isMod && e.key === 'k') {
       e.preventDefault();
       openOverlay();
     }

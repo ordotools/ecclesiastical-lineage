@@ -1,4 +1,4 @@
-/* Tag management overlay — RULES.md: black/white minimal, 10px sans-serif, no animations */
+/* Tag management overlay — RULES.md: black/white minimal, 13px sans-serif, no animations */
 
 .editor-tag-overlay.editor-tag-overlay--hidden {
   display: none;
@@ -8,8 +8,6 @@
   position: fixed;
   inset: 0;
   z-index: 1100;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -30,8 +28,8 @@
 }
 
 .editor-tag-overlay-box {
-  border: 1px solid #000;
-  background: #fff;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
   padding: 10px;
 }
 
@@ -39,7 +37,7 @@
   margin: 0 0 0.75em 0;
   font-size: 1.2em;
   font-weight: 600;
-  color: #000;
+  color: var(--fg);
 }
 
 .editor-tag-overlay-section {
@@ -54,7 +52,7 @@
   margin: 0 0 0.5em 0;
   font-size: 1em;
   font-weight: 600;
-  color: #000;
+  color: var(--fg);
 }
 
 .editor-tag-overlay-tag-list {
@@ -74,7 +72,7 @@
   align-items: center;
   gap: 0.35em;
   padding: 0.2em 0.5em;
-  border: 1px solid #000;
+  border: 1px solid var(--line-strong);
   font: inherit;
 }
 
@@ -134,36 +132,33 @@
 
 .editor-tag-overlay-label {
   font-size: 1em;
-  color: #000;
+  color: var(--fg);
 }
 
 .editor-tag-overlay-input {
   padding: 0.4em 0.5em;
-  border: 1px solid #000;
-  background: #fff;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
   font: inherit;
-  color: #000;
+  color: var(--fg);
   width: 100%;
   max-width: 16em;
   box-sizing: border-box;
 }
 
-.editor-tag-overlay-input:focus {
-  outline: none;
-}
 
 .editor-tag-overlay-color-input {
   width: 3em;
   height: 2em;
   padding: 0;
-  border: 1px solid #000;
-  background: #fff;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
   cursor: pointer;
 }
 
 .editor-tag-overlay-preview {
   padding: 0.25em 0.5em;
-  border: 1px solid #000;
+  border: 1px solid var(--line-strong);
   font: inherit;
   min-width: 4em;
   text-align: center;
@@ -180,15 +175,12 @@
   flex: 0 0 auto;
   padding: 0.25em 0.75em;
   font: inherit;
-  border: 1px solid #000;
-  background: #fff;
-  color: #000;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--fg);
   cursor: pointer;
 }
 
-.editor-tag-overlay-button:focus {
-  outline: none;
-}
 
 .editor-tag-overlay-button:disabled {
   opacity: 0.6;
@@ -200,9 +192,9 @@
 }
 
 .editor-tag-overlay-button-apply {
-  border-color: #000;
-  background: #000;
-  color: #fff;
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
 }
 
 .editor-tag-overlay-button-apply:disabled {

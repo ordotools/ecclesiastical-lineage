@@ -9,7 +9,11 @@
     tags: [],
     selectedIds: new Set(),
     container: null,
+    input: null,
+    list: null,
     hiddenInput: null,
+    matches: [],
+    active: -1,
     initialized: false
   };
 
@@ -68,90 +72,192 @@
     TAG_PICKER_STATE.hiddenInput.value = ids.join(',');
   }
 
+  function tagLabel(tag) {
+    return (tag.label || tag.name || '').trim() || String(tag.id);
+  }
+
+  function isSelected(tag) {
+    return TAG_PICKER_STATE.selectedIds.has(tag.id);
+  }
+
+  /** Selected tags as chips in front of the search input. */
   function renderTagPills() {
     const container = TAG_PICKER_STATE.container;
-    if (!container) {
+    const input = TAG_PICKER_STATE.input;
+    if (!container || !input) {
       return;
     }
 
-    container.textContent = '';
-
-    if (!TAG_PICKER_STATE.tags || TAG_PICKER_STATE.tags.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'tag-picker-empty';
-      empty.textContent = 'No tags available.';
-      container.appendChild(empty);
-      return;
-    }
+    container.querySelectorAll('.tag-pill').forEach((el) => el.remove());
 
     TAG_PICKER_STATE.tags.forEach((tag) => {
-      if (!tag || tag.id == null) {
+      if (!tag || tag.id == null || !isSelected(tag)) {
         return;
       }
-      const label = (tag.label || tag.name || '').trim() || String(tag.id);
+      const label = tagLabel(tag);
       const colorHex = (tag.color_hex || '').trim() || '#000000';
 
-      const pill = document.createElement('button');
-      pill.type = 'button';
-      pill.className = 'tag-pill';
-      pill.setAttribute('data-tag-id', String(tag.id));
+      const pill = document.createElement('span');
+      pill.className = 'tag-pill tag-pill--selected' + (tag.is_system ? ' tag-pill--system' : '');
+      pill.style.backgroundColor = colorHex;
+      pill.style.color = textColorForBg(colorHex);
 
       const textSpan = document.createElement('span');
       textSpan.className = 'tag-pill__label';
       textSpan.textContent = label;
       pill.appendChild(textSpan);
 
-      const isSelected = TAG_PICKER_STATE.selectedIds.has(tag.id);
-      if (isSelected) {
-        pill.classList.add('tag-pill--selected');
-        pill.style.backgroundColor = colorHex;
-        pill.style.color = textColorForBg(colorHex);
-      }
+      // Not a tab stop: Backspace in the search box removes chips from the keyboard.
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'tag-pill__remove';
+      remove.tabIndex = -1;
+      remove.setAttribute('data-tag-id', String(tag.id));
+      remove.setAttribute('aria-label', 'Remove ' + label);
+      remove.textContent = '×';
+      pill.appendChild(remove);
 
-      if (tag.is_system) {
-        pill.classList.add('tag-pill--system');
-      }
-
-      container.appendChild(pill);
+      container.insertBefore(pill, input);
     });
+
+    input.placeholder = TAG_PICKER_STATE.tags.length ? 'Add tag…' : 'No tags available';
   }
 
-  function toggleTagSelectionById(id) {
-    if (id == null) {
+  // --- Search suggestions ------------------------------------------------
+
+  function matchingTags() {
+    const query = TAG_PICKER_STATE.input.value.trim().toLowerCase();
+    return TAG_PICKER_STATE.tags.filter((tag) => (
+      tag && tag.id != null && !isSelected(tag) && tagLabel(tag).toLowerCase().includes(query)
+    ));
+  }
+
+  function closeSuggestions() {
+    const list = TAG_PICKER_STATE.list;
+    if (list) {
+      list.hidden = true;
+      list.textContent = '';
+    }
+    TAG_PICKER_STATE.matches = [];
+    TAG_PICKER_STATE.active = -1;
+    if (TAG_PICKER_STATE.input) {
+      TAG_PICKER_STATE.input.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function renderSuggestions() {
+    const list = TAG_PICKER_STATE.list;
+    const matches = matchingTags();
+    TAG_PICKER_STATE.matches = matches;
+    if (TAG_PICKER_STATE.active >= matches.length) {
+      TAG_PICKER_STATE.active = matches.length - 1;
+    }
+    if (!list || !matches.length) {
+      closeSuggestions();
       return;
     }
-    const numericId = Number(id);
-    const hasNumeric = TAG_PICKER_STATE.selectedIds.has(numericId);
-    const hasString = TAG_PICKER_STATE.selectedIds.has(String(id));
+    list.textContent = '';
+    matches.forEach((tag, i) => {
+      const option = document.createElement('div');
+      option.className = 'tag-suggestion' + (i === TAG_PICKER_STATE.active ? ' is-active' : '');
+      option.setAttribute('role', 'option');
+      option.setAttribute('data-index', String(i));
+      const swatch = document.createElement('span');
+      swatch.className = 'tag-suggestion__swatch';
+      swatch.style.backgroundColor = (tag.color_hex || '').trim() || '#000000';
+      option.appendChild(swatch);
+      option.appendChild(document.createTextNode(tagLabel(tag)));
+      list.appendChild(option);
+    });
+    list.hidden = false;
+    TAG_PICKER_STATE.input.setAttribute('aria-expanded', 'true');
+  }
 
-    if (hasNumeric || hasString) {
-      TAG_PICKER_STATE.selectedIds.delete(numericId);
-      TAG_PICKER_STATE.selectedIds.delete(String(id));
+  /** A change made by the user (not auto-tagging): update chips and mark the form edited. */
+  function userSetSelected(id, selected) {
+    if (selected) {
+      TAG_PICKER_STATE.selectedIds.add(id);
     } else {
-      TAG_PICKER_STATE.selectedIds.add(numericId);
+      TAG_PICKER_STATE.selectedIds.delete(id);
     }
-
     syncHiddenInput();
     renderTagPills();
+    document.body.dispatchEvent(new CustomEvent('editor:formEdited'));
   }
 
-  function handleTagPickerClick(event) {
-    const target = event.target;
-    if (!target || !TAG_PICKER_STATE.container) {
+  function pick(index) {
+    const tag = TAG_PICKER_STATE.matches[index];
+    if (!tag) {
       return;
     }
+    userSetSelected(tag.id, true);
+    TAG_PICKER_STATE.input.value = '';
+    TAG_PICKER_STATE.active = 0;
+    renderSuggestions();
+  }
 
-    const pill = target.closest && target.closest('.tag-pill');
-    if (!pill || !TAG_PICKER_STATE.container.contains(pill)) {
-      return;
+  function handleSearchKeydown(event) {
+    const count = TAG_PICKER_STATE.matches.length;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (TAG_PICKER_STATE.list.hidden) {
+        TAG_PICKER_STATE.active = 0;
+        renderSuggestions();
+        return;
+      }
+      if (!count) {
+        return;
+      }
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      TAG_PICKER_STATE.active = (TAG_PICKER_STATE.active + step + count) % count;
+      renderSuggestions();
+    } else if (event.key === 'Enter') {
+      event.preventDefault(); // never submit the form from the tag box
+      if (!TAG_PICKER_STATE.list.hidden && TAG_PICKER_STATE.active >= 0) {
+        pick(TAG_PICKER_STATE.active);
+      }
+    } else if (event.key === 'Escape') {
+      if (!TAG_PICKER_STATE.list.hidden) {
+        event.stopPropagation();
+        closeSuggestions();
+      }
+    } else if (event.key === 'Backspace' && !TAG_PICKER_STATE.input.value) {
+      const ids = Array.from(TAG_PICKER_STATE.selectedIds);
+      if (ids.length) {
+        userSetSelected(ids[ids.length - 1], false);
+      }
+    } else if (event.key === 'Tab') {
+      closeSuggestions();
     }
+  }
 
-    const id = pill.getAttribute('data-tag-id');
-    if (!id) {
-      return;
-    }
-
-    toggleTagSelectionById(id);
+  function bindSearch() {
+    const { container, input, list } = TAG_PICKER_STATE;
+    input.addEventListener('input', () => {
+      TAG_PICKER_STATE.active = 0;
+      renderSuggestions();
+    });
+    input.addEventListener('focus', () => {
+      TAG_PICKER_STATE.active = 0;
+      renderSuggestions();
+    });
+    input.addEventListener('blur', closeSuggestions);
+    input.addEventListener('keydown', handleSearchKeydown);
+    // mousedown + preventDefault keeps focus in the input, so blur does not close the list first.
+    list.addEventListener('mousedown', (event) => {
+      const option = event.target.closest('.tag-suggestion');
+      event.preventDefault();
+      if (option) {
+        pick(Number(option.getAttribute('data-index')));
+      }
+    });
+    container.addEventListener('click', (event) => {
+      const remove = event.target.closest('.tag-pill__remove');
+      if (remove) {
+        userSetSelected(Number(remove.getAttribute('data-tag-id')), false);
+      }
+      input.focus();
+    });
   }
 
   function parseCommaSeparated(value) {
@@ -228,21 +334,22 @@
     }
 
     const container = form.querySelector('#tagPicker');
+    const input = form.querySelector('#tagSearch');
+    const list = form.querySelector('#tagSuggestions');
     const hiddenInput = form.querySelector('#tags_selected');
 
-    if (!container || !hiddenInput) {
+    if (!container || !input || !list || !hiddenInput) {
       return;
     }
 
     TAG_PICKER_STATE.container = container;
+    TAG_PICKER_STATE.input = input;
+    TAG_PICKER_STATE.list = list;
     TAG_PICKER_STATE.hiddenInput = hiddenInput;
+    closeSuggestions();
 
     form.setAttribute('data-tag-picker-inited', 'true');
-
-    if (!container._editorV2TagPickerBound) {
-      container._editorV2TagPickerBound = true;
-      container.addEventListener('click', handleTagPickerClick);
-    }
+    bindSearch();
 
     fetchTagsForPicker().then((tags) => {
       if (!Array.isArray(tags)) {

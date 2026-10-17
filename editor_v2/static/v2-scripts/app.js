@@ -4,8 +4,11 @@
  * Responsibilities here:
  *  - Keep window.currentSelectedClergyId in sync and dispatch the shared
  *    `clergySelected` event other modules listen to (right panel, tag picker…).
- *  - Save the clergy form (and its wiki) via fetch, then refresh the panels.
+ *  - Save the clergy form via fetch, then refresh the panels (the wiki saves
+ *    itself from its overlay, see wiki-overlay.js).
  *  - Unsaved-changes guard and statusbar record/save-state slots.
+ *  - Global shortcuts: ⌘S / ⌘Enter save, ⌥↑ / ⌥↓ previous / next clergy
+ *    (⌘K search lives in search-overlay.js, ⌘E wiki in wiki-overlay.js).
  */
 
 (() => {
@@ -81,6 +84,39 @@
             const isMatch = clergyId != null && parseId(el.getAttribute('data-clergy-id')) === clergyId;
             el.classList.toggle('panel-left-clergy-item--selected', isMatch);
         });
+        const selected = root.querySelector('.panel-left-clergy-item--selected .panel-left-link');
+        setListTabStop(selected || root.querySelector('.panel-left-link'));
+    }
+
+    // The clergy list is one Tab stop; ↑/↓ (Home/End) move within it, Enter opens.
+    function setListTabStop(link) {
+        const root = document.querySelector(LEFT);
+        if (!root || !link) {
+            return;
+        }
+        root.querySelectorAll('.panel-left-link').forEach(function (a) {
+            a.tabIndex = a === link ? 0 : -1;
+        });
+    }
+
+    function handleListKeydown(event) {
+        const link = event.target.closest && event.target.closest('.panel-left-link');
+        if (!link || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+            return;
+        }
+        const links = Array.from(document.querySelectorAll(LEFT + ' .panel-left-link'));
+        const i = links.indexOf(link);
+        const next = {
+            ArrowDown: links[i + 1],
+            ArrowUp: links[i - 1],
+            Home: links[0],
+            End: links[links.length - 1]
+        }[event.key];
+        event.preventDefault();
+        if (next) {
+            setListTabStop(next);
+            next.focus();
+        }
     }
 
     /**
@@ -122,109 +158,6 @@
         }
         statusEl.textContent = message;
         statusEl.setAttribute('data-status', kind);
-    }
-
-    function renderWikiStatus(form, kind, message) {
-        const statusEl = form.querySelector('[data-wiki-save-status]');
-        if (!statusEl) {
-            return;
-        }
-        statusEl.textContent = message;
-        statusEl.setAttribute('data-status', kind);
-        statusEl.hidden = !message;
-    }
-
-    // --- Wiki ------------------------------------------------------------
-
-    function getWikiFields(form) {
-        const markdown = form.querySelector('#wiki_markdown');
-        const visibility = form.querySelector('#wiki_is_visible');
-        return markdown || visibility ? { markdown: markdown, visibility: visibility } : null;
-    }
-
-    function readWiki(fields) {
-        return {
-            content: fields.markdown ? String(fields.markdown.value || '') : '',
-            is_visible: fields.visibility ? !!fields.visibility.checked : true
-        };
-    }
-
-    function writeWiki(fields, wiki) {
-        if (fields.markdown) {
-            fields.markdown.value = wiki.content;
-        }
-        if (fields.visibility) {
-            fields.visibility.checked = wiki.is_visible;
-        }
-    }
-
-    /**
-     * Load the wiki into the form and remember what was loaded in
-     * form._wikiInitial. If loading fails, _wikiInitial stays unset and the
-     * wiki is never saved, so a failed load cannot overwrite the page.
-     */
-    function initWikiSection(form) {
-        const fields = getWikiFields(form);
-        if (!fields) {
-            return;
-        }
-        const clergyId = parseId(form.getAttribute('data-clergy-id'));
-        if (clergyId == null) {
-            form._wikiInitial = { content: '', is_visible: true };
-            writeWiki(fields, form._wikiInitial);
-            return;
-        }
-        fetch('/editor/api/wiki/' + encodeURIComponent(clergyId), { headers: JSON_HEADERS })
-            .then(function (response) {
-                if (!response.ok) {
-                    throw new Error('Failed to load wiki page.');
-                }
-                return response.json();
-            })
-            .then(function (data) {
-                const wiki = (data && data.wiki) || {};
-                form._wikiInitial = {
-                    content: typeof wiki.content === 'string' ? wiki.content : '',
-                    is_visible: typeof wiki.is_visible === 'boolean' ? wiki.is_visible : true
-                };
-                writeWiki(fields, form._wikiInitial);
-            })
-            .catch(function () {
-                if (fields.markdown) {
-                    fields.markdown.disabled = true;
-                }
-                renderWikiStatus(form, 'error', 'Wiki failed to load; it will not be saved. Saving clergy still works.');
-            });
-    }
-
-    /** Payload to save, or null when the wiki did not load or is unchanged. */
-    function collectWikiPayload(form, clergyId) {
-        const fields = getWikiFields(form);
-        const initial = form._wikiInitial;
-        if (!fields || !initial || clergyId == null) {
-            return null;
-        }
-        const current = readWiki(fields);
-        if (current.content === initial.content && current.is_visible === initial.is_visible) {
-            return null;
-        }
-        return { clergy_id: clergyId, content: current.content, is_visible: current.is_visible };
-    }
-
-    function saveWikiPayload(payload) {
-        return fetch('/editor/api/wiki/save', {
-            method: 'POST',
-            headers: Object.assign({ 'Content-Type': 'application/json' }, JSON_HEADERS),
-            body: JSON.stringify(payload)
-        })
-            .then(function (response) {
-                return response.json().then(function (body) {
-                    return !!(response.ok && body && body.success === true);
-                });
-            })
-            .catch(function () {
-                return false;
-            });
     }
 
     // --- Save ------------------------------------------------------------
@@ -290,21 +223,15 @@
                     ? parseId(data.clergy_id)
                     : parseId(form.getAttribute('data-clergy-id'));
                 const isDeleted = data.is_deleted === true;
-                const wikiPayload = isDeleted ? null : collectWikiPayload(form, clergyId);
-                const wikiSaved = wikiPayload ? saveWikiPayload(wikiPayload) : Promise.resolve(true);
-
-                return wikiSaved.then(function (wikiOk) {
-                    const finalMessage = wikiOk ? message : message + ' Wiki not saved.';
-                    setDirty(form, false);
-                    setSaveState(wikiOk ? 'Saved' : 'Saved (wiki failed)');
-                    pendingFormStatus = { kind: wikiOk ? 'success' : 'error', message: finalMessage };
-                    refreshPanels(isDeleted ? null : clergyId);
-                    if (clergyId != null && !isDeleted) {
-                        document.body.dispatchEvent(new CustomEvent('editor:validityChanged', {
-                            detail: { clergyId: clergyId }
-                        }));
-                    }
-                });
+                setDirty(form, false);
+                setSaveState('Saved');
+                pendingFormStatus = { kind: 'success', message: message };
+                refreshPanels(isDeleted ? null : clergyId);
+                if (clergyId != null && !isDeleted) {
+                    document.body.dispatchEvent(new CustomEvent('editor:validityChanged', {
+                        detail: { clergyId: clergyId }
+                    }));
+                }
             })
             .catch(function (error) {
                 if (window.EDITOR_DEBUG) {
@@ -505,10 +432,10 @@
 
     // Trusted (user) events only: scripts that normalise the form on load
     // (validity restrictions, tag sync) dispatch untrusted change events.
-    const DIRTY_CLICK = 'button[type="button"]:not(#permanentDeleteClergyBtn), .date-unknown-link, .specify-date-link, #tagPicker *';
+    const DIRTY_CLICK = 'button[type="button"]:not(#permanentDeleteClergyBtn), .date-unknown-link, .specify-date-link';
 
     function markDirtyFromEvent(event) {
-        if (!event.isTrusted || !event.target || !event.target.closest) {
+        if (!event.isTrusted || !event.target || !event.target.closest || event.target.closest('[data-no-dirty]')) {
             return;
         }
         const form = event.target.closest('#clergyForm');
@@ -521,15 +448,88 @@
         setDirty(form, true);
     }
 
+    function isWikiDirty() {
+        return !!(window.EDITOR_V2_WIKI && window.EDITOR_V2_WIKI.isDirty());
+    }
+
     function guardCenterRequest(event) {
         const target = event.detail && event.detail.target;
-        if (!target || target.id !== 'editor-panel-center' || !isDirty()) {
+        if (!target || target.id !== 'editor-panel-center') {
+            return;
+        }
+        // An open wiki survives a reload of the same clergy (e.g. after saving the form).
+        const wiki = window.EDITOR_V2_WIKI;
+        const nextId = parseId(clergyIdFromUrl((event.detail.requestConfig || {}).path));
+        const wikiLost = isWikiDirty() && wiki.clergyId() !== nextId;
+        if (!isDirty() && !wikiLost) {
             return;
         }
         if (window.confirm('Discard unsaved changes?')) {
             setDirty(getForm(), false);
+            if (wikiLost) {
+                wiki.close();
+            }
         } else {
             event.preventDefault();
+        }
+    }
+
+    // --- Left panel filter dropdowns -------------------------------------
+
+    /** Close open filter dropdowns, except the one containing `keep`. */
+    function closeFilterMenus(keep) {
+        document.querySelectorAll('details.filter-dropdown[open]').forEach(function (d) {
+            if (keep && d.contains(keep)) {
+                return;
+            }
+            const hadFocus = d.contains(document.activeElement);
+            d.open = false;
+            if (hadFocus) {
+                d.querySelector('summary').focus();
+            }
+        });
+    }
+
+    // --- Shortcuts ---------------------------------------------------------
+
+    /** A dialog or the search box is open: shortcuts must not act on the page behind it. */
+    function isModalOpen() {
+        return !!document.querySelector('[role="dialog"][aria-hidden="false"], #search-overlay:not(.search-overlay--hidden)');
+    }
+
+    /** Open the clergy before (-1) or after (+1) the selected one in the left list. */
+    function openAdjacentClergy(step) {
+        const links = Array.from(document.querySelectorAll(LEFT + ' .panel-left-clergy-item[data-clergy-id] .panel-left-link'));
+        if (!links.length) {
+            return;
+        }
+        const selected = document.querySelector(LEFT + ' .panel-left-clergy-item--selected .panel-left-link');
+        const i = links.indexOf(selected);
+        const next = i === -1 ? links[step > 0 ? 0 : links.length - 1] : links[i + step];
+        if (!next) {
+            return;
+        }
+        setListTabStop(next);
+        next.focus();
+        next.scrollIntoView({ block: 'nearest' });
+        next.click(); // HTMX load; the unsaved-changes guard still applies
+    }
+
+    function handleShortcut(event) {
+        const mod = event.metaKey || event.ctrlKey;
+        if (mod && (event.key === 's' || event.key === 'Enter')) {
+            event.preventDefault(); // never the browser's "Save page"
+            const form = getForm();
+            if (form && !isModalOpen()) {
+                form.requestSubmit(); // runs HTML validation, then handleSubmit
+            }
+        } else if (event.altKey && !mod && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+            // Leave ⌥↑/↓ alone in textareas, where it moves by paragraph.
+            if (isModalOpen() || (event.target.closest && event.target.closest('textarea'))) {
+                return;
+            }
+            event.preventDefault();
+            openAdjacentClergy(event.key === 'ArrowDown' ? 1 : -1);
         }
     }
 
@@ -557,8 +557,14 @@
         if (window.EDITOR_V2_FORM && typeof window.EDITOR_V2_FORM.initClergyFormV2 === 'function') {
             window.EDITOR_V2_FORM.initClergyFormV2();
         }
-        initWikiSection(form);
         initUpdateDescendantsButtonLogic(form);
+        // A blank form ("Add clergy") starts typing at the name.
+        if (id == null) {
+            const name = form.querySelector('#name');
+            if (name) {
+                name.focus();
+            }
+        }
         initPermanentDeleteButton(form);
         form.dataset.dirty = 'false';
         if (pendingFormStatus) {
@@ -574,8 +580,22 @@
         body.addEventListener('change', markDirtyFromEvent);
         body.addEventListener('click', markDirtyFromEvent);
         body.addEventListener('htmx:beforeRequest', guardCenterRequest);
+        body.addEventListener('keydown', handleListKeydown);
+        document.addEventListener('keydown', handleShortcut);
+        // Widgets whose edits are not plain trusted input events (tag picker) announce them.
+        body.addEventListener('editor:formEdited', function () {
+            setDirty(getForm(), true);
+        });
+        document.addEventListener('click', function (e) {
+            closeFilterMenus(e.target);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeFilterMenus(null);
+            }
+        });
         window.addEventListener('beforeunload', function (e) {
-            if (isDirty()) {
+            if (isDirty() || isWikiDirty()) {
                 e.preventDefault();
                 e.returnValue = '';
             }
@@ -593,7 +613,7 @@
             if (target.id === 'editor-panel-center') {
                 const config = event.detail.requestConfig || {};
                 initCenter(config.path || '');
-            } else if (target.id === 'editor-panel-left') {
+            } else if (target.id === 'editor-panel-left' || target.id === 'panel-left-results') {
                 updateLeftPanelSelection(window.currentSelectedClergyId);
             } else if (target.classList && target.classList.contains('editor-statusbar')) {
                 showCurrentRecord();

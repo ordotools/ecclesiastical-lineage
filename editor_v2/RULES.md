@@ -21,7 +21,8 @@ Do not use existing editor JavaScript or templates. Editor v2 is self-contained.
 - **Sans-serif**, **13px**, **system font** (no Google Fonts).
 - **No animations**, no hover events, no transitions.
 - **Keyboard first**: every control is reachable with Tab in visual order, and focus is always visible (`:focus-visible` ring). Never set `outline: none` without a replacement.
-- **Shortcuts** (listed in the statusbar): ⌘K search/commands, ⌘S or ⌘Enter save, ⌘E wiki overlay, ⌥↑/⌥↓ previous/next clergy, Esc closes the innermost open thing. Shortcuts do nothing while a dialog is open.
+- **Shortcuts** (listed in the statusbar): ⌘K search/commands, ⌘S or ⌘Enter save, ⌘E wiki overlay, ⌘⇧E evidence for the focused field, ⌥↑/⌥↓ previous/next clergy, Esc closes the innermost open thing. Shortcuts do nothing while a dialog is open.
+- **Evidence** (`services/evidence.py`, `evidence-overlay.js`): sources for dates of birth/death and each event field, saved per item through `/editor/api/evidence`, never with the clergy form. Only saved records and saved event rows get Evidence buttons, because evidence is keyed to the event's DB ID. Saving the form upserts events by their hidden `[id]`.
 
 ## Layout
 

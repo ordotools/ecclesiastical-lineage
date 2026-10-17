@@ -3,6 +3,7 @@ from models import db, Clergy, Rank, Organization, User, ClergyComment, Ordinati
 from utils import log_audit_event
 from datetime import datetime
 import json
+import re
 import threading
 from .image_upload import get_image_upload_service
 from services.validation_cascade import compute_system_tags_for_clergy, merge_user_and_system_tags
@@ -280,8 +281,7 @@ def create_clergy_from_form(form):
     except Exception as e:
         current_app.logger.exception("Error processing images for clergy %s", clergy.id)
 
-    create_ordinations_from_form(clergy, form)
-    create_consecrations_from_form(clergy, form)
+    sync_events_from_form(clergy, form)
 
     status_ids = form.getlist('status_ids[]') or form.getlist('status_ids')
     if status_ids:
@@ -312,214 +312,114 @@ def create_clergy_from_form(form):
 
     return clergy
 
-def create_ordinations_from_form(clergy, form):
-    """Create ordination records from form data"""
-    ordinations_data = {}
+_EVENT_FIELD_RE = re.compile(r'(ordinations|consecrations)\[(\d+)\]\[([^\]]+)\](?:\[(\d+)\]\[([^\]]+)\])?$')
 
+
+def _parse_event_rows(form):
+    """{'ordinations': [row, ...], 'consecrations': [...]} in form order; co-consecrators as a list."""
+    rows = {'ordinations': {}, 'consecrations': {}}
     for key, value in form.items():
-        if key.startswith('ordinations[') and ']' in key:
-            import re
-            match = re.match(r'ordinations\[(\d+)\]\[([^\]]+)\]', key)
-            if match:
-                index_part = match.group(1)
-                field_part = match.group(2)
-                
-                if index_part not in ordinations_data:
-                    ordinations_data[index_part] = {}
-                ordinations_data[index_part][field_part] = value
-    
-    # Create ordination records
-    for index, data in ordinations_data.items():
-        date_val = (data.get('date') or '').strip()
-        date_unknown = data.get('date_unknown') in ('1', 'true', 'on')
-        details_unknown = data.get('details_unknown') in ('1', 'true', 'on')
-        year_val = (data.get('year') or '').strip()
-        if not date_val and not date_unknown and not details_unknown:
+        m = _EVENT_FIELD_RE.match(key)
+        if not m:
             continue
-        ordination = Ordination()
-        ordination.clergy_id = clergy.id
-        ordination.details_unknown = details_unknown
-        if date_val:
-            ordination.date = datetime.strptime(date_val, '%Y-%m-%d').date()
-            ordination.year = None
-        else:
-            ordination.date = None
-            try:
-                ordination.year = int(year_val) if year_val else None
-            except (ValueError, TypeError):
-                ordination.year = None
-        
-        ordination.is_sub_conditione = data.get('is_sub_conditione') == 'on'
-        ordination.is_doubtful_event = data.get('is_doubtful_event') == 'on'
-        
-        # Handle validity dropdown
-        validity = data.get('validity', 'valid')
-        ordination.is_doubtfully_valid = (validity == 'doubtfully_valid')
-        ordination.is_invalid = (validity == 'invalid')
-        
-        ordination.notes = data.get('notes', '')
+        kind, idx, field, sub_idx, sub_field = m.groups()
+        row = rows[kind].setdefault(int(idx), {})
+        if sub_idx is None:
+            row[field] = value
+        elif field == 'co_consecrators':
+            row.setdefault('co_consecrators', {}).setdefault(int(sub_idx), {})[sub_field] = value
+    return {
+        kind: [by_idx[i] for i in sorted(by_idx)]
+        for kind, by_idx in rows.items()
+    }
 
-        ordination.is_inherited = data.get('is_inherited') == 'on'
-        ordination.is_other = data.get('is_other') == 'on'
-        ordination.optional_notes = (data.get('optional_notes') or '').strip() or None
 
-        # Handle ordaining bishop
-        ordaining_bishop_id = data.get('ordaining_bishop_id')
-        ordaining_bishop_input = data.get('ordaining_bishop_input')
-        if ordaining_bishop_id and ordaining_bishop_id != 'None':
-            ordination.ordaining_bishop_id = int(ordaining_bishop_id)
-        elif ordaining_bishop_input:
-            # Check if bishop exists by name
-            existing = Clergy.query.filter_by(name=ordaining_bishop_input.strip()).first()
-            if existing:
-                ordination.ordaining_bishop_id = existing.id
+def _parse_id(value):
+    value = (value or '').strip()
+    return int(value) if value.isdigit() else None
+
+
+def _resolve_bishop(id_value, name_value):
+    """Hidden id wins; else match by exact name; else create a Bishop with that name."""
+    bishop_id = _parse_id(id_value)
+    if bishop_id:
+        return db.session.get(Clergy, bishop_id)
+    name = (name_value or '').strip()
+    if not name:
+        return None
+    existing = Clergy.query.filter_by(name=name).first()
+    if existing:
+        return existing
+    new_bishop = Clergy(name=name, rank='Bishop')
+    db.session.add(new_bishop)
+    db.session.flush()
+    return new_bishop
+
+
+def _apply_event_fields(event, data, bishop_key):
+    """Set every form-controlled field, so an edited row ends up exactly as submitted."""
+    date_val = (data.get('date') or '').strip()
+    year_val = (data.get('year') or '').strip()
+    event.details_unknown = data.get('details_unknown') in ('1', 'true', 'on')
+    event.date = datetime.strptime(date_val, '%Y-%m-%d').date() if date_val else None
+    event.year = int(year_val) if not date_val and year_val.isdigit() else None
+    event.is_sub_conditione = data.get('is_sub_conditione') == 'on'
+    event.is_doubtful_event = data.get('is_doubtful_event') == 'on'
+    validity = data.get('validity', 'valid')
+    event.is_doubtfully_valid = validity == 'doubtfully_valid'
+    event.is_invalid = validity == 'invalid'
+    event.notes = data.get('notes', '')
+    event.is_inherited = data.get('is_inherited') == 'on'
+    event.is_other = data.get('is_other') == 'on'
+    event.optional_notes = (data.get('optional_notes') or '').strip() or None
+    setattr(event, bishop_key, _resolve_bishop(data.get(bishop_key + '_id'), data.get(bishop_key + '_input')))
+
+
+def sync_events_from_form(clergy, form):
+    """Upsert ordinations/consecrations from the form, keyed by each row's hidden [id].
+
+    A row whose id belongs to this clergy is updated in place (its id stays stable
+    for evidence); a row without one is created; existing events not submitted are
+    deleted. Forms that send no ids (old editor) therefore replace all events.
+    A saved row with its date cleared is kept (dateless), not deleted with its evidence.
+    """
+    rows = _parse_event_rows(form)
+    for kind, model, bishop_key in (
+        ('ordinations', Ordination, 'ordaining_bishop'),
+        ('consecrations', Consecration, 'consecrator'),
+    ):
+        collection = getattr(clergy, kind)
+        existing = {ev.id: ev for ev in collection if ev.id is not None}
+        kept = set()
+        for data in rows[kind]:
+            event = existing.get(_parse_id(data.get('id')))
+            if event is not None and event.id in kept:
+                event = None
+            date_unknown = data.get('date_unknown') in ('1', 'true', 'on')
+            details_unknown = data.get('details_unknown') in ('1', 'true', 'on')
+            blank = not (data.get('date') or '').strip() and not date_unknown and not details_unknown
+            if event is None:
+                if blank:
+                    continue  # empty new row
+                event = model()
+                # Append so in-memory clergy.<kind> stays current for tag computation.
+                collection.append(event)
             else:
-                # Auto-create missing ordaining bishop
-                new_bishop = Clergy(name=ordaining_bishop_input.strip(), rank='Bishop')
-                db.session.add(new_bishop)
-                db.session.flush()
-                ordination.ordaining_bishop_id = new_bishop.id
-        
-        # Append to the relationship so in-memory clergy.ordinations stays
-        # current for tag computation in the same request (bulk delete above
-        # does not refresh the collection by itself).
-        clergy.ordinations.append(ordination)
-
-def create_consecrations_from_form(clergy, form):
-    """Create consecration records from form data"""
-    consecrations_data = {}
-    
-    # Parse consecration data from form
-    for key, value in form.items():
-        if key.startswith('consecrations[') and ']' in key:
-            # Extract index and field name from pattern like "consecrations[1][date]" or "consecrations[1][co_consecrators][1][id]"
-            import re
-            
-            # Check for co-consecrators pattern first
-            co_match = re.match(r'consecrations\[(\d+)\]\[co_consecrators\]\[(\d+)\]\[([^\]]+)\]', key)
-            if co_match:
-                index_part = co_match.group(1)
-                co_index = co_match.group(2)
-                co_field = co_match.group(3)
-                
-                if index_part not in consecrations_data:
-                    consecrations_data[index_part] = {}
-                if 'co_consecrators' not in consecrations_data[index_part]:
-                    consecrations_data[index_part]['co_consecrators'] = {}
-                if co_index not in consecrations_data[index_part]['co_consecrators']:
-                    consecrations_data[index_part]['co_consecrators'][co_index] = {}
-                consecrations_data[index_part]['co_consecrators'][co_index][co_field] = value
-            else:
-                # Regular consecration field
-                match = re.match(r'consecrations\[(\d+)\]\[([^\]]+)\]', key)
-                if match:
-                    index_part = match.group(1)
-                    field_part = match.group(2)
-                    
-                    if index_part not in consecrations_data:
-                        consecrations_data[index_part] = {}
-                    consecrations_data[index_part][field_part] = value
-    
-    # Create consecration records
-    for index, data in consecrations_data.items():
-        date_val = (data.get('date') or '').strip()
-        date_unknown = data.get('date_unknown') in ('1', 'true', 'on')
-        details_unknown = data.get('details_unknown') in ('1', 'true', 'on')
-        year_val = (data.get('year') or '').strip()
-        if not date_val and not date_unknown and not details_unknown:
-            continue
-        consecration = Consecration()
-        consecration.clergy_id = clergy.id
-        consecration.details_unknown = details_unknown
-        if date_val:
-            consecration.date = datetime.strptime(date_val, '%Y-%m-%d').date()
-            consecration.year = None
-        else:
-            consecration.date = None
-            try:
-                consecration.year = int(year_val) if year_val else None
-            except (ValueError, TypeError):
-                consecration.year = None
-        
-        consecration.is_sub_conditione = data.get('is_sub_conditione') == 'on'
-        consecration.is_doubtful_event = data.get('is_doubtful_event') == 'on'
-        
-        # Handle validity dropdown
-        validity = data.get('validity', 'valid')
-        consecration.is_doubtfully_valid = (validity == 'doubtfully_valid')
-        consecration.is_invalid = (validity == 'invalid')
-        
-        consecration.notes = data.get('notes', '')
-
-        consecration.is_inherited = data.get('is_inherited') == 'on'
-        consecration.is_other = data.get('is_other') == 'on'
-        consecration.optional_notes = (data.get('optional_notes') or '').strip() or None
-
-        # Handle consecrator
-        consecrator_id = data.get('consecrator_id')
-        consecrator_input = data.get('consecrator_input')
-        if consecrator_id and consecrator_id != 'None':
-            consecration.consecrator_id = int(consecrator_id)
-        elif consecrator_input:
-            # Check if bishop exists by name
-            existing = Clergy.query.filter_by(name=consecrator_input.strip()).first()
-            if existing:
-                consecration.consecrator_id = existing.id
-            else:
-                # Auto-create missing consecrator
-                new_bishop = Clergy(name=consecrator_input.strip(), rank='Bishop')
-                db.session.add(new_bishop)
-                db.session.flush()
-                consecration.consecrator_id = new_bishop.id
-        
-        # Append to the relationship so in-memory clergy.consecrations stays
-        # current for tag computation in the same request.
-        clergy.consecrations.append(consecration)
-        db.session.flush()  # Get the ID for co-consecrators
-        
-        # Handle co-consecrators
-        co_consecrators_data = data.get('co_consecrators', {})
-        for co_index, co_data in co_consecrators_data.items():
-            co_consecrator_id = co_data.get('id')
-            co_consecrator_input = co_data.get('input')
-            if co_consecrator_id and co_consecrator_id != 'None':
-                # Add to many-to-many relationship
-                co_consecrator = Clergy.query.get(int(co_consecrator_id))
-                if co_consecrator:
-                    consecration.co_consecrators.append(co_consecrator)
-            elif co_consecrator_input:
-                # Check if bishop exists by name
-                existing = Clergy.query.filter_by(name=co_consecrator_input.strip()).first()
-                if existing:
-                    consecration.co_consecrators.append(existing)
-                else:
-                    # Auto-create missing co-consecrator
-                    new_bishop = Clergy(name=co_consecrator_input.strip(), rank='Bishop')
-                    db.session.add(new_bishop)
-                    db.session.flush()
-                    consecration.co_consecrators.append(new_bishop)
-
-def update_ordinations_from_form(clergy, form):
-    """Update ordination records from form data (for editing)"""
-    # Clear existing ordinations (DB + in-memory collection). Bulk delete alone
-    # leaves clergy.ordinations stale, so tag compute would use pre-edit rows.
-    Ordination.query.filter_by(clergy_id=clergy.id).delete(synchronize_session='fetch')
-    clergy.ordinations.clear()
-
-    # Create new ordinations from form data
-    create_ordinations_from_form(clergy, form)
-
-def update_consecrations_from_form(clergy, form):
-    """Update consecration records from form data (for editing)"""
-    # Clear existing consecrations and their co-consecrators
-    existing_consecrations = Consecration.query.filter_by(clergy_id=clergy.id).all()
-    for consecration in existing_consecrations:
-        consecration.co_consecrators.clear()
-        db.session.delete(consecration)
-    clergy.consecrations.clear()
-
-    # Create new consecrations from form data
-    create_consecrations_from_form(clergy, form)
+                kept.add(event.id)
+            _apply_event_fields(event, data, bishop_key)
+            if kind == 'consecrations':
+                co_list = []
+                for co_data in (data.get('co_consecrators') or {}).values():
+                    co = _resolve_bishop(co_data.get('id'), co_data.get('input'))
+                    if co and co not in co_list:
+                        co_list.append(co)
+                event.co_consecrators = co_list
+        for event_id, event in existing.items():
+            if event_id not in kept:
+                if kind == 'consecrations':
+                    event.co_consecrators = []
+                collection.remove(event)
+                db.session.delete(event)
 
 def clergy_list_handler():
     if 'user_id' not in session:
@@ -807,8 +707,7 @@ def edit_clergy_handler(clergy_id):
                     clergy.date_of_death = None
                 
                 # Handle new dynamic ordination and consecration data
-                update_ordinations_from_form(clergy, request.form)
-                update_consecrations_from_form(clergy, request.form)
+                sync_events_from_form(clergy, request.form)
                 
                 # Handle status indicators
                 status_ids = request.form.getlist('status_ids[]') or request.form.getlist('status_ids')
@@ -914,8 +813,7 @@ def edit_clergy_handler(clergy_id):
             clergy.date_of_death = None
         
         # Handle new dynamic ordination and consecration data
-        update_ordinations_from_form(clergy, request.form)
-        update_consecrations_from_form(clergy, request.form)
+        sync_events_from_form(clergy, request.form)
         
         # Handle soft delete
         mark_deleted = request.form.get('mark_deleted') == '1'

@@ -918,16 +918,16 @@ textarea:focus-visible {
   font-size: 0.9em;
 }
 
-/* Wiki overlay: covers the lineage panel while editing; lineage shows again on close. */
+/* Right-panel overlays (wiki, evidence): cover the lineage panel; lineage shows again on close. */
 .editor-shell .editor-panel-right {
   position: relative;
 }
 
-.editor-panel-right:has(.wiki-overlay:not([hidden])) {
+.editor-panel-right:has(.panel-overlay:not([hidden])) {
   overflow: hidden;
 }
 
-.wiki-overlay {
+.panel-overlay {
   position: absolute;
   inset: 0;
   z-index: 10;
@@ -939,22 +939,22 @@ textarea:focus-visible {
 }
 
 /* Embed page has no right panel: the overlay takes the window. */
-body > .wiki-overlay {
+body > .panel-overlay {
   position: fixed;
 }
 
-.wiki-overlay[hidden] {
+.panel-overlay[hidden] {
   display: none;
 }
 
-.wiki-overlay__header,
-.wiki-overlay__footer {
+.panel-overlay__header,
+.panel-overlay__footer {
   display: flex;
   align-items: center;
   gap: 0.75em;
 }
 
-.wiki-overlay__title {
+.panel-overlay__title {
   flex: 1 1 auto;
   font-weight: 600;
 }
@@ -967,12 +967,12 @@ body > .wiki-overlay {
   line-height: 1.5;
 }
 
-.wiki-overlay__status {
+.panel-overlay__status {
   flex: 1 1 auto;
   color: var(--muted);
 }
 
-.wiki-overlay__hint,
+.panel-overlay__hint,
 .form-hint {
   color: var(--muted);
   font-size: 0.85em;
@@ -980,6 +980,188 @@ body > .wiki-overlay {
 
 .form-hint {
   margin-left: 0.6em;
+}
+
+/* Evidence: a quiet per-field button in the form, and its overlay on the lineage panel. */
+#clergyForm .form-field:has(> .evidence-button:not(.evidence-button--inline)) {
+  position: relative;
+}
+
+#clergyForm .form-field:has(> .evidence-button--inline) {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.evidence-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0 0.45em;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75em;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.evidence-button--inline {
+  position: static;
+}
+
+.evidence-button:hover,
+.evidence-button.has-evidence {
+  border-color: var(--line-strong);
+  color: var(--fg);
+}
+
+.evidence-count {
+  font-weight: 600;
+}
+
+.evidence-count:empty {
+  display: none;
+}
+
+/* Shown while the field is hovered or focused, or always once it has evidence. */
+#clergyForm .form-field:not(:hover):not(:focus-within) > .evidence-button:not(.has-evidence) {
+  opacity: 0;
+}
+
+.evidence-overlay {
+  overflow-y: auto;
+}
+
+.evidence-overlay.is-drop-target {
+  outline: 2px dashed var(--focus);
+  outline-offset: -6px;
+}
+
+.evidence-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evidence-item {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 0.75em;
+  align-items: start;
+  padding: 0.6em 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.evidence-item:first-child {
+  border-top: 1px solid var(--line);
+}
+
+.evidence-item__preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  color: var(--muted);
+  font-size: 0.75em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+a.evidence-item__preview:hover {
+  border-color: var(--fg);
+}
+
+.evidence-item__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.evidence-item__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+}
+
+.evidence-item__title {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.evidence-item__text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.evidence-item__meta,
+.evidence-empty,
+.evidence-add__label {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.evidence-empty {
+  margin: 0;
+}
+
+.evidence-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.evidence-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  padding: 0.75em;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.evidence-form .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+}
+
+.evidence-form .form-label {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.evidence-form textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.evidence-form__preview {
+  max-width: 160px;
+  max-height: 160px;
+  margin-top: 0.3em;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.evidence-add[hidden],
+.evidence-form[hidden],
+.evidence-form [hidden] {
+  display: none;
 }
 
 /* Search overlay (Cmd/Ctrl+K) */

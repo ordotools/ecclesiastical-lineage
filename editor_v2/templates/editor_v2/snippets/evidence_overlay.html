@@ -1,0 +1,41 @@
+<div id="evidence-overlay" class="panel-overlay evidence-overlay" hidden>
+  <div class="panel-overlay__header">
+    <span class="panel-overlay__title">Evidence · <span data-evidence-title></span></span>
+    <span class="panel-overlay__hint">Esc close</span>
+    <button type="button" class="editor-button" data-evidence-close>Close</button>
+  </div>
+
+  <ul class="evidence-list" data-evidence-list></ul>
+  <p class="evidence-empty" data-evidence-empty hidden>No evidence yet.</p>
+
+  <div class="evidence-add" role="group" aria-label="Add evidence">
+    <span class="evidence-add__label">Add</span>
+    <button type="button" class="editor-button editor-button--action" data-evidence-kind="photo">Photo</button>
+    <button type="button" class="editor-button editor-button--action" data-evidence-kind="pdf">PDF</button>
+    <button type="button" class="editor-button editor-button--action" data-evidence-kind="link">Link</button>
+    <button type="button" class="editor-button editor-button--action" data-evidence-kind="text">Text</button>
+    <span class="panel-overlay__hint">or drop a photo or PDF here</span>
+  </div>
+
+  <form class="evidence-form" data-evidence-form hidden novalidate>
+    <div class="form-field" data-evidence-for="photo pdf">
+      <label class="form-label" for="evidence_file">File</label>
+      <input type="file" id="evidence_file" name="file">
+      <img class="evidence-form__preview" data-evidence-preview alt="" hidden>
+    </div>
+    <div class="form-field" data-evidence-for="link">
+      <label class="form-label" for="evidence_url">Link</label>
+      <input type="url" id="evidence_url" name="url" placeholder="https://…">
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="evidence_text" data-evidence-text-label>Caption</label>
+      <textarea id="evidence_text" name="text" rows="3"></textarea>
+    </div>
+    <div class="panel-overlay__footer">
+      <span class="panel-overlay__status" data-evidence-status role="status"></span>
+      <span class="panel-overlay__hint">Esc cancel · ⌘S save</span>
+      <button type="button" class="editor-button" data-evidence-cancel>Cancel</button>
+      <button type="submit" class="editor-button editor-button--save" data-evidence-save>Save evidence</button>
+    </div>
+  </form>
+</div>

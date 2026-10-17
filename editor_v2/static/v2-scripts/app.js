@@ -4,11 +4,12 @@
  * Responsibilities here:
  *  - Keep window.currentSelectedClergyId in sync and dispatch the shared
  *    `clergySelected` event other modules listen to (right panel, tag picker…).
- *  - Save the clergy form via fetch, then refresh the panels (the wiki saves
- *    itself from its overlay, see wiki-overlay.js).
+ *  - Save the clergy form via fetch, then refresh the panels (the wiki and
+ *    evidence save themselves from their overlays: wiki-overlay.js, evidence-overlay.js).
  *  - Unsaved-changes guard and statusbar record/save-state slots.
  *  - Global shortcuts: ⌘S / ⌘Enter save, ⌥↑ / ⌥↓ previous / next clergy
- *    (⌘K search lives in search-overlay.js, ⌘E wiki in wiki-overlay.js).
+ *    (⌘K search lives in search-overlay.js, ⌘E wiki in wiki-overlay.js,
+ *    ⌘⇧E evidence in evidence-overlay.js).
  */
 
 (() => {
@@ -448,8 +449,11 @@
         setDirty(form, true);
     }
 
-    function isWikiDirty() {
-        return !!(window.EDITOR_V2_WIKI && window.EDITOR_V2_WIKI.isDirty());
+    /** Right-panel overlays (wiki, evidence) holding unsaved input. Each has isDirty/clergyId/close. */
+    function dirtyOverlays() {
+        return [window.EDITOR_V2_WIKI, window.EDITOR_V2_EVIDENCE].filter(function (o) {
+            return o && o.isDirty();
+        });
     }
 
     function guardCenterRequest(event) {
@@ -457,18 +461,15 @@
         if (!target || target.id !== 'editor-panel-center') {
             return;
         }
-        // An open wiki survives a reload of the same clergy (e.g. after saving the form).
-        const wiki = window.EDITOR_V2_WIKI;
+        // An open overlay survives a reload of the same clergy (e.g. after saving the form).
         const nextId = parseId(clergyIdFromUrl((event.detail.requestConfig || {}).path));
-        const wikiLost = isWikiDirty() && wiki.clergyId() !== nextId;
-        if (!isDirty() && !wikiLost) {
+        const lost = dirtyOverlays().filter(function (o) { return o.clergyId() !== nextId; });
+        if (!isDirty() && !lost.length) {
             return;
         }
         if (window.confirm('Discard unsaved changes?')) {
             setDirty(getForm(), false);
-            if (wikiLost) {
-                wiki.close();
-            }
+            lost.forEach(function (o) { o.close(); });
         } else {
             event.preventDefault();
         }
@@ -595,7 +596,7 @@
             }
         });
         window.addEventListener('beforeunload', function (e) {
-            if (isDirty() || isWikiDirty()) {
+            if (isDirty() || dirtyOverlays().length) {
                 e.preventDefault();
                 e.returnValue = '';
             }

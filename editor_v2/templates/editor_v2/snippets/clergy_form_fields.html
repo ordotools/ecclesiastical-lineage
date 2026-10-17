@@ -1,3 +1,15 @@
+{# Opens the evidence overlay for one decision. Saved records/events only; ⌘⇧E opens it for the focused field. #}
+{% macro evidence_button(field, label, ev_kind=None, ev=None, inline=False) %}
+{% if edit_mode and clergy and (ev_kind is none or (ev and ev.id)) %}
+{% set key = (ev_kind ~ ':' ~ ev.id ~ ':' ~ field) if ev_kind else field %}
+{% set n = (evidence_counts or {}).get(key, 0) %}
+<button type="button" class="evidence-button{% if inline %} evidence-button--inline{% endif %}{% if n %} has-evidence{% endif %}"
+        data-evidence-field="{{ field }}" data-evidence-label="{{ label }}"
+        {% if ev_kind %}data-event-kind="{{ ev_kind }}" data-event-id="{{ ev.id }}"{% endif %}
+        data-no-dirty tabindex="-1" title="Evidence for {{ label|lower }} (⌘⇧E)">Evidence<span class="evidence-count" data-evidence-count>{{ n or '' }}</span></button>
+{% endif %}
+{% endmacro %}
+
 {% macro event_entry(kind, idx, ev) %}
 {% set p = kind ~ 's' %}
 {% set is_cons = kind == 'consecration' %}
@@ -7,9 +19,12 @@
 {% set ev_year = ev.year if ev and ev.year else None %}
 {% set ev_unknown = (ev_date is none and ev_year is not none) %}
 <div class="{{ kind }}-entry">
+  {# Stable key: the server updates this row in place (evidence attaches to it). Cleared on clone. #}
+  <input type="hidden" name="{{ p }}[{{ idx }}][id]" value="{{ ev.id if ev else '' }}">
   <div class="{{ kind }}-entry__compact-row">
     <div class="form-field {{ kind }}-date-block{% if ev_unknown %} is-unknown-date{% endif %}">
       <label class="form-label">Date</label>
+      {{ evidence_button('date', 'Date', kind, ev) }}
       <div class="date-input-wrapper">
         <input type="date" name="{{ p }}[{{ idx }}][date]" value="{{ ev_date.strftime('%Y-%m-%d') if ev_date else '' }}">
       </div>
@@ -22,12 +37,14 @@
     </div>
     <div class="form-field bishop-autocomplete-field">
       <label class="form-label">{{ 'Consecrator' if is_cons else 'Ordaining bishop' }}</label>
+      {{ evidence_button('bishop', 'Consecrator' if is_cons else 'Ordaining bishop', kind, ev) }}
       <input type="text" name="{{ p }}[{{ idx }}][{{ bishop_key }}_input]" placeholder="{{ 'Search for consecrator...' if is_cons else 'Search for bishop...' }}" autocomplete="off" value="{{ bishop.name if bishop else '' }}">
       <input type="hidden" name="{{ p }}[{{ idx }}][{{ bishop_key }}_id]" value="{{ (ev[bishop_key ~ '_id'] or '') if ev else '' }}">
       <div class="autocomplete-dropdown"></div>
     </div>
     <div class="form-field">
       <label class="form-label">Validity</label>
+      {{ evidence_button('validity', 'Validity', kind, ev) }}
       <select name="{{ p }}[{{ idx }}][validity]">
         <option value="valid" {% if not ev or (not ev.is_invalid and not ev.is_doubtfully_valid) %}selected{% endif %}>Valid</option>
         <option value="doubtfully_valid" {% if ev and ev.is_doubtfully_valid %}selected{% endif %}>Doubtfully Valid</option>
@@ -39,6 +56,7 @@
   <div class="consecration-entry__co-consecrators-row">
     <div class="form-field">
       <label class="form-label">Co-consecrators</label>
+      {{ evidence_button('co_consecrators', 'Co-consecrators', kind, ev) }}
       <div class="co-consecrators-list">
         {% for co in (ev.co_consecrators if ev and ev.co_consecrators else [None]) %}
         <div class="co-consecrator-item">
@@ -61,9 +79,11 @@
     </div>
     <div class="form-field">
       <label><input type="checkbox" name="{{ p }}[{{ idx }}][is_sub_conditione]" {% if ev and ev.is_sub_conditione %}checked{% endif %}> Sub conditione</label>
+      {{ evidence_button('is_sub_conditione', 'Sub conditione', kind, ev, inline=True) }}
     </div>
     <div class="form-field">
       <label><input type="checkbox" name="{{ p }}[{{ idx }}][is_doubtful_event]" {% if ev and ev.is_doubtful_event %}checked{% endif %}> Doubtful event</label>
+      {{ evidence_button('is_doubtful_event', 'Doubtful event', kind, ev, inline=True) }}
     </div>
   </div>
   <div class="validity-extra-block" hidden>
@@ -143,10 +163,12 @@
     </div>
     <div id="birthField" class="form-field">
       <label for="date_of_birth" class="form-label">Date of Birth</label>
+      {{ evidence_button('date_of_birth', 'Date of birth') }}
       <input type="date" id="date_of_birth" name="date_of_birth" value="{{ clergy.date_of_birth.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_birth else '' }}">
     </div>
     <div id="deathField" class="form-field">
       <label for="date_of_death" class="form-label">Date of Death</label>
+      {{ evidence_button('date_of_death', 'Date of death') }}
       <input type="date" id="date_of_death" name="date_of_death" value="{{ clergy.date_of_death.strftime('%Y-%m-%d') if edit_mode and clergy and clergy.date_of_death else '' }}">
     </div>
     <div id="photoField" class="form-field photo-section">

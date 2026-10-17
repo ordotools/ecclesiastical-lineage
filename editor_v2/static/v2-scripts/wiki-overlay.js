@@ -70,6 +70,11 @@
         if (!e || !Number.isFinite(id)) {
             return;
         }
+        // One overlay at a time; keep the evidence draft if the user says so.
+        const evidence = window.EDITOR_V2_EVIDENCE;
+        if (evidence && !evidence.cancel()) {
+            return;
+        }
         clergyId = id;
         initial = null;
         const name = form.querySelector('#name');
@@ -113,11 +118,13 @@
             });
     }
 
+    /** Close, asking first if there are unsaved changes. True if it closed (or was not open). */
     function cancel() {
         if (isDirty() && !window.confirm('Discard wiki changes?')) {
-            return;
+            return false;
         }
         close();
+        return true;
     }
 
     function save() {
@@ -180,7 +187,7 @@
         });
 
         document.addEventListener('keydown', function (event) {
-            if (isMod(event) && event.key === 'e') {
+            if (isMod(event) && !event.shiftKey && event.key === 'e') {
                 event.preventDefault();
                 if (isOpen()) {
                     cancel();
@@ -225,6 +232,7 @@
     window.EDITOR_V2_WIKI = {
         open: open,
         close: close,
+        cancel: cancel,
         isDirty: isDirty,
         clergyId: function () { return clergyId; }
     };

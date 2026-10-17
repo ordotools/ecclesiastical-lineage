@@ -389,6 +389,37 @@ class Consecration(db.Model):
     def __repr__(self):
         return f'<Consecration {self.clergy.name if self.clergy else self.clergy_id} on {self.display_date}>'
 
+class Evidence(db.Model):
+    """A source backing one decision: a clergy date (dob/dod) or one field of an ordination/consecration.
+
+    Saved on its own, not with the clergy form. Rows go with their clergy/event via ON DELETE CASCADE.
+    """
+    __tablename__ = 'evidence'
+    __table_args__ = (
+        db.CheckConstraint("kind IN ('photo', 'pdf', 'link', 'text')", name='ck_evidence_kind'),
+        db.CheckConstraint('ordination_id IS NULL OR consecration_id IS NULL', name='ck_evidence_one_event'),
+    )
+
+    KINDS = ('photo', 'pdf', 'link', 'text')
+    CLERGY_FIELDS = ('date_of_birth', 'date_of_death')
+    EVENT_FIELDS = ('date', 'bishop', 'co_consecrators', 'validity', 'is_sub_conditione', 'is_doubtful_event')
+
+    id = db.Column(db.Integer, primary_key=True)
+    clergy_id = db.Column(db.Integer, db.ForeignKey('clergy.id', ondelete='CASCADE'), nullable=False, index=True)
+    ordination_id = db.Column(db.Integer, db.ForeignKey('ordination.id', ondelete='CASCADE'), nullable=True)
+    consecration_id = db.Column(db.Integer, db.ForeignKey('consecration.id', ondelete='CASCADE'), nullable=True)
+    field = db.Column(db.String(40), nullable=False)
+    kind = db.Column(db.String(10), nullable=False)
+    url = db.Column(db.Text, nullable=True)  # bucket file (photo/pdf) or external link
+    thumb_url = db.Column(db.Text, nullable=True)  # photo preview
+    file_name = db.Column(db.String(255), nullable=True)
+    text = db.Column(db.Text, nullable=True)  # the text itself, or a caption for the other kinds
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    created_by = db.relationship('User')
+
+
 class ClergyEvent(db.Model):
     __tablename__ = 'clergy_events'
 

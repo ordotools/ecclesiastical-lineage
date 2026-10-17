@@ -14,6 +14,7 @@ from models import (
     Consecration,
     Tag,
     WikiPage,
+    Evidence,
     co_consecrators,
     db,
 )
@@ -24,7 +25,8 @@ from services.clergy import (
     permanently_delete_clergy_handler,
 )
 from routes.editor_form_fields import FormFields
-from utils import require_permission
+from services import evidence as evidence_service
+from utils import require_permission, log_audit_event
 from routes.main import _lineage_nodes_links
 
 
@@ -451,6 +453,7 @@ def panel_center():
         all_clergy_suggested=all_clergy_suggested,
         all_tags=all_tags,
         clergy_tag_ids=clergy_tag_ids,
+        evidence_counts=evidence_service.counts_for_clergy(clergy.id) if clergy else {},
     )
 
 
@@ -964,6 +967,53 @@ def api_wiki_save_for_clergy():
 
     db.session.commit()
     return jsonify({'success': True, 'wiki_saved': wiki_saved, 'page_id': page.id})
+
+
+@editor.route('/api/evidence', methods=['GET'])
+@require_permission('edit_clergy')
+def api_evidence_list():
+    """JSON API: evidence for one decision (clergy_id, field, optional event_kind + event_id)."""
+    try:
+        slot = evidence_service.resolve_slot(request.args)
+    except evidence_service.EvidenceError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    items = evidence_service.list_for_slot(slot)
+    return jsonify({'success': True, 'items': [evidence_service.serialize(ev) for ev in items]})
+
+
+@editor.route('/api/evidence', methods=['POST'])
+@require_permission('edit_clergy')
+def api_evidence_create():
+    """Multipart: the slot fields plus kind (photo|pdf|link|text), file, url, text. Saved on its own."""
+    try:
+        slot = evidence_service.resolve_slot(request.form)
+        ev = evidence_service.create(
+            slot,
+            request.form.get('kind'),
+            text=request.form.get('text'),
+            link=request.form.get('url'),
+            file=request.files.get('file'),
+        )
+    except evidence_service.EvidenceError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Failed to save evidence')
+        return jsonify({'success': False, 'message': 'Evidence not saved. Try again.'}), 500
+    log_audit_event('create', 'evidence', ev.id, details={**slot, 'kind': ev.kind, 'url': ev.url})
+    return jsonify({'success': True, 'item': evidence_service.serialize(ev)})
+
+
+@editor.route('/api/evidence/<int:evidence_id>', methods=['DELETE'])
+@require_permission('edit_clergy')
+def api_evidence_delete(evidence_id):
+    ev = db.session.get(Evidence, evidence_id)
+    if not ev:
+        return jsonify({'success': False, 'message': 'Evidence not found.'}), 404
+    details = {'clergy_id': ev.clergy_id, 'field': ev.field, 'kind': ev.kind, 'url': ev.url, 'text': ev.text}
+    evidence_service.delete(ev)
+    log_audit_event('delete', 'evidence', evidence_id, details=details)
+    return jsonify({'success': True})
 
 
 def _unpack_handler_result(result):

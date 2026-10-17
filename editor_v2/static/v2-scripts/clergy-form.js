@@ -95,6 +95,8 @@
     clone.querySelectorAll('.co-consecrator-item').forEach(function(item, idx) {
       if (idx > 0) item.remove();
     });
+    // Evidence needs a saved event; the new row gets its buttons after the record is saved.
+    clone.querySelectorAll('[data-evidence-field]').forEach(function(button) { button.remove(); });
     resetClonedInputs(clone);
     toggleDateUnknown(clone.querySelector('.' + kind + '-date-block'), false);
     setDetailsUnknownForEntry(clone, false);
@@ -108,6 +110,11 @@
     var container = form.querySelector('#' + kind + 'sContainer');
     var entries = container && container.querySelectorAll('.' + kind + '-entry');
     if (!entries || entries.length <= 1) return;
+    var evidence = 0;
+    entry.querySelectorAll('[data-evidence-count]').forEach(function(count) {
+      evidence += parseInt(count.textContent, 10) || 0;
+    });
+    if (evidence && !window.confirm('This ' + kind + ' has ' + evidence + ' evidence item(s). They are deleted when you save. Remove it?')) return;
     entry.remove();
     reindexEntries(form, kind);
   }

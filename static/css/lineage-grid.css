@@ -831,3 +831,134 @@ div.lineage-grid-focus__mini {
     z-index: 50;
   }
 }
+
+/* Sources: button under the focused card opens a dialog listing that clergy's evidence. */
+.lineage-grid-focus__sources {
+  position: absolute;
+  background: var(--grid-panel);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+
+.lineage-grid-sources {
+  width: min(640px, calc(100vw - 32px));
+  max-height: min(80vh, 900px);
+  padding: 0;
+  border: 1px solid var(--grid-line);
+  border-radius: 10px;
+  background: var(--grid-panel);
+  color: var(--grid-text);
+  font-family: var(--grid-font);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.lineage-grid-sources::backdrop {
+  background: rgba(10, 10, 10, 0.6);
+}
+
+.lineage-grid-sources__header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--grid-panel);
+  border-bottom: 1px solid var(--grid-line);
+}
+
+.lineage-grid-sources__header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.lineage-grid-sources__header form {
+  margin: 0;
+}
+
+.lineage-grid-sources__body {
+  padding: 4px 16px 16px;
+}
+
+.lineage-grid-sources__group h3 {
+  margin: 16px 0 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.lineage-grid-sources__group h4 {
+  margin: 8px 0 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--grid-muted);
+}
+
+.lineage-grid-sources__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.lineage-grid-sources__item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--grid-card);
+  font-size: 0.85rem;
+}
+
+.lineage-grid-sources__item a {
+  color: #9cc4ff;
+  word-break: break-word;
+}
+
+.lineage-grid-sources__item img {
+  display: block;
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: 4px;
+}
+
+.lineage-grid-sources__text {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}
+
+.lineage-grid-sources__meta,
+.lineage-grid-sources__status {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--grid-muted);
+}
+
+/* Support badge: bottom right, opposite the legend; hidden while the admin editor panel is open. */
+.lineage-grid-support {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--grid-line);
+  background: var(--grid-panel);
+  color: var(--grid-text);
+  font-size: 0.75rem;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.lineage-grid-support:hover,
+.lineage-grid-support:focus-visible {
+  background: var(--grid-card);
+}
+
+.lineage-grid-page:has(.lineage-grid-admin-panel:not([hidden])) .lineage-grid-support {
+  display: none;
+}

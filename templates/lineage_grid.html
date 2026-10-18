@@ -2,7 +2,7 @@
 
 {% block extra_styles %}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=30">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lineage-grid.css') }}?v=31">
 {% endblock %}
 
 {% block full_content %}
@@ -54,6 +54,16 @@
         </div>
     </div>
     <details id="lineage-grid-legend" class="lineage-grid-legend" hidden></details>
+    <dialog id="lineage-grid-sources" class="lineage-grid-sources" aria-labelledby="lineage-grid-sources-title">
+        <header class="lineage-grid-sources__header">
+            <h2 id="lineage-grid-sources-title">Sources</h2>
+            <form method="dialog"><button class="lineage-grid-btn" aria-label="Close sources">✕</button></form>
+        </header>
+        <div id="lineage-grid-sources-body" class="lineage-grid-sources__body"></div>
+    </dialog>
+    {% if support_url %}
+    <a class="lineage-grid-support" href="{{ support_url }}" target="_blank" rel="noopener">♥ Support this project</a>
+    {% endif %}
     {% endif %}
 </div>
 {% endblock %}
@@ -65,5 +75,5 @@
     window.showPriests = {{ 'true' if show_priests else 'false' }};
     window.canEdit = {{ 'true' if can_edit else 'false' }};
 </script>
-<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=37"></script>
+<script type="module" src="{{ url_for('static', filename='js/lineage-grid.js') }}?v=38"></script>
 {% endblock %}

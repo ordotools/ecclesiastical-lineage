@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Evidence API (editor v2): create/list/delete per decision, validation, bucket uploads, cascade.
+Evidence API (editor v2 + public grid list): create/list/delete per decision, validation, bucket uploads, cascade.
 
 Uses the configured DB with throwaway clergy (removed at the end) and a fake bucket.
 
@@ -117,6 +117,19 @@ def main():
         assert 'data-evidence-field="date_of_birth"' in html
         assert f'data-event-id="{ord_id}"' in html
         assert html.count('<span class="evidence-count" data-evidence-count>2</span>') == 2, 'dob and ordination date'
+
+        # Public grid: read-only list per clergy (no editor names), counts and event ids in the grid data
+        anon = app.test_client()
+        r = anon.get(f'/clergy/{sid}/evidence.json')
+        assert r.status_code == 200, r.status_code
+        public = r.get_json()['items']
+        assert [(i['field'], i['ordination_id']) for i in public] == [
+            ('date_of_birth', None), ('date_of_birth', None), ('date', ord_id), ('date', ord_id)], public
+        assert all('created_by' not in i for i in public)
+        assert anon.get('/clergy/0/evidence.json').status_code == 404
+        grid = anon.get('/lineage-grid.json').get_json()
+        node = next((n for n in grid['nodes'] if n['id'] == sid), None)
+        assert node and node['evidence_count'] == 4 and node['orders'][0]['id'] == ord_id, node
 
         # Delete removes the row and both bucket files
         assert client.delete(f"/editor/api/evidence/{photo['id']}").status_code == 200

@@ -101,6 +101,17 @@ def serialize(ev):
     }
 
 
+def public_items_for_clergy(clergy_id):
+    """All evidence for one clergy for the public grid, with its slot; editor names left out."""
+    items = []
+    for ev in Evidence.query.filter_by(clergy_id=clergy_id).order_by(Evidence.id).all():
+        item = serialize(ev)
+        del item['created_by']
+        item.update(ordination_id=ev.ordination_id, consecration_id=ev.consecration_id, field=ev.field)
+        items.append(item)
+    return items
+
+
 def _clean_link(raw):
     url = (raw or '').strip()
     parsed = urlparse(url)

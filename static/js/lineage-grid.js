@@ -1466,9 +1466,114 @@ function renderFocus(stage, nodeId, nodeById, positions, metrics, placedSource =
   if (!items.length) bigCard.title = 'No orders recorded';
   layer.appendChild(bigCard);
 
+  if (node.evidence_count) {
+    const sources = el('button', 'lineage-grid-btn lineage-grid-focus__sources', `Sources (${node.evidence_count})`);
+    sources.type = 'button';
+    sources.dataset.sourcesFor = String(nodeId);
+    Object.assign(sources.style, { left: `${big.x}px`, top: `${big.y + big.h + 10}px`, width: `${big.w}px` });
+    layer.appendChild(sources);
+  }
+
   card.parentElement.classList.add('is-focus-dim');
   stage.appendChild(layer);
   return { center: { x: big.x + big.w / 2, y: big.y + big.h / 2 } };
+}
+
+const EVIDENCE_FIELD_LABELS = {
+  date: 'Date', bishop: 'Bishop', co_consecrators: 'Co-consecrators', validity: 'Validity',
+  is_sub_conditione: 'Sub conditione', is_doubtful_event: 'Doubtful event',
+};
+
+function evidenceItem(item) {
+  const li = el('li', `lineage-grid-sources__item is-${item.kind}`);
+  const link = (href, child) => {
+    const a = el('a');
+    a.href = href; // server only stores http(s) links and bucket URLs
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.append(child);
+    return a;
+  };
+  if (item.kind === 'photo') {
+    const img = el('img');
+    img.src = item.thumb_url || item.url;
+    img.alt = item.text || item.file_name || 'Photo';
+    img.loading = 'lazy';
+    li.append(link(item.url, img));
+  } else if (item.kind === 'pdf') {
+    li.append(link(item.url, `PDF · ${item.file_name || 'document'}`));
+  } else if (item.kind === 'link') {
+    li.append(link(item.url, new URL(item.url).hostname));
+  }
+  if (item.text) li.append(el('p', 'lineage-grid-sources__text', item.text));
+  if (item.created_at) li.append(el('span', 'lineage-grid-sources__meta', `Added ${item.created_at}`));
+  return li;
+}
+
+/** Group a clergy's evidence by what it backs (birth, death, each order), in the order shown on the focus overlay. */
+export function groupEvidence(node, items) {
+  const groups = new Map();
+  const add = (key, title, item) => {
+    if (!groups.has(key)) groups.set(key, { title, items: [] });
+    groups.get(key).items.push(item);
+  };
+  const orderTitle = (kind, id) => {
+    const o = (node.orders || []).find((x) => x.kind === kind && x.id === id);
+    const verb = kind === 'ordination' ? 'Ordination' : 'Consecration';
+    return o ? `${verb} · ${o.date || 'date unknown'} · ${o.bishop?.name || 'unknown bishop'}` : verb;
+  };
+  // Seed so birth/death come first and orders follow the overlay's order.
+  [...(node.orders || [])]
+    .sort((a, b) => (a.sort_key ?? Infinity) - (b.sort_key ?? Infinity))
+    .forEach((o) => groups.set(`${o.kind}:${o.id}`, { title: orderTitle(o.kind, o.id), items: [] }));
+  items.forEach((item) => {
+    if (item.ordination_id) add(`ordination:${item.ordination_id}`, orderTitle('ordination', item.ordination_id), item);
+    else if (item.consecration_id) add(`consecration:${item.consecration_id}`, orderTitle('consecration', item.consecration_id), item);
+    else add(item.field, item.field === 'date_of_birth' ? 'Date of birth' : 'Date of death', item);
+  });
+  const order = (key) => (key === 'date_of_birth' ? 0 : key === 'date_of_death' ? 1 : 2);
+  return [...groups.entries()]
+    .filter(([, g]) => g.items.length)
+    .sort(([a], [b]) => order(a) - order(b))
+    .map(([, g]) => ({
+      title: g.title,
+      fields: g.items.reduce((acc, item) => {
+        const label = EVIDENCE_FIELD_LABELS[item.field] || '';
+        (acc[label] ||= []).push(item);
+        return acc;
+      }, {}),
+    }));
+}
+
+async function openSources(node) {
+  const dialog = document.getElementById('lineage-grid-sources');
+  const body = document.getElementById('lineage-grid-sources-body');
+  if (!dialog || !body) return;
+  document.getElementById('lineage-grid-sources-title').textContent = `Sources · ${node.name}`;
+  body.replaceChildren(el('p', 'lineage-grid-sources__status', 'Loading…'));
+  dialog.showModal();
+  let items;
+  try {
+    const response = await fetch(`/clergy/${node.id}/evidence.json`);
+    if (!response.ok) throw new Error(response.statusText);
+    ({ items } = await response.json());
+  } catch {
+    body.replaceChildren(el('p', 'lineage-grid-sources__status', 'Could not load sources. Try again later.'));
+    return;
+  }
+  const groups = groupEvidence(node, items);
+  if (!groups.length) return body.replaceChildren(el('p', 'lineage-grid-sources__status', 'No sources recorded yet.'));
+  body.replaceChildren(...groups.map((group) => {
+    const section = el('section', 'lineage-grid-sources__group');
+    section.append(el('h3', null, group.title));
+    Object.entries(group.fields).forEach(([label, fieldItems]) => {
+      if (label) section.append(el('h4', null, label));
+      const list = el('ul', 'lineage-grid-sources__list');
+      list.append(...fieldItems.map(evidenceItem));
+      section.append(list);
+    });
+    return section;
+  }));
 }
 
 function closeFocus(stage) {
@@ -1730,17 +1835,31 @@ export async function initializeLineageGrid() {
     expandedGroups.add(card.dataset.groupId);
     draw();
   };
+  // ?clergy=<id> mirrors the focused card so the address bar is a shareable link to it.
+  const setClergyParam = (id) => {
+    const url = new URL(window.location.href);
+    if (id == null) url.searchParams.delete('clergy');
+    else url.searchParams.set('clergy', String(id));
+    window.history.replaceState(null, '', url.toString());
+  };
+  const dismissFocus = () => {
+    closeFocus(stage);
+    setClergyParam(null);
+  };
   const openFocus = (id, { pan = false, minScale = 0 } = {}) => {
     closeFocus(stage);
     const placedSource = gridState.layout.primary_edges?.find((e) => e.target === id)?.source ?? null;
     const focus = renderFocus(stage, id, nodeById, gridState.layout.positions || {}, activeMetricsFromLayout(gridState.layout), placedSource);
     if (focus && pan) panZoom.centerOn(focus.center.x, focus.center.y, minScale);
+    setClergyParam(focus ? id : null);
   };
   initSearch(() => gridState.cardsLayer, () => nodeById, (id) => openFocus(id, { pan: true, minScale: 0.6 }));
   viewport.addEventListener('click', (event) => {
     if (Math.hypot(event.clientX - downX, event.clientY - downY) >= 5) return; // end of a pan drag
     const group = event.target.closest('[data-group-id]');
     if (group) return expandGroup(group);
+    const sources = event.target.closest('[data-sources-for]');
+    if (sources) return openSources(nodeById.get(Number(sources.dataset.sourcesFor)));
     const mini = event.target.closest('[data-focus-target]');
     if (mini) return openFocus(Number(mini.dataset.focusTarget), { pan: true });
     const card = event.target.closest('.lineage-grid-cards [data-clergy-id]');
@@ -1749,11 +1868,11 @@ export async function initializeLineageGrid() {
       openFocus(id);
       return admin?.open(id, nodeById.get(id)?.name);
     }
-    if (!event.target.closest('.lineage-grid-focus__card')) closeFocus(stage);
+    if (!event.target.closest('.lineage-grid-focus__card')) dismissFocus();
   });
   document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') return;
-    if (stage.querySelector('.lineage-grid-focus')) closeFocus(stage);
+    if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return; // the dialog closes itself
+    if (stage.querySelector('.lineage-grid-focus')) dismissFocus();
     else admin?.close();
   });
 
@@ -1767,6 +1886,8 @@ export async function initializeLineageGrid() {
     if (nodeById.has(focusId)) openFocus(focusId);
   };
   const admin = window.canEdit ? initAdminPanel(reload) : null;
+  const linked = Number(new URLSearchParams(window.location.search).get('clergy'));
+  if (nodeById.has(linked)) openFocus(linked, { pan: true, minScale: 0.6 });
   stage.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     const card = event.target.closest('[data-group-id]');

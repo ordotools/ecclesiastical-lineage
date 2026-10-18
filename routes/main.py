@@ -1,9 +1,11 @@
 from flask import Blueprint, render_template, request, session, jsonify, current_app, g, redirect, url_for
-from models import Clergy, User, db, Organization, Rank, Ordination, Consecration
+from models import Clergy, User, db, Organization, Rank, Ordination, Consecration, Evidence
 from services.clergy import resolve_clergy_name
+from services import evidence as evidence_service
 from constants import GREEN_COLOR, BLACK_COLOR
 import json
 import base64
+import os
 
 main_bp = Blueprint('main', __name__)
 
@@ -26,6 +28,7 @@ def index():
             show_priests=show_priests,
             user=user,
             can_edit=bool(user and user.can_edit_clergy()),
+            support_url=os.environ.get('SUPPORT_URL'),
         )
     except Exception as e:
         current_app.logger.error(f"Error in lineage grid: {e}")
@@ -44,6 +47,15 @@ def lineage_grid_json():
     """Grid data for in-place refresh after an admin edit."""
     nodes, links, _ = _lineage_nodes_links()
     return jsonify({'nodes': nodes, 'links': links})
+
+
+@main_bp.route('/clergy/<int:clergy_id>/evidence.json')
+def clergy_evidence_json(clergy_id):
+    """Public, read-only: every source attached to one clergy's dates and orders."""
+    clergy = Clergy.query.filter(Clergy.id == clergy_id, Clergy.is_deleted != True).first()  # noqa: E712
+    if not clergy:
+        return jsonify({'error': 'Clergy not found.'}), 404
+    return jsonify({'items': evidence_service.public_items_for_clergy(clergy.id)})
 
 
 @main_bp.route('/chapel-view')
@@ -89,6 +101,7 @@ def _order_payload(kind, event, bishop, co, sort_key_fn):
     """One ordination/consecration for the grid focus overlay. Flag names match link keys."""
     ref = lambda c: {'id': c.id, 'name': resolve_clergy_name(c)}
     return {
+        'id': event.id,
         'kind': kind,
         'date': event.display_date,
         'sort_key': sort_key_fn(event.date, event.year),
@@ -145,6 +158,9 @@ def _lineage_nodes_links():
     rank_is_bishop = g.rank_is_bishop
     placeholder_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="24" r="14" fill="#bdc3c7"/><ellipse cx="32" cy="50" rx="20" ry="12" fill="#bdc3c7"/></svg>'''
     placeholder_data_url = 'data:image/svg+xml;base64,' + base64.b64encode(placeholder_svg.encode('utf-8')).decode('utf-8')
+    evidence_counts = dict(
+        db.session.query(Evidence.clergy_id, db.func.count(Evidence.id)).group_by(Evidence.clergy_id).all()
+    )
     nodes = []
     links = []
     for clergy in all_clergy:
@@ -217,6 +233,7 @@ def _lineage_nodes_links():
             # Used by lineage-table DFS to build consecration windows per parent
             'own_consecration_sort_keys': sorted(set(own_consecration_sort_keys)),
             'tags': tags_data,
+            'evidence_count': evidence_counts.get(clergy.id, 0),
             # Every order received (incl. sub conditione / doubtful / unknown bishop) for the focus overlay
             'orders': [
                 _order_payload('ordination', o, o.ordaining_bishop, [], _event_sort_key)
